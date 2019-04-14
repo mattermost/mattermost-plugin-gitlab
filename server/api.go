@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/manland/go-gitlab"
 	"github.com/mattermost/mattermost-server/mlog"
 	"github.com/mattermost/mattermost-server/model"
 	"github.com/mattermost/mattermost-server/plugin"
-	"github.com/xanzy/go-gitlab"
 
 	"golang.org/x/oauth2"
 )

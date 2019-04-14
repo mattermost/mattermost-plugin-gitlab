@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/manland/go-gitlab"
 	"github.com/stretchr/testify/assert"
-	"github.com/xanzy/go-gitlab"
 )
 
 type testDataMergeRequestStr struct {

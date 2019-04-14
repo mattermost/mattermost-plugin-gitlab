@@ -3,7 +3,7 @@ package webhook
 import (
 	"fmt"
 
-	"github.com/xanzy/go-gitlab"
+	"github.com/manland/go-gitlab"
 )
 
 // GitlabRetreiver return infos of current gitlab instance

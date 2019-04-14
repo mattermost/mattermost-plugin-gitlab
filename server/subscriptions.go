@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/manland/go-gitlab"
 	"github.com/mattermost/mattermost-server/mlog"
 	"github.com/pkg/errors"
-	"github.com/xanzy/go-gitlab"
 )
 
 const (

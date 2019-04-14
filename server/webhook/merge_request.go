@@ -3,7 +3,7 @@ package webhook
 import (
 	"fmt"
 
-	"github.com/xanzy/go-gitlab"
+	"github.com/manland/go-gitlab"
 )
 
 func (w *webhook) HandleMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebhook, error) {

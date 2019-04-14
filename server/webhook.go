@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/manland/go-gitlab"
 	"github.com/manland/mattermost-plugin-gitlab/server/webhook"
-	"github.com/xanzy/go-gitlab"
 
 	"github.com/mattermost/mattermost-server/mlog"
 	"github.com/mattermost/mattermost-server/model"
