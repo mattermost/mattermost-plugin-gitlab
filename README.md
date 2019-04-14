@@ -4,15 +4,15 @@ A Gitlab plugin for Mattermost. The plugin is currently in beta.
 
 ## Todo
 
-* [ ] __Daily reminders__ - the first time you log in to Mattermost each day, get a post letting you know what issues and merge requests need your attention
-* [ ] __Notifications__ - get a direct message in Mattermost when someone mentions you, requests your review, comments on or modifies one of your merge requests/issues, or assigns you on Gitlab
-* [ ] __Sidebar buttons__ - stay up-to-date with how many reviews, unread messages, assignments and open pull requests you have with buttons in the Mattermost sidebar
-* [ ] __Slash commands__ - interact with the Gitlab plugin using the `/gitlab` slash command
+* [X] __Daily reminders__ - the first time you log in to Mattermost each day, get a post letting you know what issues and merge requests need your attention
+* [X] __Notifications__ - get a direct message in Mattermost when someone mentions you, requests your review, comments on or modifies one of your merge requests/issues, or assigns you on Gitlab
+* [X] __Sidebar buttons__ - stay up-to-date with how many reviews, unread messages, assignments and open pull requests you have with buttons in the Mattermost sidebar
+* [X] __Slash commands__ - interact with the Gitlab plugin using the `/gitlab` slash command
     * __Subscribe to a respository__ - Use `/gitlab subscribe` to subscribe a Mattermost channel to receive posts for new pull requests and/or issues in a Gitlab repository
     * __Get to do items__ - Use `/gitlab todo` to get an ephemeral message with items to do in Gitlab
     * __Update settings__ - Use `/gitlab settings` to update your settings for the plugin
     * __And more!__ - Run `/gitlab help` to see what else the slash command can do
-* [ ] __Supports Gitlab Enterprise__ - Works with SaaS and Enterprise versions of Gitlab
+* [X] __Supports Gitlab On Premise__ - Works with SaaS and On Premise versions of Gitlab
 
 ## Installation
 
@@ -25,8 +25,8 @@ __Requires Mattermost 5.2 or higher__
 2. Register a Gitlab OAuth app
     1. Go to https://gitlab.com/profile/applications
         * Use "Mattermost Gitlab Plugin - <your company name>" as the name
-        * Use "https://github.com/manland/mattermost-plugin-gitlab" as the homepage
         * Use "https://your-mattermost-url.com/plugins/com.github.manland.mattermost-plugin-gitlab/oauth/complete" as the authorization callback URL, replacing `https://your-mattermost-url.com` with your Mattermost URL
+        * Check `api` and `read_user` in scopes
         * Submit and copy the Client ID and Secret
     2. In Mattermost, go to System Console -> Plugins -> Gitlab
         * Fill in the Client ID and Secret and save the settings
@@ -53,8 +53,7 @@ __Requires Mattermost 5.2 or higher__
     * Go to System Console -> Plugins -> Gitlab and set Enable Private Repositories to true
     * Note that if you do this after users have already connected their accounts to Gitlab they will need to disconnect and reconnect their accounts to be able to use private repositories
 4. (Enterprise only) Set your Enterprise URLs
-    * Go to System Console -> Plugins -> Gitlab and set the Enterprise Base URL and Enterprise Upload URL fields to your Gitlab Enterprise URLs, ex: `https://gitlab.example.com`
-    * The Base and Upload URLs are often the same
+    * Go to System Console -> Plugins -> Gitlab and set the Enterprise Base URL to your Gitlab Enterprise URLs, ex: `https://gitlab.example.com`
 5. Enable the plugin
     * Go to System Console -> Plugins -> Management and click "Enable" underneath the Gitlab plugin
 6. Test it out

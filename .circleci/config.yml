@@ -1,0 +1,83 @@
+version: 2.1
+executors:
+  default:
+    working_directory: /go/src/github.com/manland/mattermost-plugin-gitlab
+    docker:
+      - image: circleci/golang:1.12-node
+
+jobs:
+  lint:
+    executor:
+      name: default
+    steps:
+      - checkout
+      - run: curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+      - run: make check-style
+
+  test:
+    executor:
+      name: default
+    steps:
+      - checkout
+      - run: curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+      - run: make test
+
+  build:
+    executor:
+      name: default
+    steps:
+      - checkout
+      - run: curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+      - run: make dist
+      - persist_to_workspace:
+          root: .
+          paths: ./dist/*.tar.gz
+
+  publish-github-release:
+    docker:
+      - image: cibuilds/github:0.12
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: "Publish Release on GitHub"
+          command: |
+            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${CIRCLE_TAG} ./dist/*.tar.gz
+
+workflows:
+  version: 2
+  untagged-build:
+    jobs:
+      - lint
+      - test
+  tagged-build:
+    jobs:
+      - lint:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+      - test:
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+      - build:
+          requires:
+            - lint
+            - test
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
+      - publish-github-release:
+          requires:
+            - build
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
