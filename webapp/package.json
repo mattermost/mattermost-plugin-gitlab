@@ -9,7 +9,7 @@
     "fix": "eslint --ignore-pattern node_modules --ignore-pattern dist --ext .js --ext .jsx . --quiet --fix"
   },
   "dependencies": {
-    "mattermost-redux": "1.0.1",
+    "mattermost-redux": "5.9.0",
     "prop-types": "15.5.10",
     "react": "^16.4.1",
     "react-bootstrap": "^0.32.1",
