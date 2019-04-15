@@ -99,7 +99,7 @@ func (p *Plugin) Subscribe(client *gitlab.Client, userId, owner, repo, channelID
 
 func (p *Plugin) SubscribeGroup(client *gitlab.Client, userId, org, channelID, features string) error {
 	if org == "" {
-		return fmt.Errorf("Invalid organization")
+		return fmt.Errorf("Invalid group")
 	}
 	if err := p.checkGroup(org); err != nil {
 		return err
