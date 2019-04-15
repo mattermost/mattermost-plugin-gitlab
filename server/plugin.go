@@ -352,7 +352,7 @@ func (p *Plugin) checkGroup(projectNameWithGroup string) error {
 
 	group := strings.TrimSpace(config.GitlabGroup)
 	if group != "" && group != strings.Split(projectNameWithGroup, "/")[0] {
-		return fmt.Errorf("Only repositories in the %v organization are supported", config.GitlabGroup)
+		return fmt.Errorf("Only repositories in the %v group are supported", config.GitlabGroup)
 	}
 
 	return nil
