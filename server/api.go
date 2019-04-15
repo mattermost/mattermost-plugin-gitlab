@@ -425,7 +425,7 @@ func (p *Plugin) getReviews(w http.ResponseWriter, r *http.Request) {
 		Scope:      &scope,
 	})
 
-	if err != nil {
+	if errRequest != nil {
 		mlog.Error(errRequest.Error())
 		return
 	}
