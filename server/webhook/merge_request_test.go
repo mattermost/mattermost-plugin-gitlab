@@ -59,6 +59,14 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			To:      "root",
 			From:    "manland",
 		}},
+	}, {
+		testTitle: "root close its own MR without assignee",
+		fixture:   CloseMergeRequestByCreator,
+		res: []*HandleWebhook{{
+			Message: "[root](http://my.gitlab.com/root) closed your pull request [manland/webhook#1](http://localhost:3000/manland/webhook/merge_requests/1)",
+			To:      "", //no assignee
+			From:    "root",
+		}},
 	},
 }
 

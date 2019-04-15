@@ -20,7 +20,6 @@ import (
 
 const (
 	GITLAB_TOKEN_KEY        = "_gitlabtoken"
-	GITLAB_STATE_KEY        = "_gitlabstate"
 	GITLAB_USERNAME_KEY     = "_gitlabusername"
 	GITLAB_IDUSERNAME_KEY   = "_gitlabidusername"
 	GITLAB_PRIVATE_REPO_KEY = "_gitlabprivate"
@@ -28,8 +27,6 @@ const (
 	WS_EVENT_DISCONNECT     = "gitlab_disconnect"
 	WS_EVENT_REFRESH        = "gitlab_refresh"
 	SETTING_BUTTONS_TEAM    = "team"
-	SETTING_BUTTONS_CHANNEL = "channel"
-	SETTING_BUTTONS_OFF     = "off"
 	SETTING_NOTIFICATIONS   = "notifications"
 	SETTING_REMINDERS       = "reminders"
 	SETTING_ON              = "on"
@@ -62,7 +59,7 @@ func (p *Plugin) gitlabConnect(token oauth2.Token) *gitlab.Client {
 
 	client := gitlab.NewOAuthClient(tc, token.AccessToken)
 	if err := client.SetBaseURL(config.EnterpriseBaseURL); err != nil {
-		mlog.Error(err.Error())
+		p.API.LogError("can't set base url to gitlab client lib", "err", err.Error())
 		return gitlab.NewOAuthClient(tc, token.AccessToken)
 	}
 	return client
@@ -77,7 +74,7 @@ func (p *Plugin) OnActivate() error {
 	p.API.RegisterCommand(getCommand())
 	user, err := p.API.GetUserByUsername(config.Username)
 	if err != nil {
-		mlog.Error(err.Error())
+		p.API.LogError("can't get user by username", "err", err.Error())
 		return fmt.Errorf("Unable to find user with configured username: %v", config.Username)
 	}
 
@@ -182,31 +179,46 @@ func (p *Plugin) storeGitlabToUserIDMapping(gitlabUsername, userID string) error
 }
 
 func (p *Plugin) getGitlabToUserIDMapping(gitlabUsername string) string {
-	userID, _ := p.API.KVGet(gitlabUsername + GITLAB_USERNAME_KEY)
+	userID, err := p.API.KVGet(gitlabUsername + GITLAB_USERNAME_KEY)
+	if err != nil {
+		p.API.LogError("can't get userId from store with username", "err", err.DetailedError, "username", gitlabUsername)
+	}
 	return string(userID)
 }
 
 func (p *Plugin) getGitlabIDToUsernameMapping(gitlabUserID string) string {
 	gitlabUsername, err := p.API.KVGet(gitlabUserID + GITLAB_IDUSERNAME_KEY)
 	if err != nil {
-		p.API.LogError("can't get user id by login", "err", err)
-		return ""
+		p.API.LogError("can't get user id by login", "err", err.DetailedError)
 	}
 	return string(gitlabUsername)
 }
 
 func (p *Plugin) disconnectGitlabAccount(userID string) {
-	userInfo, _ := p.getGitlabUserInfoByMattermostID(userID)
+	userInfo, err := p.getGitlabUserInfoByMattermostID(userID)
+	if err != nil {
+		p.API.LogError("can't get gitlab user info from mattermost id", "err", err.Message)
+		return
+	}
 	if userInfo == nil {
 		return
 	}
 
-	p.API.KVDelete(userID + GITLAB_TOKEN_KEY)
-	p.API.KVDelete(userInfo.GitlabUsername + GITLAB_USERNAME_KEY)
+	if err := p.API.KVDelete(userID + GITLAB_TOKEN_KEY); err != nil {
+		p.API.LogError("can't delete token in store", "err", err.DetailedError, "userId", userID)
+	}
+	if err := p.API.KVDelete(userInfo.GitlabUsername + GITLAB_USERNAME_KEY); err != nil {
+		p.API.LogError("can't delete username in store", "err", err.DetailedError, "username", userInfo.GitlabUsername)
+	}
+	if err := p.API.KVDelete(fmt.Sprintf("%d%s", userInfo.GitlabUserId, GITLAB_IDUSERNAME_KEY)); err != nil {
+		p.API.LogError("can't delete user id in sotre", "err", err.DetailedError, "id", userInfo.GitlabUserId)
+	}
 
 	if user, err := p.API.GetUser(userID); err == nil && user.Props != nil && len(user.Props["git_user"]) > 0 {
 		delete(user.Props, "git_user")
-		p.API.UpdateUser(user)
+		if _, err := p.API.UpdateUser(user); err != nil {
+			p.API.LogError("can't update user after delete git account", "err", err.DetailedError)
+		}
 	}
 
 	p.API.PublishWebSocketEvent(
@@ -219,7 +231,7 @@ func (p *Plugin) disconnectGitlabAccount(userID string) {
 func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppError {
 	channel, err := p.API.GetDirectChannel(userID, p.BotUserID)
 	if err != nil {
-		mlog.Error("Couldn't get bot's DM channel", mlog.String("user_id", userID))
+		p.API.LogError("Couldn't get bot's DM channel", "user_id", userID)
 		return err
 	}
 
@@ -238,7 +250,7 @@ func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppErr
 	}
 
 	if _, err := p.API.CreatePost(post); err != nil {
-		mlog.Error(err.Error())
+		p.API.LogError("can't post DM", "err", err.DetailedError)
 		return err
 	}
 
@@ -248,11 +260,13 @@ func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppErr
 func (p *Plugin) PostToDo(info *GitlabUserInfo) {
 	text, err := p.GetToDo(info, p.gitlabConnect(*info.Token))
 	if err != nil {
-		mlog.Error(err.Error())
+		p.API.LogError("can't post todo", "err", err.Error())
 		return
 	}
 
-	p.CreateBotDMPost(info.UserID, text, "custom_git_todo")
+	if err := p.CreateBotDMPost(info.UserID, text, "custom_git_todo"); err != nil {
+		p.API.LogError("can't create dm post in post todo", "err", err.DetailedError)
+	}
 }
 
 func (p *Plugin) GetToDo(user *GitlabUserInfo, client *gitlab.Client) (string, error) {

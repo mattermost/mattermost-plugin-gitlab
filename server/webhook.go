@@ -163,7 +163,7 @@ func (p *Plugin) postMergeRequestEvent(event *gitlab.MergeEvent) {
 	repo := event.Project
 
 	subs := p.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
-	if subs == nil || len(subs) == 0 {
+	if len(subs) == 0 {
 		return
 	}
 
@@ -247,7 +247,7 @@ func (p *Plugin) postIssueEvent(event *gitlab.IssueEvent) {
 	repo := event.Project
 
 	subs := p.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
-	if subs == nil || len(subs) == 0 {
+	if len(subs) == 0 {
 		return
 	}
 
@@ -362,75 +362,12 @@ func labelToString(a []gitlab.Label) string {
 	return strings.Join(names, ", ")
 }
 
-// func (p *Plugin) postPushEvent(event *github.PushEvent) {
-// 	config := p.getConfiguration()
-// 	repo := event.GetRepo()
-
-// 	subs := p.GetSubscribedChannelsForRepository(ConvertPushEventRepositoryToRepository(repo))
-
-// 	if subs == nil || len(subs) == 0 {
-// 		return
-// 	}
-
-// 	userID := ""
-// 	if user, err := p.API.GetUserByUsername(config.Username); err != nil {
-// 		mlog.Error(err.Error())
-// 		return
-// 	} else {
-// 		userID = user.Id
-// 	}
-
-// 	forced := event.GetForced()
-// 	branch := strings.Replace(event.GetRef(), "refs/heads/", "", 1)
-// 	commits := event.Commits
-// 	compare_url := event.GetCompare()
-// 	pusher := event.GetSender()
-
-// 	if len(commits) == 0 {
-// 		return
-// 	}
-
-// 	fmtMessage := ``
-// 	if forced {
-// 		fmtMessage = "[%s](%s) force-pushed [%d new commits](%s) to [\\[%s:%s\\]](%s/tree/%s):\n"
-// 	} else {
-// 		fmtMessage = "[%s](%s) pushed [%d new commits](%s) to [\\[%s:%s\\]](%s/tree/%s):\n"
-// 	}
-// 	newPushMessage := fmt.Sprintf(fmtMessage, pusher.GetLogin(), pusher.GetHTMLURL(), len(commits), compare_url, repo.GetName(), branch, repo.GetHTMLURL(), branch)
-// 	for _, commit := range commits {
-// 		newPushMessage += fmt.Sprintf("[`%s`](%s) %s - %s\n",
-// 			commit.GetID()[:6], commit.GetURL(), commit.GetMessage(), commit.GetCommitter().GetName())
-// 	}
-
-// 	post := &model.Post{
-// 		UserId: userID,
-// 		Type:   "custom_git_push",
-// 		Props: map[string]interface{}{
-// 			"from_webhook":      "true",
-// 			"override_username": GITHUB_USERNAME,
-// 			"override_icon_url": config.ProfileImageURL,
-// 		},
-// 		Message: newPushMessage,
-// 	}
-
-// 	for _, sub := range subs {
-// 		if !sub.Pushes() {
-// 			continue
-// 		}
-
-// 		post.ChannelId = sub.ChannelID
-// 		if _, err := p.API.CreatePost(post); err != nil {
-// 			mlog.Error(err.Error())
-// 		}
-// 	}
-// }
-
 func (p *Plugin) postIssueCommentEvent(event *gitlab.IssueCommentEvent) {
 	config := p.getConfiguration()
 	repo := event.Project
 
 	subs := p.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
-	if subs == nil || len(subs) == 0 {
+	if len(subs) == 0 {
 		return
 	}
 

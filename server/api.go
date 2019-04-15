@@ -90,7 +90,11 @@ func (p *Plugin) connectUserToGitlab(w http.ResponseWriter, r *http.Request) {
 
 	state := fmt.Sprintf("%v_%v", model.NewId()[0:15], userID)
 
-	p.API.KVSet(state, []byte(state))
+	if err := p.API.KVSet(state, []byte(state)); err != nil {
+		p.API.LogError("can't sotre state oauth2", "err", err.DetailedError)
+		http.Error(w, "can't sotre state oauth2", http.StatusInternalServerError)
+		return
+	}
 
 	url := conf.AuthCodeURL(state, oauth2.AccessTypeOffline)
 
@@ -112,7 +116,7 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 	state := r.URL.Query().Get("state")
 
 	if storedState, err := p.API.KVGet(state); err != nil {
-		fmt.Println(err.Error())
+		p.API.LogError("can't get state from store", "err", err.Error())
 		http.Error(w, "missing stored state", http.StatusBadRequest)
 		return
 	} else if string(storedState) != state {
@@ -122,11 +126,13 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 
 	userID := strings.Split(state, "_")[1]
 
-	p.API.KVDelete(state)
+	if err := p.API.KVDelete(state); err != nil {
+		p.API.LogError("can't delete state in store", "err", err.DetailedError)
+	}
 
 	tok, err := conf.Exchange(ctx, code)
 	if err != nil {
-		fmt.Println(err.Error())
+		p.API.LogError("can't exchange state", "err", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -134,7 +140,7 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 	client := p.gitlabConnect(*tok)
 	gitUser, _, err := client.Users.CurrentUser()
 	if err != nil {
-		fmt.Println(err.Error())
+		p.API.LogError("can't retreive user info from gitlab", "err", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -154,13 +160,13 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 	}
 
 	if err := p.storeGitlabUserInfo(userInfo); err != nil {
-		fmt.Println(err.Error())
+		p.API.LogError("can't store user info", "err", err.Error())
 		http.Error(w, "Unable to connect user to Gitlab", http.StatusInternalServerError)
 		return
 	}
 
 	if err := p.storeGitlabToUserIDMapping(userInfo.GitlabUsername, userID); err != nil {
-		fmt.Println(err.Error())
+		p.API.LogError("can't store user id mapping", "err", err.Error())
 	}
 
 	// Post intro post
@@ -182,7 +188,10 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 		"Click on them!\n\n"+
 		"##### Slash Commands\n"+
 		strings.Replace(COMMAND_HELP, "|", "`", -1), userInfo.GitlabUsername)
-	p.CreateBotDMPost(userID, message, "custom_git_welcome")
+
+	if err := p.CreateBotDMPost(userID, message, "custom_git_welcome"); err != nil {
+		p.API.LogError("can't send help message with bot dm", "err", err.Error())
+	}
 
 	p.API.PublishWebSocketEvent(
 		WS_EVENT_CONNECT,
@@ -218,13 +227,16 @@ func (p *Plugin) handleProfileImage(w http.ResponseWriter, r *http.Request) {
 	img, err := os.Open(filepath.Join(config.PluginsDirectory, manifest.Id, "assets", "profile.png"))
 	if err != nil {
 		http.NotFound(w, r)
-		mlog.Error("Unable to read gitlab profile image, err=" + err.Error())
+		p.API.LogError("Unable to read gitlab profile image", "err", err.Error())
 		return
 	}
 	defer img.Close()
 
 	w.Header().Set("Content-Type", "image/png")
-	io.Copy(w, img)
+	_, err = io.Copy(w, img)
+	if err != nil {
+		p.API.LogError("can't copy image profile to http response writer", "err", err.Error())
+	}
 }
 
 type ConnectedResponse struct {
@@ -321,7 +333,9 @@ func (p *Plugin) getConnected(w http.ResponseWriter, r *http.Request) {
 			if nt.Sub(lt).Hours() >= 1 && (nt.Day() != lt.Day() || nt.Month() != lt.Month() || nt.Year() != lt.Year()) {
 				p.PostToDo(info)
 				info.LastToDoPostAt = now
-				p.storeGitlabUserInfo(info)
+				if err := p.storeGitlabUserInfo(info); err != nil {
+					p.API.LogError("can't sotre user info", "err", err.Error())
+				}
 			}
 		}
 
@@ -331,13 +345,15 @@ func (p *Plugin) getConnected(w http.ResponseWriter, r *http.Request) {
 			if val, err := p.API.KVGet(privateRepoStoreKey); err == nil {
 				hasBeenNotified = val != nil
 			} else {
-				mlog.Error("Unable to get private repo key value, err=" + err.Error())
+				p.API.LogError("Unable to get private repo key value", "err", err.Error())
 			}
 
 			if !hasBeenNotified {
-				p.CreateBotDMPost(info.UserID, "Private repositories have been enabled for this plugin. To be able to use them you must disconnect and reconnect your Gitlab account. To reconnect your account, use the following slash commands: `/gitlab disconnect` followed by `/gitlab connect`.", "")
+				if err := p.CreateBotDMPost(info.UserID, "Private repositories have been enabled for this plugin. To be able to use them you must disconnect and reconnect your Gitlab account. To reconnect your account, use the following slash commands: `/gitlab disconnect` followed by `/gitlab connect`.", ""); err != nil {
+					p.API.LogError("Unable to send DM post about private config change", "err", err.Error())
+				}
 				if err := p.API.KVSet(privateRepoStoreKey, []byte("1")); err != nil {
-					mlog.Error("Unable to set private repo key value, err=" + err.Error())
+					p.API.LogError("Unable to set private repo key value", "err", err.Error())
 				}
 			}
 		}

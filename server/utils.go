@@ -13,31 +13,6 @@ import (
 	"unicode"
 )
 
-// func getMentionSearchQuery(username, org string) string {
-// 	return buildSearchQuery("is:open mentions:%v archived:false %v", username, org)
-// }
-
-// func getReviewSearchQuery(username, org string) string {
-// 	return buildSearchQuery("is:pr is:open review-requested:%v archived:false %v", username, org)
-// }
-
-// func getYourPrsSearchQuery(username, org string) string {
-// 	return buildSearchQuery("is:pr is:open author:%v archived:false %v", username, org)
-// }
-
-// func getYourAssigneeSearchQuery(username, org string) string {
-// 	return buildSearchQuery("is:open assignee:%v archived:false %v", username, org)
-// }
-
-// func buildSearchQuery(query, username, org string) string {
-// 	orgField := ""
-// 	if len(org) != 0 {
-// 		orgField = fmt.Sprintf("org:%v", org)
-// 	}
-
-// 	return fmt.Sprintf(query, username, orgField)
-// }
-
 func pad(src []byte) []byte {
 	padding := aes.BlockSize - len(src)%aes.BlockSize
 	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
@@ -112,7 +87,7 @@ func parseOwnerAndRepo(full, baseURL string) (string, string, string) {
 
 	if len(splitStr) == 1 {
 		owner := splitStr[0]
-		return fmt.Sprintf("%s", owner), owner, ""
+		return owner, owner, ""
 	} else if len(splitStr) != 2 {
 		return "", "", ""
 	}

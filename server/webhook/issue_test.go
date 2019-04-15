@@ -24,6 +24,10 @@ var testDataIssue = []testDataIssueStr{
 			From:    "root",
 		}},
 	}, {
+		testTitle: "root open unassigned issue",
+		fixture:   NewIssueUnassigned,
+		res:       []*HandleWebhook{}, // no message because root don't received its own action and manland is not assigned
+	}, {
 		testTitle: "manland close issue of root",
 		fixture:   CloseIssue,
 		res: []*HandleWebhook{{
