@@ -30,10 +30,24 @@ type APIErrorResponse struct {
 	StatusCode int    `json:"status_code"`
 }
 
-func writeAPIError(w http.ResponseWriter, err *APIErrorResponse) {
+func (p *Plugin) writeAPIError(w http.ResponseWriter, err *APIErrorResponse) {
 	b, _ := json.Marshal(err)
 	w.WriteHeader(err.StatusCode)
-	w.Write(b)
+	if _, err := w.Write(b); err != nil {
+		p.API.LogError("can't write api error http response", "err", err.Error())
+	}
+}
+
+func (p *Plugin) writeAPIResponse(w http.ResponseWriter, resp interface{}) {
+	b, jsonErr := json.Marshal(resp)
+	if jsonErr != nil {
+		p.API.LogError("Error encoding JSON response", "err", jsonErr.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
+	}
+	if _, err := w.Write(b); err != nil {
+		p.API.LogError("can't write response user to http", "err", err.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
+	}
 }
 
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
@@ -217,7 +231,9 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 `
 
 	w.Header().Set("Content-Type", "text/html")
-	w.Write([]byte(html))
+	if _, err := w.Write([]byte(html)); err != nil {
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: ">Completed connecting to Gitlab. Please close this window.", StatusCode: http.StatusInternalServerError})
+	}
 }
 
 func (p *Plugin) handleProfileImage(w http.ResponseWriter, r *http.Request) {
@@ -229,7 +245,11 @@ func (p *Plugin) handleProfileImage(w http.ResponseWriter, r *http.Request) {
 		p.API.LogError("Unable to read gitlab profile image", "err", err.Error())
 		return
 	}
-	defer img.Close()
+	defer func() {
+		if err = img.Close(); err != nil {
+			p.API.LogError("can't close img", "err", err.Error())
+		}
+	}()
 
 	w.Header().Set("Content-Type", "image/png")
 	_, err = io.Copy(w, img)
@@ -258,7 +278,7 @@ type GitlabUserResponse struct {
 func (p *Plugin) getGitlabUser(w http.ResponseWriter, r *http.Request) {
 	requestorID := r.Header.Get("Mattermost-User-ID")
 	if requestorID == "" {
-		writeAPIError(w, &APIErrorResponse{ID: "", Message: "Not authorized.", StatusCode: http.StatusUnauthorized})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Not authorized.", StatusCode: http.StatusUnauthorized})
 		return
 	}
 
@@ -268,32 +288,26 @@ func (p *Plugin) getGitlabUser(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			p.API.LogError("Error decoding JSON body", "err", err.Error())
 		}
-		writeAPIError(w, &APIErrorResponse{ID: "", Message: "Please provide a JSON object with a non-blank user_id field.", StatusCode: http.StatusBadRequest})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Please provide a JSON object with a non-blank user_id field.", StatusCode: http.StatusBadRequest})
 		return
 	}
 
 	userInfo, apiErr := p.getGitlabUserInfoByMattermostID(req.UserID)
 	if apiErr != nil {
 		if apiErr.ID == API_ERROR_ID_NOT_CONNECTED {
-			writeAPIError(w, &APIErrorResponse{ID: "", Message: "User is not connected to a Gitlab account.", StatusCode: http.StatusNotFound})
+			p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "User is not connected to a Gitlab account.", StatusCode: http.StatusNotFound})
 		} else {
-			writeAPIError(w, apiErr)
+			p.writeAPIError(w, apiErr)
 		}
 		return
 	}
 
 	if userInfo == nil {
-		writeAPIError(w, &APIErrorResponse{ID: "", Message: "User is not connected to a Gitlab account.", StatusCode: http.StatusNotFound})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "User is not connected to a Gitlab account.", StatusCode: http.StatusNotFound})
 		return
 	}
 
-	resp := &GitlabUserResponse{Username: userInfo.GitlabUsername}
-	b, jsonErr := json.Marshal(resp)
-	if jsonErr != nil {
-		p.API.LogError("Error encoding JSON response", "err", jsonErr.Error())
-		writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
-	}
-	w.Write(b)
+	p.writeAPIResponse(w, &GitlabUserResponse{Username: userInfo.GitlabUsername})
 }
 
 func (p *Plugin) getConnected(w http.ResponseWriter, r *http.Request) {
@@ -301,7 +315,7 @@ func (p *Plugin) getConnected(w http.ResponseWriter, r *http.Request) {
 
 	userID := r.Header.Get("Mattermost-User-ID")
 	if userID == "" {
-		writeAPIError(w, &APIErrorResponse{ID: "", Message: "Not authorized.", StatusCode: http.StatusUnauthorized})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Not authorized.", StatusCode: http.StatusUnauthorized})
 		return
 	}
 
@@ -358,8 +372,7 @@ func (p *Plugin) getConnected(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	b, _ := json.Marshal(resp)
-	w.Write(b)
+	p.writeAPIResponse(w, resp)
 }
 
 func (p *Plugin) getMentions(w http.ResponseWriter, r *http.Request) {
@@ -373,7 +386,7 @@ func (p *Plugin) getMentions(w http.ResponseWriter, r *http.Request) {
 	var client *gitlab.Client
 
 	if info, err := p.getGitlabUserInfoByMattermostID(userID); err != nil {
-		writeAPIError(w, err)
+		p.writeAPIError(w, err)
 		return
 	} else {
 		client = p.gitlabConnect(*info.Token)
@@ -384,8 +397,7 @@ func (p *Plugin) getMentions(w http.ResponseWriter, r *http.Request) {
 		p.API.LogError("can't search issue in gitlab api", "err", err.Error())
 	}
 
-	resp, _ := json.Marshal(result)
-	w.Write(resp)
+	p.writeAPIResponse(w, result)
 }
 
 func (p *Plugin) getUnreads(w http.ResponseWriter, r *http.Request) {
@@ -398,7 +410,7 @@ func (p *Plugin) getUnreads(w http.ResponseWriter, r *http.Request) {
 	var client *gitlab.Client
 
 	if info, err := p.getGitlabUserInfoByMattermostID(userID); err != nil {
-		writeAPIError(w, err)
+		p.writeAPIError(w, err)
 		return
 	} else {
 		client = p.gitlabConnect(*info.Token)
@@ -409,8 +421,7 @@ func (p *Plugin) getUnreads(w http.ResponseWriter, r *http.Request) {
 		p.API.LogError("can't list todo in gitlab api", "err", err.Error())
 	}
 
-	resp, _ := json.Marshal(notifications)
-	w.Write(resp)
+	p.writeAPIResponse(w, notifications)
 }
 
 func (p *Plugin) getReviews(w http.ResponseWriter, r *http.Request) {
@@ -427,7 +438,7 @@ func (p *Plugin) getReviews(w http.ResponseWriter, r *http.Request) {
 	user, err := p.getGitlabUserInfoByMattermostID(userID)
 
 	if err != nil {
-		writeAPIError(w, err)
+		p.writeAPIError(w, err)
 		return
 	}
 	client = p.gitlabConnect(*user.Token)
@@ -445,8 +456,7 @@ func (p *Plugin) getReviews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, _ := json.Marshal(result)
-	w.Write(resp)
+	p.writeAPIResponse(w, result)
 }
 
 func (p *Plugin) getYourPrs(w http.ResponseWriter, r *http.Request) {
@@ -463,7 +473,7 @@ func (p *Plugin) getYourPrs(w http.ResponseWriter, r *http.Request) {
 	user, err := p.getGitlabUserInfoByMattermostID(userID)
 
 	if err != nil {
-		writeAPIError(w, err)
+		p.writeAPIError(w, err)
 		return
 	}
 	client = p.gitlabConnect(*user.Token)
@@ -478,8 +488,7 @@ func (p *Plugin) getYourPrs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, _ := json.Marshal(result)
-	w.Write(resp)
+	p.writeAPIResponse(w, result)
 }
 
 func (p *Plugin) getYourAssignments(w http.ResponseWriter, r *http.Request) {
@@ -493,7 +502,7 @@ func (p *Plugin) getYourAssignments(w http.ResponseWriter, r *http.Request) {
 	user, err := p.getGitlabUserInfoByMattermostID(userID)
 
 	if err != nil {
-		writeAPIError(w, err)
+		p.writeAPIError(w, err)
 		return
 	}
 	client = p.gitlabConnect(*user.Token)
@@ -508,14 +517,13 @@ func (p *Plugin) getYourAssignments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, _ := json.Marshal(result)
-	w.Write(resp)
+	p.writeAPIResponse(w, result)
 }
 
 func (p *Plugin) postToDo(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("Mattermost-User-ID")
 	if userID == "" {
-		writeAPIError(w, &APIErrorResponse{ID: "", Message: "Not authorized.", StatusCode: http.StatusUnauthorized})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Not authorized.", StatusCode: http.StatusUnauthorized})
 		return
 	}
 
@@ -523,7 +531,7 @@ func (p *Plugin) postToDo(w http.ResponseWriter, r *http.Request) {
 	user, err := p.getGitlabUserInfoByMattermostID(userID)
 
 	if err != nil {
-		writeAPIError(w, err)
+		p.writeAPIError(w, err)
 		return
 	}
 
@@ -532,15 +540,15 @@ func (p *Plugin) postToDo(w http.ResponseWriter, r *http.Request) {
 	text, errRequest := p.GetToDo(user, client)
 	if errRequest != nil {
 		p.API.LogError("can't get todo", "err", errRequest.Error())
-		writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an error getting the to do items.", StatusCode: http.StatusUnauthorized})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an error getting the to do items.", StatusCode: http.StatusUnauthorized})
 		return
 	}
 
 	if err := p.CreateBotDMPost(userID, text, "custom_git_todo"); err != nil {
-		writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an error posting the to do items.", StatusCode: http.StatusUnauthorized})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an error posting the to do items.", StatusCode: http.StatusUnauthorized})
 	}
 
-	w.Write([]byte("{\"status\": \"OK\"}"))
+	p.writeAPIResponse(w, struct{ status string }{status: "OK"})
 }
 
 func (p *Plugin) updateSettings(w http.ResponseWriter, r *http.Request) {
@@ -551,15 +559,15 @@ func (p *Plugin) updateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var settings *UserSettings
-	json.NewDecoder(r.Body).Decode(&settings)
-	if settings == nil {
+	err := json.NewDecoder(r.Body).Decode(&settings)
+	if settings == nil || err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	info, err := p.getGitlabUserInfoByMattermostID(userID)
-	if err != nil {
-		writeAPIError(w, err)
+	info, errGitlab := p.getGitlabUserInfoByMattermostID(userID)
+	if errGitlab != nil {
+		p.writeAPIError(w, errGitlab)
 		return
 	}
 
@@ -570,6 +578,5 @@ func (p *Plugin) updateSettings(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Encountered error updating settings", http.StatusInternalServerError)
 	}
 
-	resp, _ := json.Marshal(info.Settings)
-	w.Write(resp)
+	p.writeAPIResponse(w, info.Settings)
 }

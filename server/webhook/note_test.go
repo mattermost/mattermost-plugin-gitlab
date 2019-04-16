@@ -46,11 +46,15 @@ func TestNoteWebhook(t *testing.T) {
 			var err error
 			if test.kind == "issue" {
 				issueCommentEvent := &gitlab.IssueCommentEvent{}
-				json.Unmarshal([]byte(test.fixture), issueCommentEvent)
+				if err = json.Unmarshal([]byte(test.fixture), issueCommentEvent); err != nil {
+					assert.Fail(t, "can't unmarshal fixture")
+				}
 				res, err = w.HandleIssueComment(issueCommentEvent)
 			} else {
 				mergeCommentEvent := &gitlab.MergeCommentEvent{}
-				json.Unmarshal([]byte(test.fixture), mergeCommentEvent)
+				if err = json.Unmarshal([]byte(test.fixture), mergeCommentEvent); err != nil {
+					assert.Fail(t, "can't unmarshal fixture")
+				}
 				res, err = w.HandleMergeRequestComment(mergeCommentEvent)
 			}
 			assert.Empty(t, err)

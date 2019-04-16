@@ -106,18 +106,20 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, res := range handlers {
-		p.API.LogError("new msg", "message", res.Message, "to", res.To, "from", res.From)
+		p.API.LogInfo("new msg", "message", res.Message, "to", res.To, "from", res.From)
 		if len(res.To) > 0 {
 			userTo := p.getGitlabToUserIDMapping(res.To)
-			p.API.LogError("userTo", "to", userTo)
+			p.API.LogInfo("userTo", "to", userTo)
 			p.sendRefreshEvent(userTo)
 			if len(res.Message) > 0 {
-				p.CreateBotDMPost(userTo, res.Message, "custom_git_review_request")
+				if err := p.CreateBotDMPost(userTo, res.Message, "custom_git_review_request"); err != nil {
+					p.API.LogError("can't send dm post", "err", err.DetailedError)
+				}
 			}
 		}
 		if len(res.From) > 0 {
 			userFrom := p.getGitlabToUserIDMapping(res.From)
-			p.API.LogError("userFrom", "from", userFrom)
+			p.API.LogInfo("userFrom", "from", userFrom)
 			p.sendRefreshEvent(userFrom)
 		}
 	}

@@ -186,9 +186,15 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 
 		if setting == SETTING_NOTIFICATIONS {
 			if value {
-				p.storeGitlabToUserIDMapping(info.GitlabUsername, info.UserID)
+				if err := p.storeGitlabToUserIDMapping(info.GitlabUsername, info.UserID); err != nil {
+					p.API.LogError("can't store gitlab user id mapping", "err", err.Error())
+					return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Unknown error please retry or ask to an administrator to look at logs"), nil
+				}
 			} else {
-				p.API.KVDelete(info.GitlabUsername + GITLAB_USERNAME_KEY)
+				if err := p.API.KVDelete(info.GitlabUsername + GITLAB_USERNAME_KEY); err != nil {
+					p.API.LogError("can't delete gitlab username in kvstore", "err", err.Error())
+					return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Unknown error please retry or ask to an administrator to look at logs"), nil
+				}
 			}
 
 			info.Settings.Notifications = value
@@ -196,7 +202,10 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 			info.Settings.DailyReminder = value
 		}
 
-		p.storeGitlabUserInfo(info)
+		if err := p.storeGitlabUserInfo(info); err != nil {
+			p.API.LogError("can't store user info after update by command", "err", err.Error())
+			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Unknown error please retry or ask to an administrator to look at logs"), nil
+		}
 
 		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Settings updated."), nil
 	}

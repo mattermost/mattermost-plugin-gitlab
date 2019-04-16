@@ -203,7 +203,9 @@ func (p *Plugin) GetSubscriptions() (*Subscriptions, error) {
 	if value == nil {
 		subscriptions = &Subscriptions{Repositories: map[string][]*Subscription{}}
 	} else {
-		json.NewDecoder(bytes.NewReader(value)).Decode(&subscriptions)
+		if err := json.NewDecoder(bytes.NewReader(value)).Decode(&subscriptions); err != nil {
+			return nil, err
+		}
 	}
 
 	return subscriptions, nil
@@ -214,8 +216,7 @@ func (p *Plugin) StoreSubscriptions(s *Subscriptions) error {
 	if err != nil {
 		return err
 	}
-	p.API.KVSet(SUBSCRIPTIONS_KEY, b)
-	return nil
+	return p.API.KVSet(SUBSCRIPTIONS_KEY, b)
 }
 
 func (p *Plugin) GetSubscribedChannelsForRepository(repoName string, repoPublic bool) []*Subscription {

@@ -76,7 +76,9 @@ func TestMergeRequestWebhook(t *testing.T) {
 	for _, test := range testDataMergeRequest {
 		t.Run(test.testTitle, func(t *testing.T) {
 			mergeEvent := &gitlab.MergeEvent{}
-			json.Unmarshal([]byte(test.fixture), mergeEvent)
+			if err := json.Unmarshal([]byte(test.fixture), mergeEvent); err != nil {
+				assert.Fail(t, "can't unmarshal fixture")
+			}
 			res, err := w.HandleMergeRequest(mergeEvent)
 			assert.Empty(t, err)
 			assert.Equal(t, len(test.res), len(res))

@@ -70,7 +70,10 @@ func (p *Plugin) OnActivate() error {
 	if err := config.IsValid(); err != nil {
 		return err
 	}
-	p.API.RegisterCommand(getCommand())
+	if err := p.API.RegisterCommand(getCommand()); err != nil {
+		p.API.LogError("can't register command", "err", err.Error())
+		return fmt.Errorf("Unable to register command: %v", getCommand())
+	}
 	user, err := p.API.GetUserByUsername(config.Username)
 	if err != nil {
 		p.API.LogError("can't get user by username", "err", err.Error())

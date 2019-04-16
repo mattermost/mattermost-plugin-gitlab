@@ -19,7 +19,7 @@ apply:
 	./build/bin/manifest apply
 
 .PHONY: check-style
-check-style: server/.depensure webapp/.npminstall gofmt govet
+check-style: server/.depensure webapp/.npminstall gofmt govet errcheck
 	@echo Checking for style guide compliance
 
 ifneq ($(HAS_WEBAPP),)
@@ -53,6 +53,15 @@ ifneq ($(HAS_SERVER),)
 	$(GO) vet $$(go list ./server/...)
 	$(GO) vet -vettool=$(GOPATH)/bin/shadow $$(go list ./server/...)
 	@echo Govet success
+endif
+
+.PHONY: errcheck
+errcheck:
+ifneq ($(HAS_SERVER),)
+	@echo Running errcheck
+	$(GO) get github.com/kisielk/errcheck
+	errcheck $$(go list ./server/...)
+	@echo errcheck success
 endif
 
 # server/.depensure ensures the server dependencies are installed
