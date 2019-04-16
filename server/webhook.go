@@ -430,7 +430,7 @@ func (p *Plugin) postMergeCommentEvent(event *gitlab.MergeCommentEvent) {
 	repo := event.Project
 
 	subs := p.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
-	if subs == nil || len(subs) == 0 {
+	if len(subs) == 0 {
 		return
 	}
 
