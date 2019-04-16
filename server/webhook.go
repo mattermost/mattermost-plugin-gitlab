@@ -9,7 +9,6 @@ import (
 	"github.com/manland/go-gitlab"
 	"github.com/manland/mattermost-plugin-gitlab/server/webhook"
 
-	"github.com/mattermost/mattermost-server/mlog"
 	"github.com/mattermost/mattermost-server/model"
 )
 
@@ -50,11 +49,9 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p.API.LogWarn("webhook", "header", r.Header.Get("X-Gitlab-Event"), "event", string(body))
-
 	event, err := gitlab.ParseWebhook(gitlab.WebhookEventType(r), body)
 	if err != nil {
-		mlog.Error(err.Error())
+		p.API.LogError("can't parse webhook", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"), "event", string(body))
 		return
 	}
 
@@ -151,7 +148,7 @@ func (p *Plugin) permissionToRepo(userID string, fullPath string) bool {
 
 	if result, _, err := client.Projects.GetProject(owner+"/"+repo, &gitlab.GetProjectOptions{}); result == nil || err != nil {
 		if err != nil {
-			mlog.Error(err.Error())
+			p.API.LogError("can't get project in webhook", "err", err.Error(), "project", owner+"/"+repo)
 		}
 		return false
 	}
@@ -169,7 +166,7 @@ func (p *Plugin) postMergeRequestEvent(event *gitlab.MergeEvent) {
 
 	userID := ""
 	if user, err := p.API.GetUserByUsername(config.Username); err != nil {
-		mlog.Error(err.Error())
+		p.API.LogError("can't get user by username in mattermost api for post merge request event", "err", err.Error())
 		return
 	} else {
 		userID = user.Id
@@ -237,7 +234,7 @@ func (p *Plugin) postMergeRequestEvent(event *gitlab.MergeEvent) {
 
 		post.ChannelId = sub.ChannelID
 		if _, err := p.API.CreatePost(post); err != nil {
-			mlog.Error(err.Error())
+			p.API.LogError("can't crate post for webhook post merge request event", "err", err.Error())
 		}
 	}
 }
@@ -258,7 +255,7 @@ func (p *Plugin) postIssueEvent(event *gitlab.IssueEvent) {
 
 	userID := ""
 	if user, err := p.API.GetUserByUsername(config.Username); err != nil {
-		mlog.Error(err.Error())
+		p.API.LogError("can't get user by username in mattermost api for post issue event", "err", err.Error())
 		return
 	} else {
 		userID = user.Id
@@ -328,7 +325,7 @@ func (p *Plugin) postIssueEvent(event *gitlab.IssueEvent) {
 
 		post.ChannelId = sub.ChannelID
 		if _, err := p.API.CreatePost(post); err != nil {
-			mlog.Error(err.Error())
+			p.API.LogError("can't crate post for webhook post issue event", "err", err.Error())
 		}
 	}
 }
@@ -373,7 +370,7 @@ func (p *Plugin) postIssueCommentEvent(event *gitlab.IssueCommentEvent) {
 
 	userID := ""
 	if user, err := p.API.GetUserByUsername(config.Username); err != nil {
-		mlog.Error(err.Error())
+		p.API.LogError("can't get user by username in mattermost api for post issue comment event", "err", err.Error())
 		return
 	} else {
 		userID = user.Id
@@ -421,7 +418,7 @@ func (p *Plugin) postIssueCommentEvent(event *gitlab.IssueCommentEvent) {
 
 		post.ChannelId = sub.ChannelID
 		if _, err := p.API.CreatePost(post); err != nil {
-			mlog.Error(err.Error())
+			p.API.LogError("can't crate post for webhook post issue comment event", "err", err.Error())
 		}
 	}
 }
@@ -437,7 +434,7 @@ func (p *Plugin) postMergeCommentEvent(event *gitlab.MergeCommentEvent) {
 
 	userID := ""
 	if user, err := p.API.GetUserByUsername(config.Username); err != nil {
-		mlog.Error(err.Error())
+		p.API.LogError("can't get user by username in mattermost api for post merge request comment event", "err", err.Error())
 		return
 	} else {
 		userID = user.Id
@@ -485,7 +482,7 @@ func (p *Plugin) postMergeCommentEvent(event *gitlab.MergeCommentEvent) {
 
 		post.ChannelId = sub.ChannelID
 		if _, err := p.API.CreatePost(post); err != nil {
-			mlog.Error(err.Error())
+			p.API.LogError("can't crate post for webhook post merge request comment event", "err", err.Error())
 		}
 	}
 }

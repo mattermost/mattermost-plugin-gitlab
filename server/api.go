@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/manland/go-gitlab"
-	"github.com/mattermost/mattermost-server/mlog"
 	"github.com/mattermost/mattermost-server/model"
 	"github.com/mattermost/mattermost-server/plugin"
 
@@ -267,7 +266,7 @@ func (p *Plugin) getGitlabUser(w http.ResponseWriter, r *http.Request) {
 	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(&req); err != nil || req.UserID == "" {
 		if err != nil {
-			mlog.Error("Error decoding JSON body: " + err.Error())
+			p.API.LogError("Error decoding JSON body", "err", err.Error())
 		}
 		writeAPIError(w, &APIErrorResponse{ID: "", Message: "Please provide a JSON object with a non-blank user_id field.", StatusCode: http.StatusBadRequest})
 		return
@@ -291,7 +290,7 @@ func (p *Plugin) getGitlabUser(w http.ResponseWriter, r *http.Request) {
 	resp := &GitlabUserResponse{Username: userInfo.GitlabUsername}
 	b, jsonErr := json.Marshal(resp)
 	if jsonErr != nil {
-		mlog.Error("Error encoding JSON response: " + jsonErr.Error())
+		p.API.LogError("Error encoding JSON response", "err", jsonErr.Error())
 		writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
 	}
 	w.Write(b)
@@ -382,7 +381,7 @@ func (p *Plugin) getMentions(w http.ResponseWriter, r *http.Request) {
 
 	result, _, err := client.Search.Issues("", &gitlab.SearchOptions{}) //TODO what mention means in gitlab ?
 	if err != nil {
-		mlog.Error(err.Error())
+		p.API.LogError("can't search issue in gitlab api", "err", err.Error())
 	}
 
 	resp, _ := json.Marshal(result)
@@ -407,7 +406,7 @@ func (p *Plugin) getUnreads(w http.ResponseWriter, r *http.Request) {
 
 	notifications, _, err := client.Todos.ListTodos(&gitlab.ListTodosOptions{})
 	if err != nil {
-		mlog.Error(err.Error())
+		p.API.LogError("can't list todo in gitlab api", "err", err.Error())
 	}
 
 	resp, _ := json.Marshal(notifications)
@@ -442,7 +441,7 @@ func (p *Plugin) getReviews(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if errRequest != nil {
-		mlog.Error(errRequest.Error())
+		p.API.LogError("can't list merge-request where assignee in gitlab api", "err", errRequest.Error())
 		return
 	}
 
@@ -475,7 +474,7 @@ func (p *Plugin) getYourPrs(w http.ResponseWriter, r *http.Request) {
 		State:    &opened,
 	})
 	if errRequest != nil {
-		mlog.Error(errRequest.Error())
+		p.API.LogError("can't list merge-request where author in gitlab api", "err", errRequest.Error())
 		return
 	}
 
@@ -505,7 +504,7 @@ func (p *Plugin) getYourAssignments(w http.ResponseWriter, r *http.Request) {
 		State:      &opened,
 	})
 	if errRequest != nil {
-		mlog.Error(errRequest.Error())
+		p.API.LogError("can't list issue where assignee in gitlab api", "err", errRequest.Error())
 		return
 	}
 
@@ -532,7 +531,7 @@ func (p *Plugin) postToDo(w http.ResponseWriter, r *http.Request) {
 
 	text, errRequest := p.GetToDo(user, client)
 	if errRequest != nil {
-		mlog.Error(errRequest.Error())
+		p.API.LogError("can't get todo", "err", errRequest.Error())
 		writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an error getting the to do items.", StatusCode: http.StatusUnauthorized})
 		return
 	}
@@ -567,7 +566,7 @@ func (p *Plugin) updateSettings(w http.ResponseWriter, r *http.Request) {
 	info.Settings = settings
 
 	if err := p.storeGitlabUserInfo(info); err != nil {
-		mlog.Error(err.Error())
+		p.API.LogError("can't store gitlab user info when update settings", "err", err.Error())
 		http.Error(w, "Encountered error updating settings", http.StatusInternalServerError)
 	}
 

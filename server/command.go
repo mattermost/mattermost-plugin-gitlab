@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mattermost/mattermost-server/mlog"
 	"github.com/mattermost/mattermost-server/plugin"
 
 	"github.com/mattermost/mattermost-server/model"
@@ -138,7 +137,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		repo := parameters[0]
 
 		if err := p.Unsubscribe(args.ChannelId, repo); err != nil {
-			mlog.Error(err.Error())
+			p.API.LogError("can't unsubscribe channel in command", "err", err.Error())
 			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Encountered an error trying to unsubscribe. Please try again."), nil
 		}
 
@@ -149,7 +148,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 	case "todo":
 		text, err := p.GetToDo(info, client)
 		if err != nil {
-			mlog.Error(err.Error())
+			p.API.LogError("can't get todo in command", "err", err.Error())
 			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Encountered an error getting your to do items."), nil
 		}
 		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, text), nil

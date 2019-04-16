@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/manland/go-gitlab"
-	"github.com/mattermost/mattermost-server/mlog"
 	"github.com/mattermost/mattermost-server/model"
 	"github.com/mattermost/mattermost-server/plugin"
 
@@ -159,7 +158,7 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*GitlabUserInfo
 
 	unencryptedToken, err := decrypt([]byte(config.EncryptionKey), userInfo.Token.AccessToken)
 	if err != nil {
-		mlog.Error(err.Error())
+		p.API.LogError("can't decrypt token", "err", err.Error())
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to decrypt access token.", StatusCode: http.StatusInternalServerError}
 	}
 

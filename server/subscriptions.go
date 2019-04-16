@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/manland/go-gitlab"
-	"github.com/mattermost/mattermost-server/mlog"
 	"github.com/pkg/errors"
 )
 
@@ -78,7 +77,7 @@ func (p *Plugin) Subscribe(client *gitlab.Client, userId, owner, repo, channelID
 
 	if result, _, err := client.Projects.GetProject(owner+"/"+repo, &gitlab.GetProjectOptions{}); result == nil || err != nil {
 		if err != nil {
-			mlog.Error(err.Error())
+			p.API.LogError("can't get project", "err", err.Error(), "project", owner+"/"+repo)
 		}
 		return fmt.Errorf("Unknown repository %s/%s", owner, repo)
 	}
@@ -110,7 +109,7 @@ func (p *Plugin) SubscribeGroup(client *gitlab.Client, userId, org, channelID, f
 	for {
 		repos, response, err := client.Groups.ListGroupProjects(org, requestOptions)
 		if err != nil {
-			mlog.Error(err.Error())
+			p.API.LogError("can't list group project", "err", err.Error())
 			return errors.Wrap(err, "can't list group project")
 		}
 		allRepos = append(allRepos, repos...)
@@ -129,7 +128,7 @@ func (p *Plugin) SubscribeGroup(client *gitlab.Client, userId, org, channelID, f
 		}
 
 		if err := p.AddSubscription(sub.Repository, sub); err != nil {
-			mlog.Error(err.Error())
+			p.API.LogError("can't add subscipriotn", "err", err.Error(), "repository", sub.Repository)
 			continue
 		}
 	}
