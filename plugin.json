@@ -1,0 +1,70 @@
+{
+    "id": "com.github.manland.mattermost-plugin-gitlab",
+    "name": "Gitlab",
+    "description": "Gitlab plugin for Mattermost.",
+    "version": "0.1.0",
+    "server": {
+      "executables": {
+          "linux-amd64": "server/dist/plugin-linux-amd64",
+          "darwin-amd64": "server/dist/plugin-darwin-amd64",
+          "windows-amd64": "server/dist/plugin-windows-amd64.exe"
+      }
+    },
+    "webapp": {
+        "bundle_path": "webapp/dist/main.js"
+    },
+    "settings_schema": {
+        "header": "To set up the Gitlab plugin, you need to register a Gitlab OAuth app here https://gitlab.com/profile/applications.",
+        "settings": [
+            {
+                "key": "GitlabOAuthClientID",
+                "display_name": "Gitlab OAuth Client ID",
+                "type": "text",
+                "help_text": "The client ID for the OAuth app registered with Gitlab."
+            },
+            {
+                "key": "GitlabOAuthClientSecret",
+                "display_name": "Gitlab OAuth Client Secret",
+                "type": "text",
+                "help_text": "The client secret for the OAuth app registered with Gitlab."
+            },
+            {
+                "key": "WebhookSecret",
+                "display_name": "Webhook Secret",
+                "type": "generated",
+                "help_text": "The webhook secret set in Gitlab."
+            },
+            {
+                "key": "Username",
+                "display_name": "User",
+                "type": "username",
+                "help_text": "Select the username of the user that the plugin will post with. This can be any user, the name and icon will be overridden when posting."
+            },
+            {
+                "key": "EncryptionKey",
+                "display_name": "At Rest Encryption Key",
+                "type": "generated",
+                "help_text": "The AES encryption key used to encrypt stored access tokens."
+            },
+            {
+                "key": "GitlabGroup",
+                "display_name": "Gitlab group",
+                "type": "text",
+                "help_text": "(Optional) Set to lock the plugin to a single Gitlab group."
+            },
+            {
+                "key": "EnterpriseBaseURL",
+                "display_name": "Enterprise Base URL",
+                "type": "text",
+                "help_text": "(Optional) The base URL for using the plugin with a Gitlab Enterprise installation. Example: https://gitlab.example.com"
+            },
+            {
+                "key": "EnablePrivateRepo",
+                "display_name": "Enable Private Repositories",
+                "type": "bool",
+                "help_text": "(Optional) Allow the plugin to work with private repositories. Enabling private repositories will require existing users to reconnect their accounts to gain access to private repositories. A message will be automatically be sent to affected users next time they load Mattermost alerting them of this."
+            }
+        ],
+        "footer": "* To report an issue, make a suggestion or a contribution, [check the repository](https://github.com/manland/mattermost-plugin-gitlab)."
+    }
+}
