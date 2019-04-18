@@ -17,9 +17,10 @@ type GitlabRetreiver interface {
 }
 
 type HandleWebhook struct {
-	Message string
-	To      string
-	From    string
+	Message    string
+	From       string
+	ToUsers    []string
+	ToChannels []string
 }
 
 type Webhook interface {
@@ -40,11 +41,40 @@ func NewWebhook(g GitlabRetreiver) Webhook {
 func cleanWebhookHandlers(handlers []*HandleWebhook) []*HandleWebhook {
 	res := make([]*HandleWebhook, 0)
 	for _, handle := range handlers {
-		if handle.From != handle.To {
-			res = append(res, handle)
-		}
+		res = append(res, cleanWebhookHandlerTo(handle))
 	}
 	return res
+}
+
+func cleanWebhookHandlerTo(handler *HandleWebhook) *HandleWebhook {
+	users := map[string]bool{}
+	for _, v := range handler.ToUsers {
+		if handler.From != v && v != "" { // don't send message to author or unknown user
+			users[v] = true
+		}
+	}
+
+	cleanedUsers := []string{}
+	for key := range users {
+		cleanedUsers = append(cleanedUsers, key)
+	}
+
+	channels := map[string]bool{}
+	for _, v := range handler.ToChannels {
+		channels[v] = true
+	}
+
+	cleanedChannels := []string{}
+	for key := range channels {
+		cleanedChannels = append(cleanedChannels, key)
+	}
+
+	return &HandleWebhook{
+		From:       handler.From,
+		Message:    handler.Message,
+		ToUsers:    cleanedUsers,
+		ToChannels: cleanedChannels,
+	}
 }
 
 type mentionDetails struct {
@@ -55,15 +85,14 @@ type mentionDetails struct {
 	body              string
 }
 
-func (w *webhook) handleMention(m mentionDetails) []*HandleWebhook {
+func (w *webhook) handleMention(m mentionDetails) *HandleWebhook {
 	mentionedUsernames := w.gitlabRetreiver.ParseGitlabUsernamesFromText(m.body)
-	handlers := make([]*HandleWebhook, len(mentionedUsernames))
-	for index, mentionedUsername := range mentionedUsernames {
-		handlers[index] = &HandleWebhook{
-			Message: fmt.Sprintf("[%s](%s) mentioned you on [%s#%v](%s):\n>%s", m.senderUsername, w.gitlabRetreiver.GetUserURL(m.senderUsername), m.pathWithNamespace, m.IID, m.URL, m.body),
+	if len(mentionedUsernames) > 0 {
+		return &HandleWebhook{
 			From:    m.senderUsername,
-			To:      mentionedUsername,
+			Message: fmt.Sprintf("[%s](%s) mentioned you on [%s#%v](%s):\n>%s", m.senderUsername, w.gitlabRetreiver.GetUserURL(m.senderUsername), m.pathWithNamespace, m.IID, m.URL, m.body),
+			ToUsers: mentionedUsernames,
 		}
 	}
-	return handlers
+	return nil
 }

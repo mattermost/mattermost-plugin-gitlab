@@ -21,28 +21,28 @@ func (w *webhook) HandleIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, error
 	}
 
 	if len(message) > 0 {
-		handlers := make([]*HandleWebhook, len(event.Assignees)+1)
+		toUsers := make([]string, len(event.Assignees)+1)
 		for index, assignee := range event.Assignees {
-			handlers[index] = &HandleWebhook{
-				Message: message,
-				To:      assignee.Username,
-				From:    senderGitlabUsername,
-			}
+			toUsers[index] = assignee.Username
 		}
-		handlers[len(handlers)-1] = &HandleWebhook{
-			Message: message,
-			To:      authorGitlabUsername,
-			From:    senderGitlabUsername,
-		}
+		toUsers[len(toUsers)-1] = authorGitlabUsername
 
-		mentions := w.handleMention(mentionDetails{
+		handlers := []*HandleWebhook{{
+			Message: message,
+			ToUsers: toUsers,
+			From:    senderGitlabUsername,
+		}}
+
+		if mention := w.handleMention(mentionDetails{
 			senderUsername:    senderGitlabUsername,
 			pathWithNamespace: event.Project.PathWithNamespace,
 			IID:               event.ObjectAttributes.IID,
 			URL:               event.ObjectAttributes.URL,
 			body:              event.ObjectAttributes.Description,
-		})
-		return cleanWebhookHandlers(append(handlers, mentions...)), nil
+		}); mention != nil {
+			handlers = append(handlers, mention)
+		}
+		return cleanWebhookHandlers(handlers), nil
 	}
 	return []*HandleWebhook{}, nil
 }

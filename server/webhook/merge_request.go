@@ -26,26 +26,22 @@ func (w *webhook) HandleMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebhook
 	}
 
 	if len(message) > 0 {
-		handlers := []*HandleWebhook{
-			{
-				Message: message,
-				To:      w.gitlabRetreiver.GetUsernameByID(event.ObjectAttributes.AssigneeID),
-				From:    senderGitlabUsername,
-			}, {
-				Message: message,
-				To:      authorGitlabUsername,
-				From:    senderGitlabUsername,
-			},
-		}
+		handlers := []*HandleWebhook{{
+			Message: message,
+			ToUsers: []string{w.gitlabRetreiver.GetUsernameByID(event.ObjectAttributes.AssigneeID), authorGitlabUsername},
+			From:    senderGitlabUsername,
+		}}
 
-		mentions := w.handleMention(mentionDetails{
+		if mention := w.handleMention(mentionDetails{
 			senderUsername:    senderGitlabUsername,
 			pathWithNamespace: event.Project.PathWithNamespace,
 			IID:               event.ObjectAttributes.IID,
 			URL:               event.ObjectAttributes.URL,
 			body:              event.ObjectAttributes.Description,
-		})
-		return cleanWebhookHandlers(append(handlers, mentions...)), nil
+		}); mention != nil {
+			handlers = append(handlers, mention)
+		}
+		return cleanWebhookHandlers(handlers), nil
 	}
 	return []*HandleWebhook{{From: senderGitlabUsername}}, nil
 }

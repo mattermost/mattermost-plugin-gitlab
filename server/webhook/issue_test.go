@@ -20,7 +20,7 @@ var testDataIssue = []testDataIssueStr{
 		fixture:   NewIssue,
 		res: []*HandleWebhook{{
 			Message: "[root](http://my.gitlab.com/root) assigned you to issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
-			To:      "manland",
+			ToUsers: []string{"manland"},
 			From:    "root",
 		}},
 	}, {
@@ -32,7 +32,7 @@ var testDataIssue = []testDataIssueStr{
 		fixture:   CloseIssue,
 		res: []*HandleWebhook{{
 			Message: "[manland](http://my.gitlab.com/manland) closed your issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
-			To:      "root",
+			ToUsers: []string{"root"},
 			From:    "manland",
 		}},
 	}, {
@@ -40,7 +40,7 @@ var testDataIssue = []testDataIssueStr{
 		fixture:   ReopenIssue,
 		res: []*HandleWebhook{{
 			Message: "[manland](http://my.gitlab.com/manland) reopened your issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
-			To:      "root",
+			ToUsers: []string{"root"},
 			From:    "manland",
 		}},
 	},
@@ -60,7 +60,7 @@ func TestIssueWebhook(t *testing.T) {
 			assert.Equal(t, len(test.res), len(res))
 			for index := range res {
 				assert.Equal(t, test.res[index].Message, res[index].Message)
-				assert.Equal(t, test.res[index].To, res[index].To)
+				assert.EqualValues(t, test.res[index].ToUsers, res[index].ToUsers)
 				assert.Equal(t, test.res[index].From, res[index].From)
 			}
 		})

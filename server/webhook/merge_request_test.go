@@ -20,7 +20,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 		fixture:   OpenMergeRequest,
 		res: []*HandleWebhook{{
 			Message: "[root](http://my.gitlab.com/root) requested your review on [manland/webhook#4](http://localhost:3000/manland/webhook/merge_requests/4)",
-			To:      "manland",
+			ToUsers: []string{"manland"},
 			From:    "root",
 		}},
 	}, {
@@ -28,7 +28,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 		fixture:   CloseMergeRequestByAssignee,
 		res: []*HandleWebhook{{
 			Message: "[manland](http://my.gitlab.com/manland) closed your pull request [manland/webhook#4](http://localhost:3000/manland/webhook/merge_requests/4)",
-			To:      "root",
+			ToUsers: []string{"root"},
 			From:    "manland",
 		}},
 	}, {
@@ -36,11 +36,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 		fixture:   ReopenMerge,
 		res: []*HandleWebhook{{
 			Message: "[manland](http://my.gitlab.com/manland) reopen your pull request [manland/webhook#1](http://localhost:3000/manland/webhook/merge_requests/1)",
-			To:      "", //no assignee
-			From:    "manland",
-		}, {
-			Message: "[manland](http://my.gitlab.com/manland) reopen your pull request [manland/webhook#1](http://localhost:3000/manland/webhook/merge_requests/1)",
-			To:      "root",
+			ToUsers: []string{"root"},
 			From:    "manland",
 		}},
 	}, {
@@ -48,7 +44,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 		fixture:   AssigneeMergeRequest,
 		res: []*HandleWebhook{{
 			Message: "[root](http://my.gitlab.com/root) assigned you to pull request [manland/webhook#4](http://localhost:3000/manland/webhook/merge_requests/4)",
-			To:      "manland",
+			ToUsers: []string{"manland"},
 			From:    "root",
 		}},
 	}, {
@@ -56,7 +52,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 		fixture:   MergeRequestMerged,
 		res: []*HandleWebhook{{
 			Message: "[manland](http://my.gitlab.com/manland) merged your pull request [manland/webhook#4](http://localhost:3000/manland/webhook/merge_requests/4)",
-			To:      "root",
+			ToUsers: []string{"root"},
 			From:    "manland",
 		}},
 	}, {
@@ -64,7 +60,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 		fixture:   CloseMergeRequestByCreator,
 		res: []*HandleWebhook{{
 			Message: "[root](http://my.gitlab.com/root) closed your pull request [manland/webhook#1](http://localhost:3000/manland/webhook/merge_requests/1)",
-			To:      "", //no assignee
+			ToUsers: []string{}, //no assignee
 			From:    "root",
 		}},
 	},
@@ -84,7 +80,7 @@ func TestMergeRequestWebhook(t *testing.T) {
 			assert.Equal(t, len(test.res), len(res))
 			for index := range res {
 				assert.Equal(t, test.res[index].Message, res[index].Message)
-				assert.Equal(t, test.res[index].To, res[index].To)
+				assert.Equal(t, test.res[index].ToUsers, res[index].ToUsers)
 				assert.Equal(t, test.res[index].From, res[index].From)
 			}
 		})

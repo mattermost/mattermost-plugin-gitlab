@@ -106,9 +106,9 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, res := range handlers {
-		p.API.LogInfo("new msg", "message", res.Message, "to", res.To, "from", res.From)
-		if len(res.To) > 0 {
-			userTo := p.getGitlabToUserIDMapping(res.To)
+		p.API.LogInfo("new msg", "message", res.Message, "to", "from", res.From)
+		for _, to := range res.ToUsers {
+			userTo := p.getGitlabToUserIDMapping(to)
 			p.API.LogInfo("userTo", "to", userTo)
 			p.sendRefreshEvent(userTo)
 			if len(res.Message) > 0 {

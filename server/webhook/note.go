@@ -10,28 +10,31 @@ func (w *webhook) HandleIssueComment(event *gitlab.IssueCommentEvent) ([]*Handle
 	senderGitlabUsername := event.User.Username
 	message := fmt.Sprintf("[%s](%s) commented on your issue [%s#%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Project.PathWithNamespace, event.Issue.IID, event.ObjectAttributes.URL)
 
-	handlers := make([]*HandleWebhook, len(event.Issue.AssigneeIDs)+1)
+	toUsers := make([]string, len(event.Issue.AssigneeIDs)+1)
 	for index, assigneeID := range event.Issue.AssigneeIDs {
-		handlers[index] = &HandleWebhook{
-			Message: message,
-			To:      w.gitlabRetreiver.GetUsernameByID(assigneeID),
-			From:    senderGitlabUsername,
-		}
+		toUsers[index] = w.gitlabRetreiver.GetUsernameByID(assigneeID)
 	}
-	handlers[len(handlers)-1] = &HandleWebhook{
-		Message: message,
-		To:      w.gitlabRetreiver.GetUsernameByID(event.Issue.AuthorID),
-		From:    senderGitlabUsername,
+	toUsers[len(toUsers)-1] = w.gitlabRetreiver.GetUsernameByID(event.Issue.AuthorID)
+
+	handlers := []*HandleWebhook{
+		{
+			Message: message,
+			ToUsers: toUsers,
+			From:    senderGitlabUsername,
+		},
 	}
 
-	mentions := w.handleMention(mentionDetails{
+	if mention := w.handleMention(mentionDetails{
 		senderUsername:    senderGitlabUsername,
 		pathWithNamespace: event.Project.PathWithNamespace,
 		IID:               event.Issue.IID,
 		URL:               event.ObjectAttributes.URL,
 		body:              event.ObjectAttributes.Note,
-	})
-	return cleanWebhookHandlers(append(handlers, mentions...)), nil
+	}); mention != nil {
+		handlers = append(handlers, mention)
+	}
+
+	return cleanWebhookHandlers(handlers), nil
 }
 
 func (w *webhook) HandleMergeRequestComment(event *gitlab.MergeCommentEvent) ([]*HandleWebhook, error) {
@@ -40,20 +43,18 @@ func (w *webhook) HandleMergeRequestComment(event *gitlab.MergeCommentEvent) ([]
 
 	handlers := []*HandleWebhook{{
 		Message: message,
-		To:      w.gitlabRetreiver.GetUsernameByID(event.MergeRequest.AssigneeID),
-		From:    senderGitlabUsername,
-	}, {
-		Message: message,
-		To:      w.gitlabRetreiver.GetUsernameByID(event.MergeRequest.AuthorID),
+		ToUsers: []string{w.gitlabRetreiver.GetUsernameByID(event.MergeRequest.AssigneeID), w.gitlabRetreiver.GetUsernameByID(event.MergeRequest.AuthorID)},
 		From:    senderGitlabUsername,
 	}}
 
-	mentions := w.handleMention(mentionDetails{
+	if mention := w.handleMention(mentionDetails{
 		senderUsername:    senderGitlabUsername,
 		pathWithNamespace: event.Project.PathWithNamespace,
 		IID:               event.MergeRequest.IID,
 		URL:               event.ObjectAttributes.URL,
 		body:              event.ObjectAttributes.Note,
-	})
-	return cleanWebhookHandlers(append(handlers, mentions...)), nil
+	}); mention != nil {
+		handlers = append(handlers, mention)
+	}
+	return cleanWebhookHandlers(handlers), nil
 }
