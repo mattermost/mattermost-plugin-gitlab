@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/manland/go-gitlab"
+	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
 	"github.com/manland/mattermost-plugin-gitlab/server/webhook"
 
 	"github.com/mattermost/mattermost-server/model"
@@ -31,6 +32,10 @@ func (g *gitlabRetreiver) GetUsernameByID(id int) string {
 
 func (g *gitlabRetreiver) ParseGitlabUsernamesFromText(text string) []string {
 	return parseGitlabUsernamesFromText(text)
+}
+
+func (g *gitlabRetreiver) GetSubscribedChannelsForRepository(repoWithNamespace string, isPublicVisibility bool) []*subscription.Subscription {
+	return g.p.GetSubscribedChannelsForRepository(repoWithNamespace, isPublicVisibility)
 }
 
 func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
@@ -60,12 +65,18 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	var errHandler error
 
 	webhookManager := webhook.NewWebhook(&gitlabRetreiver{p: p}) // TODO build it at init instead at each call
+	userID := ""
+	if user, err := p.API.GetUserByUsername(config.Username); err != nil { // TODO build it at init instead at each call
+		p.API.LogError("can't get user by username in mattermost api for post merge request event", "err", err.Error())
+		return
+	} else {
+		userID = user.Id
+	}
 
 	//TODO move postXXX to package webhook and test it
 	switch event := event.(type) {
 	case *gitlab.MergeEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
-		p.postMergeRequestEvent(event)
 		handlers, errHandler = webhookManager.HandleMergeRequest(event)
 	case *gitlab.IssueEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
@@ -105,22 +116,46 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	alreadySentRefresh := make(map[string]bool)
 	for _, res := range handlers {
 		p.API.LogInfo("new msg", "message", res.Message, "to", "from", res.From)
 		for _, to := range res.ToUsers {
 			userTo := p.getGitlabToUserIDMapping(to)
 			p.API.LogInfo("userTo", "to", userTo)
-			p.sendRefreshEvent(userTo)
+			if !alreadySentRefresh[userTo] {
+				alreadySentRefresh[userTo] = true
+				p.sendRefreshEvent(userTo)
+			}
 			if len(res.Message) > 0 {
 				if err := p.CreateBotDMPost(userTo, res.Message, "custom_git_review_request"); err != nil {
 					p.API.LogError("can't send dm post", "err", err.DetailedError)
 				}
 			}
 		}
+		for _, to := range res.ToChannels {
+			if len(res.Message) > 0 {
+				post := &model.Post{
+					UserId:    userID,
+					Message:   res.Message,
+					ChannelId: to,
+					Props: map[string]interface{}{
+						"from_webhook":      "true",
+						"override_username": GITLAB_USERNAME,
+						"override_icon_url": config.ProfileImageURL,
+					},
+				}
+				if _, err := p.API.CreatePost(post); err != nil {
+					p.API.LogError("can't crate post for webhook event", "err", err.Error())
+				}
+			}
+		}
 		if len(res.From) > 0 {
 			userFrom := p.getGitlabToUserIDMapping(res.From)
 			p.API.LogInfo("userFrom", "from", userFrom)
-			p.sendRefreshEvent(userFrom)
+			if !alreadySentRefresh[userFrom] {
+				alreadySentRefresh[userFrom] = true
+				p.sendRefreshEvent(userFrom)
+			}
 		}
 	}
 }
@@ -155,90 +190,6 @@ func (p *Plugin) permissionToRepo(userID string, fullPath string) bool {
 		return false
 	}
 	return true
-}
-
-func (p *Plugin) postMergeRequestEvent(event *gitlab.MergeEvent) {
-	config := p.getConfiguration()
-	repo := event.Project
-
-	subs := p.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
-	if len(subs) == 0 {
-		return
-	}
-
-	userID := ""
-	if user, err := p.API.GetUserByUsername(config.Username); err != nil {
-		p.API.LogError("can't get user by username in mattermost api for post merge request event", "err", err.Error())
-		return
-	} else {
-		userID = user.Id
-	}
-
-	pr := event.ObjectAttributes
-	prUser := event.User
-
-	if pr.Action == "update" {
-		return
-	}
-
-	newPRMessage := fmt.Sprintf(`
-#### %s
-##### [%s#%v](%s)
-# new-pull-request by [%s](%s) on [%s](%s)
-
-%s
-`, pr.Title, repo.PathWithNamespace, pr.IID, pr.URL, prUser.Username, prUser.WebsiteURL, pr.CreatedAt, pr.URL, pr.Description)
-
-	fmtCloseMessage := ""
-	if pr.MergeStatus == "merged" {
-		fmtCloseMessage = "[%s] Pull request [#%v %s](%s) was merged by [%s](%s)"
-	} else {
-		fmtCloseMessage = "[%s] Pull request [#%v %s](%s) was closed by [%s](%s)"
-	}
-	closedPRMessage := fmt.Sprintf(fmtCloseMessage, repo.PathWithNamespace, pr.IID, pr.Title, pr.URL, prUser.Username, prUser.WebsiteURL)
-
-	post := &model.Post{
-		UserId: userID,
-		Type:   "custom_git_pr",
-		Props: map[string]interface{}{
-			"from_webhook":      "true",
-			"override_username": GITLAB_USERNAME,
-			"override_icon_url": config.ProfileImageURL,
-		},
-	}
-
-	for _, sub := range subs {
-		if !sub.Pulls() {
-			continue
-		}
-
-		//TODO manage label like issues
-		label := sub.Label()
-
-		contained := false
-		for _, v := range event.Changes.Labels.Current {
-			if v.Name == label {
-				contained = true
-			}
-		}
-
-		if !contained && label != "" {
-			continue
-		}
-
-		if pr.State == "opened" {
-			post.Message = newPRMessage
-		}
-
-		if pr.State == "closed" {
-			post.Message = closedPRMessage
-		}
-
-		post.ChannelId = sub.ChannelID
-		if _, err := p.API.CreatePost(post); err != nil {
-			p.API.LogError("can't crate post for webhook post merge request event", "err", err.Error())
-		}
-	}
 }
 
 func (p *Plugin) postIssueEvent(event *gitlab.IssueEvent) {

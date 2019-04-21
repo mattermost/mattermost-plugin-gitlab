@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
+
 	"github.com/manland/go-gitlab"
 	"github.com/stretchr/testify/assert"
 )
@@ -39,7 +41,7 @@ var testDataNote = []testDataNoteStr{
 
 func TestNoteWebhook(t *testing.T) {
 	t.Parallel()
-	w := NewWebhook(fakeWebhook{})
+	w := NewWebhook(newFakeWebhook([]*subscription.Subscription{}))
 	for _, test := range testDataNote {
 		t.Run(test.testTitle, func(t *testing.T) {
 			var res []*HandleWebhook

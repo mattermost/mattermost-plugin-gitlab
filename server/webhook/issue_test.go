@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/manland/go-gitlab"
+	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,7 +49,7 @@ var testDataIssue = []testDataIssueStr{
 
 func TestIssueWebhook(t *testing.T) {
 	t.Parallel()
-	w := NewWebhook(fakeWebhook{})
+	w := NewWebhook(newFakeWebhook([]*subscription.Subscription{}))
 	for _, test := range testDataIssue {
 		t.Run(test.testTitle, func(t *testing.T) {
 			issueEvent := &gitlab.IssueEvent{}

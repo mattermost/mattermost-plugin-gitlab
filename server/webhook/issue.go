@@ -7,6 +7,10 @@ import (
 )
 
 func (w *webhook) HandleIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, error) {
+	return w.handleDMIssue(event)
+}
+
+func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, error) {
 	authorGitlabUsername := w.gitlabRetreiver.GetUsernameByID(event.ObjectAttributes.AuthorID)
 	senderGitlabUsername := event.User.Username
 
@@ -45,4 +49,9 @@ func (w *webhook) HandleIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, error
 		return cleanWebhookHandlers(handlers), nil
 	}
 	return []*HandleWebhook{}, nil
+}
+
+func (w *webhook) handleChannelIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, error) {
+	//TODO FINISH ME
+	return nil, nil
 }

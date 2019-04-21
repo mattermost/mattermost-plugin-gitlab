@@ -3,6 +3,8 @@ package webhook
 import (
 	"fmt"
 
+	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
+
 	"github.com/manland/go-gitlab"
 )
 
@@ -14,6 +16,8 @@ type GitlabRetreiver interface {
 	GetUsernameByID(id int) string
 	// ParseGitlabUsernamesFromText from a text return an array of username
 	ParseGitlabUsernamesFromText(text string) []string
+	// GetSubscribedChannelsForRepository return all subscription for this repository
+	GetSubscribedChannelsForRepository(repoWithNamespace string, isPublicVisibility bool) []*subscription.Subscription
 }
 
 type HandleWebhook struct {

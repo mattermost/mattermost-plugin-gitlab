@@ -1,14 +1,26 @@
 package webhook
 
-import "fmt"
+import (
+	"fmt"
 
-type fakeWebhook struct{}
+	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
+)
 
-func (fakeWebhook) GetUserURL(username string) string {
+type fakeWebhook struct {
+	subs []*subscription.Subscription
+}
+
+func newFakeWebhook(subs []*subscription.Subscription) *fakeWebhook {
+	return &fakeWebhook{
+		subs: subs,
+	}
+}
+
+func (*fakeWebhook) GetUserURL(username string) string {
 	return fmt.Sprintf("http://my.gitlab.com/%s", username)
 }
 
-func (fakeWebhook) GetUsernameByID(id int) string {
+func (*fakeWebhook) GetUsernameByID(id int) string {
 	if id == 1 {
 		return "root"
 	} else if id == 50 {
@@ -18,6 +30,10 @@ func (fakeWebhook) GetUsernameByID(id int) string {
 	}
 }
 
-func (fakeWebhook) ParseGitlabUsernamesFromText(body string) []string {
+func (*fakeWebhook) ParseGitlabUsernamesFromText(body string) []string {
 	return []string{}
+}
+
+func (f *fakeWebhook) GetSubscribedChannelsForRepository(repoWithNamespace string, isPublicVisibility bool) []*subscription.Subscription {
+	return f.subs
 }
