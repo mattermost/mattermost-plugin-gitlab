@@ -72,7 +72,6 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		userID = user.Id
 	}
 
-	//TODO move postXXX to package webhook and test it
 	switch event := event.(type) {
 	case *gitlab.MergeEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
@@ -82,11 +81,9 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		handlers, errHandler = webhookManager.HandleIssue(event)
 	case *gitlab.IssueCommentEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
-		p.postIssueCommentEvent(event)
 		handlers, errHandler = webhookManager.HandleIssueComment(event)
 	case *gitlab.MergeCommentEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
-		p.postMergeCommentEvent(event)
 		handlers, errHandler = webhookManager.HandleMergeRequestComment(event)
 	case *gitlab.PushEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
@@ -188,132 +185,4 @@ func (p *Plugin) permissionToRepo(userID string, fullPath string) bool {
 		return false
 	}
 	return true
-}
-
-func (p *Plugin) postIssueCommentEvent(event *gitlab.IssueCommentEvent) {
-	config := p.getConfiguration()
-	repo := event.Project
-
-	subs := p.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
-	if len(subs) == 0 {
-		return
-	}
-
-	userID := ""
-	if user, err := p.API.GetUserByUsername(config.Username); err != nil {
-		p.API.LogError("can't get user by username in mattermost api for post issue comment event", "err", err.Error())
-		return
-	} else {
-		userID = user.Id
-	}
-
-	body := event.ObjectAttributes.Note
-
-	message := fmt.Sprintf("[\\[%s\\]](%s) New comment by [%s](%s) on [#%v %s]:\n\n%s",
-		repo.PathWithNamespace, repo.URL, event.User.Username, event.User.WebsiteURL, event.Issue.IID, event.Issue.Title, body)
-
-	post := &model.Post{
-		UserId:  userID,
-		Type:    "custom_git_comment",
-		Message: message,
-		Props: map[string]interface{}{
-			"from_webhook":      "true",
-			"override_username": GITLAB_USERNAME,
-			"override_icon_url": config.ProfileImageURL,
-		},
-	}
-
-	// TODO labels !?
-	// labels := make([]string, len(event.Issue.Labels))
-	// for i, v := range event.Issue.Labels {
-	// 	labels[i] = v
-	// }
-
-	for _, sub := range subs {
-		if !sub.IssueComments() {
-			continue
-		}
-
-		// label := sub.Label()
-
-		// contained := false
-		// for _, v := range labels {
-		// 	if v == label {
-		// 		contained = true
-		// 	}
-		// }
-
-		// if !contained && label != "" {
-		// 	continue
-		// }
-
-		post.ChannelId = sub.ChannelID
-		if _, err := p.API.CreatePost(post); err != nil {
-			p.API.LogError("can't crate post for webhook post issue comment event", "err", err.Error())
-		}
-	}
-}
-
-func (p *Plugin) postMergeCommentEvent(event *gitlab.MergeCommentEvent) {
-	config := p.getConfiguration()
-	repo := event.Project
-
-	subs := p.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
-	if len(subs) == 0 {
-		return
-	}
-
-	userID := ""
-	if user, err := p.API.GetUserByUsername(config.Username); err != nil {
-		p.API.LogError("can't get user by username in mattermost api for post merge request comment event", "err", err.Error())
-		return
-	} else {
-		userID = user.Id
-	}
-
-	body := event.ObjectAttributes.Note
-
-	message := fmt.Sprintf("[\\[%s\\]](%s) New comment by [%s](%s) on [#%v %s]:\n\n%s",
-		repo.PathWithNamespace, repo.URL, event.User.Username, event.User.WebsiteURL, event.MergeRequest.IID, event.MergeRequest.Title, body)
-
-	post := &model.Post{
-		UserId:  userID,
-		Type:    "custom_git_comment",
-		Message: message,
-		Props: map[string]interface{}{
-			"from_webhook":      "true",
-			"override_username": GITLAB_USERNAME,
-			"override_icon_url": config.ProfileImageURL,
-		},
-	}
-
-	// TODO labels !?
-	// labels := make([]string, len(event.Issue.Labels))
-	// for i, v := range event.Issue.Labels {
-	// 	labels[i] = v
-	// }
-
-	for _, sub := range subs {
-		if !sub.IssueComments() {
-			continue
-		}
-
-		// label := sub.Label()
-
-		// contained := false
-		// for _, v := range labels {
-		// 	if v == label {
-		// 		contained = true
-		// 	}
-		// }
-
-		// if !contained && label != "" {
-		// 	continue
-		// }
-
-		post.ChannelId = sub.ChannelID
-		if _, err := p.API.CreatePost(post); err != nil {
-			p.API.LogError("can't crate post for webhook post merge request comment event", "err", err.Error())
-		}
-	}
 }
