@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	"github.com/manland/go-gitlab"
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
@@ -80,7 +79,6 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		handlers, errHandler = webhookManager.HandleMergeRequest(event)
 	case *gitlab.IssueEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
-		p.postIssueEvent(event)
 		handlers, errHandler = webhookManager.HandleIssue(event)
 	case *gitlab.IssueCommentEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
@@ -190,126 +188,6 @@ func (p *Plugin) permissionToRepo(userID string, fullPath string) bool {
 		return false
 	}
 	return true
-}
-
-func (p *Plugin) postIssueEvent(event *gitlab.IssueEvent) {
-	config := p.getConfiguration()
-	repo := event.Project
-
-	subs := p.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
-	if len(subs) == 0 {
-		return
-	}
-
-	action := event.ObjectAttributes.Action
-	if action != "open" && action != "update" && action != "close" {
-		return
-	}
-
-	userID := ""
-	if user, err := p.API.GetUserByUsername(config.Username); err != nil {
-		p.API.LogError("can't get user by username in mattermost api for post issue event", "err", err.Error())
-		return
-	} else {
-		userID = user.Id
-	}
-
-	issue := event.ObjectAttributes
-	issueUser := event.User
-	labels := make([]string, len(event.Labels))
-	for i, v := range event.Labels {
-		labels[i] = v.Name
-	}
-
-	newIssueMessage := fmt.Sprintf(`
-#### %s
-##### [%s#%v](%s)
-# new-issue by [%s](%s) on [%s](%s)
-
-%s
-`, issue.Title, repo.PathWithNamespace, issue.IID, issue.URL, issueUser.Username, issueUser.WebsiteURL, issue.CreatedAt, issue.URL, issue.Description)
-
-	closedIssueMessage := fmt.Sprintf("\\[%s] Issue [%s](%s) closed by [%s](%s)",
-		repo.PathWithNamespace, issue.Title, issue.URL, issueUser.Username, issueUser.WebsiteURL)
-
-	post := &model.Post{
-		UserId: userID,
-		Type:   "custom_git_issue",
-		Props: map[string]interface{}{
-			"from_webhook":      "true",
-			"override_username": GITLAB_USERNAME,
-			"override_icon_url": config.ProfileImageURL,
-		},
-	}
-
-	for _, sub := range subs {
-		if !sub.Issues() {
-			continue
-		}
-
-		label := sub.Label()
-
-		contained := false
-		for _, v := range labels {
-			if v == label {
-				contained = true
-			}
-		}
-
-		if !contained && label != "" {
-			continue
-		}
-
-		if action == "update" && len(event.Changes.Labels.Current) > 0 && !sameLabels(event.Changes.Labels.Current, event.Changes.Labels.Previous) {
-			if label == "" || containsLabel(event.Labels, label) {
-				post.Message = fmt.Sprintf("#### %s\n##### [%s#%v](%s)\n#issue-labeled `%s` by [%s](%s) on [%s](%s)\n\n%s", issue.Title, repo.PathWithNamespace, issue.IID, issue.URL, labelToString(event.Changes.Labels.Current), event.User.Username, event.User.WebsiteURL, issue.UpdatedAt, issue.URL, issue.Description)
-			} else {
-				continue
-			}
-		}
-
-		if action == "open" {
-			post.Message = newIssueMessage
-		}
-
-		if action == "close" {
-			post.Message = closedIssueMessage
-		}
-
-		post.ChannelId = sub.ChannelID
-		if _, err := p.API.CreatePost(post); err != nil {
-			p.API.LogError("can't crate post for webhook post issue event", "err", err.Error())
-		}
-	}
-}
-
-func sameLabels(a []gitlab.Label, b []gitlab.Label) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for index, l := range a {
-		if l.ID != b[index].ID {
-			return false
-		}
-	}
-	return true
-}
-
-func containsLabel(a []gitlab.Label, labelName string) bool {
-	for _, l := range a {
-		if l.Name == labelName {
-			return true
-		}
-	}
-	return false
-}
-
-func labelToString(a []gitlab.Label) string {
-	names := make([]string, len(a))
-	for index, l := range a {
-		names[index] = l.Name
-	}
-	return strings.Join(names, ", ")
 }
 
 func (p *Plugin) postIssueCommentEvent(event *gitlab.IssueCommentEvent) {

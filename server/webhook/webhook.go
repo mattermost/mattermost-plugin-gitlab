@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
 
@@ -99,4 +100,33 @@ func (w *webhook) handleMention(m mentionDetails) *HandleWebhook {
 		}
 	}
 	return nil
+}
+
+func sameLabels(a []gitlab.Label, b []gitlab.Label) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for index, l := range a {
+		if l.ID != b[index].ID {
+			return false
+		}
+	}
+	return true
+}
+
+func containsLabel(a []gitlab.Label, labelName string) bool {
+	for _, l := range a {
+		if l.Name == labelName {
+			return true
+		}
+	}
+	return false
+}
+
+func labelToString(a []gitlab.Label) string {
+	names := make([]string, len(a))
+	for index, l := range a {
+		names[index] = l.Name
+	}
+	return strings.Join(names, ", ")
 }

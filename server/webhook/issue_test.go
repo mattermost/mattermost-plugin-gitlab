@@ -10,48 +10,70 @@ import (
 )
 
 type testDataIssueStr struct {
-	testTitle string
-	fixture   string
-	res       []*HandleWebhook
+	testTitle       string
+	fixture         string
+	gitlabRetreiver *fakeWebhook
+	res             []*HandleWebhook
 }
 
 var testDataIssue = []testDataIssueStr{
 	{
-		testTitle: "root open issue with manland assignee",
-		fixture:   NewIssue,
+		testTitle:       "root open issue with manland assignee and display in channel1",
+		fixture:         NewIssue,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "issues", "manland/webhook")}),
 		res: []*HandleWebhook{{
-			Message: "[root](http://my.gitlab.com/root) assigned you to issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
-			ToUsers: []string{"manland"},
-			From:    "root",
+			Message:    "[root](http://my.gitlab.com/root) assigned you to issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
+			ToUsers:    []string{"manland"},
+			ToChannels: []string{},
+			From:       "root",
+		}, {
+			Message:    "#### test new issue\n##### [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)\n# new issue by [root](http://my.gitlab.com/root) on [2019-04-06 21:03:04 UTC](http://localhost:3000/manland/webhook/issues/1)\n\nhello world!",
+			ToUsers:    []string{},
+			ToChannels: []string{"channel1"},
+			From:       "root",
 		}},
 	}, {
-		testTitle: "root open unassigned issue",
-		fixture:   NewIssueUnassigned,
-		res:       []*HandleWebhook{}, // no message because root don't received its own action and manland is not assigned
-	}, {
-		testTitle: "manland close issue of root",
-		fixture:   CloseIssue,
+		testTitle:       "root open unassigned issue and display in channel",
+		fixture:         NewIssueUnassigned,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "issues", "manland/webhook")}),
 		res: []*HandleWebhook{{
-			Message: "[manland](http://my.gitlab.com/manland) closed your issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
-			ToUsers: []string{"root"},
-			From:    "manland",
+			Message:    "#### new issue\n##### [manland/webhook#2](http://localhost:3000/manland/webhook/issues/2)\n# new issue by [root](http://my.gitlab.com/root) on [2019-04-06 21:13:03 UTC](http://localhost:3000/manland/webhook/issues/2)\n\nHello world",
+			ToUsers:    []string{},
+			ToChannels: []string{"channel1"},
+			From:       "root",
+		}}, // no DM message because root don't received its own action and manland is not assigned
+	}, {
+		testTitle:       "manland close issue of root",
+		fixture:         CloseIssue,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "issues", "manland/webhook")}),
+		res: []*HandleWebhook{{
+			Message:    "[manland](http://my.gitlab.com/manland) closed your issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
+			ToUsers:    []string{"root"},
+			ToChannels: []string{},
+			From:       "manland",
+		}, {
+			Message:    "[manland/webhook] Issue [test new issue](http://localhost:3000/manland/webhook/issues/1) closed by [manland](http://my.gitlab.com/manland)",
+			ToUsers:    []string{},
+			ToChannels: []string{"channel1"},
+			From:       "manland",
 		}},
 	}, {
-		testTitle: "manland reopen issue of root",
-		fixture:   ReopenIssue,
+		testTitle:       "manland reopen issue of root and channel is not notified",
+		fixture:         ReopenIssue,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "issues", "manland/webhook")}),
 		res: []*HandleWebhook{{
 			Message: "[manland](http://my.gitlab.com/manland) reopened your issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
 			ToUsers: []string{"root"},
 			From:    "manland",
-		}},
+		}}, // no channel message because not listen to reopen action
 	},
 }
 
 func TestIssueWebhook(t *testing.T) {
 	t.Parallel()
-	w := NewWebhook(newFakeWebhook([]*subscription.Subscription{}))
 	for _, test := range testDataIssue {
 		t.Run(test.testTitle, func(t *testing.T) {
+			w := NewWebhook(test.gitlabRetreiver)
 			issueEvent := &gitlab.IssueEvent{}
 			if err := json.Unmarshal([]byte(test.fixture), issueEvent); err != nil {
 				assert.Fail(t, "can't unmarshal fixture")

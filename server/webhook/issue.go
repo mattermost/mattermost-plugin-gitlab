@@ -7,7 +7,15 @@ import (
 )
 
 func (w *webhook) HandleIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, error) {
-	return w.handleDMIssue(event)
+	handlers, err := w.handleDMIssue(event)
+	if err != nil {
+		return nil, err
+	}
+	handlers2, err := w.handleChannelIssue(event)
+	if err != nil {
+		return nil, err
+	}
+	return cleanWebhookHandlers(append(handlers, handlers2...)), nil
 }
 
 func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, error) {
@@ -46,12 +54,56 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 		}); mention != nil {
 			handlers = append(handlers, mention)
 		}
-		return cleanWebhookHandlers(handlers), nil
+		return handlers, nil
 	}
 	return []*HandleWebhook{}, nil
 }
 
 func (w *webhook) handleChannelIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, error) {
-	//TODO FINISH ME
-	return nil, nil
+	issue := event.ObjectAttributes
+	senderGitlabUsername := event.User.Username
+	repo := event.Project
+	res := []*HandleWebhook{}
+
+	message := ""
+
+	if issue.Action == "open" {
+		message = fmt.Sprintf("#### %s\n##### [%s#%v](%s)\n# new issue by [%s](%s) on [%s](%s)\n\n%s", issue.Title, repo.PathWithNamespace, issue.IID, issue.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), issue.CreatedAt, issue.URL, issue.Description)
+	} else if issue.Action == "close" {
+		message = fmt.Sprintf("[%s] Issue [%s](%s) closed by [%s](%s)", repo.PathWithNamespace, issue.Title, issue.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
+	} else if issue.Action == "update" && len(event.Changes.Labels.Current) > 0 && !sameLabels(event.Changes.Labels.Current, event.Changes.Labels.Previous) {
+		message = fmt.Sprintf("#### %s\n##### [%s#%v](%s)\n# issue labeled `%s` by [%s](%s) on [%s](%s)\n\n%s", issue.Title, repo.PathWithNamespace, issue.IID, issue.URL, labelToString(event.Changes.Labels.Current), event.User.Username, event.User.WebsiteURL, issue.UpdatedAt, issue.URL, issue.Description)
+	}
+
+	if len(message) > 0 {
+		toChannels := make([]string, 0)
+		labels := make([]string, len(event.Labels))
+		for i, v := range event.Labels {
+			labels[i] = v.Name
+		}
+		subs := w.gitlabRetreiver.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
+		for _, sub := range subs {
+			if !sub.Issues() {
+				continue
+			}
+
+			label := sub.Label()
+
+			if !containsLabel(event.Labels, label) && label != "" {
+				continue
+			}
+
+			toChannels = append(toChannels, sub.ChannelID)
+		}
+
+		if len(toChannels) > 0 {
+			res = append(res, &HandleWebhook{
+				From:       senderGitlabUsername,
+				Message:    message,
+				ToUsers:    []string{},
+				ToChannels: toChannels,
+			})
+		}
+	}
+	return res, nil
 }
