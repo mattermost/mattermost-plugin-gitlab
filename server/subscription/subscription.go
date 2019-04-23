@@ -50,6 +50,10 @@ func (s *Subscription) Pipeline() bool {
 	return strings.Contains(s.Features, "pipeline")
 }
 
+func (s *Subscription) Tag() bool {
+	return strings.Contains(s.Features, "tag")
+}
+
 func (s *Subscription) PullReviews() bool {
 	return strings.Contains(s.Features, "pull_reviews")
 }

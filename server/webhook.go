@@ -91,7 +91,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		handlers, errHandler = webhookManager.HandlePipeline(event)
 	case *gitlab.TagEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
-		// p.postTagEvent(event)
+		handlers, errHandler = webhookManager.HandleTag(event)
 	case *gitlab.BuildEvent:
 		repoPrivate = event.Repository.Visibility == gitlab.PrivateVisibility
 		// p.postBuildEvent(event)

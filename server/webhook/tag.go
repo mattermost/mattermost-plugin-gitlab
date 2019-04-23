@@ -2,35 +2,33 @@ package webhook
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/manland/go-gitlab"
 )
 
-func (w *webhook) HandlePipeline(event *gitlab.PipelineEvent) ([]*HandleWebhook, error) {
-	handlers, err := w.handleDMPipeline(event)
+func (w *webhook) HandleTag(event *gitlab.TagEvent) ([]*HandleWebhook, error) {
+	handlers, err := w.handleDMTag(event)
 	if err != nil {
 		return nil, err
 	}
-	handlers2, err := w.handleChannelPipeline(event)
+	handlers2, err := w.handleChannelTag(event)
 	if err != nil {
 		return nil, err
 	}
 	return cleanWebhookHandlers(append(handlers, handlers2...)), nil
 }
 
-func (w *webhook) handleDMPipeline(event *gitlab.PipelineEvent) ([]*HandleWebhook, error) {
-	senderGitlabUsername := event.User.Username
-
+func (w *webhook) handleDMTag(event *gitlab.TagEvent) ([]*HandleWebhook, error) {
+	senderGitlabUsername := event.UserName
 	handlers := []*HandleWebhook{}
-
-	//TODO add failed pipeline to author
 
 	if mention := w.handleMention(mentionDetails{
 		senderUsername:    senderGitlabUsername,
 		pathWithNamespace: event.Project.PathWithNamespace,
-		IID:               event.ObjectAttributes.ID,
-		URL:               event.Commit.URL,
-		body:              event.Commit.Message,
+		IID:               event.UserID, //TODO change IID to string to be able to give more than an int
+		URL:               event.Commits[0].URL,
+		body:              event.Commits[0].Message,
 	}); mention != nil {
 		handlers = append(handlers, mention)
 	}
@@ -38,17 +36,19 @@ func (w *webhook) handleDMPipeline(event *gitlab.PipelineEvent) ([]*HandleWebhoo
 	return handlers, nil
 }
 
-func (w *webhook) handleChannelPipeline(event *gitlab.PipelineEvent) ([]*HandleWebhook, error) {
-	senderGitlabUsername := event.User.Username
+func (w *webhook) handleChannelTag(event *gitlab.TagEvent) ([]*HandleWebhook, error) {
+	senderGitlabUsername := event.UserName
 	repo := event.Project
+	tagNames := strings.Split(event.Ref, "/")
+	tagName := tagNames[len(tagNames)-1]
 	res := []*HandleWebhook{}
 
-	message := fmt.Sprintf("[%s](%s) New pipeline by [%s](%s) for [%s](%s)", repo.PathWithNamespace, repo.WebURL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Commit.Message, event.Commit.URL)
+	message := fmt.Sprintf("[%s](%s) New tag [%s](%s) by [%s](%s): %s", repo.PathWithNamespace, repo.WebURL, tagName, event.Commits[0].URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Message)
 
 	toChannels := make([]string, 0)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
 	for _, sub := range subs {
-		if !sub.Pipeline() {
+		if !sub.Tag() {
 			continue
 		}
 
