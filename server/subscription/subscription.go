@@ -30,14 +30,6 @@ func (s *Subscription) Pushes() bool {
 	return strings.Contains(s.Features, "pushes")
 }
 
-func (s *Subscription) Creates() bool {
-	return strings.Contains(s.Features, "creates")
-}
-
-func (s *Subscription) Deletes() bool {
-	return strings.Contains(s.Features, "deletes")
-}
-
 func (s *Subscription) IssueComments() bool {
 	return strings.Contains(s.Features, "issue_comments")
 }

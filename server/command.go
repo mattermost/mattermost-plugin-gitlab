@@ -9,7 +9,6 @@ import (
 	"github.com/mattermost/mattermost-server/model"
 )
 
-// TODO change features remove creates/delete and add tag ?
 const COMMAND_HELP = `* |/gitlab connect| - Connect your Mattermost account to your Gitlab account
 * |/gitlab disconnect| - Disconnect your Mattermost account from your Gitlab account
 * |/gitlab todo| - Get a list of unread messages and pull requests awaiting your review
@@ -26,7 +25,7 @@ const COMMAND_HELP = `* |/gitlab connect| - Connect your Mattermost account to y
 	* tag - include tag creation
     * pull_reviews - includes pull request reviews
 	* label:"<labelname>" - must include "pulls" or "issues" in feature list when using a label
-    * Defaults to "pulls,issues,creates,deletes"
+    * Defaults to "pulls,issues,tag"
 * |/gitlab unsubscribe owner/repo| - Unsubscribe the current channel from a repository
 * |/gitlab me| - Display the connected Gitlab account
 * |/gitlab settings [setting] [value]| - Update your user settings
@@ -94,7 +93,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 	switch action {
 	case "subscribe":
 		config := p.getConfiguration()
-		features := "pulls,issues,creates,deletes"
+		features := "pulls,issues,tag"
 
 		txt := ""
 		if len(parameters) == 0 {

@@ -57,31 +57,12 @@ func (w *webhook) handleChannelIssueComment(event *gitlab.IssueCommentEvent) ([]
 
 	message := fmt.Sprintf("[%s](%s) New comment by [%s](%s) on [#%v %s](%s):\n\n%s", repo.PathWithNamespace, repo.WebURL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Issue.IID, event.Issue.Title, event.ObjectAttributes.URL, body)
 
-	// TODO labels !?
-	// labels := make([]string, len(event.Issue.Labels))
-	// for i, v := range event.Issue.Labels {
-	// 	labels[i] = v
-	// }
-
 	toChannels := make([]string, 0)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
 	for _, sub := range subs {
 		if !sub.IssueComments() {
 			continue
 		}
-
-		// label := sub.Label()
-
-		// contained := false
-		// for _, v := range labels {
-		// 	if v == label {
-		// 		contained = true
-		// 	}
-		// }
-
-		// if !contained && label != "" {
-		// 	continue
-		// }
 
 		toChannels = append(toChannels, sub.ChannelID)
 	}
@@ -138,31 +119,12 @@ func (w *webhook) handleChannelMergeRequestComment(event *gitlab.MergeCommentEve
 
 	message := fmt.Sprintf("[%s](%s) New comment by [%s](%s) on [#%v %s](%s):\n\n%s", repo.PathWithNamespace, repo.WebURL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.MergeRequest.IID, event.MergeRequest.Title, event.ObjectAttributes.URL, body)
 
-	// TODO labels !?
-	// labels := make([]string, len(event.Issue.Labels))
-	// for i, v := range event.Issue.Labels {
-	// 	labels[i] = v
-	// }
-
 	toChannels := make([]string, 0)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
 	for _, sub := range subs {
 		if !sub.MergeRequestComments() {
 			continue
 		}
-
-		// label := sub.Label()
-
-		// contained := false
-		// for _, v := range labels {
-		// 	if v == label {
-		// 		contained = true
-		// 	}
-		// }
-
-		// if !contained && label != "" {
-		// 	continue
-		// }
 
 		toChannels = append(toChannels, sub.ChannelID)
 	}

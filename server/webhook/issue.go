@@ -77,19 +77,13 @@ func (w *webhook) handleChannelIssue(event *gitlab.IssueEvent) ([]*HandleWebhook
 
 	if len(message) > 0 {
 		toChannels := make([]string, 0)
-		labels := make([]string, len(event.Labels))
-		for i, v := range event.Labels {
-			labels[i] = v.Name
-		}
 		subs := w.gitlabRetreiver.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
 		for _, sub := range subs {
 			if !sub.Issues() {
 				continue
 			}
 
-			label := sub.Label()
-
-			if !containsLabel(event.Labels, label) && label != "" {
+			if sub.Label() != "" && !containsLabel(event.Labels, sub.Label()) {
 				continue
 			}
 

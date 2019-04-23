@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/manland/go-gitlab"
+	"github.com/manland/mattermost-plugin-gitlab/server/webhook"
 	"github.com/mattermost/mattermost-server/model"
 	"github.com/mattermost/mattermost-server/plugin"
 
@@ -35,7 +36,8 @@ const (
 type Plugin struct {
 	plugin.MattermostPlugin
 
-	BotUserID string
+	BotUserID      string
+	WebhookHandler webhook.Webhook
 
 	// configurationLock synchronizes access to the configuration.
 	configurationLock sync.RWMutex
@@ -81,6 +83,7 @@ func (p *Plugin) OnActivate() error {
 	}
 
 	p.BotUserID = user.Id
+	p.WebhookHandler = webhook.NewWebhook(&gitlabRetreiver{p: p})
 
 	return nil
 }

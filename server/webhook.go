@@ -63,35 +63,28 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	var handlers []*webhook.HandleWebhook
 	var errHandler error
 
-	webhookManager := webhook.NewWebhook(&gitlabRetreiver{p: p}) // TODO build it at init instead at each call
-	user, err := p.API.GetUserByUsername(config.Username)        // TODO build it at init instead at each call
-	if err != nil {
-		p.API.LogError("can't get user by username in mattermost api for post merge request event", "err", err.Error())
-		return
-	}
-
 	switch event := event.(type) {
 	case *gitlab.MergeEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
-		handlers, errHandler = webhookManager.HandleMergeRequest(event)
+		handlers, errHandler = p.WebhookHandler.HandleMergeRequest(event)
 	case *gitlab.IssueEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
-		handlers, errHandler = webhookManager.HandleIssue(event)
+		handlers, errHandler = p.WebhookHandler.HandleIssue(event)
 	case *gitlab.IssueCommentEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
-		handlers, errHandler = webhookManager.HandleIssueComment(event)
+		handlers, errHandler = p.WebhookHandler.HandleIssueComment(event)
 	case *gitlab.MergeCommentEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
-		handlers, errHandler = webhookManager.HandleMergeRequestComment(event)
+		handlers, errHandler = p.WebhookHandler.HandleMergeRequestComment(event)
 	case *gitlab.PushEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
-		handlers, errHandler = webhookManager.HandlePush(event)
+		handlers, errHandler = p.WebhookHandler.HandlePush(event)
 	case *gitlab.PipelineEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
-		handlers, errHandler = webhookManager.HandlePipeline(event)
+		handlers, errHandler = p.WebhookHandler.HandlePipeline(event)
 	case *gitlab.TagEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
-		handlers, errHandler = webhookManager.HandleTag(event)
+		handlers, errHandler = p.WebhookHandler.HandleTag(event)
 	default:
 		p.API.LogWarn("event type not implemented", "type", string(gitlab.WebhookEventType(r)))
 		return
@@ -125,7 +118,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		for _, to := range res.ToChannels {
 			if len(res.Message) > 0 {
 				post := &model.Post{
-					UserId:    user.Id,
+					UserId:    p.BotUserID,
 					Message:   res.Message,
 					ChannelId: to,
 					Props: map[string]interface{}{
