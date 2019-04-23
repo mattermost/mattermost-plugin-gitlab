@@ -33,6 +33,7 @@ type Webhook interface {
 	HandleMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebhook, error)
 	HandleIssueComment(event *gitlab.IssueCommentEvent) ([]*HandleWebhook, error)
 	HandleMergeRequestComment(event *gitlab.MergeCommentEvent) ([]*HandleWebhook, error)
+	HandlePipeline(event *gitlab.PipelineEvent) ([]*HandleWebhook, error)
 }
 
 type webhook struct {

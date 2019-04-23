@@ -46,6 +46,10 @@ func (s *Subscription) MergeRequestComments() bool {
 	return strings.Contains(s.Features, "merge_request_comments")
 }
 
+func (s *Subscription) Pipeline() bool {
+	return strings.Contains(s.Features, "pipeline")
+}
+
 func (s *Subscription) PullReviews() bool {
 	return strings.Contains(s.Features, "pull_reviews")
 }

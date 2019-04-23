@@ -64,12 +64,10 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	var errHandler error
 
 	webhookManager := webhook.NewWebhook(&gitlabRetreiver{p: p}) // TODO build it at init instead at each call
-	userID := ""
-	if user, err := p.API.GetUserByUsername(config.Username); err != nil { // TODO build it at init instead at each call
+	user, err := p.API.GetUserByUsername(config.Username)        // TODO build it at init instead at each call
+	if err != nil {
 		p.API.LogError("can't get user by username in mattermost api for post merge request event", "err", err.Error())
 		return
-	} else {
-		userID = user.Id
 	}
 
 	switch event := event.(type) {
@@ -90,7 +88,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		// p.postPushEvent(event)
 	case *gitlab.PipelineEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
-		// p.postPipelineEvent(event)
+		handlers, errHandler = webhookManager.HandlePipeline(event)
 	case *gitlab.TagEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
 		// p.postTagEvent(event)
@@ -130,7 +128,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		for _, to := range res.ToChannels {
 			if len(res.Message) > 0 {
 				post := &model.Post{
-					UserId:    userID,
+					UserId:    user.Id,
 					Message:   res.Message,
 					ChannelId: to,
 					Props: map[string]interface{}{

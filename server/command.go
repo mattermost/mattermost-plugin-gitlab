@@ -22,6 +22,7 @@ const COMMAND_HELP = `* |/gitlab connect| - Connect your Mattermost account to y
     * pushes - includes pushes
 	* issue_comments - includes new issue comments
 	* merge_request_comments - include new merge-request comments
+	* pipeline - include pipeline
     * pull_reviews - includes pull request reviews
 	* label:"<labelname>" - must include "pulls" or "issues" in feature list when using a label
     * Defaults to "pulls,issues,creates,deletes"
