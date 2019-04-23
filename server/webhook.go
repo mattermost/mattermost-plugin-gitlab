@@ -85,16 +85,13 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		handlers, errHandler = webhookManager.HandleMergeRequestComment(event)
 	case *gitlab.PushEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
-		// p.postPushEvent(event)
+		handlers, errHandler = webhookManager.HandlePush(event)
 	case *gitlab.PipelineEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
 		handlers, errHandler = webhookManager.HandlePipeline(event)
 	case *gitlab.TagEvent:
 		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
 		handlers, errHandler = webhookManager.HandleTag(event)
-	case *gitlab.BuildEvent:
-		repoPrivate = event.Repository.Visibility == gitlab.PrivateVisibility
-		// p.postBuildEvent(event)
 	default:
 		p.API.LogWarn("event type not implemented", "type", string(gitlab.WebhookEventType(r)))
 		return

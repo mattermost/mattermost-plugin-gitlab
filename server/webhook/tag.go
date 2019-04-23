@@ -28,7 +28,7 @@ func (w *webhook) handleDMTag(event *gitlab.TagEvent) ([]*HandleWebhook, error) 
 		pathWithNamespace: event.Project.PathWithNamespace,
 		IID:               event.UserID, //TODO change IID to string to be able to give more than an int
 		URL:               event.Commits[0].URL,
-		body:              event.Commits[0].Message,
+		body:              event.Message,
 	}); mention != nil {
 		handlers = append(handlers, mention)
 	}
