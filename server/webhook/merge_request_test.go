@@ -20,7 +20,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 	{
 		testTitle:       "root open merge request for manland and display in channel1",
 		fixture:         OpenMergeRequest,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "pulls", "manland/webhook")}),
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "merges", "manland/webhook")}),
 		res: []*HandleWebhook{{
 			Message:    "[root](http://my.gitlab.com/root) requested your review on [manland/webhook#4](http://localhost:3000/manland/webhook/merge_requests/4)",
 			ToUsers:    []string{"manland"},
@@ -35,7 +35,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 	}, {
 		testTitle:       "manland close merge request of root and display in channel1",
 		fixture:         CloseMergeRequestByAssignee,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "pulls", "manland/webhook")}),
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "merges", "manland/webhook")}),
 		res: []*HandleWebhook{{
 			Message:    "[manland](http://my.gitlab.com/manland) closed your merge request [manland/webhook#4](http://localhost:3000/manland/webhook/merge_requests/4)",
 			ToUsers:    []string{"root"},
@@ -70,7 +70,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 	}, {
 		testTitle:       "manland merge root merge-request and display in channel1",
 		fixture:         MergeRequestMerged,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "pulls", "manland/webhook")}),
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "merges", "manland/webhook")}),
 		res: []*HandleWebhook{{
 			Message:    "[manland](http://my.gitlab.com/manland) merged your merge request [manland/webhook#4](http://localhost:3000/manland/webhook/merge_requests/4)",
 			ToUsers:    []string{"root"},
@@ -85,7 +85,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 	}, {
 		testTitle:       "root close its own MR without assignee and display in channel1",
 		fixture:         CloseMergeRequestByCreator,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "pulls", "manland/webhook")}),
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "merges", "manland/webhook")}),
 		res: []*HandleWebhook{{
 			Message:    "[root](http://my.gitlab.com/root) closed your merge request [manland/webhook#1](http://localhost:3000/manland/webhook/merge_requests/1)",
 			ToUsers:    []string{}, //no assignee
@@ -98,7 +98,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			From:       "root",
 		}},
 	}, {
-		testTitle:       "root open merge request for manland + channel but not subscription to pulls",
+		testTitle:       "root open merge request for manland + channel but not subscription to merges",
 		fixture:         OpenMergeRequest,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "issues", "manland/webhook")}),
 		res: []*HandleWebhook{{

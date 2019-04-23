@@ -18,8 +18,8 @@ func New(ChannelID, CreatorID, Features, Repository string) *Subscription {
 	}
 }
 
-func (s *Subscription) Pulls() bool {
-	return strings.Contains(s.Features, "pulls")
+func (s *Subscription) Merges() bool {
+	return strings.Contains(s.Features, "merges")
 }
 
 func (s *Subscription) Issues() bool {
