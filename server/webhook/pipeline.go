@@ -28,7 +28,7 @@ func (w *webhook) handleDMPipeline(event *gitlab.PipelineEvent) ([]*HandleWebhoo
 	if mention := w.handleMention(mentionDetails{
 		senderUsername:    senderGitlabUsername,
 		pathWithNamespace: event.Project.PathWithNamespace,
-		IID:               event.ObjectAttributes.ID,
+		IID:               fmt.Sprintf("%d", event.ObjectAttributes.ID),
 		URL:               event.Commit.URL,
 		body:              event.Commit.Message,
 	}); mention != nil {

@@ -48,7 +48,7 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 		if mention := w.handleMention(mentionDetails{
 			senderUsername:    senderGitlabUsername,
 			pathWithNamespace: event.Project.PathWithNamespace,
-			IID:               event.ObjectAttributes.IID,
+			IID:               fmt.Sprintf("%d", event.ObjectAttributes.IID),
 			URL:               event.ObjectAttributes.URL,
 			body:              event.ObjectAttributes.Description,
 		}); mention != nil {

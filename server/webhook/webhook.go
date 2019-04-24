@@ -88,7 +88,7 @@ func cleanWebhookHandlerTo(handler *HandleWebhook) *HandleWebhook {
 type mentionDetails struct {
 	senderUsername    string
 	pathWithNamespace string
-	IID               int
+	IID               string
 	URL               string
 	body              string
 }
@@ -98,7 +98,7 @@ func (w *webhook) handleMention(m mentionDetails) *HandleWebhook {
 	if len(mentionedUsernames) > 0 {
 		return &HandleWebhook{
 			From:    m.senderUsername,
-			Message: fmt.Sprintf("[%s](%s) mentioned you on [%s#%v](%s):\n>%s", m.senderUsername, w.gitlabRetreiver.GetUserURL(m.senderUsername), m.pathWithNamespace, m.IID, m.URL, m.body),
+			Message: fmt.Sprintf("[%s](%s) mentioned you on [%s#%s](%s):\n>%s", m.senderUsername, w.gitlabRetreiver.GetUserURL(m.senderUsername), m.pathWithNamespace, m.IID, m.URL, m.body),
 			ToUsers: mentionedUsernames,
 		}
 	}

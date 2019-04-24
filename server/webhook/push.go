@@ -26,7 +26,7 @@ func (w *webhook) handleDMPush(event *gitlab.PushEvent) ([]*HandleWebhook, error
 		if mention := w.handleMention(mentionDetails{
 			senderUsername:    senderGitlabUsername,
 			pathWithNamespace: event.Project.PathWithNamespace,
-			IID:               event.UserID, //TODO change IID to string to be able to give more than an int
+			IID:               commit.ID,
 			URL:               commit.URL,
 			body:              commit.Message,
 		}); mention != nil {

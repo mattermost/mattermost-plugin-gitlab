@@ -39,7 +39,7 @@ func (w *webhook) handleDMIssueComment(event *gitlab.IssueCommentEvent) ([]*Hand
 	if mention := w.handleMention(mentionDetails{
 		senderUsername:    senderGitlabUsername,
 		pathWithNamespace: event.Project.PathWithNamespace,
-		IID:               event.Issue.IID,
+		IID:               fmt.Sprintf("%d", event.Issue.IID),
 		URL:               event.ObjectAttributes.URL,
 		body:              event.ObjectAttributes.Note,
 	}); mention != nil {
@@ -102,7 +102,7 @@ func (w *webhook) handleDMMergeRequestComment(event *gitlab.MergeCommentEvent) (
 	if mention := w.handleMention(mentionDetails{
 		senderUsername:    senderGitlabUsername,
 		pathWithNamespace: event.Project.PathWithNamespace,
-		IID:               event.MergeRequest.IID,
+		IID:               fmt.Sprintf("%d", event.MergeRequest.IID),
 		URL:               event.ObjectAttributes.URL,
 		body:              event.ObjectAttributes.Note,
 	}); mention != nil {

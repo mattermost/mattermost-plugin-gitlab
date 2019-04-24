@@ -22,11 +22,13 @@ func (w *webhook) HandleTag(event *gitlab.TagEvent) ([]*HandleWebhook, error) {
 func (w *webhook) handleDMTag(event *gitlab.TagEvent) ([]*HandleWebhook, error) {
 	senderGitlabUsername := event.UserName
 	handlers := []*HandleWebhook{}
+	tagNames := strings.Split(event.Ref, "/")
+	tagName := tagNames[len(tagNames)-1]
 
 	if mention := w.handleMention(mentionDetails{
 		senderUsername:    senderGitlabUsername,
 		pathWithNamespace: event.Project.PathWithNamespace,
-		IID:               event.UserID, //TODO change IID to string to be able to give more than an int
+		IID:               tagName,
 		URL:               event.Commits[0].URL,
 		body:              event.Message,
 	}); mention != nil {
