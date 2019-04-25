@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/manland/go-gitlab"
+	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
 	"github.com/pkg/errors"
 )
 
@@ -14,56 +14,8 @@ const (
 	SUBSCRIPTIONS_KEY = "subscriptions"
 )
 
-type Subscription struct {
-	ChannelID  string
-	CreatorID  string
-	Features   string
-	Repository string
-}
-
 type Subscriptions struct {
-	Repositories map[string][]*Subscription
-}
-
-func (s *Subscription) Pulls() bool {
-	return strings.Contains(s.Features, "pulls")
-}
-
-func (s *Subscription) Issues() bool {
-	return strings.Contains(s.Features, "issues")
-}
-
-func (s *Subscription) Pushes() bool {
-	return strings.Contains(s.Features, "pushes")
-}
-
-func (s *Subscription) Creates() bool {
-	return strings.Contains(s.Features, "creates")
-}
-
-func (s *Subscription) Deletes() bool {
-	return strings.Contains(s.Features, "deletes")
-}
-
-func (s *Subscription) IssueComments() bool {
-	return strings.Contains(s.Features, "issue_comments")
-}
-
-func (s *Subscription) PullReviews() bool {
-	return strings.Contains(s.Features, "pull_reviews")
-}
-
-func (s *Subscription) Label() string {
-	if !strings.Contains(s.Features, "label:") {
-		return ""
-	}
-
-	labelSplit := strings.Split(s.Features, "\"")
-	if len(labelSplit) < 3 {
-		return ""
-	}
-
-	return labelSplit[1]
+	Repositories map[string][]*subscription.Subscription
 }
 
 func (p *Plugin) Subscribe(client *gitlab.Client, userId, owner, repo, channelID, features string) error {
@@ -82,12 +34,7 @@ func (p *Plugin) Subscribe(client *gitlab.Client, userId, owner, repo, channelID
 		return fmt.Errorf("Unknown repository %s/%s", owner, repo)
 	}
 
-	sub := &Subscription{
-		ChannelID:  channelID,
-		CreatorID:  userId,
-		Features:   features,
-		Repository: fmt.Sprintf("%s/%s", owner, repo),
-	}
+	sub := subscription.New(channelID, userId, features, fmt.Sprintf("%s/%s", owner, repo))
 
 	if err := p.AddSubscription(fmt.Sprintf("%s/%s", owner, repo), sub); err != nil {
 		return err
@@ -120,12 +67,7 @@ func (p *Plugin) SubscribeGroup(client *gitlab.Client, userId, org, channelID, f
 	}
 
 	for _, repo := range allRepos {
-		sub := &Subscription{
-			ChannelID:  channelID,
-			CreatorID:  userId,
-			Features:   features,
-			Repository: repo.Name,
-		}
+		sub := subscription.New(channelID, userId, features, repo.Name)
 
 		if err := p.AddSubscription(sub.Repository, sub); err != nil {
 			p.API.LogError("can't add subscipriotn", "err", err.Error(), "repository", sub.Repository)
@@ -136,8 +78,8 @@ func (p *Plugin) SubscribeGroup(client *gitlab.Client, userId, org, channelID, f
 	return nil
 }
 
-func (p *Plugin) GetSubscriptionsByChannel(channelID string) ([]*Subscription, error) {
-	var filteredSubs []*Subscription
+func (p *Plugin) GetSubscriptionsByChannel(channelID string) ([]*subscription.Subscription, error) {
+	var filteredSubs []*subscription.Subscription
 	subs, err := p.GetSubscriptions()
 	if err != nil {
 		return nil, err
@@ -158,7 +100,7 @@ func (p *Plugin) GetSubscriptionsByChannel(channelID string) ([]*Subscription, e
 	return filteredSubs, nil
 }
 
-func (p *Plugin) AddSubscription(repo string, sub *Subscription) error {
+func (p *Plugin) AddSubscription(repo string, sub *subscription.Subscription) error {
 	subs, err := p.GetSubscriptions()
 	if err != nil {
 		return err
@@ -166,7 +108,7 @@ func (p *Plugin) AddSubscription(repo string, sub *Subscription) error {
 
 	repoSubs := subs.Repositories[repo]
 	if repoSubs == nil {
-		repoSubs = []*Subscription{sub}
+		repoSubs = []*subscription.Subscription{sub}
 	} else {
 		exists := false
 		for index, s := range repoSubs {
@@ -201,7 +143,7 @@ func (p *Plugin) GetSubscriptions() (*Subscriptions, error) {
 	}
 
 	if value == nil {
-		subscriptions = &Subscriptions{Repositories: map[string][]*Subscription{}}
+		subscriptions = &Subscriptions{Repositories: map[string][]*subscription.Subscription{}}
 	} else {
 		if err := json.NewDecoder(bytes.NewReader(value)).Decode(&subscriptions); err != nil {
 			return nil, err
@@ -219,18 +161,19 @@ func (p *Plugin) StoreSubscriptions(s *Subscriptions) error {
 	return p.API.KVSet(SUBSCRIPTIONS_KEY, b)
 }
 
-func (p *Plugin) GetSubscribedChannelsForRepository(repoName string, repoPublic bool) []*Subscription {
+func (p *Plugin) GetSubscribedChannelsForRepository(repoName string, repoPublic bool) []*subscription.Subscription {
+	subsToReturn := []*subscription.Subscription{}
+
 	subs, err := p.GetSubscriptions()
 	if err != nil {
-		return nil
+		p.API.LogError("can't retreive subscriptions", "err", err.Error())
+		return subsToReturn
 	}
 
 	subsForRepo := subs.Repositories[repoName]
 	if subsForRepo == nil {
-		return nil
+		return subsToReturn
 	}
-
-	subsToReturn := []*Subscription{}
 
 	for _, sub := range subsForRepo {
 		if !repoPublic && !p.permissionToRepo(sub.CreatorID, repoName) {
