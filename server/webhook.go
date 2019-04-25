@@ -58,7 +58,6 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		p.API.LogError("can't parse webhook", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"), "event", string(body))
 		return
 	}
-	p.API.LogWarn("new hook", "body", string(body))
 
 	var repoPrivate bool
 	var handlers []*webhook.HandleWebhook
