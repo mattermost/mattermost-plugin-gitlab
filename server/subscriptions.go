@@ -18,7 +18,7 @@ type Subscriptions struct {
 	Repositories map[string][]*subscription.Subscription
 }
 
-func (p *Plugin) Subscribe(client *gitlab.Client, userId, owner, repo, channelID, features string) error {
+func (p *Plugin) Subscribe(config *configuration, client *gitlab.Client, userId, owner, repo, channelID, features string) error {
 	if owner == "" {
 		return fmt.Errorf("Invalid repository")
 	}
@@ -27,11 +27,16 @@ func (p *Plugin) Subscribe(client *gitlab.Client, userId, owner, repo, channelID
 		return err
 	}
 
-	if result, _, err := client.Projects.GetProject(owner+"/"+repo, &gitlab.GetProjectOptions{}); result == nil || err != nil {
+	result, _, err := client.Projects.GetProject(owner+"/"+repo, &gitlab.GetProjectOptions{})
+	if result == nil || err != nil {
 		if err != nil {
 			p.API.LogError("can't get project", "err", err.Error(), "project", owner+"/"+repo)
 		}
 		return fmt.Errorf("Unknown repository %s/%s", owner, repo)
+	}
+
+	if !config.EnablePrivateRepo && result.Visibility != gitlab.PublicVisibility {
+		return errors.New("you can't add a private project on this mattermost instance")
 	}
 
 	sub := subscription.New(channelID, userId, features, fmt.Sprintf("%s/%s", owner, repo))
@@ -43,7 +48,7 @@ func (p *Plugin) Subscribe(client *gitlab.Client, userId, owner, repo, channelID
 	return nil
 }
 
-func (p *Plugin) SubscribeGroup(client *gitlab.Client, userId, org, channelID, features string) error {
+func (p *Plugin) SubscribeGroup(config *configuration, client *gitlab.Client, userId, org, channelID, features string) error {
 	if org == "" {
 		return fmt.Errorf("Invalid group")
 	}
@@ -51,8 +56,16 @@ func (p *Plugin) SubscribeGroup(client *gitlab.Client, userId, org, channelID, f
 		return err
 	}
 
+	v := gitlab.PublicVisibility
+	visibility := &v
+	if config.EnablePrivateRepo {
+		visibility = nil // == all visibility
+	}
 	var allRepos []*gitlab.Project
-	requestOptions := &gitlab.ListGroupProjectsOptions{ListOptions: gitlab.ListOptions{PerPage: 50}}
+	requestOptions := &gitlab.ListGroupProjectsOptions{
+		Visibility:  visibility,
+		ListOptions: gitlab.ListOptions{PerPage: 50},
+	}
 	for {
 		repos, response, err := client.Groups.ListGroupProjects(org, requestOptions)
 		if err != nil {
@@ -64,6 +77,12 @@ func (p *Plugin) SubscribeGroup(client *gitlab.Client, userId, org, channelID, f
 			break
 		}
 		requestOptions.Page = response.NextPage
+	}
+
+	if len(allRepos) == 0 && !config.EnablePrivateRepo {
+		return fmt.Errorf("No public project found for %s", org)
+	} else if len(allRepos) == 0 {
+		return fmt.Errorf("No project found for %s", org)
 	}
 
 	for _, repo := range allRepos {
@@ -125,13 +144,7 @@ func (p *Plugin) AddSubscription(repo string, sub *subscription.Subscription) er
 	}
 
 	subs.Repositories[repo] = repoSubs
-
-	err = p.StoreSubscriptions(subs)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return p.StoreSubscriptions(subs)
 }
 
 func (p *Plugin) GetSubscriptions() (*Subscriptions, error) {
@@ -139,6 +152,7 @@ func (p *Plugin) GetSubscriptions() (*Subscriptions, error) {
 
 	value, err := p.API.KVGet(SUBSCRIPTIONS_KEY)
 	if err != nil {
+		p.API.LogError("can't get subscriptions from kvstore", "err", err.DetailedError)
 		return nil, err
 	}
 
@@ -158,7 +172,10 @@ func (p *Plugin) StoreSubscriptions(s *Subscriptions) error {
 	if err != nil {
 		return err
 	}
-	return p.API.KVSet(SUBSCRIPTIONS_KEY, b)
+	if err := p.API.KVSet(SUBSCRIPTIONS_KEY, b); err != nil {
+		p.API.LogError("can't set subscriptions in kvstore", "err", err.DetailedError)
+	}
+	return nil
 }
 
 func (p *Plugin) GetSubscribedChannelsForRepository(repoName string, repoPublic bool) []*subscription.Subscription {

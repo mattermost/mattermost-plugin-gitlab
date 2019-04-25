@@ -81,6 +81,8 @@ func decrypt(key []byte, text string) (string, error) {
 func parseOwnerAndRepo(full, baseURL string) (string, string, string) {
 	if baseURL == "" {
 		baseURL = "https://gitlab.com/"
+	} else if !strings.HasSuffix(baseURL, "/") {
+		baseURL = baseURL + "/"
 	}
 	full = strings.TrimSuffix(strings.TrimSpace(strings.Replace(full, baseURL, "", 1)), "/")
 	splitStr := strings.Split(full, "/")

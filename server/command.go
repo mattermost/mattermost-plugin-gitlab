@@ -119,15 +119,16 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 
 		_, owner, repo := parseOwnerAndRepo(parameters[0], config.EnterpriseBaseURL)
 		if repo == "" {
-			if err := p.SubscribeGroup(client, args.UserId, owner, args.ChannelId, features); err != nil {
+			if err := p.SubscribeGroup(config, client, args.UserId, owner, args.ChannelId, features); err != nil {
 				return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, err.Error()), nil
 			}
 
 			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, fmt.Sprintf("Successfully subscribed to organization %s.", owner)), nil
 		}
 
-		if err := p.Subscribe(client, args.UserId, owner, repo, args.ChannelId, features); err != nil {
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, err.Error()), nil
+		if err := p.Subscribe(config, client, args.UserId, owner, repo, args.ChannelId, features); err != nil {
+			p.API.LogError("can't subscribe", "err", err)
+			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "error"), nil
 		}
 
 		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, fmt.Sprintf("Successfully subscribed to %s.", repo)), nil

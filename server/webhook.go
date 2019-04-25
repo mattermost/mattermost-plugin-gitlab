@@ -58,6 +58,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		p.API.LogError("can't parse webhook", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"), "event", string(body))
 		return
 	}
+	p.API.LogWarn("new hook", "body", string(body))
 
 	var repoPrivate bool
 	var handlers []*webhook.HandleWebhook
@@ -101,10 +102,9 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	alreadySentRefresh := make(map[string]bool)
 	for _, res := range handlers {
-		p.API.LogInfo("new msg", "message", res.Message, "to", "from", res.From)
+		p.API.LogInfo("new msg", "message", res.Message, "from", res.From)
 		for _, to := range res.ToUsers {
 			userTo := p.getGitlabToUserIDMapping(to)
-			p.API.LogInfo("userTo", "to", userTo)
 			if !alreadySentRefresh[userTo] {
 				alreadySentRefresh[userTo] = true
 				p.sendRefreshEvent(userTo)

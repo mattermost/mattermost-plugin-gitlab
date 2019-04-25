@@ -52,6 +52,7 @@ func TestParseOwnerAndRepo(t *testing.T) {
 		{Full: "", BaseURL: "", ExpectedOwner: "", ExpectedRepo: ""},
 		{Full: "mattermost/mattermost/invalid_repo_url", BaseURL: "", ExpectedOwner: "", ExpectedRepo: ""},
 		{Full: "https://gitlab.com/mattermost/mattermost/invalid_repo_url", BaseURL: "", ExpectedOwner: "", ExpectedRepo: ""},
+		{Full: "http://127.0.0.1:3000/manland/personal", BaseURL: "http://127.0.0.1:3000", ExpectedOwner: "manland", ExpectedRepo: "personal"},
 	}
 
 	for _, tc := range tcs {
