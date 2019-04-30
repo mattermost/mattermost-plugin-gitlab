@@ -169,7 +169,6 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 			DailyReminder:  true,
 			Notifications:  true,
 		},
-		AllowedPrivateRepos: config.EnablePrivateRepo,
 	}
 
 	if err := p.storeGitlabUserInfo(userInfo); err != nil {
@@ -348,25 +347,6 @@ func (p *Plugin) getConnected(w http.ResponseWriter, r *http.Request) {
 				info.LastToDoPostAt = now
 				if err := p.storeGitlabUserInfo(info); err != nil {
 					p.API.LogError("can't sotre user info", "err", err.Error())
-				}
-			}
-		}
-
-		privateRepoStoreKey := info.UserID + GITLAB_PRIVATE_REPO_KEY
-		if config.EnablePrivateRepo && !info.AllowedPrivateRepos {
-			hasBeenNotified := false
-			if val, err := p.API.KVGet(privateRepoStoreKey); err == nil {
-				hasBeenNotified = val != nil
-			} else {
-				p.API.LogError("Unable to get private repo key value", "err", err.Error())
-			}
-
-			if !hasBeenNotified {
-				if err := p.CreateBotDMPost(info.UserID, "Private repositories have been enabled for this plugin. To be able to use them you must disconnect and reconnect your Gitlab account. To reconnect your account, use the following slash commands: `/gitlab disconnect` followed by `/gitlab connect`.", ""); err != nil {
-					p.API.LogError("Unable to send DM post about private config change", "err", err.Error())
-				}
-				if err := p.API.KVSet(privateRepoStoreKey, []byte("1")); err != nil {
-					p.API.LogError("Unable to set private repo key value", "err", err.Error())
 				}
 			}
 		}

@@ -19,18 +19,17 @@ import (
 )
 
 const (
-	GITLAB_TOKEN_KEY        = "_gitlabtoken"
-	GITLAB_USERNAME_KEY     = "_gitlabusername"
-	GITLAB_IDUSERNAME_KEY   = "_gitlabidusername"
-	GITLAB_PRIVATE_REPO_KEY = "_gitlabprivate"
-	WS_EVENT_CONNECT        = "gitlab_connect"
-	WS_EVENT_DISCONNECT     = "gitlab_disconnect"
-	WS_EVENT_REFRESH        = "gitlab_refresh"
-	SETTING_BUTTONS_TEAM    = "team"
-	SETTING_NOTIFICATIONS   = "notifications"
-	SETTING_REMINDERS       = "reminders"
-	SETTING_ON              = "on"
-	SETTING_OFF             = "off"
+	GITLAB_TOKEN_KEY      = "_gitlabtoken"
+	GITLAB_USERNAME_KEY   = "_gitlabusername"
+	GITLAB_IDUSERNAME_KEY = "_gitlabidusername"
+	WS_EVENT_CONNECT      = "gitlab_connect"
+	WS_EVENT_DISCONNECT   = "gitlab_disconnect"
+	WS_EVENT_REFRESH      = "gitlab_refresh"
+	SETTING_BUTTONS_TEAM  = "team"
+	SETTING_NOTIFICATIONS = "notifications"
+	SETTING_REMINDERS     = "reminders"
+	SETTING_ON            = "on"
+	SETTING_OFF           = "off"
 )
 
 type Plugin struct {

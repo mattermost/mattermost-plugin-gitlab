@@ -101,10 +101,9 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	alreadySentRefresh := make(map[string]bool)
 	for _, res := range handlers {
-		p.API.LogInfo("new msg", "message", res.Message, "to", "from", res.From)
+		p.API.LogInfo("new msg", "message", res.Message, "from", res.From)
 		for _, to := range res.ToUsers {
 			userTo := p.getGitlabToUserIDMapping(to)
-			p.API.LogInfo("userTo", "to", userTo)
 			if !alreadySentRefresh[userTo] {
 				alreadySentRefresh[userTo] = true
 				p.sendRefreshEvent(userTo)
