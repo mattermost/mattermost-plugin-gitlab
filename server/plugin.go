@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/manland/go-gitlab"
+	"github.com/manland/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/manland/mattermost-plugin-gitlab/server/webhook"
 	"github.com/mattermost/mattermost-server/model"
 	"github.com/mattermost/mattermost-server/plugin"
@@ -25,7 +24,6 @@ const (
 	WS_EVENT_CONNECT      = "gitlab_connect"
 	WS_EVENT_DISCONNECT   = "gitlab_disconnect"
 	WS_EVENT_REFRESH      = "gitlab_refresh"
-	SETTING_BUTTONS_TEAM  = "team"
 	SETTING_NOTIFICATIONS = "notifications"
 	SETTING_REMINDERS     = "reminders"
 	SETTING_ON            = "on"
@@ -44,25 +42,6 @@ type Plugin struct {
 	// configuration is the active plugin configuration. Consult getConfiguration and
 	// setConfiguration for usage.
 	configuration *configuration
-}
-
-func (p *Plugin) gitlabConnect(token oauth2.Token) *gitlab.Client {
-	config := p.getConfiguration()
-
-	ctx := context.Background()
-	ts := oauth2.StaticTokenSource(&token)
-	tc := oauth2.NewClient(ctx, ts)
-
-	if len(config.EnterpriseBaseURL) == 0 {
-		return gitlab.NewOAuthClient(tc, token.AccessToken)
-	}
-
-	client := gitlab.NewOAuthClient(tc, token.AccessToken)
-	if err := client.SetBaseURL(config.EnterpriseBaseURL); err != nil {
-		p.API.LogError("can't set base url to gitlab client lib", "err", err.Error())
-		return gitlab.NewOAuthClient(tc, token.AccessToken)
-	}
-	return client
 }
 
 func (p *Plugin) OnActivate() error {
@@ -112,23 +91,7 @@ func (p *Plugin) getOAuthConfig() *oauth2.Config {
 	}
 }
 
-type GitlabUserInfo struct {
-	UserID              string
-	Token               *oauth2.Token
-	GitlabUsername      string
-	GitlabUserId        int
-	LastToDoPostAt      int64
-	Settings            *UserSettings
-	AllowedPrivateRepos bool
-}
-
-type UserSettings struct {
-	SidebarButtons string `json:"sidebar_buttons"`
-	DailyReminder  bool   `json:"daily_reminder"`
-	Notifications  bool   `json:"notifications"`
-}
-
-func (p *Plugin) storeGitlabUserInfo(info *GitlabUserInfo) error {
+func (p *Plugin) storeGitlabUserInfo(info *gitlab.GitlabUserInfo) error {
 	config := p.getConfiguration()
 
 	encryptedToken, err := encrypt([]byte(config.EncryptionKey), info.Token.AccessToken)
@@ -150,10 +113,10 @@ func (p *Plugin) storeGitlabUserInfo(info *GitlabUserInfo) error {
 	return nil
 }
 
-func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*GitlabUserInfo, *APIErrorResponse) {
+func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.GitlabUserInfo, *APIErrorResponse) {
 	config := p.getConfiguration()
 
-	var userInfo GitlabUserInfo
+	var userInfo gitlab.GitlabUserInfo
 
 	if infoBytes, err := p.API.KVGet(userID + GITLAB_TOKEN_KEY); err != nil || infoBytes == nil {
 		return nil, &APIErrorResponse{ID: API_ERROR_ID_NOT_CONNECTED, Message: "Must connect user account to Gitlab first.", StatusCode: http.StatusBadRequest}
@@ -261,8 +224,8 @@ func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppErr
 	return nil
 }
 
-func (p *Plugin) PostToDo(info *GitlabUserInfo) {
-	text, err := p.GetToDo(info, p.gitlabConnect(*info.Token))
+func (p *Plugin) PostToDo(info *gitlab.GitlabUserInfo) {
+	text, err := p.GetToDo(info)
 	if err != nil {
 		p.API.LogError("can't post todo", "err", err.Error())
 		return
@@ -273,36 +236,26 @@ func (p *Plugin) PostToDo(info *GitlabUserInfo) {
 	}
 }
 
-func (p *Plugin) GetToDo(user *GitlabUserInfo, client *gitlab.Client) (string, error) {
-	notifications, _, err := client.Todos.ListTodos(&gitlab.ListTodosOptions{})
+func (p *Plugin) GetToDo(user *gitlab.GitlabUserInfo) (string, error) {
+	config := p.getConfiguration()
+	gitlabClient := gitlab.New(config.EnterpriseBaseURL)
+
+	unreads, err := gitlabClient.GetUnreads(user)
 	if err != nil {
 		return "", err
 	}
 
-	opened := "opened"
-	scope := "all"
-
-	issueResults, issueResponse, err := client.Issues.ListIssues(&gitlab.ListIssuesOptions{
-		AssigneeID: &user.GitlabUserId,
-		State:      &opened,
-	})
+	yourAssignments, err := gitlabClient.GetYourAssignments(user)
 	if err != nil {
 		return "", err
 	}
 
-	yourPrs, yourPrsResponse, err := client.MergeRequests.ListMergeRequests(&gitlab.ListMergeRequestsOptions{
-		AuthorID: &user.GitlabUserId,
-		State:    &opened,
-	})
+	yourMergeRequests, err := gitlabClient.GetYourPrs(user)
 	if err != nil {
 		return "", err
 	}
 
-	yourAssignments, yourAssignmentsResponse, err := client.MergeRequests.ListMergeRequests(&gitlab.ListMergeRequestsOptions{
-		AssigneeID: &user.GitlabUserId,
-		State:      &opened,
-		Scope:      &scope,
-	})
+	reviews, err := gitlabClient.GetReviews(user)
 	if err != nil {
 		return "", err
 	}
@@ -311,7 +264,7 @@ func (p *Plugin) GetToDo(user *GitlabUserInfo, client *gitlab.Client) (string, e
 
 	notificationCount := 0
 	notificationContent := ""
-	for _, n := range notifications {
+	for _, n := range unreads {
 		if p.checkGroup(n.Project.NameWithNamespace) != nil {
 			continue
 		}
@@ -328,36 +281,36 @@ func (p *Plugin) GetToDo(user *GitlabUserInfo, client *gitlab.Client) (string, e
 
 	text += "##### Review Requests\n"
 
-	if yourAssignmentsResponse.TotalItems == 0 {
+	if len(reviews) == 0 {
 		text += "You don't have any pull requests awaiting your review.\n"
 	} else {
-		text += fmt.Sprintf("You have %v pull requests awaiting your review:\n", yourAssignmentsResponse.TotalItems)
+		text += fmt.Sprintf("You have %v pull requests awaiting your review:\n", len(reviews))
 
-		for _, pr := range yourAssignments {
+		for _, pr := range reviews {
 			text += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
 		}
 	}
 
 	text += "##### Assignments\n"
 
-	if issueResponse.TotalItems == 0 {
+	if len(yourAssignments) == 0 {
 		text += "You don't have any issues awaiting your dev.\n"
 	} else {
-		text += fmt.Sprintf("You have %v issues awaiting dev:\n", issueResponse.TotalItems)
+		text += fmt.Sprintf("You have %v issues awaiting dev:\n", len(yourAssignments))
 
-		for _, pr := range issueResults {
+		for _, pr := range yourAssignments {
 			text += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
 		}
 	}
 
 	text += "##### Your Open Pull Requests\n"
 
-	if yourPrsResponse.TotalItems == 0 {
+	if len(yourMergeRequests) == 0 {
 		text += "You don't have any open pull requests.\n"
 	} else {
-		text += fmt.Sprintf("You have %v open pull requests:\n", yourPrsResponse.TotalItems)
+		text += fmt.Sprintf("You have %v open pull requests:\n", len(yourMergeRequests))
 
-		for _, pr := range yourPrs {
+		for _, pr := range yourMergeRequests {
 			text += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
 		}
 	}

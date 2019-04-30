@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/manland/go-gitlab"
+	"github.com/manland/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-server/model"
 	"github.com/mattermost/mattermost-server/plugin"
 
@@ -79,8 +79,6 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 		p.getYourPrs(w, r)
 	case "/api/v1/yourassignments":
 		p.getYourAssignments(w, r)
-	case "/api/v1/mentions":
-		p.getMentions(w, r)
 	case "/api/v1/unreads":
 		p.getUnreads(w, r)
 	case "/api/v1/settings":
@@ -150,25 +148,11 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	client := p.gitlabConnect(*tok)
-	gitUser, _, err := client.Users.CurrentUser()
+	userInfo, err := gitlab.New(config.EnterpriseBaseURL).GetCurrentUser(userID, *tok)
 	if err != nil {
-		p.API.LogError("can't retreive user info from gitlab", "err", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		p.API.LogError("can't retreive user info from gitlab api", "err", err.Error())
+		http.Error(w, "Unable to connect user to Gitlab", http.StatusInternalServerError)
 		return
-	}
-
-	userInfo := &GitlabUserInfo{
-		UserID:         userID,
-		GitlabUserId:   gitUser.ID,
-		Token:          tok,
-		GitlabUsername: gitUser.Username,
-		LastToDoPostAt: model.GetMillis(),
-		Settings: &UserSettings{
-			SidebarButtons: SETTING_BUTTONS_TEAM,
-			DailyReminder:  true,
-			Notifications:  true,
-		},
 	}
 
 	if err := p.storeGitlabUserInfo(userInfo); err != nil {
@@ -258,12 +242,12 @@ func (p *Plugin) handleProfileImage(w http.ResponseWriter, r *http.Request) {
 }
 
 type ConnectedResponse struct {
-	Connected         bool          `json:"connected"`
-	GitlabUsername    string        `json:"gitlab_username"`
-	GitlabClientID    string        `json:"gitlab_client_id"`
-	EnterpriseBaseURL string        `json:"enterprise_base_url,omitempty"`
-	Organization      string        `json:"organization"`
-	Settings          *UserSettings `json:"settings"`
+	Connected         bool                 `json:"connected"`
+	GitlabUsername    string               `json:"gitlab_username"`
+	GitlabClientID    string               `json:"gitlab_client_id"`
+	EnterpriseBaseURL string               `json:"enterprise_base_url,omitempty"`
+	Organization      string               `json:"organization"`
+	Settings          *gitlab.UserSettings `json:"settings"`
 }
 
 type GitlabUserRequest struct {
@@ -355,7 +339,8 @@ func (p *Plugin) getConnected(w http.ResponseWriter, r *http.Request) {
 	p.writeAPIResponse(w, resp)
 }
 
-func (p *Plugin) getMentions(w http.ResponseWriter, r *http.Request) {
+func (p *Plugin) getUnreads(w http.ResponseWriter, r *http.Request) {
+	config := p.getConfiguration()
 
 	userID := r.Header.Get("Mattermost-User-ID")
 	if userID == "" {
@@ -363,50 +348,24 @@ func (p *Plugin) getMentions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var client *gitlab.Client
-
-	if info, err := p.getGitlabUserInfoByMattermostID(userID); err != nil {
+	user, err := p.getGitlabUserInfoByMattermostID(userID)
+	if err != nil {
 		p.writeAPIError(w, err)
 		return
-	} else {
-		client = p.gitlabConnect(*info.Token)
 	}
 
-	result, _, err := client.Search.Issues("", &gitlab.SearchOptions{}) //TODO what mention means in gitlab ?
-	if err != nil {
-		p.API.LogError("can't search issue in gitlab api", "err", err.Error())
+	result, errRequest := gitlab.New(config.EnterpriseBaseURL).GetUnreads(user)
+	if errRequest != nil {
+		p.API.LogError("unable to list unreads in gitlab api", "err", errRequest.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list unreads in gitlab api.", StatusCode: http.StatusInternalServerError})
+		return
 	}
 
 	p.writeAPIResponse(w, result)
 }
 
-func (p *Plugin) getUnreads(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("Mattermost-User-ID")
-	if userID == "" {
-		http.Error(w, "Not authorized", http.StatusUnauthorized)
-		return
-	}
-
-	var client *gitlab.Client
-
-	if info, err := p.getGitlabUserInfoByMattermostID(userID); err != nil {
-		p.writeAPIError(w, err)
-		return
-	} else {
-		client = p.gitlabConnect(*info.Token)
-	}
-
-	notifications, _, err := client.Todos.ListTodos(&gitlab.ListTodosOptions{})
-	if err != nil {
-		p.API.LogError("can't list todo in gitlab api", "err", err.Error())
-	}
-
-	p.writeAPIResponse(w, notifications)
-}
-
 func (p *Plugin) getReviews(w http.ResponseWriter, r *http.Request) {
-	// config := p.getConfiguration()
-	// TODO only for a group ?
+	config := p.getConfiguration()
 
 	userID := r.Header.Get("Mattermost-User-ID")
 	if userID == "" {
@@ -414,25 +373,18 @@ func (p *Plugin) getReviews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var client *gitlab.Client
 	user, err := p.getGitlabUserInfoByMattermostID(userID)
 
 	if err != nil {
 		p.writeAPIError(w, err)
 		return
 	}
-	client = p.gitlabConnect(*user.Token)
-	opened := "opened"
-	scope := "all"
 
-	result, _, errRequest := client.MergeRequests.ListMergeRequests(&gitlab.ListMergeRequestsOptions{
-		AssigneeID: &user.GitlabUserId,
-		State:      &opened,
-		Scope:      &scope,
-	})
+	result, errRequest := gitlab.New(config.EnterpriseBaseURL).GetReviews(user)
 
 	if errRequest != nil {
-		p.API.LogError("can't list merge-request where assignee in gitlab api", "err", errRequest.Error())
+		p.API.LogError("unable to list merge-request where assignee in gitlab api", "err", errRequest.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in gitlab api.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 
@@ -440,8 +392,7 @@ func (p *Plugin) getReviews(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Plugin) getYourPrs(w http.ResponseWriter, r *http.Request) {
-	// config := p.getConfiguration()
-	// TODO only for a group ?
+	config := p.getConfiguration()
 
 	userID := r.Header.Get("Mattermost-User-ID")
 	if userID == "" {
@@ -449,22 +400,18 @@ func (p *Plugin) getYourPrs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var client *gitlab.Client
 	user, err := p.getGitlabUserInfoByMattermostID(userID)
 
 	if err != nil {
 		p.writeAPIError(w, err)
 		return
 	}
-	client = p.gitlabConnect(*user.Token)
-	opened := "opened"
 
-	result, _, errRequest := client.MergeRequests.ListMergeRequests(&gitlab.ListMergeRequestsOptions{
-		AuthorID: &user.GitlabUserId,
-		State:    &opened,
-	})
+	result, errRequest := gitlab.New(config.EnterpriseBaseURL).GetYourPrs(user)
+
 	if errRequest != nil {
 		p.API.LogError("can't list merge-request where author in gitlab api", "err", errRequest.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in gitlab api.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 
@@ -472,28 +419,26 @@ func (p *Plugin) getYourPrs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Plugin) getYourAssignments(w http.ResponseWriter, r *http.Request) {
+	config := p.getConfiguration()
+
 	userID := r.Header.Get("Mattermost-User-ID")
 	if userID == "" {
 		http.Error(w, "Not authorized", http.StatusUnauthorized)
 		return
 	}
 
-	var client *gitlab.Client
 	user, err := p.getGitlabUserInfoByMattermostID(userID)
 
 	if err != nil {
 		p.writeAPIError(w, err)
 		return
 	}
-	client = p.gitlabConnect(*user.Token)
-	opened := "opened"
 
-	result, _, errRequest := client.Issues.ListIssues(&gitlab.ListIssuesOptions{
-		AssigneeID: &user.GitlabUserId,
-		State:      &opened,
-	})
+	result, errRequest := gitlab.New(config.EnterpriseBaseURL).GetYourAssignments(user)
+
 	if errRequest != nil {
-		p.API.LogError("can't list issue where assignee in gitlab api", "err", errRequest.Error())
+		p.API.LogError("unable to list issue where assignee in gitlab api", "err", errRequest.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list issue in gitlab api.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 
@@ -507,7 +452,6 @@ func (p *Plugin) postToDo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var client *gitlab.Client
 	user, err := p.getGitlabUserInfoByMattermostID(userID)
 
 	if err != nil {
@@ -515,9 +459,7 @@ func (p *Plugin) postToDo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client = p.gitlabConnect(*user.Token)
-
-	text, errRequest := p.GetToDo(user, client)
+	text, errRequest := p.GetToDo(user)
 	if errRequest != nil {
 		p.API.LogError("can't get todo", "err", errRequest.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an error getting the to do items.", StatusCode: http.StatusUnauthorized})
@@ -538,7 +480,7 @@ func (p *Plugin) updateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var settings *UserSettings
+	var settings *gitlab.UserSettings
 	err := json.NewDecoder(r.Body).Decode(&settings)
 	if settings == nil || err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)

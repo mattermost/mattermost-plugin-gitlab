@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/manland/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-server/plugin"
 
 	"github.com/mattermost/mattermost-server/model"
@@ -13,8 +14,7 @@ const COMMAND_HELP = `* |/gitlab connect| - Connect your Mattermost account to y
 * |/gitlab disconnect| - Disconnect your Mattermost account from your Gitlab account
 * |/gitlab todo| - Get a list of unread messages and pull requests awaiting your review
 * |/gitlab subscribe list| - Will list the current channel subscriptions
-* |/gitlab subscribe owner [features]| - Subscribe the current channel to all available repositories within an organization and receive notifications about opened pull requests and issues
-* |/gitlab subscribe owner/repo [features]| - Subscribe the current channel to receive notifications about opened pull requests and issues for a repository
+* |/gitlab subscribe owner[/repo] [features]| - Subscribe the current channel to receive notifications about opened merge requests and issues for a group or repository
   * |features| is a comma-delimited list of one or more the following:
     * issues - includes new and closed issues
 	* merges - includes new and closed pull requests
@@ -88,11 +88,10 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, text), nil
 	}
 
-	client := p.gitlabConnect(*info.Token)
+	config := p.getConfiguration()
 
 	switch action {
 	case "subscribe":
-		config := p.getConfiguration()
 		features := "merges,issues,tag"
 
 		txt := ""
@@ -110,7 +109,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 				txt = "### Subscriptions in this channel\n"
 			}
 			for _, sub := range subs {
-				txt += fmt.Sprintf("* `%s` - %s\n", sub.Repository, sub.Features)
+				txt += fmt.Sprintf("* `%s` - %s\n", strings.Trim(sub.Repository, "/"), sub.Features)
 			}
 			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, txt), nil
 		} else if len(parameters) > 1 {
@@ -119,16 +118,16 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 
 		_, owner, repo := parseOwnerAndRepo(parameters[0], config.EnterpriseBaseURL)
 		if repo == "" {
-			if err := p.SubscribeGroup(config, client, args.UserId, owner, args.ChannelId, features); err != nil {
+			if err := p.SubscribeGroup(info, owner, args.ChannelId, features); err != nil {
 				return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, err.Error()), nil
 			}
 
 			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, fmt.Sprintf("Successfully subscribed to organization %s.", owner)), nil
 		}
 
-		if err := p.Subscribe(config, client, args.UserId, owner, repo, args.ChannelId, features); err != nil {
-			p.API.LogError("can't subscribe", "err", err)
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "error"), nil
+		if err := p.Subscribe(info, owner, repo, args.ChannelId, features); err != nil {
+			p.API.LogError("can't subscribe", "err", err.Error())
+			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, err.Error()), nil
 		}
 
 		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, fmt.Sprintf("Successfully subscribed to %s.", repo)), nil
@@ -149,14 +148,14 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		p.disconnectGitlabAccount(args.UserId)
 		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Disconnected your Gitlab account."), nil
 	case "todo":
-		text, err := p.GetToDo(info, client)
+		text, err := p.GetToDo(info)
 		if err != nil {
 			p.API.LogError("can't get todo in command", "err", err.Error())
 			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Encountered an error getting your to do items."), nil
 		}
 		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, text), nil
 	case "me":
-		gitUser, _, err := client.Users.CurrentUser()
+		gitUser, err := gitlab.New(config.EnterpriseBaseURL).GetUserDetails(info)
 		if err != nil {
 			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Encountered an error getting your Gitlab profile."), nil
 		}

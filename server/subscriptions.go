@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 
-	"github.com/manland/go-gitlab"
+	"github.com/manland/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -18,7 +18,7 @@ type Subscriptions struct {
 	Repositories map[string][]*subscription.Subscription
 }
 
-func (p *Plugin) Subscribe(config *configuration, client *gitlab.Client, userId, owner, repo, channelID, features string) error {
+func (p *Plugin) Subscribe(info *gitlab.GitlabUserInfo, owner, repo, channelID, features string) error {
 	if owner == "" {
 		return fmt.Errorf("Invalid repository")
 	}
@@ -27,74 +27,28 @@ func (p *Plugin) Subscribe(config *configuration, client *gitlab.Client, userId,
 		return err
 	}
 
-	result, _, err := client.Projects.GetProject(owner+"/"+repo, &gitlab.GetProjectOptions{})
-	if result == nil || err != nil {
+	exist, err := gitlab.New(p.getConfiguration().EnterpriseBaseURL).Exist(info, owner, repo, p.getConfiguration().EnablePrivateRepo)
+	if !exist || err != nil {
 		if err != nil {
-			p.API.LogError("can't get project", "err", err.Error(), "project", owner+"/"+repo)
+			p.API.LogError(fmt.Sprintf("Unable to retreive informations for %s", fullNameFromOwnerAndRepo(owner, repo)), "err", err.Error())
 		}
-		return fmt.Errorf("Unknown repository %s/%s", owner, repo)
+		return fmt.Errorf("Unable to retreive informations for %s", fullNameFromOwnerAndRepo(owner, repo))
 	}
 
-	if !config.EnablePrivateRepo && result.Visibility != gitlab.PublicVisibility {
-		return errors.New("you can't add a private project on this mattermost instance")
-	}
+	sub := subscription.New(channelID, info.UserID, features, fullNameFromOwnerAndRepo(owner, repo))
 
-	sub := subscription.New(channelID, userId, features, fmt.Sprintf("%s/%s", owner, repo))
-
-	if err := p.AddSubscription(fmt.Sprintf("%s/%s", owner, repo), sub); err != nil {
+	if err := p.AddSubscription(fullNameFromOwnerAndRepo(owner, repo), sub); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (p *Plugin) SubscribeGroup(config *configuration, client *gitlab.Client, userId, org, channelID, features string) error {
+func (p *Plugin) SubscribeGroup(info *gitlab.GitlabUserInfo, org, channelID, features string) error {
 	if org == "" {
 		return fmt.Errorf("Invalid group")
 	}
-	if err := p.checkGroup(org); err != nil {
-		return err
-	}
-
-	v := gitlab.PublicVisibility
-	visibility := &v
-	if config.EnablePrivateRepo {
-		visibility = nil // == all visibility
-	}
-	var allRepos []*gitlab.Project
-	requestOptions := &gitlab.ListGroupProjectsOptions{
-		Visibility:  visibility,
-		ListOptions: gitlab.ListOptions{PerPage: 50},
-	}
-	for {
-		repos, response, err := client.Groups.ListGroupProjects(org, requestOptions)
-		if err != nil {
-			p.API.LogError("can't list group project", "err", err.Error())
-			return errors.Wrap(err, "can't list group project")
-		}
-		allRepos = append(allRepos, repos...)
-		if response.NextPage == 0 {
-			break
-		}
-		requestOptions.Page = response.NextPage
-	}
-
-	if len(allRepos) == 0 && !config.EnablePrivateRepo {
-		return fmt.Errorf("No public project found for %s", org)
-	} else if len(allRepos) == 0 {
-		return fmt.Errorf("No project found for %s", org)
-	}
-
-	for _, repo := range allRepos {
-		sub := subscription.New(channelID, userId, features, repo.Name)
-
-		if err := p.AddSubscription(sub.Repository, sub); err != nil {
-			p.API.LogError("can't add subscipriotn", "err", err.Error(), "repository", sub.Repository)
-			continue
-		}
-	}
-
-	return nil
+	return p.Subscribe(info, org, "", channelID, features)
 }
 
 func (p *Plugin) GetSubscriptionsByChannel(channelID string) ([]*subscription.Subscription, error) {
@@ -104,13 +58,9 @@ func (p *Plugin) GetSubscriptionsByChannel(channelID string) ([]*subscription.Su
 		return nil, err
 	}
 
-	for repo, v := range subs.Repositories {
+	for _, v := range subs.Repositories {
 		for _, s := range v {
 			if s.ChannelID == channelID {
-				// this is needed to be backwards compatible
-				if len(s.Repository) == 0 {
-					s.Repository = repo
-				}
 				filteredSubs = append(filteredSubs, s)
 			}
 		}
@@ -178,22 +128,35 @@ func (p *Plugin) StoreSubscriptions(s *Subscriptions) error {
 	return nil
 }
 
-func (p *Plugin) GetSubscribedChannelsForRepository(repoName string, repoPublic bool) []*subscription.Subscription {
-	subsToReturn := []*subscription.Subscription{}
+func (p *Plugin) GetSubscribedChannelsForRepository(fullNameOwnerAndRepo string, repoPublic bool) []*subscription.Subscription {
+	group := strings.Split(fullNameOwnerAndRepo, "/")[0]
+	subsForRepo := []*subscription.Subscription{}
 
 	subs, err := p.GetSubscriptions()
 	if err != nil {
 		p.API.LogError("can't retreive subscriptions", "err", err.Error())
-		return subsToReturn
+		return subsForRepo
 	}
 
-	subsForRepo := subs.Repositories[repoName]
-	if subsForRepo == nil {
-		return subsToReturn
+	// Add subcriptions for the specific repo
+	if subs.Repositories[fullNameOwnerAndRepo] != nil {
+		subsForRepo = append(subsForRepo, subs.Repositories[fullNameOwnerAndRepo]...)
 	}
+
+	// Add subcriptions for the organization
+	groupKey := fullNameFromOwnerAndRepo(group, "")
+	if subs.Repositories[groupKey] != nil {
+		subsForRepo = append(subsForRepo, subs.Repositories[groupKey]...)
+	}
+
+	if len(subsForRepo) == 0 {
+		return nil
+	}
+
+	subsToReturn := []*subscription.Subscription{}
 
 	for _, sub := range subsForRepo {
-		if !repoPublic && !p.permissionToRepo(sub.CreatorID, repoName) {
+		if !repoPublic && !p.permissionToRepo(sub.CreatorID, fullNameOwnerAndRepo) {
 			continue
 		}
 		subsToReturn = append(subsToReturn, sub)

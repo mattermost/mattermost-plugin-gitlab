@@ -127,3 +127,7 @@ func parseGitlabUsernamesFromText(text string) []string {
 
 	return usernames
 }
+
+func fullNameFromOwnerAndRepo(owner, repo string) string {
+	return fmt.Sprintf("%s/%s", owner, repo)
+}
