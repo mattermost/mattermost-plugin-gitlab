@@ -1,8 +1,8 @@
-# Mattermost Gitlab Plugin ![CircleCI branch](https://img.shields.io/circleci/project/github/manland/mattermost-plugin-gitlab/master.svg)
+# Mattermost GitLab Plugin ![CircleCI branch](https://img.shields.io/circleci/project/github/manland/mattermost-plugin-gitlab/master.svg)
 
 A GitLab plugin for Mattermost. The plugin is currently in beta.
 
-## Todo
+## Features
 
 * [X] __Daily reminders__ - the first time you log in to Mattermost each day, get a post letting you know what issues and merge requests need your attention
 * [X] __Notifications__ - get a direct message in Mattermost when someone mentions you, requests your review, comments on or modifies one of your merge requests/issues, or assigns you on GitLab
