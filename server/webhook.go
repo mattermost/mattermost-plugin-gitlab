@@ -7,7 +7,6 @@ import (
 
 	gitlabLib "github.com/manland/go-gitlab"
 
-	"github.com/manland/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
 	"github.com/manland/mattermost-plugin-gitlab/server/webhook"
 
@@ -177,7 +176,7 @@ func (p *Plugin) permissionToRepo(userID string, fullPath string) bool {
 		return false
 	}
 
-	if result, err := gitlab.New(config.EnterpriseBaseURL).GetProject(info, owner, repo); result == nil || err != nil {
+	if result, err := p.GitlabClient.GetProject(info, owner, repo); result == nil || err != nil {
 		if err != nil {
 			p.API.LogError("can't get project in webhook", "err", err.Error(), "project", owner+"/"+repo)
 		}

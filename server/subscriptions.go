@@ -27,7 +27,7 @@ func (p *Plugin) Subscribe(info *gitlab.GitlabUserInfo, owner, repo, channelID, 
 		return err
 	}
 
-	exist, err := gitlab.New(p.getConfiguration().EnterpriseBaseURL).Exist(info, owner, repo, p.getConfiguration().EnablePrivateRepo)
+	exist, err := p.GitlabClient.Exist(info, owner, repo, p.getConfiguration().EnablePrivateRepo)
 	if !exist || err != nil {
 		if err != nil {
 			p.API.LogError(fmt.Sprintf("Unable to retreive informations for %s", fullNameFromOwnerAndRepo(owner, repo)), "err", err.Error())

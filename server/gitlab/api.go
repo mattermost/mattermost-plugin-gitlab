@@ -19,7 +19,6 @@ func (g *gitlab) GetProject(user *GitlabUserInfo, owner, repo string) (*internGi
 }
 
 func (g *gitlab) GetReviews(user *GitlabUserInfo) ([]*internGitlab.MergeRequest, error) {
-	// TODO only for a group ?
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -28,20 +27,27 @@ func (g *gitlab) GetReviews(user *GitlabUserInfo) ([]*internGitlab.MergeRequest,
 	opened := "opened"
 	scope := "all"
 
-	//move notifs, merge-request, issues to package gitlab and reuse same for /todo and api http
-	//add into client client.Groups.Issues()
+	var result []*internGitlab.MergeRequest
+	var errRequest error
 
-	result, _, errRequest := client.MergeRequests.ListMergeRequests(&internGitlab.ListMergeRequestsOptions{
-		AssigneeID: &user.GitlabUserId,
-		State:      &opened,
-		Scope:      &scope,
-	})
+	if g.gitlabGroup == "" {
+		result, _, errRequest = client.MergeRequests.ListMergeRequests(&internGitlab.ListMergeRequestsOptions{
+			AssigneeID: &user.GitlabUserId,
+			State:      &opened,
+			Scope:      &scope,
+		})
+	} else {
+		result, _, errRequest = client.MergeRequests.ListGroupMergeRequests(g.gitlabGroup, &internGitlab.ListGroupMergeRequestsOptions{
+			AssigneeID: &user.GitlabUserId,
+			State:      &opened,
+			Scope:      &scope,
+		})
+	}
 
 	return result, errRequest
 }
 
 func (g *gitlab) GetYourPrs(user *GitlabUserInfo) ([]*internGitlab.MergeRequest, error) {
-	// TODO only for a group ?
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -50,17 +56,27 @@ func (g *gitlab) GetYourPrs(user *GitlabUserInfo) ([]*internGitlab.MergeRequest,
 	opened := "opened"
 	scope := "all"
 
-	result, _, errRequest := client.MergeRequests.ListMergeRequests(&internGitlab.ListMergeRequestsOptions{
-		AuthorID: &user.GitlabUserId,
-		State:    &opened,
-		Scope:    &scope,
-	})
+	var result []*internGitlab.MergeRequest
+	var errRequest error
+
+	if g.gitlabGroup == "" {
+		result, _, errRequest = client.MergeRequests.ListMergeRequests(&internGitlab.ListMergeRequestsOptions{
+			AuthorID: &user.GitlabUserId,
+			State:    &opened,
+			Scope:    &scope,
+		})
+	} else {
+		result, _, errRequest = client.MergeRequests.ListGroupMergeRequests(g.gitlabGroup, &internGitlab.ListGroupMergeRequestsOptions{
+			AuthorID: &user.GitlabUserId,
+			State:    &opened,
+			Scope:    &scope,
+		})
+	}
 
 	return result, errRequest
 }
 
 func (g *gitlab) GetYourAssignments(user *GitlabUserInfo) ([]*internGitlab.Issue, error) {
-	// TODO only for a group ?
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -68,10 +84,20 @@ func (g *gitlab) GetYourAssignments(user *GitlabUserInfo) ([]*internGitlab.Issue
 
 	opened := "opened"
 
-	result, _, errRequest := client.Issues.ListIssues(&internGitlab.ListIssuesOptions{
-		AssigneeID: &user.GitlabUserId,
-		State:      &opened,
-	})
+	var result []*internGitlab.Issue
+	var errRequest error
+
+	if g.gitlabGroup == "" {
+		result, _, errRequest = client.Issues.ListIssues(&internGitlab.ListIssuesOptions{
+			AssigneeID: &user.GitlabUserId,
+			State:      &opened,
+		})
+	} else {
+		result, _, errRequest = client.Issues.ListGroupIssues(g.gitlabGroup, &internGitlab.ListGroupIssuesOptions{
+			AssigneeID: &user.GitlabUserId,
+			State:      &opened,
+		})
+	}
 
 	return result, errRequest
 }
@@ -88,10 +114,9 @@ func (g *gitlab) GetUnreads(user *GitlabUserInfo) ([]*internGitlab.Todo, error) 
 	}
 	notifications := []*internGitlab.Todo{}
 	for _, todo := range result {
-		// TODO check group
-		// if p.checkGroup(todo.Project.NameWithNamespace) != nil {
-		// 	continue
-		// }
+		if g.checkGroup(todo.Project.NameWithNamespace) != nil {
+			continue
+		}
 		notifications = append(notifications, todo)
 	}
 

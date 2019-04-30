@@ -148,7 +148,7 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	userInfo, err := gitlab.New(config.EnterpriseBaseURL).GetCurrentUser(userID, *tok)
+	userInfo, err := p.GitlabClient.GetCurrentUser(userID, *tok)
 	if err != nil {
 		p.API.LogError("can't retreive user info from gitlab api", "err", err.Error())
 		http.Error(w, "Unable to connect user to Gitlab", http.StatusInternalServerError)
@@ -340,8 +340,6 @@ func (p *Plugin) getConnected(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Plugin) getUnreads(w http.ResponseWriter, r *http.Request) {
-	config := p.getConfiguration()
-
 	userID := r.Header.Get("Mattermost-User-ID")
 	if userID == "" {
 		http.Error(w, "Not authorized", http.StatusUnauthorized)
@@ -354,7 +352,7 @@ func (p *Plugin) getUnreads(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, errRequest := gitlab.New(config.EnterpriseBaseURL).GetUnreads(user)
+	result, errRequest := p.GitlabClient.GetUnreads(user)
 	if errRequest != nil {
 		p.API.LogError("unable to list unreads in gitlab api", "err", errRequest.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list unreads in gitlab api.", StatusCode: http.StatusInternalServerError})
@@ -365,8 +363,6 @@ func (p *Plugin) getUnreads(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Plugin) getReviews(w http.ResponseWriter, r *http.Request) {
-	config := p.getConfiguration()
-
 	userID := r.Header.Get("Mattermost-User-ID")
 	if userID == "" {
 		http.Error(w, "Not authorized", http.StatusUnauthorized)
@@ -380,7 +376,7 @@ func (p *Plugin) getReviews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, errRequest := gitlab.New(config.EnterpriseBaseURL).GetReviews(user)
+	result, errRequest := p.GitlabClient.GetReviews(user)
 
 	if errRequest != nil {
 		p.API.LogError("unable to list merge-request where assignee in gitlab api", "err", errRequest.Error())
@@ -392,8 +388,6 @@ func (p *Plugin) getReviews(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Plugin) getYourPrs(w http.ResponseWriter, r *http.Request) {
-	config := p.getConfiguration()
-
 	userID := r.Header.Get("Mattermost-User-ID")
 	if userID == "" {
 		http.Error(w, "Not authorized", http.StatusUnauthorized)
@@ -407,7 +401,7 @@ func (p *Plugin) getYourPrs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, errRequest := gitlab.New(config.EnterpriseBaseURL).GetYourPrs(user)
+	result, errRequest := p.GitlabClient.GetYourPrs(user)
 
 	if errRequest != nil {
 		p.API.LogError("can't list merge-request where author in gitlab api", "err", errRequest.Error())
@@ -419,8 +413,6 @@ func (p *Plugin) getYourPrs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Plugin) getYourAssignments(w http.ResponseWriter, r *http.Request) {
-	config := p.getConfiguration()
-
 	userID := r.Header.Get("Mattermost-User-ID")
 	if userID == "" {
 		http.Error(w, "Not authorized", http.StatusUnauthorized)
@@ -434,7 +426,7 @@ func (p *Plugin) getYourAssignments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, errRequest := gitlab.New(config.EnterpriseBaseURL).GetYourAssignments(user)
+	result, errRequest := p.GitlabClient.GetYourAssignments(user)
 
 	if errRequest != nil {
 		p.API.LogError("unable to list issue where assignee in gitlab api", "err", errRequest.Error())

@@ -121,12 +121,12 @@
   version = "v1.8.0"
 
 [[projects]]
-  branch = "improveWebHook"
-  digest = "1:746fd31f74d54c68f6c793e63f57cb0ca3cf6daadd4d75c521ee97ae9ac0a68e"
+  branch = "WebhookChangesUpdatedById"
+  digest = "1:236b2a57da2b94d2a14ee2c3848542af8fe5b22ebbc29c7625ae7fa45779e288"
   name = "github.com/manland/go-gitlab"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "5c874d229fa43220efe87ecc5430f19c0a9de9f5"
+  revision = "9c5f26ed410b61c105216ab09f3285d16cb0ceda"
 
 [[projects]]
   digest = "1:e4dc3cc22ffd03f078ee329b3f435886638244f1b2f81ab9acc5bb6695ef7db4"

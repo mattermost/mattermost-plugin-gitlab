@@ -35,6 +35,7 @@ type Plugin struct {
 
 	BotUserID      string
 	WebhookHandler webhook.Webhook
+	GitlabClient   gitlab.Gitlab
 
 	// configurationLock synchronizes access to the configuration.
 	configurationLock sync.RWMutex
@@ -62,6 +63,7 @@ func (p *Plugin) OnActivate() error {
 
 	p.BotUserID = user.Id
 	p.WebhookHandler = webhook.NewWebhook(&gitlabRetreiver{p: p})
+	p.GitlabClient = gitlab.New(config.EnterpriseBaseURL, config.GitlabGroup, p.checkGroup)
 
 	return nil
 }
@@ -237,25 +239,22 @@ func (p *Plugin) PostToDo(info *gitlab.GitlabUserInfo) {
 }
 
 func (p *Plugin) GetToDo(user *gitlab.GitlabUserInfo) (string, error) {
-	config := p.getConfiguration()
-	gitlabClient := gitlab.New(config.EnterpriseBaseURL)
-
-	unreads, err := gitlabClient.GetUnreads(user)
+	unreads, err := p.GitlabClient.GetUnreads(user)
 	if err != nil {
 		return "", err
 	}
 
-	yourAssignments, err := gitlabClient.GetYourAssignments(user)
+	yourAssignments, err := p.GitlabClient.GetYourAssignments(user)
 	if err != nil {
 		return "", err
 	}
 
-	yourMergeRequests, err := gitlabClient.GetYourPrs(user)
+	yourMergeRequests, err := p.GitlabClient.GetYourPrs(user)
 	if err != nil {
 		return "", err
 	}
 
-	reviews, err := gitlabClient.GetReviews(user)
+	reviews, err := p.GitlabClient.GetReviews(user)
 	if err != nil {
 		return "", err
 	}

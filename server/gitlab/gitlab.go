@@ -8,6 +8,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
+//Gitlab is a client to call gitlab api see New() to build one
 type Gitlab interface {
 	GetCurrentUser(userID string, token oauth2.Token) (*GitlabUserInfo, error)
 	GetUserDetails(user *GitlabUserInfo) (*internGitlab.User, error)
@@ -21,10 +22,13 @@ type Gitlab interface {
 
 type gitlab struct {
 	enterpriseBaseURL string
+	gitlabGroup       string
+	checkGroup        func(projectNameWithGroup string) error
 }
 
-func New(enterpriseBaseURL string) Gitlab {
-	return &gitlab{enterpriseBaseURL: enterpriseBaseURL}
+//New return a client to call gitlab api
+func New(enterpriseBaseURL string, gitlabGroup string, checkGroup func(projectNameWithGroup string) error) Gitlab {
+	return &gitlab{enterpriseBaseURL: enterpriseBaseURL, gitlabGroup: gitlabGroup, checkGroup: checkGroup}
 }
 
 func (g *gitlab) gitlabConnect(token oauth2.Token) (*internGitlab.Client, error) {

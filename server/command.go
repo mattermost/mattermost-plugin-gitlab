@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/manland/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-server/plugin"
 
 	"github.com/mattermost/mattermost-server/model"
@@ -155,7 +154,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		}
 		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, text), nil
 	case "me":
-		gitUser, err := gitlab.New(config.EnterpriseBaseURL).GetUserDetails(info)
+		gitUser, err := p.GitlabClient.GetUserDetails(info)
 		if err != nil {
 			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Encountered an error getting your Gitlab profile."), nil
 		}
