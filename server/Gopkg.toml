@@ -15,4 +15,4 @@
   #name = "github.com/xanzy/go-gitlab"
   #version = "0.16.1"
   name = "github.com/manland/go-gitlab"
-  branch = "improveWebHook"
+  branch = "WebhookChangesUpdatedById"

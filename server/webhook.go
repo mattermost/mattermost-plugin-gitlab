@@ -5,7 +5,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/manland/go-gitlab"
+	gitlabLib "github.com/manland/go-gitlab"
+
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
 	"github.com/manland/mattermost-plugin-gitlab/server/webhook"
 
@@ -53,44 +54,56 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	event, err := gitlab.ParseWebhook(gitlab.WebhookEventType(r), body)
+	event, err := gitlabLib.ParseWebhook(gitlabLib.WebhookEventType(r), body)
 	if err != nil {
 		p.API.LogError("can't parse webhook", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"), "event", string(body))
 		return
 	}
 
 	var repoPrivate bool
+	var pathWithNamespace string
 	var handlers []*webhook.HandleWebhook
 	var errHandler error
 
 	switch event := event.(type) {
-	case *gitlab.MergeEvent:
-		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
+	case *gitlabLib.MergeEvent:
+		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
+		pathWithNamespace = event.Project.PathWithNamespace
 		handlers, errHandler = p.WebhookHandler.HandleMergeRequest(event)
-	case *gitlab.IssueEvent:
-		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
+	case *gitlabLib.IssueEvent:
+		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
+		pathWithNamespace = event.Project.PathWithNamespace
 		handlers, errHandler = p.WebhookHandler.HandleIssue(event)
-	case *gitlab.IssueCommentEvent:
-		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
+	case *gitlabLib.IssueCommentEvent:
+		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
+		pathWithNamespace = event.Project.PathWithNamespace
 		handlers, errHandler = p.WebhookHandler.HandleIssueComment(event)
-	case *gitlab.MergeCommentEvent:
-		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
+	case *gitlabLib.MergeCommentEvent:
+		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
+		pathWithNamespace = event.Project.PathWithNamespace
 		handlers, errHandler = p.WebhookHandler.HandleMergeRequestComment(event)
-	case *gitlab.PushEvent:
-		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
+	case *gitlabLib.PushEvent:
+		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
+		pathWithNamespace = event.Project.PathWithNamespace
 		handlers, errHandler = p.WebhookHandler.HandlePush(event)
-	case *gitlab.PipelineEvent:
-		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
+	case *gitlabLib.PipelineEvent:
+		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
+		pathWithNamespace = event.Project.PathWithNamespace
 		handlers, errHandler = p.WebhookHandler.HandlePipeline(event)
-	case *gitlab.TagEvent:
-		repoPrivate = event.Project.Visibility == gitlab.PrivateVisibility
+	case *gitlabLib.TagEvent:
+		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
+		pathWithNamespace = event.Project.PathWithNamespace
 		handlers, errHandler = p.WebhookHandler.HandleTag(event)
 	default:
-		p.API.LogWarn("event type not implemented", "type", string(gitlab.WebhookEventType(r)))
+		p.API.LogWarn("event type not implemented", "type", string(gitlabLib.WebhookEventType(r)))
 		return
 	}
 
 	if repoPrivate && !config.EnablePrivateRepo {
+		return
+	}
+
+	if errCheckGroup := p.checkGroup(pathWithNamespace); errCheckGroup != nil {
 		return
 	}
 
@@ -163,9 +176,7 @@ func (p *Plugin) permissionToRepo(userID string, fullPath string) bool {
 		return false
 	}
 
-	client := p.gitlabConnect(*info.Token)
-
-	if result, _, err := client.Projects.GetProject(owner+"/"+repo, &gitlab.GetProjectOptions{}); result == nil || err != nil {
+	if result, err := p.GitlabClient.GetProject(info, owner, repo); result == nil || err != nil {
 		if err != nil {
 			p.API.LogError("can't get project in webhook", "err", err.Error(), "project", owner+"/"+repo)
 		}
