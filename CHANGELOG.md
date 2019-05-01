@@ -4,6 +4,7 @@ The changelog can be found at https://github.com/mattermost/mattermost-plugin-gi
 
 ## 0.2.0 - unreleased
 
+- Send refresh to webapp of the author of events received by webhook [#19](https://github.com/manland/mattermost-plugin-gitlab/pull/19)
 - Add all webhook events for pipeline (run, fail, success) [#17](https://github.com/manland/mattermost-plugin-gitlab/pull/17)
 - Finish group restriction [#21](https://github.com/manland/mattermost-plugin-gitlab/pull/21)
 - Finish private repositories on/off [#18](https://github.com/manland/mattermost-plugin-gitlab/pull/18)

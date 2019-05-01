@@ -64,35 +64,43 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	var pathWithNamespace string
 	var handlers []*webhook.HandleWebhook
 	var errHandler error
+	fromUser := ""
 
 	switch event := event.(type) {
 	case *gitlabLib.MergeEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
+		fromUser = event.User.Username
 		handlers, errHandler = p.WebhookHandler.HandleMergeRequest(event)
 	case *gitlabLib.IssueEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
+		fromUser = event.User.Username
 		handlers, errHandler = p.WebhookHandler.HandleIssue(event)
 	case *gitlabLib.IssueCommentEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
+		fromUser = event.User.Username
 		handlers, errHandler = p.WebhookHandler.HandleIssueComment(event)
 	case *gitlabLib.MergeCommentEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
+		fromUser = event.User.Username
 		handlers, errHandler = p.WebhookHandler.HandleMergeRequestComment(event)
 	case *gitlabLib.PushEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
+		fromUser = event.UserName
 		handlers, errHandler = p.WebhookHandler.HandlePush(event)
 	case *gitlabLib.PipelineEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
+		fromUser = event.User.Username
 		handlers, errHandler = p.WebhookHandler.HandlePipeline(event)
 	case *gitlabLib.TagEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
+		fromUser = event.UserName
 		handlers, errHandler = p.WebhookHandler.HandleTag(event)
 	default:
 		p.API.LogWarn("event type not implemented", "type", string(gitlabLib.WebhookEventType(r)))
@@ -113,6 +121,12 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	alreadySentRefresh := make(map[string]bool)
+	if len(fromUser) > 0 {
+		if !alreadySentRefresh[fromUser] {
+			alreadySentRefresh[fromUser] = true
+			p.sendRefreshEvent(fromUser)
+		}
+	}
 	for _, res := range handlers {
 		p.API.LogInfo("new msg", "message", res.Message, "from", res.From)
 		for _, to := range res.ToUsers {
