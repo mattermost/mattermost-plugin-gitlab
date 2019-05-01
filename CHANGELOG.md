@@ -4,7 +4,8 @@ The changelog can be found at https://github.com/mattermost/mattermost-plugin-gi
 
 ## 0.2.0 - unreleased
 
-- Finish group restriction [#20](https://github.com/manland/mattermost-plugin-gitlab/pull/20)
+- Add all webhook events for pipeline (run, fail, success) [#17](https://github.com/manland/mattermost-plugin-gitlab/pull/17)
+- Finish group restriction [#21](https://github.com/manland/mattermost-plugin-gitlab/pull/21)
 - Finish private repositories on/off [#18](https://github.com/manland/mattermost-plugin-gitlab/pull/18)
 - Finish all webhook implementation [#16](https://github.com/manland/mattermost-plugin-gitlab/pull/16): 
     - MergeEvent

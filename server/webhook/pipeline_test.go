@@ -18,12 +18,42 @@ type testDataPipelineStr struct {
 
 var testDataPipeline = []testDataPipelineStr{
 	{
-		testTitle:       "root start a pipeline",
-		fixture:         PipelineStart,
+		testTitle:       "root start a pipeline in pending",
+		fixture:         PipelinePending,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "pipeline", "manland/webhook")}),
+		res:             []*HandleWebhook{}, //we don't care about pending pipeline
+	}, {
+		testTitle:       "root start a pipeline in running",
+		fixture:         PipelineRun,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "pipeline", "manland/webhook")}),
 		res: []*HandleWebhook{{
 			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) New pipeline by [root](http://my.gitlab.com/root) for [Start gitlab-ci](http://localhost:3000/manland/webhook/commit/ec0a1bcd4580bfec3495674e412f4834ee2c2550)",
 			ToUsers:    []string{}, // No DM because user know he has launch a pipeline
+			ToChannels: []string{"channel1"},
+			From:       "root",
+		}},
+	}, {
+		testTitle:       "root fail a pipeline",
+		fixture:         PipelineFail,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "pipeline", "manland/webhook")}),
+		res: []*HandleWebhook{{
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Your pipeline fail for [Start gitlab-ci](http://localhost:3000/manland/webhook/commit/ec0a1bcd4580bfec3495674e412f4834ee2c2550)",
+			ToUsers:    []string{"root"},
+			ToChannels: []string{},
+			From:       "",
+		}, {
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Pipeline by [root](http://my.gitlab.com/root) fail for [Start gitlab-ci](http://localhost:3000/manland/webhook/commit/ec0a1bcd4580bfec3495674e412f4834ee2c2550)",
+			ToUsers:    []string{},
+			ToChannels: []string{},
+			From:       "root",
+		}},
+	}, {
+		testTitle:       "root success a pipeline",
+		fixture:         PipelineSuccess,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "pipeline", "manland/webhook")}),
+		res: []*HandleWebhook{{
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Pipeline by [root](http://my.gitlab.com/root) success for [Start gitlab-ci](http://localhost:3000/manland/webhook/commit/ec0a1bcd4580bfec3495674e412f4834ee2c2550)",
+			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "root",
 		}},
