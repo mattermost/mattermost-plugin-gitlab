@@ -3,7 +3,7 @@ package webhook
 import (
 	"fmt"
 
-	"github.com/manland/go-gitlab"
+	"github.com/xanzy/go-gitlab"
 )
 
 func (w *webhook) HandlePipeline(event *gitlab.PipelineEvent) ([]*HandleWebhook, error) {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	internGitlab "github.com/manland/go-gitlab"
 	"github.com/pkg/errors"
+	internGitlab "github.com/xanzy/go-gitlab"
 )
 
 func (g *gitlab) GetProject(user *GitlabUserInfo, owner, repo string) (*internGitlab.Project, error) {

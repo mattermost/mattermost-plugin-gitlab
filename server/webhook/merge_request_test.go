@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/manland/go-gitlab"
+	"github.com/xanzy/go-gitlab"
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
 	"github.com/stretchr/testify/assert"
 )

@@ -6,7 +6,7 @@ import (
 
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
 
-	"github.com/manland/go-gitlab"
+	"github.com/xanzy/go-gitlab"
 	"github.com/stretchr/testify/assert"
 )
 
