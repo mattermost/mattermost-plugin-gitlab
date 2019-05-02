@@ -57,6 +57,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	event, err := gitlabLib.ParseWebhook(gitlabLib.WebhookEventType(r), body)
 	if err != nil {
 		p.API.LogError("can't parse webhook", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"), "event", string(body))
+		http.Error(w, "Unable to handle request", http.StatusBadRequest)
 		return
 	}
 
@@ -121,21 +122,12 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	alreadySentRefresh := make(map[string]bool)
-	if len(fromUser) > 0 {
-		if !alreadySentRefresh[fromUser] {
-			alreadySentRefresh[fromUser] = true
-			p.sendRefreshEvent(fromUser)
-		}
-	}
+	p.sendRefreshIfNotAlreadySent(alreadySentRefresh, fromUser)
 	for _, res := range handlers {
 		p.API.LogInfo("new msg", "message", res.Message, "from", res.From)
 		for _, to := range res.ToUsers {
-			userTo := p.getGitlabToUserIDMapping(to)
-			if !alreadySentRefresh[userTo] {
-				alreadySentRefresh[userTo] = true
-				p.sendRefreshEvent(userTo)
-			}
-			if len(res.Message) > 0 {
+			userTo := p.sendRefreshIfNotAlreadySent(alreadySentRefresh, to)
+			if len(userTo) > 0 && len(res.Message) > 0 {
 				if err := p.CreateBotDMPost(userTo, res.Message, "custom_git_review_request"); err != nil {
 					p.API.LogError("can't send dm post", "err", err.DetailedError)
 				}
@@ -158,15 +150,20 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		if len(res.From) > 0 {
-			userFrom := p.getGitlabToUserIDMapping(res.From)
-			p.API.LogInfo("userFrom", "from", userFrom)
-			if !alreadySentRefresh[userFrom] {
-				alreadySentRefresh[userFrom] = true
-				p.sendRefreshEvent(userFrom)
-			}
-		}
+		p.sendRefreshIfNotAlreadySent(alreadySentRefresh, res.From)
 	}
+}
+
+func (p *Plugin) sendRefreshIfNotAlreadySent(alreadySentRefresh map[string]bool, gitlabUsername string) string {
+	if len(gitlabUsername) == 0 || alreadySentRefresh[gitlabUsername] {
+		return ""
+	}
+	alreadySentRefresh[gitlabUsername] = true
+	userMattermostID := p.getGitlabToUserIDMapping(gitlabUsername)
+	if len(userMattermostID) > 0 {
+		p.sendRefreshEvent(userMattermostID)
+	}
+	return userMattermostID
 }
 
 func (p *Plugin) permissionToRepo(userID string, fullPath string) bool {
