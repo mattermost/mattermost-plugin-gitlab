@@ -1,7 +1,6 @@
 version: 2.1
 executors:
   default:
-    working_directory: /go/src/github.com/manland/mattermost-plugin-gitlab
     docker:
       - image: circleci/golang:1.12-node
 
@@ -11,7 +10,6 @@ jobs:
       name: default
     steps:
       - checkout
-      - run: curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
       - run: make check-style
 
   test:
@@ -19,15 +17,29 @@ jobs:
       name: default
     steps:
       - checkout
-      - run: curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
       - run: make test
+
+  coverage:
+    executor:
+      name: default
+    steps:
+      - checkout
+      - run:
+          name: "Create a temp directory for artifacts"
+          command: |
+            mkdir -p /tmp/artifacts
+      - run: 
+          command: |
+            make coverage
+            mv coverage.html /tmp/artifacts
+      - store_artifacts:
+          path: /tmp/artifacts
 
   build:
     executor:
       name: default
     steps:
       - checkout
-      - run: curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
       - run: make dist
       - persist_to_workspace:
           root: .
