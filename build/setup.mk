@@ -5,7 +5,7 @@ ifeq ($(GO),)
 endif
 
 # Ensure that the build tools are compiled. Go's caching makes this quick.
-$(shell GO111MODULE=off && cd build/manifest && $(GO) build -o ../bin/manifest)
+$(shell cd build/manifest && $(GO) build -o ../bin/manifest)
 
 # Extract the plugin id from the manifest.
 PLUGIN_ID ?= $(shell build/bin/manifest id)
