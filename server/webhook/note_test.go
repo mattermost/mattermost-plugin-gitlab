@@ -6,8 +6,8 @@ import (
 
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
 
-	"github.com/xanzy/go-gitlab"
 	"github.com/stretchr/testify/assert"
+	"github.com/xanzy/go-gitlab"
 )
 
 type testDataNoteStr struct {
