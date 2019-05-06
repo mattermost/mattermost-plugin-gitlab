@@ -34,6 +34,14 @@
   version = "v1.4.7"
 
 [[projects]]
+  digest = "1:702ddda24a3de16923785938f7a618d75d526d970d617c63b73e09155f258617"
+  name = "github.com/go-ldap/ldap"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "9f0d712775a0973b7824a1585a86a4ea1d5263d9"
+  version = "v3.0.3"
+
+[[projects]]
   digest = "1:2d0636a8c490d2272dd725db26f74a537111b99b9dbdda0d8b98febe63702aa4"
   name = "github.com/golang/protobuf"
   packages = [
@@ -79,30 +87,11 @@
   revision = "e45cbeb79f0411b1cfedd3f226ff69d5d433c762"
 
 [[projects]]
-  digest = "1:af00abbd22cc527703068245c819a5f53567918f8c088157a4c01dd6244b58fb"
+  digest = "1:e34b211a329e5b3af38f4794aca585e329e0db3f5328756ea2c4e0796ed0bb77"
   name = "github.com/hashicorp/go-plugin"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "a4620f9913d19f03a6bf19b2f304daaaf83ea130"
-
-[[projects]]
-  digest = "1:11c6c696067d3127ecf332b10f89394d386d9083f82baf71f40f2da31841a009"
-  name = "github.com/hashicorp/hcl"
-  packages = [
-    ".",
-    "hcl/ast",
-    "hcl/parser",
-    "hcl/printer",
-    "hcl/scanner",
-    "hcl/strconv",
-    "hcl/token",
-    "json/parser",
-    "json/scanner",
-    "json/token",
-  ]
-  pruneopts = "NUT"
-  revision = "8cb6e5b959231cc1119e43259c4a608f9c51a241"
-  version = "v1.0.0"
+  revision = "54b6ff97d8180dbbd93d2010dd4a92c86f604bb8"
 
 [[projects]]
   branch = "master"
@@ -113,14 +102,6 @@
   revision = "2f1d1f20f75d5404f53b9edf6b53ed5505508675"
 
 [[projects]]
-  digest = "1:d244f8666a838fe6ad70ec8fe77f50ebc29fdc3331a2729ba5886bef8435d10d"
-  name = "github.com/magiconair/properties"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "c2353362d570a7bfa228149c62842019201cfb71"
-  version = "v1.8.0"
-
-[[projects]]
   branch = "WebhookChangesUpdatedById"
   digest = "1:236b2a57da2b94d2a14ee2c3848542af8fe5b22ebbc29c7625ae7fa45779e288"
   name = "github.com/manland/go-gitlab"
@@ -129,29 +110,22 @@
   revision = "9c5f26ed410b61c105216ab09f3285d16cb0ceda"
 
 [[projects]]
-  digest = "1:e4dc3cc22ffd03f078ee329b3f435886638244f1b2f81ab9acc5bb6695ef7db4"
+  digest = "1:77c91150dbdad987cb9a3cce01cee3ebcfb05ab346f2e450009f4d2d6a53bf36"
   name = "github.com/mattermost/mattermost-server"
   packages = [
-    "einterfaces",
     "mlog",
     "model",
     "plugin",
+    "plugin/plugintest",
+    "services/timezones",
     "utils",
+    "utils/fileutils",
     "utils/jsonutils",
     "utils/markdown",
   ]
   pruneopts = "NUT"
-  revision = "7f10b8349810f571de096e2430bcb56ab3527ae1"
-  version = "v5.6.5"
-
-[[projects]]
-  branch = "mattermost"
-  digest = "1:434763e90d03c0a2ae33048c7764f5f0298fdd1c889f8c6d7c798460a6f283dd"
-  name = "github.com/mattermost/viper"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "f99c30686b8675673ed42548816de2b0ff751c01"
-  source = "https://github.com/mattermost/viper"
+  revision = "dc70ab42034da17eaf23be5a86abae81b3f1cd21"
+  version = "v5.10.0"
 
 [[projects]]
   digest = "1:18b773b92ac82a451c1276bd2776c1e55ce057ee202691ab33c8d6690efcc048"
@@ -160,14 +134,6 @@
   pruneopts = "NUT"
   revision = "6d0b8010fcc857872e42fc6c931227569016843c"
   version = "v1.0.0"
-
-[[projects]]
-  digest = "1:a45ae66dea4c899d79fceb116accfa1892105c251f0dcd9a217ddc276b42ec68"
-  name = "github.com/mitchellh/mapstructure"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "3536a929edddb9a5b34bd6861dc4a9647cb459fe"
-  version = "v1.1.2"
 
 [[projects]]
   digest = "1:07140002dbf37da92090f731b46fa47be4820b82fe5c14a035203b0e813d0ec2"
@@ -223,44 +189,20 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:6792bb72ea0e7112157d02e4e175cd421b43d004a853f56316a19beca6e0c074"
-  name = "github.com/spf13/afero"
-  packages = [
-    ".",
-    "mem",
-  ]
-  pruneopts = "NUT"
-  revision = "588a75ec4f32903aa5e39a2619ba6a4631e28424"
-  version = "v1.2.2"
-
-[[projects]]
-  digest = "1:c5e6b121ef3d2043505edaf4c80e5a008cec2513dc8804795eb0479d1555bcf7"
-  name = "github.com/spf13/cast"
+  digest = "1:60a46e2410edbf02b419f833372dd1d24d7aa1b916a990a7370e792fada1eadd"
+  name = "github.com/stretchr/objx"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "8c9545af88b134710ab1cd196795e7f2388358d7"
-  version = "v1.3.0"
+  revision = "477a77ecc69700c7cdeb1fa9e129548e1c1c393c"
+  version = "v0.1.1"
 
 [[projects]]
-  digest = "1:3d72352adb74e79d6d5a43d6f51bfd2d0bd0c9b5f3c00cf5a4b1636d8d3b9d92"
-  name = "github.com/spf13/jwalterweatherman"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "94f6ae3ed3bceceafa716478c5fbf8d29ca601a1"
-  version = "v1.1.0"
-
-[[projects]]
-  digest = "1:9d8420bbf131d1618bde6530af37c3799340d3762cc47210c1d9532a4c3a2779"
-  name = "github.com/spf13/pflag"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "298182f68c66c05229eb03ac171abe6e309ee79a"
-  version = "v1.0.3"
-
-[[projects]]
-  digest = "1:42e8c2456d7ec0f31e182c20022e74324c4da2cb3bd9069ff9b131fe33466308"
+  digest = "1:4fec2fe9ce617252d634de83ca8dd5f9c7c391637540896542c80ab63f071f51"
   name = "github.com/stretchr/testify"
-  packages = ["assert"]
+  packages = [
+    "assert",
+    "mock",
+  ]
   pruneopts = "NUT"
   revision = "ffdc059bfe9ce6a4e144ba849dbedead332c6053"
   version = "v1.3.0"
@@ -436,6 +378,14 @@
   version = "v1.20.1"
 
 [[projects]]
+  digest = "1:797db40073a8a1d30cc43864b6190372f2fca7af38b1cf1532e4e92a8283e075"
+  name = "gopkg.in/asn1-ber.v1"
+  packages = ["."]
+  pruneopts = "NUT"
+  revision = "f715ec2f112d1e4195b827ad68cf44017a3ef2b1"
+  version = "v1.3"
+
+[[projects]]
   digest = "1:80c34337e8a734e190f2d1b716cae774cca74db98315166f92074434e9af0227"
   name = "gopkg.in/natefinch/lumberjack.v2"
   packages = ["."]
@@ -458,6 +408,7 @@
     "github.com/manland/go-gitlab",
     "github.com/mattermost/mattermost-server/model",
     "github.com/mattermost/mattermost-server/plugin",
+    "github.com/mattermost/mattermost-server/plugin/plugintest",
     "github.com/pkg/errors",
     "github.com/stretchr/testify/assert",
     "golang.org/x/oauth2",
