@@ -1,7 +1,7 @@
 {
     "id": "com.github.manland.mattermost-plugin-gitlab",
-    "name": "Gitlab",
-    "description": "Gitlab plugin for Mattermost.",
+    "name": "GitLab",
+    "description": "GitLab plugin for Mattermost.",
     "version": "0.2.0",
     "server": {
       "executables": {
@@ -14,25 +14,25 @@
         "bundle_path": "webapp/dist/main.js"
     },
     "settings_schema": {
-        "header": "To set up the Gitlab plugin, you need to register a Gitlab OAuth app here https://gitlab.com/profile/applications.",
+        "header": "To set up the GitLab plugin, you need to register a GitLab OAuth app here https://gitlab.com/profile/applications.",
         "settings": [
             {
                 "key": "GitlabOAuthClientID",
-                "display_name": "Gitlab OAuth Client ID",
+                "display_name": "GitLab OAuth Client ID",
                 "type": "text",
-                "help_text": "The client ID for the OAuth app registered with Gitlab."
+                "help_text": "The client ID for the OAuth app registered with GitLab."
             },
             {
                 "key": "GitlabOAuthClientSecret",
                 "display_name": "Gitlab OAuth Client Secret",
                 "type": "text",
-                "help_text": "The client secret for the OAuth app registered with Gitlab."
+                "help_text": "The client secret for the OAuth app registered with GitLab."
             },
             {
                 "key": "WebhookSecret",
                 "display_name": "Webhook Secret",
                 "type": "generated",
-                "help_text": "The webhook secret set in Gitlab."
+                "help_text": "The webhook secret set in GitLab."
             },
             {
                 "key": "Username",
@@ -48,15 +48,15 @@
             },
             {
                 "key": "GitlabGroup",
-                "display_name": "Gitlab group",
+                "display_name": "Gitlab Group",
                 "type": "text",
-                "help_text": "(Optional) Set to lock the plugin to a single Gitlab group."
+                "help_text": "(Optional) Set to lock the plugin to a single GitLab group."
             },
             {
                 "key": "EnterpriseBaseURL",
                 "display_name": "Enterprise Base URL",
                 "type": "text",
-                "help_text": "(Optional) The base URL for using the plugin with a Gitlab Enterprise installation. Example: https://gitlab.example.com"
+                "help_text": "(Optional) The base URL for using the plugin with a GitLab Enterprise installation. Example: https://gitlab.example.com"
             },
             {
                 "key": "EnablePrivateRepo",
