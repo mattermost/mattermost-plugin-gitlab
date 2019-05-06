@@ -2,7 +2,9 @@
 
 The changelog can be found at https://github.com/mattermost/mattermost-plugin-gitlab/releases.
 
-## 0.2.0 - unreleased
+## 0.3.0 - unreleased
+
+## 0.2.0 - 2019-05-06
 
 - Send refresh to webapp of the author of events received by webhook [#19](https://github.com/manland/mattermost-plugin-gitlab/pull/19)
 - Add all webhook events for pipeline (run, fail, success) [#17](https://github.com/manland/mattermost-plugin-gitlab/pull/17)
