@@ -55,6 +55,7 @@ github.com/magiconair/properties v1.8.0 h1:LLgXmsheXeRoUOBOjtwPQCWIYqM/LU1ayDtDe
 github.com/magiconair/properties v1.8.0/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
 github.com/manland/go-gitlab v0.16.1 h1:zCHsYVE+XA2m8Yn2N6Y3soy7Km5nOgXZG6msY4TomaU=
 github.com/manland/go-gitlab v0.16.1/go.mod h1:LSfUQ9OPDnwRqulJk2HcWaAiFfCzaknyeGvjQI67MbE=
+github.com/manland/mattermost-plugin-gitlab v0.0.0-20190501205755-60c6635bafa9 h1:tznHOF6ty0v5e3l3BS3foS/GPWVg2IWU1/d0Xl+nS3c=
 github.com/mattermost/gorp v2.0.0+incompatible h1:/aLYsuWjk4kSVP3P3kn3zTGNUQxaCB6DjTejmwddKEs=
 github.com/mattermost/gorp v2.0.0+incompatible/go.mod h1:0kX1qa3DOpaPJyOdMLeo7TcBN0QmUszj9a/VygOhDe0=
 github.com/mattermost/mattermost-server v5.6.5+incompatible h1:3GOnGVeecQ8o7kAQqIERdwblc7ezJ/pSWFkVWZEprLk=
