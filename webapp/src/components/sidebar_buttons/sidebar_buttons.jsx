@@ -67,7 +67,7 @@ export default class SidebarButtons extends React.PureComponent {
 
     openConnectWindow = (e) => {
         e.preventDefault();
-        window.open(`/plugins/${id}/oauth/connect`, 'Connect Mattermost to Gitlab', 'height=570,width=520');
+        window.open(`/plugins/${id}/oauth/connect`, 'Connect Mattermost to GitLab', 'height=570,width=520');
     }
 
     render() {
@@ -89,7 +89,7 @@ export default class SidebarButtons extends React.PureComponent {
                     <OverlayTrigger
                         key='gitlabConnectLink'
                         placement={placement}
-                        overlay={<Tooltip id='reviewTooltip'>Connect to your Gitlab</Tooltip>}
+                        overlay={<Tooltip id='reviewTooltip'>Connect to your GitLab</Tooltip>}
                     >
                         <a
                             href={`/plugins/${id}/oauth/connect`}

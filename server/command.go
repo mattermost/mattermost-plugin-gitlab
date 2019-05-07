@@ -9,8 +9,8 @@ import (
 	"github.com/mattermost/mattermost-server/model"
 )
 
-const COMMAND_HELP = `* |/gitlab connect| - Connect your Mattermost account to your Gitlab account
-* |/gitlab disconnect| - Disconnect your Mattermost account from your Gitlab account
+const COMMAND_HELP = `* |/gitlab connect| - Connect your Mattermost account to your GitLab account
+* |/gitlab disconnect| - Disconnect your Mattermost account from your GitLab account
 * |/gitlab todo| - Get a list of unread messages and pull requests awaiting your review
 * |/gitlab subscribe list| - Will list the current channel subscriptions
 * |/gitlab subscribe owner[/repo] [features]| - Subscribe the current channel to receive notifications about opened merge requests and issues for a group or repository
@@ -26,7 +26,7 @@ const COMMAND_HELP = `* |/gitlab connect| - Connect your Mattermost account to y
 	* label:"<labelname>" - must include "merges" or "issues" in feature list when using a label
     * Defaults to "merges,issues,tag"
 * |/gitlab unsubscribe owner/repo| - Unsubscribe the current channel from a repository
-* |/gitlab me| - Display the connected Gitlab account
+* |/gitlab me| - Display the connected GitLab account
 * |/gitlab settings [setting] [value]| - Update your user settings
   * |setting| can be "notifications" or "reminders"
   * |value| can be "on" or "off"`
@@ -34,8 +34,8 @@ const COMMAND_HELP = `* |/gitlab connect| - Connect your Mattermost account to y
 func getCommand() *model.Command {
 	return &model.Command{
 		Trigger:          "gitlab",
-		DisplayName:      "Gitlab",
-		Description:      "Integration with Gitlab.",
+		DisplayName:      "GitLab",
+		Description:      "Integration with GitLab.",
 		AutoComplete:     true,
 		AutoCompleteDesc: "Available commands: connect, disconnect, todo, me, settings, subscribe, unsubscribe, help",
 		AutoCompleteHint: "[command]",
@@ -71,10 +71,10 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 	if action == "connect" {
 		config := p.API.GetConfig()
 		if config.ServiceSettings.SiteURL == nil {
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Encountered an error connecting to Gitlab."), nil
+			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Encountered an error connecting to GitLab."), nil
 		}
 
-		resp := p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, fmt.Sprintf("[Click here to link your Gitlab account.](%s/plugins/%s/oauth/connect)", *config.ServiceSettings.SiteURL, manifest.Id))
+		resp := p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, fmt.Sprintf("[Click here to link your GitLab account.](%s/plugins/%s/oauth/connect)", *config.ServiceSettings.SiteURL, manifest.Id))
 		return resp, nil
 	}
 
@@ -82,7 +82,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 	if apiErr != nil {
 		text := "Unknown error."
 		if apiErr.ID == API_ERROR_ID_NOT_CONNECTED {
-			text = "You must connect your account to Gitlab first. Either click on the Gitlab logo in the bottom left of the screen or enter `/gitlab connect`."
+			text = "You must connect your account to GitLab first. Either click on the GitLab logo in the bottom left of the screen or enter `/gitlab connect`."
 		}
 		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, text), nil
 	}
@@ -145,7 +145,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, fmt.Sprintf("Succesfully unsubscribed from %s.", repo)), nil
 	case "disconnect":
 		p.disconnectGitlabAccount(args.UserId)
-		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Disconnected your Gitlab account."), nil
+		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Disconnected your GitLab account."), nil
 	case "todo":
 		text, err := p.GetToDo(info)
 		if err != nil {
@@ -156,16 +156,16 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 	case "me":
 		gitUser, err := p.GitlabClient.GetUserDetails(info)
 		if err != nil {
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Encountered an error getting your Gitlab profile."), nil
+			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Encountered an error getting your GitLab profile."), nil
 		}
 
-		text := fmt.Sprintf("You are connected to Gitlab as:\n# [![image](%s =40x40)](%s) [%s](%s)", gitUser.AvatarURL, gitUser.WebsiteURL, gitUser.Username, gitUser.WebsiteURL)
+		text := fmt.Sprintf("You are connected to GitLab as:\n# [![image](%s =40x40)](%s) [%s](%s)", gitUser.AvatarURL, gitUser.WebsiteURL, gitUser.Username, gitUser.WebsiteURL)
 		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, text), nil
 	case "help":
-		text := "###### Mattermost Gitlab Plugin - Slash Command Help\n" + strings.Replace(COMMAND_HELP, "|", "`", -1)
+		text := "###### Mattermost GitLab Plugin - Slash Command Help\n" + strings.Replace(COMMAND_HELP, "|", "`", -1)
 		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, text), nil
 	case "":
-		text := "###### Mattermost Gitlab Plugin - Slash Command Help\n" + strings.Replace(COMMAND_HELP, "|", "`", -1)
+		text := "###### Mattermost GitLab Plugin - Slash Command Help\n" + strings.Replace(COMMAND_HELP, "|", "`", -1)
 		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, text), nil
 	case "settings":
 		if len(parameters) < 2 {
@@ -188,12 +188,12 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		if setting == SETTING_NOTIFICATIONS {
 			if value {
 				if err := p.storeGitlabToUserIDMapping(info.GitlabUsername, info.UserID); err != nil {
-					p.API.LogError("can't store gitlab user id mapping", "err", err.Error())
+					p.API.LogError("can't store GitLab user id mapping", "err", err.Error())
 					return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Unknown error please retry or ask to an administrator to look at logs"), nil
 				}
 			} else {
 				if err := p.API.KVDelete(info.GitlabUsername + GITLAB_USERNAME_KEY); err != nil {
-					p.API.LogError("can't delete gitlab username in kvstore", "err", err.Error())
+					p.API.LogError("can't delete GitLab username in kvstore", "err", err.Error())
 					return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Unknown error please retry or ask to an administrator to look at logs"), nil
 				}
 			}

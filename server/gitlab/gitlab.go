@@ -8,7 +8,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-//Gitlab is a client to call gitlab api see New() to build one
+//Gitlab is a client to call GitLab api see New() to build one
 type Gitlab interface {
 	GetCurrentUser(userID string, token oauth2.Token) (*GitlabUserInfo, error)
 	GetUserDetails(user *GitlabUserInfo) (*internGitlab.User, error)
@@ -26,7 +26,7 @@ type gitlab struct {
 	checkGroup        func(projectNameWithGroup string) error
 }
 
-//New return a client to call gitlab api
+//New return a client to call GitLab API
 func New(enterpriseBaseURL string, gitlabGroup string, checkGroup func(projectNameWithGroup string) error) Gitlab {
 	return &gitlab{enterpriseBaseURL: enterpriseBaseURL, gitlabGroup: gitlabGroup, checkGroup: checkGroup}
 }
@@ -42,7 +42,7 @@ func (g *gitlab) gitlabConnect(token oauth2.Token) (*internGitlab.Client, error)
 
 	client := internGitlab.NewOAuthClient(tc, token.AccessToken)
 	if err := client.SetBaseURL(g.enterpriseBaseURL); err != nil {
-		return nil, errors.Wrap(err, "can't set base url to gitlab client lib")
+		return nil, errors.Wrap(err, "can't set base url to GitLab client lib")
 	}
 	return client, nil
 }
