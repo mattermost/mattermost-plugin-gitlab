@@ -43,11 +43,11 @@ func (c *configuration) Clone() *configuration {
 // IsValid checks if all needed fields are set.
 func (c *configuration) IsValid() error {
 	if c.GitlabOAuthClientID == "" {
-		return fmt.Errorf("Must have a gitlab oauth client id")
+		return fmt.Errorf("Must have a GitLab oauth client id")
 	}
 
 	if c.GitlabOAuthClientSecret == "" {
-		return fmt.Errorf("Must have a gitlab oauth client secret")
+		return fmt.Errorf("Must have a GitLab oauth client secret")
 	}
 
 	if c.EncryptionKey == "" {

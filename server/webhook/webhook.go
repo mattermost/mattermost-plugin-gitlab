@@ -9,11 +9,11 @@ import (
 	"github.com/xanzy/go-gitlab"
 )
 
-// GitlabRetreiver return infos of current gitlab instance
+// GitlabRetreiver return infos of current GitLab instance
 type GitlabRetreiver interface {
-	// GetUserURL return the url of this gitlab user depending on domain instance (e.g. https://gitlab.com/username)
+	// GetUserURL return the url of this GitLab user depending on domain instance (e.g. https://gitlab.com/username)
 	GetUserURL(username string) string
-	// GetUsernameById return a username by gitlab id
+	// GetUsernameById return a username by GitLab id
 	GetUsernameByID(id int) string
 	// ParseGitlabUsernamesFromText from a text return an array of username
 	ParseGitlabUsernamesFromText(text string) []string

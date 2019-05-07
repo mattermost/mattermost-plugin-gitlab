@@ -24,7 +24,7 @@ __Requires Mattermost 5.2 or higher__
     3. Upload the plugin
 2. Register a GitLab OAuth app
     1. Go to https://gitlab.com/profile/applications
-        * Use "Mattermost Gitlab Plugin - <your company name>" as the name
+        * Use "Mattermost GitLab Plugin - <your company name>" as the name
         * Use "https://your-mattermost-url.com/plugins/com.github.manland.mattermost-plugin-gitlab/oauth/complete" as the authorization callback URL, replacing `https://your-mattermost-url.com` with your Mattermost URL
         * Check `api` and `read_user` in scopes
         * Submit and copy the Client ID and Secret

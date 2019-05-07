@@ -21,7 +21,7 @@ import (
 
 const (
 	API_ERROR_ID_NOT_CONNECTED = "not_connected"
-	GITLAB_USERNAME            = "Gitlab Plugin"
+	GITLAB_USERNAME            = "GitLab Plugin"
 )
 
 type APIErrorResponse struct {
@@ -150,14 +150,14 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 
 	userInfo, err := p.GitlabClient.GetCurrentUser(userID, *tok)
 	if err != nil {
-		p.API.LogError("can't retreive user info from gitlab api", "err", err.Error())
-		http.Error(w, "Unable to connect user to Gitlab", http.StatusInternalServerError)
+		p.API.LogError("can't retreive user info from gitLab API", "err", err.Error())
+		http.Error(w, "Unable to connect user to GitLab", http.StatusInternalServerError)
 		return
 	}
 
 	if err := p.storeGitlabUserInfo(userInfo); err != nil {
 		p.API.LogError("can't store user info", "err", err.Error())
-		http.Error(w, "Unable to connect user to Gitlab", http.StatusInternalServerError)
+		http.Error(w, "Unable to connect user to GitLab", http.StatusInternalServerError)
 		return
 	}
 
@@ -166,8 +166,8 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Post intro post
-	message := fmt.Sprintf("#### Welcome to the Mattermost Gitlab Plugin!\n"+
-		"You've connected your Mattermost account to %s on Gitlab. Read about the features of this plugin below:\n\n"+
+	message := fmt.Sprintf("#### Welcome to the Mattermost GitLab Plugin!\n"+
+		"You've connected your Mattermost account to %s on GitLab. Read about the features of this plugin below:\n\n"+
 		"##### Daily Reminders\n"+
 		"The first time you log in each day, you will get a post right here letting you know what messages you need to read and what pull requests are awaiting your review.\n"+
 		"Turn off reminders with `/gitlab settings reminders off`.\n\n"+
@@ -208,14 +208,14 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 		</script>
 	</head>
 	<body>
-		<p>Completed connecting to Gitlab. Please close this window.</p>
+		<p>Completed connecting to GitLab. Please close this window.</p>
 	</body>
 </html>
 `
 
 	w.Header().Set("Content-Type", "text/html")
 	if _, err := w.Write([]byte(html)); err != nil {
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: ">Completed connecting to Gitlab. Please close this window.", StatusCode: http.StatusInternalServerError})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: ">Completed connecting to GitLab. Please close this window.", StatusCode: http.StatusInternalServerError})
 	}
 }
 
@@ -225,7 +225,7 @@ func (p *Plugin) handleProfileImage(w http.ResponseWriter, r *http.Request) {
 	img, err := os.Open(filepath.Join(config.PluginsDirectory, manifest.Id, "assets", "profile.png"))
 	if err != nil {
 		http.NotFound(w, r)
-		p.API.LogError("Unable to read gitlab profile image", "err", err.Error())
+		p.API.LogError("Unable to read GitLab profile image", "err", err.Error())
 		return
 	}
 	defer func() {
@@ -278,7 +278,7 @@ func (p *Plugin) getGitlabUser(w http.ResponseWriter, r *http.Request) {
 	userInfo, apiErr := p.getGitlabUserInfoByMattermostID(req.UserID)
 	if apiErr != nil {
 		if apiErr.ID == API_ERROR_ID_NOT_CONNECTED {
-			p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "User is not connected to a Gitlab account.", StatusCode: http.StatusNotFound})
+			p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "User is not connected to a GitLab account.", StatusCode: http.StatusNotFound})
 		} else {
 			p.writeAPIError(w, apiErr)
 		}
@@ -286,7 +286,7 @@ func (p *Plugin) getGitlabUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if userInfo == nil {
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "User is not connected to a Gitlab account.", StatusCode: http.StatusNotFound})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "User is not connected to a GitLab account.", StatusCode: http.StatusNotFound})
 		return
 	}
 
@@ -354,8 +354,8 @@ func (p *Plugin) getUnreads(w http.ResponseWriter, r *http.Request) {
 
 	result, errRequest := p.GitlabClient.GetUnreads(user)
 	if errRequest != nil {
-		p.API.LogError("unable to list unreads in gitlab api", "err", errRequest.Error())
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list unreads in gitlab api.", StatusCode: http.StatusInternalServerError})
+		p.API.LogError("unable to list unreads in GitLab API", "err", errRequest.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list unreads in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 
@@ -379,8 +379,8 @@ func (p *Plugin) getReviews(w http.ResponseWriter, r *http.Request) {
 	result, errRequest := p.GitlabClient.GetReviews(user)
 
 	if errRequest != nil {
-		p.API.LogError("unable to list merge-request where assignee in gitlab api", "err", errRequest.Error())
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in gitlab api.", StatusCode: http.StatusInternalServerError})
+		p.API.LogError("unable to list merge-request where assignee in GitLab API", "err", errRequest.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 
@@ -404,8 +404,8 @@ func (p *Plugin) getYourPrs(w http.ResponseWriter, r *http.Request) {
 	result, errRequest := p.GitlabClient.GetYourPrs(user)
 
 	if errRequest != nil {
-		p.API.LogError("can't list merge-request where author in gitlab api", "err", errRequest.Error())
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in gitlab api.", StatusCode: http.StatusInternalServerError})
+		p.API.LogError("can't list merge-request where author in GitLab API", "err", errRequest.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 
@@ -429,8 +429,8 @@ func (p *Plugin) getYourAssignments(w http.ResponseWriter, r *http.Request) {
 	result, errRequest := p.GitlabClient.GetYourAssignments(user)
 
 	if errRequest != nil {
-		p.API.LogError("unable to list issue where assignee in gitlab api", "err", errRequest.Error())
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list issue in gitlab api.", StatusCode: http.StatusInternalServerError})
+		p.API.LogError("unable to list issue where assignee in GitLab API", "err", errRequest.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list issue in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 
@@ -488,7 +488,7 @@ func (p *Plugin) updateSettings(w http.ResponseWriter, r *http.Request) {
 	info.Settings = settings
 
 	if err := p.storeGitlabUserInfo(info); err != nil {
-		p.API.LogError("can't store gitlab user info when update settings", "err", err.Error())
+		p.API.LogError("can't store GitLab user info when update settings", "err", err.Error())
 		http.Error(w, "Encountered error updating settings", http.StatusInternalServerError)
 	}
 

@@ -121,7 +121,7 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.GitlabU
 	var userInfo gitlab.GitlabUserInfo
 
 	if infoBytes, err := p.API.KVGet(userID + GITLAB_TOKEN_KEY); err != nil || infoBytes == nil {
-		return nil, &APIErrorResponse{ID: API_ERROR_ID_NOT_CONNECTED, Message: "Must connect user account to Gitlab first.", StatusCode: http.StatusBadRequest}
+		return nil, &APIErrorResponse{ID: API_ERROR_ID_NOT_CONNECTED, Message: "Must connect user account to GitLab first.", StatusCode: http.StatusBadRequest}
 	} else if err := json.Unmarshal(infoBytes, &userInfo); err != nil {
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to parse token.", StatusCode: http.StatusInternalServerError}
 	}
@@ -139,10 +139,10 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.GitlabU
 
 func (p *Plugin) storeGitlabToUserIDMapping(gitlabUsername, userID string) error {
 	if err := p.API.KVSet(gitlabUsername+GITLAB_USERNAME_KEY, []byte(userID)); err != nil {
-		return fmt.Errorf("Encountered error saving gitlab username mapping")
+		return fmt.Errorf("Encountered error saving GitLab username mapping")
 	}
 	if err := p.API.KVSet(userID+GITLAB_IDUSERNAME_KEY, []byte(gitlabUsername)); err != nil {
-		return fmt.Errorf("Encountered error saving gitlab id mapping")
+		return fmt.Errorf("Encountered error saving GitLab id mapping")
 	}
 	return nil
 }
@@ -166,7 +166,7 @@ func (p *Plugin) getGitlabIDToUsernameMapping(gitlabUserID string) string {
 func (p *Plugin) disconnectGitlabAccount(userID string) {
 	userInfo, err := p.getGitlabUserInfoByMattermostID(userID)
 	if err != nil {
-		p.API.LogError("can't get gitlab user info from mattermost id", "err", err.Message)
+		p.API.LogError("can't get GitLab user info from mattermost id", "err", err.Message)
 		return
 	}
 	if userInfo == nil {

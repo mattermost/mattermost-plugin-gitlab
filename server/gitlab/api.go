@@ -110,7 +110,7 @@ func (g *gitlab) GetUnreads(user *GitlabUserInfo) ([]*internGitlab.Todo, error) 
 
 	result, _, err := client.Todos.ListTodos(&internGitlab.ListTodosOptions{})
 	if err != nil {
-		return nil, errors.Wrap(err, "can't list todo in gitlab api")
+		return nil, errors.Wrap(err, "can't list todo in GitLab api")
 	}
 	notifications := []*internGitlab.Todo{}
 	for _, todo := range result {
