@@ -3,7 +3,7 @@ package webhook
 import (
 	"fmt"
 
-	"github.com/manland/go-gitlab"
+	"github.com/xanzy/go-gitlab"
 )
 
 func (w *webhook) HandleIssueComment(event *gitlab.IssueCommentEvent) ([]*HandleWebhook, error) {

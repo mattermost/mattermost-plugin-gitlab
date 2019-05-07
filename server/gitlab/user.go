@@ -1,8 +1,8 @@
 package gitlab
 
 import (
-	internGitlab "github.com/manland/go-gitlab"
 	"github.com/mattermost/mattermost-server/model"
+	internGitlab "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
 )
 

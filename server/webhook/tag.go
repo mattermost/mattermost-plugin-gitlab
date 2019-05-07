@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/manland/go-gitlab"
+	"github.com/xanzy/go-gitlab"
 )
 
 func (w *webhook) HandleTag(event *gitlab.TagEvent) ([]*HandleWebhook, error) {

@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	gitlabLib "github.com/manland/go-gitlab"
+	gitlabLib "github.com/xanzy/go-gitlab"
 
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
 	"github.com/manland/mattermost-plugin-gitlab/server/webhook"

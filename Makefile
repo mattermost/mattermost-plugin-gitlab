@@ -1,38 +1,48 @@
 GO ?= $(shell command -v go 2> /dev/null)
-DEP ?= $(shell command -v dep 2> /dev/null)
 NPM ?= $(shell command -v npm 2> /dev/null)
-HTTP ?= $(shell command -v http 2> /dev/null)
 CURL ?= $(shell command -v curl 2> /dev/null)
 MANIFEST_FILE ?= plugin.json
+# Explicitly opt into go modules, even though we're inside a GOPATH directory
+export GO111MODULE=on
+
+# You can include assets this directory into the bundle. This can be e.g. used to include profile pictures.
+ASSETS_DIR ?= assets
 
 # Verify environment, and define PLUGIN_ID, PLUGIN_VERSION, HAS_SERVER and HAS_WEBAPP as needed.
 include build/setup.mk
 
 BUNDLE_NAME ?= $(PLUGIN_ID)-$(PLUGIN_VERSION).tar.gz
 
-# all, the default target, tests, builds and bundles the plugin.
+## Checks the code style, tests, builds and bundles the plugin.
 all: check-style test dist
 
-# apply propagates the plugin id into the server/ and webapp/ folders as required.
+## Propagates plugin manifest information into the server/ and webapp/ folders as required.
 .PHONY: apply
 apply:
 	./build/bin/manifest apply
 
+## Runs govet and gofmt against all packages.
 .PHONY: check-style
-check-style: server/.depensure webapp/.npminstall gofmt govet errcheck
+check-style: webapp/node_modules gofmt govet errcheck
 	@echo Checking for style guide compliance
 
 ifneq ($(HAS_WEBAPP),)
 	cd webapp && npm run lint
 endif
 
+## Runs gofmt against all packages.
 .PHONY: gofmt
 gofmt:
 ifneq ($(HAS_SERVER),)
 	@echo Running gofmt
-	@for package in $$(go list ./server/...); do \
-		echo "Checking "$$package; \
-		files=$$(go list -f '{{range .GoFiles}}{{$$.Dir}}/{{.}} {{end}}' $$package); \
+	@cd server; \
+	initial_path=$$(pwd); \
+	sub_modules=$$(go list -m all | grep -oP '(?<=\=>\s\.\/).*(?=$$)'); \
+	modules="./ $$sub_modules"; \
+	for module in $$modules ; do \
+		echo "Checking "$$module; \
+		cd $$module; \
+		files=$$(go list -f '{{range .GoFiles}}{{$$.Dir}}/{{.}} {{end}}'); \
 		if [ "$$files" ]; then \
 			gofmt_output=$$(gofmt -d -s $$files 2>&1); \
 			if [ "$$gofmt_output" ]; then \
@@ -41,39 +51,55 @@ ifneq ($(HAS_SERVER),)
 				exit 1; \
 			fi; \
 		fi; \
+		cd $$initial_path; \
 	done
 	@echo Gofmt success
 endif
 
+## Runs govet against all packages.
 .PHONY: govet
 govet:
 ifneq ($(HAS_SERVER),)
 	@echo Running govet
-	$(GO) get golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
-	$(GO) vet $$(go list ./server/...)
-	$(GO) vet -vettool=$(GOPATH)/bin/shadow $$(go list ./server/...)
+	@# Workaroung because you can't install binaries without adding them to go.mod 
+	env GO111MODULE=off $(GO) get golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
+	@cd server; \
+	initial_path=$$(pwd); \
+	sub_modules=$$(go list -m all | grep -oP '(?<=\=>\s\.\/).*(?=$$)'); \
+	modules="./ $$sub_modules"; \
+	for module in $$modules ; do \
+		echo "Checking "$$module; \
+		cd $$module; \
+		$(GO) vet ./...; \
+		$(GO) vet -vettool=$(GOPATH)/bin/shadow ./...; \
+		cd $$initial_path; \
+	done
 	@echo Govet success
 endif
 
+## Runs errcheck against all packages.
 .PHONY: errcheck
 errcheck:
 ifneq ($(HAS_SERVER),)
 	@echo Running errcheck
-	$(GO) get github.com/kisielk/errcheck
-	errcheck $$(go list ./server/...)
+	@# Workaroung because you can't install binaries without adding them to go.mod 
+	env GO111MODULE=off $(GO) get github.com/kisielk/errcheck
+	@cd server; \
+	initial_path=$$(pwd); \
+	sub_modules=$$(go list -m all | grep -oP '(?<=\=>\s\.\/).*(?=$$)'); \
+	modules="./ $$sub_modules"; \
+	for module in $$modules ; do \
+		echo "Checking "$$module; \
+		cd $$module; \
+		errcheck $$(go list ./...); \
+		cd $$initial_path; \
+	done
 	@echo errcheck success
 endif
 
-# server/.depensure ensures the server dependencies are installed
-server/.depensure:
-ifneq ($(HAS_SERVER),)
-	cd server && $(DEP) ensure
-	touch $@
-endif
-
-# server builds the server, if it exists, including support for multiple architectures
+## Builds the server, if it exists, including support for multiple architectures.
 .PHONY: server
-server: server/.depensure
+server:
 ifneq ($(HAS_SERVER),)
 	mkdir -p server/dist;
 	cd server && env GOOS=linux GOARCH=amd64 $(GO) build -o dist/plugin-linux-amd64;
@@ -81,27 +107,32 @@ ifneq ($(HAS_SERVER),)
 	cd server && env GOOS=windows GOARCH=amd64 $(GO) build -o dist/plugin-windows-amd64.exe;
 endif
 
-# webapp/.npminstall ensures NPM dependencies are installed without having to run this all the time
-webapp/.npminstall:
+## Ensures NPM dependencies are installed without having to run this all the time.
+webapp/node_modules:
 ifneq ($(HAS_WEBAPP),)
 	cd webapp && $(NPM) install
 	touch $@
 endif
 
-# webapp builds the webapp, if it exists
+## Builds the webapp, if it exists.
 .PHONY: webapp
-webapp: webapp/.npminstall
+webapp: webapp/node_modules
 ifneq ($(HAS_WEBAPP),)
 	cd webapp && $(NPM) run build;
 endif
 
-# bundle generates a tar bundle of the plugin for install
+## Generates a tar bundle of the plugin for install.
 .PHONY: bundle
 bundle:
 	rm -rf dist/
 	mkdir -p dist/$(PLUGIN_ID)
 	cp $(MANIFEST_FILE) dist/$(PLUGIN_ID)/
-	cp -r assets dist/$(PLUGIN_ID)/assets
+ifneq ($(wildcard $(ASSETS_DIR)/.),)
+	cp -r $(ASSETS_DIR) dist/$(PLUGIN_ID)/
+endif
+ifneq ($(HAS_PUBLIC),)
+	cp -r public/ dist/$(PLUGIN_ID)/
+endif
 ifneq ($(HAS_SERVER),)
 	mkdir -p dist/$(PLUGIN_ID)/server/dist;
 	cp -r server/dist/* dist/$(PLUGIN_ID)/server/dist/;
@@ -114,32 +145,20 @@ endif
 
 	@echo plugin built at: dist/$(BUNDLE_NAME)
 
-# dist builds and bundles the plugin
+## Builds and bundles the plugin.
 .PHONY: dist
-dist: apply \
-      server \
-      webapp \
-      bundle
+dist:	apply server webapp bundle
 
-# deploy installs the plugin to a (development) server, using the API if appropriate environment
-# variables are defined, or copying the files directly to a sibling mattermost-server directory
+## Installs the plugin to a (development) server.
 .PHONY: deploy
 deploy: dist
-ifneq ($(and $(MM_SERVICESETTINGS_SITEURL),$(MM_ADMIN_USERNAME),$(MM_ADMIN_PASSWORD),$(HTTP)),)
+## It uses the API if appropriate environment variables are defined,
+## or copying the files directly to a sibling mattermost-server directory.
+ifneq ($(and $(MM_SERVICESETTINGS_SITEURL),$(MM_ADMIN_USERNAME),$(MM_ADMIN_PASSWORD),$(CURL)),)
 	@echo "Installing plugin via API"
-		(TOKEN=`http --print h POST $(MM_SERVICESETTINGS_SITEURL)/api/v4/users/login login_id=$(MM_ADMIN_USERNAME) password=$(MM_ADMIN_PASSWORD) | grep Token | cut -f2 -d' '` && \
-		  http --print b GET $(MM_SERVICESETTINGS_SITEURL)/api/v4/users/me Authorization:"Bearer $$TOKEN" && \
-			http --print b DELETE $(MM_SERVICESETTINGS_SITEURL)/api/v4/plugins/$(PLUGIN_ID) Authorization:"Bearer $$TOKEN" && \
-			http --print b --check-status --form POST $(MM_SERVICESETTINGS_SITEURL)/api/v4/plugins plugin@dist/$(BUNDLE_NAME) Authorization:"Bearer $$TOKEN" && \
-		  http --print b POST $(MM_SERVICESETTINGS_SITEURL)/api/v4/plugins/$(PLUGIN_ID)/enable Authorization:"Bearer $$TOKEN" && \
-		  http --print b POST $(MM_SERVICESETTINGS_SITEURL)/api/v4/users/logout Authorization:"Bearer $$TOKEN" \
-	  )
-else ifneq ($(and $(MM_SERVICESETTINGS_SITEURL),$(MM_ADMIN_USERNAME),$(MM_ADMIN_PASSWORD),$(CURL)),)
-	@echo "Installing plugin via API"
-	$(eval TOKEN := $(shell curl -i -X POST $(MM_SERVICESETTINGS_SITEURL)/api/v4/users/login -d '{"login_id": "$(MM_ADMIN_USERNAME)", "password": "$(MM_ADMIN_PASSWORD)"}' | grep Token | cut -f2 -d' ' 2> /dev/null))
-	@curl -s -H "Authorization: Bearer $(TOKEN)" -X DELETE $(MM_SERVICESETTINGS_SITEURL)/api/v4/plugins/$(PLUGIN_ID) > /dev/null
-	@curl -s -H "Authorization: Bearer $(TOKEN)" -X POST $(MM_SERVICESETTINGS_SITEURL)/api/v4/plugins -F "plugin=@dist/$(BUNDLE_NAME)" > /dev/null && \
-		curl -s -H "Authorization: Bearer $(TOKEN)" -X POST $(MM_SERVICESETTINGS_SITEURL)/api/v4/plugins/$(PLUGIN_ID)/enable > /dev/null && \
+	$(eval TOKEN := $(shell curl -i --post301 --location $(MM_SERVICESETTINGS_SITEURL) -X POST $(MM_SERVICESETTINGS_SITEURL)/api/v4/users/login -d '{"login_id": "$(MM_ADMIN_USERNAME)", "password": "$(MM_ADMIN_PASSWORD)"}' | grep Token | cut -f2 -d' ' 2> /dev/null))
+	@curl -s --post301 --location $(MM_SERVICESETTINGS_SITEURL) -H "Authorization: Bearer $(TOKEN)" -X POST $(MM_SERVICESETTINGS_SITEURL)/api/v4/plugins -F "plugin=@dist/$(BUNDLE_NAME)" -F "force=true" > /dev/null && \
+		curl -s --post301 --location $(MM_SERVICESETTINGS_SITEURL) -H "Authorization: Bearer $(TOKEN)" -X POST $(MM_SERVICESETTINGS_SITEURL)/api/v4/plugins/$(PLUGIN_ID)/enable > /dev/null && \
 		echo "OK." || echo "Sorry, something went wrong."
 else ifneq ($(wildcard ../mattermost-server/.*),)
 	@echo "Installing plugin via filesystem. Server restart and manual plugin enabling required"
@@ -149,27 +168,62 @@ else
 	@echo "No supported deployment method available. Install plugin manually."
 endif
 
-# test runs any lints and unit tests defined for the server and webapp, if they exist
+## Runs any lints and unit tests defined for the server and webapp, if they exist.
 .PHONY: test
-test: server/.depensure webapp/.npminstall
+test: webapp/node_modules
 ifneq ($(HAS_SERVER),)
-	cd server && $(GO) test -race -v -coverprofile=coverage.txt ./...
+	@cd server; \
+	initial_path=$$(pwd); \
+	sub_modules=$$(go list -m all | grep -oP '(?<=\=>\s\.\/).*(?=$$)'); \
+	modules="./ $$sub_modules"; \
+	for module in $$modules ; do \
+		echo "Checking "$$module; \
+		cd $$module; \
+		$(GO) test -race -v ./...; \
+		cd $$initial_path; \
+	done
 endif
 ifneq ($(HAS_WEBAPP),)
 	cd webapp && $(NPM) run fix;
 endif
 
-# clean removes all build artifacts
+## Creates a coverage report for the server code.
+.PHONY: coverage
+coverage:
+ifneq ($(HAS_SERVER),)
+	@cd server; \
+	initial_path=$$(pwd); \
+	path_coverage="$$initial_path/coverage.txt"; \
+	echo "mode: count" > "$$path_coverage"; \
+	sub_modules=$$(go list -m all | grep -oP '(?<=\=>\s\.\/).*(?=$$)'); \
+	modules="./ $$sub_modules"; \
+	for module in $$modules ; do \
+		echo "Checking "$$module; \
+		cd $$module; \
+		$(GO) test -short -covermode=count -coverprofile=profile.tmp ./...; \
+		if [ -f profile.tmp ]; then \
+			cat profile.tmp | tail -n +2 >> "$$path_coverage"; \
+			rm profile.tmp; \
+		fi; \
+		cd $$initial_path; \
+	done; \
+	$(GO) tool cover -html="$$path_coverage" -o "$$initial_path/coverage.html"; \
+	rm $$path_coverage;
+endif
+
+## Clean removes all build artifacts.
 .PHONY: clean
 clean:
 	rm -fr dist/
 ifneq ($(HAS_SERVER),)
 	rm -fr server/dist
-	rm -fr server/.depensure
 endif
 ifneq ($(HAS_WEBAPP),)
-	rm -fr webapp/.npminstall
 	rm -fr webapp/dist
 	rm -fr webapp/node_modules
 endif
 	rm -fr build/bin/
+
+# Help documentatin à la https://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
+help:
+	@cat Makefile | grep -v '\.PHONY' |  grep -v '\help:' | grep -B1 -E '^[a-zA-Z_.-]+:.*' | sed -e "s/:.*//" | sed -e "s/^## //" |  grep -v '\-\-' | sed '1!G;h;$$!d' | awk 'NR%2{printf "\033[36m%-30s\033[0m",$$0;next;}1' | sort

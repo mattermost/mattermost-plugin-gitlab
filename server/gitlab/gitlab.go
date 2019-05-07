@@ -3,8 +3,8 @@ package gitlab
 import (
 	"context"
 
-	internGitlab "github.com/manland/go-gitlab"
 	"github.com/pkg/errors"
+	internGitlab "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
 )
 

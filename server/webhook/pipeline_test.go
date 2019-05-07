@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/manland/go-gitlab"
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
 	"github.com/stretchr/testify/assert"
+	"github.com/xanzy/go-gitlab"
 )
 
 type testDataPipelineStr struct {
