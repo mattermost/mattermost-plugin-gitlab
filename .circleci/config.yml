@@ -1,4 +1,8 @@
 version: 2.1
+
+orbs:
+  codecov: codecov/codecov@1.0.4
+
 executors:
   default:
     docker:
@@ -24,16 +28,9 @@ jobs:
       name: default
     steps:
       - checkout
-      - run:
-          name: "Create a temp directory for artifacts"
-          command: |
-            mkdir -p /tmp/artifacts
-      - run: 
-          command: |
-            make coverage
-            mv server/coverage.html /tmp/artifacts
-      - store_artifacts:
-          path: /tmp/artifacts
+      - run: make coverage
+      - codecov/upload:
+        file: server/coverage.out
 
   build:
     executor:
