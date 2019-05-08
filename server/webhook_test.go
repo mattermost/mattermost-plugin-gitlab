@@ -6,8 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/manland/go-gitlab"
-	gitlabLib "github.com/manland/go-gitlab"
+	gitlabLib "github.com/xanzy/go-gitlab"
 	"github.com/manland/mattermost-plugin-gitlab/server/webhook"
 	"github.com/mattermost/mattermost-server/model"
 	"github.com/mattermost/mattermost-server/plugin/plugintest"
@@ -16,33 +15,33 @@ import (
 
 type fakeWebhookHandler struct{}
 
-func (fakeWebhookHandler) HandleIssue(event *gitlab.IssueEvent) ([]*webhook.HandleWebhook, error) {
+func (fakeWebhookHandler) HandleIssue(event *gitlabLib.IssueEvent) ([]*webhook.HandleWebhook, error) {
 	return []*webhook.HandleWebhook{{
 		Message: "hello",
 		From:    "test",
 		ToUsers: []string{"unknown"},
 	}}, nil
 }
-func (fakeWebhookHandler) HandleMergeRequest(event *gitlab.MergeEvent) ([]*webhook.HandleWebhook, error) {
+func (fakeWebhookHandler) HandleMergeRequest(event *gitlabLib.MergeEvent) ([]*webhook.HandleWebhook, error) {
 	return []*webhook.HandleWebhook{{
 		Message:    "hello",
 		From:       "test",
 		ToChannels: []string{"town-square"},
 	}}, nil
 }
-func (fakeWebhookHandler) HandleIssueComment(event *gitlab.IssueCommentEvent) ([]*webhook.HandleWebhook, error) {
+func (fakeWebhookHandler) HandleIssueComment(event *gitlabLib.IssueCommentEvent) ([]*webhook.HandleWebhook, error) {
 	return nil, nil
 }
-func (fakeWebhookHandler) HandleMergeRequestComment(event *gitlab.MergeCommentEvent) ([]*webhook.HandleWebhook, error) {
+func (fakeWebhookHandler) HandleMergeRequestComment(event *gitlabLib.MergeCommentEvent) ([]*webhook.HandleWebhook, error) {
 	return nil, nil
 }
-func (fakeWebhookHandler) HandlePipeline(event *gitlab.PipelineEvent) ([]*webhook.HandleWebhook, error) {
+func (fakeWebhookHandler) HandlePipeline(event *gitlabLib.PipelineEvent) ([]*webhook.HandleWebhook, error) {
 	return nil, nil
 }
-func (fakeWebhookHandler) HandleTag(event *gitlab.TagEvent) ([]*webhook.HandleWebhook, error) {
+func (fakeWebhookHandler) HandleTag(event *gitlabLib.TagEvent) ([]*webhook.HandleWebhook, error) {
 	return nil, nil
 }
-func (fakeWebhookHandler) HandlePush(event *gitlab.PushEvent) ([]*webhook.HandleWebhook, error) {
+func (fakeWebhookHandler) HandlePush(event *gitlabLib.PushEvent) ([]*webhook.HandleWebhook, error) {
 	return nil, nil
 }
 
@@ -97,7 +96,7 @@ func TestHandleWebhookWithKnowAuthorButUnknowToUser(t *testing.T) {
 	mock.AssertNumberOfCalls(t, "PublishWebSocketEvent", 1)
 }
 
-func TestHandleWebhookToCHannel(t *testing.T) {
+func TestHandleWebhookToChannel(t *testing.T) {
 	p := &Plugin{configuration: &configuration{WebhookSecret: "secret"}, WebhookHandler: fakeWebhookHandler{}}
 
 	mock := &plugintest.API{}
@@ -105,7 +104,7 @@ func TestHandleWebhookToCHannel(t *testing.T) {
 	mock.On("PublishWebSocketEvent", WS_EVENT_REFRESH, map[string]interface{}(nil), &model.WebsocketBroadcast{UserId: "1"}).Return(nil).Once()
 	mock.On("LogInfo", "new msg", "message", "hello", "from", "test").Return(nil)
 	mock.On("LogInfo", "userFrom", "from", "1").Return(nil)
-	mock.On("CreatePost", &model.Post{Id: "", CreateAt: 0, UpdateAt: 0, EditAt: 0, DeleteAt: 0, IsPinned: false, UserId: "", ChannelId: "town-square", RootId: "", ParentId: "", OriginalId: "", Message: "hello", MessageSource: "", Type: "", Props: model.StringInterface{"from_webhook": "true", "override_icon_url": "", "override_username": "Gitlab Plugin"}, Hashtags: "", Filenames: model.StringArray(nil), FileIds: model.StringArray(nil), PendingPostId: "", HasReactions: false, Metadata: (*model.PostMetadata)(nil)}).Return(nil, nil)
+	mock.On("CreatePost", &model.Post{Id: "", CreateAt: 0, UpdateAt: 0, EditAt: 0, DeleteAt: 0, IsPinned: false, UserId: "", ChannelId: "town-square", RootId: "", ParentId: "", OriginalId: "", Message: "hello", MessageSource: "", Type: "", Props: model.StringInterface{"from_webhook": "true", "override_icon_url": "", "override_username": "GitLab Plugin"}, Hashtags: "", Filenames: model.StringArray(nil), FileIds: model.StringArray(nil), PendingPostId: "", HasReactions: false, Metadata: (*model.PostMetadata)(nil)}).Return(nil, nil)
 	p.SetAPI(mock)
 
 	req := httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"user": {"username":"test"}}`))

@@ -34,7 +34,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.3 // indirect
 	github.com/stretchr/testify v1.3.0
-	github.com/xanzy/go-gitlab v0.16.2-0.20190430153925-4baaa27b8479
+	github.com/xanzy/go-gitlab v0.17.1-0.20190507132052-352844e86dbf
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/multierr v1.1.0 // indirect

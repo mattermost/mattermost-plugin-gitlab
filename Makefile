@@ -70,8 +70,8 @@ ifneq ($(HAS_SERVER),)
 	for module in $$modules ; do \
 		echo "Checking "$$module; \
 		cd $$module; \
-		$(GO) vet ./...; \
-		$(GO) vet -vettool=$(GOPATH)/bin/shadow ./...; \
+		$(GO) vet ./... || exit 1; \
+		$(GO) vet -vettool=$(GOPATH)/bin/shadow ./... || exit 1; \
 		cd $$initial_path; \
 	done
 	@echo Govet success
@@ -91,7 +91,7 @@ ifneq ($(HAS_SERVER),)
 	for module in $$modules ; do \
 		echo "Checking "$$module; \
 		cd $$module; \
-		errcheck $$(go list ./...); \
+		errcheck $$(go list ./...) || exit 1; \
 		cd $$initial_path; \
 	done
 	@echo errcheck success
@@ -179,7 +179,7 @@ ifneq ($(HAS_SERVER),)
 	for module in $$modules ; do \
 		echo "Checking "$$module; \
 		cd $$module; \
-		$(GO) test -race -v ./...; \
+		$(GO) test -race -v ./...  || exit 1; \
 		cd $$initial_path; \
 	done
 endif
@@ -207,7 +207,7 @@ ifneq ($(HAS_SERVER),)
 		fi; \
 		cd $$initial_path; \
 	done; \
-	$(GO) tool cover -html="$$path_coverage" -o "$$initial_path/coverage.html"; \
+	$(GO) tool cover -func="$$path_coverage" -o "$$initial_path/coverage.out"; \
 	rm $$path_coverage;
 endif
 

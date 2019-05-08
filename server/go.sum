@@ -113,6 +113,10 @@ github.com/stretchr/testify v1.3.0 h1:TivCn/peBQ7UY8ooIcPgZFpTNSz0Q2U6UrFlUfqbe0
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/xanzy/go-gitlab v0.16.2-0.20190430153925-4baaa27b8479 h1:kuMsBhs0yP8sQklcVAWAiz0RYGDjXXMzKpLeFQ9noBA=
 github.com/xanzy/go-gitlab v0.16.2-0.20190430153925-4baaa27b8479/go.mod h1:LSfUQ9OPDnwRqulJk2HcWaAiFfCzaknyeGvjQI67MbE=
+github.com/xanzy/go-gitlab v0.17.0 h1:+ajmfVENiehiK8FgQXb0v/XEsYPAdf9vVE53iQ2fiGM=
+github.com/xanzy/go-gitlab v0.17.0/go.mod h1:LSfUQ9OPDnwRqulJk2HcWaAiFfCzaknyeGvjQI67MbE=
+github.com/xanzy/go-gitlab v0.17.1-0.20190507132052-352844e86dbf h1:/0ML4aMwGdtx3EjBKb7M5V/ynYTycEaRJ/lvRBRJbeU=
+github.com/xanzy/go-gitlab v0.17.1-0.20190507132052-352844e86dbf/go.mod h1:LSfUQ9OPDnwRqulJk2HcWaAiFfCzaknyeGvjQI67MbE=
 github.com/ziutek/mymysql v1.5.4 h1:GB0qdRGsTwQSBVYuVShFBKaXSnSnYYC2d9knnE1LHFs=
 github.com/ziutek/mymysql v1.5.4/go.mod h1:LMSpPZ6DbqWFxNCHW77HeMg9I646SAhApZ/wKdgO/C0=
 go.uber.org/atomic v1.3.2 h1:2Oa65PReHzfn29GpvgsYwloV9AVFHPDk8tYxt2c2tr4=
