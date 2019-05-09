@@ -4,6 +4,7 @@ The changelog can be found at https://github.com/mattermost/mattermost-plugin-gi
 
 ## 0.3.0 - unreleased
 
+- Display coverage with [codecov](https://codecov.io) [#37](https://github.com/manland/mattermost-plugin-gitlab/pull/37)
 - Backport [mattermost-plugin-sample](https://github.com/mattermost/mattermost-plugin-sample/) infra code : use go mod, rework makefile to use sub-module, repair coverage [#27](https://github.com/manland/mattermost-plugin-gitlab/pull/27)
 - From `Gitlab` to `GitLab` [#31](https://github.com/manland/mattermost-plugin-gitlab/pull/31)
 
