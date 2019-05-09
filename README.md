@@ -2,17 +2,19 @@
 
 A GitLab plugin for Mattermost. The plugin is currently in beta.
 
+![GitLab Plugin screenshot](https://user-images.githubusercontent.com/1492516/57301593-afbb1b80-70d9-11e9-9134-809e5cc69a45.png)
+
 ## Features
 
-* [X] __Daily reminders__ - the first time you log in to Mattermost each day, get a post letting you know what issues and merge requests need your attention
-* [X] __Notifications__ - get a direct message in Mattermost when someone mentions you, requests your review, comments on or modifies one of your merge requests/issues, or assigns you on GitLab
-* [X] __Sidebar buttons__ - stay up-to-date with how many reviews, unread messages, assignments and open pull requests you have with buttons in the Mattermost sidebar
-* [X] __Slash commands__ - interact with the GitLab plugin using the `/gitlab` slash command
+* __Daily reminders__ - the first time you log in to Mattermost each day, get a post letting you know what issues and merge requests need your attention
+* __Notifications__ - get a direct message in Mattermost when someone mentions you, requests your review, comments on or modifies one of your merge requests/issues, or assigns you on GitLab
+* __Sidebar buttons__ - stay up-to-date with how many reviews, unread messages, assignments and open pull requests you have with buttons in the Mattermost sidebar
+* __Slash commands__ - interact with the GitLab plugin using the `/gitlab` slash command
     * __Subscribe to a respository__ - Use `/gitlab subscribe` to subscribe a Mattermost channel to receive posts for new pull requests and/or issues in a GitLab repository
     * __Get to do items__ - Use `/gitlab todo` to get an ephemeral message with items to do in GitLab
     * __Update settings__ - Use `/gitlab settings` to update your settings for the plugin
     * __And more!__ - Run `/gitlab help` to see what else the slash command can do
-* [X] __Supports GitLab On Premise__ - Works with SaaS and On Premise versions of GitLab
+* __Supports GitLab On Premise__ - Works with SaaS and On Premise versions of GitLab
 
 ## Installation
 
@@ -75,13 +77,9 @@ export MM_ADMIN_USERNAME=admin
 export MM_ADMIN_PASSWORD=password
 ```
 
-## Frequently Asked Questions
+## Inspiration
 
-### How do I connect a repository instead of an organization?
-
-Set up your GitLab webhook from the repository instead of the organization. Notifications and subscriptions will then be sent only for repositories you create webhooks for.
-
-The reminder and `/gitlab todo` will still search the whole organization, but only list items assigned to you.
+This project is a fork of the [mattermost-plugin-github](https://github.com/mattermost/mattermost-plugin-github). Thanks to all contributors of it.
 
 ## Feedback and Feature Requests
 
