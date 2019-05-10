@@ -11,18 +11,18 @@ import (
 
 const COMMAND_HELP = `* |/gitlab connect| - Connect your Mattermost account to your GitLab account
 * |/gitlab disconnect| - Disconnect your Mattermost account from your GitLab account
-* |/gitlab todo| - Get a list of unread messages and pull requests awaiting your review
+* |/gitlab todo| - Get a list of unread messages and merge requests awaiting your review
 * |/gitlab subscribe list| - Will list the current channel subscriptions
 * |/gitlab subscribe owner[/repo] [features]| - Subscribe the current channel to receive notifications about opened merge requests and issues for a group or repository
   * |features| is a comma-delimited list of one or more the following:
     * issues - includes new and closed issues
-	* merges - includes new and closed pull requests
+	* merges - includes new and closed merge requests
     * pushes - includes pushes
 	* issue_comments - includes new issue comments
 	* merge_request_comments - include new merge-request comments
 	* pipeline - include pipeline
 	* tag - include tag creation
-    * pull_reviews - includes pull request reviews
+    * pull_reviews - includes merge request reviews
 	* label:"<labelname>" - must include "merges" or "issues" in feature list when using a label
     * Defaults to "merges,issues,tag"
 * |/gitlab unsubscribe owner/repo| - Unsubscribe the current channel from a repository

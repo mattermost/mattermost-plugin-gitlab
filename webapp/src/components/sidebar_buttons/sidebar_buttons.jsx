@@ -134,7 +134,7 @@ export default class SidebarButtons extends React.PureComponent {
                 <OverlayTrigger
                     key='gitlabYourPrsLink'
                     placement={placement}
-                    overlay={<Tooltip id='yourPrsTooltip'>Your open pull requests</Tooltip>}
+                    overlay={<Tooltip id='yourPrsTooltip'>Your open merge requests</Tooltip>}
                 >
                     <a
                         href={baseURL + orgQuery + '/merge_requests?state=opened&author_username=' + this.props.username}

@@ -281,9 +281,9 @@ func (p *Plugin) GetToDo(user *gitlab.GitlabUserInfo) (string, error) {
 	text += "##### Review Requests\n"
 
 	if len(reviews) == 0 {
-		text += "You don't have any pull requests awaiting your review.\n"
+		text += "You don't have any merge requests awaiting your review.\n"
 	} else {
-		text += fmt.Sprintf("You have %v pull requests awaiting your review:\n", len(reviews))
+		text += fmt.Sprintf("You have %v merge requests awaiting your review:\n", len(reviews))
 
 		for _, pr := range reviews {
 			text += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
@@ -302,12 +302,12 @@ func (p *Plugin) GetToDo(user *gitlab.GitlabUserInfo) (string, error) {
 		}
 	}
 
-	text += "##### Your Open Pull Requests\n"
+	text += "##### Your Open Merge Requests\n"
 
 	if len(yourMergeRequests) == 0 {
-		text += "You don't have any open pull requests.\n"
+		text += "You don't have any open merge requests.\n"
 	} else {
-		text += fmt.Sprintf("You have %v open pull requests:\n", len(yourMergeRequests))
+		text += fmt.Sprintf("You have %v open merge requests:\n", len(yourMergeRequests))
 
 		for _, pr := range yourMergeRequests {
 			text += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)

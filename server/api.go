@@ -169,14 +169,14 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 	message := fmt.Sprintf("#### Welcome to the Mattermost GitLab Plugin!\n"+
 		"You've connected your Mattermost account to %s on GitLab. Read about the features of this plugin below:\n\n"+
 		"##### Daily Reminders\n"+
-		"The first time you log in each day, you will get a post right here letting you know what messages you need to read and what pull requests are awaiting your review.\n"+
+		"The first time you log in each day, you will get a post right here letting you know what messages you need to read and what merge requests are awaiting your review.\n"+
 		"Turn off reminders with `/gitlab settings reminders off`.\n\n"+
 		"##### Notifications\n"+
-		"When someone mentions you, requests your review, comments on or modifies one of your pull requests/issues, or assigns you, you'll get a post here about it.\n"+
+		"When someone mentions you, requests your review, comments on or modifies one of your merge requests/issues, or assigns you, you'll get a post here about it.\n"+
 		"Turn off notifications with `/gitlab settings notifications off`.\n\n"+
 		"##### Sidebar Buttons\n"+
 		"Check out the buttons in the left-hand sidebar of Mattermost.\n"+
-		"* The first button tells you how many pull requests you have submitted.\n"+
+		"* The first button tells you how many merge requests you have submitted.\n"+
 		"* The second shows the number of PR that are awaiting your review.\n"+
 		"* The third shows the number of PR and issues your are assiged to.\n"+
 		"* The fourth tracks the number of unread messages you have.\n"+
