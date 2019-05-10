@@ -139,11 +139,6 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 					UserId:    p.BotUserID,
 					Message:   res.Message,
 					ChannelId: to,
-					Props: map[string]interface{}{
-						"from_webhook":      "true",
-						"override_username": GITLAB_USERNAME,
-						"override_icon_url": config.ProfileImageURL,
-					},
 				}
 				if _, err := p.API.CreatePost(post); err != nil {
 					p.API.LogError("can't crate post for webhook event", "err", err.Error())

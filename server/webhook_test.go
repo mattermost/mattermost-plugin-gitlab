@@ -104,7 +104,7 @@ func TestHandleWebhookToChannel(t *testing.T) {
 	mock.On("PublishWebSocketEvent", WS_EVENT_REFRESH, map[string]interface{}(nil), &model.WebsocketBroadcast{UserId: "1"}).Return(nil).Once()
 	mock.On("LogInfo", "new msg", "message", "hello", "from", "test").Return(nil)
 	mock.On("LogInfo", "userFrom", "from", "1").Return(nil)
-	mock.On("CreatePost", &model.Post{Id: "", CreateAt: 0, UpdateAt: 0, EditAt: 0, DeleteAt: 0, IsPinned: false, UserId: "", ChannelId: "town-square", RootId: "", ParentId: "", OriginalId: "", Message: "hello", MessageSource: "", Type: "", Props: model.StringInterface{"from_webhook": "true", "override_icon_url": "", "override_username": "GitLab Plugin"}, Hashtags: "", Filenames: model.StringArray(nil), FileIds: model.StringArray(nil), PendingPostId: "", HasReactions: false, Metadata: (*model.PostMetadata)(nil)}).Return(nil, nil)
+	mock.On("CreatePost", &model.Post{Id: "", CreateAt: 0, UpdateAt: 0, EditAt: 0, DeleteAt: 0, IsPinned: false, UserId: "", ChannelId: "town-square", RootId: "", ParentId: "", OriginalId: "", Message: "hello", MessageSource: "", Type: "", Hashtags: "", Filenames: model.StringArray(nil), FileIds: model.StringArray(nil), PendingPostId: "", HasReactions: false, Metadata: (*model.PostMetadata)(nil)}).Return(nil, nil)
 	p.SetAPI(mock)
 
 	req := httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"user": {"username":"test"}}`))

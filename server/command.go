@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/mattermost/mattermost-server/plugin"
@@ -47,7 +48,7 @@ func (p *Plugin) getCommandResponse(responseType, text string) *model.CommandRes
 		ResponseType: responseType,
 		Text:         text,
 		Username:     GITLAB_USERNAME,
-		IconURL:      p.getConfiguration().ProfileImageURL,
+		IconURL:      path.Join(*p.API.GetConfig().ServiceSettings.SiteURL, "plugins", manifest.Id, "assets", "profile.png"),
 		Type:         model.POST_DEFAULT,
 	}
 }

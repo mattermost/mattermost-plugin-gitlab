@@ -3,6 +3,7 @@
     "name": "GitLab",
     "description": "GitLab plugin for Mattermost.",
     "version": "0.2.0",
+    "min_server_version": "5.10.0",
     "server": {
       "executables": {
           "linux-amd64": "server/dist/plugin-linux-amd64",
