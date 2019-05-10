@@ -1,8 +1,5 @@
 version: 2.1
 
-orbs:
-  codecov: codecov/codecov@1.0.4
-
 executors:
   default:
     docker:
@@ -28,9 +25,7 @@ jobs:
       name: default
     steps:
       - checkout
-      - run: make coverage
-      - codecov/upload:
-        file: server/coverage.out
+      - run: make coverage && bash <(curl -s https://codecov.io/bash)
 
   build:
     executor:
