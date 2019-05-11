@@ -116,7 +116,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 			features = strings.Join(parameters[1:], " ")
 		}
 
-		_, owner, repo := parseOwnerAndRepo(parameters[0], config.EnterpriseBaseURL)
+		_, owner, repo := parseOwnerAndRepo(parameters[0], config.GitlabURL)
 		if repo == "" {
 			if err := p.SubscribeGroup(info, owner, args.ChannelId, features); err != nil {
 				return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, err.Error()), nil

@@ -25,13 +25,13 @@ __Requires Mattermost 5.10 or higher__
     2. In Mattermost, go the System Console -> Plugins -> Management
     3. Upload the plugin
 2. Register a GitLab OAuth app
-    1. Go to https://gitlab.com/profile/applications
+    1. Go to https://gitlab.com/profile/applications or https://gitlab.yourdomain.com/profile/applications
         * Use "Mattermost GitLab Plugin - <your company name>" as the name
         * Use "https://your-mattermost-url.com/plugins/com.github.manland.mattermost-plugin-gitlab/oauth/complete" as the authorization callback URL, replacing `https://your-mattermost-url.com` with your Mattermost URL
         * Check `api` and `read_user` in scopes
         * Submit and copy the Client ID and Secret
     2. In Mattermost, go to System Console -> Plugins -> GitLab
-        * Fill in the Client ID and Secret and save the settings
+        * Fill in the Gitlab URL, Client ID and Secret and save the settings
 3. Create a GitLab webhook
     1. In Mattermost, go to the System Console -> Plugins -> GitLab and copy the "Webhook Secret"
     2. Go to the settings page of your GitLab group and click on "Webhooks" in the sidebar
@@ -50,8 +50,6 @@ __Requires Mattermost 5.10 or higher__
 4. (Optional) Enable private repositories
     * Go to System Console -> Plugins -> GitLab and set Enable Private Repositories to true
     * Note that if you do this after users have already connected their accounts to GitLab they will need to disconnect and reconnect their accounts to be able to use private repositories
-4. (Enterprise only) Set your Enterprise URLs
-    * Go to System Console -> Plugins -> GitLab and set the Enterprise Base URL to your GitLab Enterprise URLs, ex: `https://gitlab.example.com`
 5. Enable the plugin
     * Go to System Console -> Plugins -> Management and click "Enable" underneath the GitLab plugin
 6. Test it out

@@ -12,7 +12,7 @@ export default class SidebarButtons extends React.PureComponent {
         username: PropTypes.string,
         org: PropTypes.string,
         clientId: PropTypes.string,
-        enterpriseURL: PropTypes.string,
+        gitlabURL: PropTypes.string,
         reviews: PropTypes.arrayOf(PropTypes.object),
         unreads: PropTypes.arrayOf(PropTypes.object),
         yourPrs: PropTypes.arrayOf(PropTypes.object),
@@ -104,16 +104,12 @@ export default class SidebarButtons extends React.PureComponent {
             return null;
         }
 
+        const baseURL = this.props.gitlabURL || 'https://gitlab.com';
         const reviews = this.props.reviews || [];
         const yourPrs = this.props.yourPrs || [];
         const unreads = this.props.unreads || [];
         const yourAssignments = this.props.yourAssignments || [];
         const refreshClass = this.state.refreshing ? ' fa-spin' : '';
-
-        let baseURL = 'https://gitlab.com';
-        if (this.props.enterpriseURL) {
-            baseURL = this.props.enterpriseURL;
-        }
 
         let orgQuery = '/dashboard';//default == all orgs
         if (this.props.org) {
