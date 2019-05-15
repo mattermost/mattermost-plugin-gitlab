@@ -11,6 +11,7 @@ require (
 	github.com/mattermost/mattermost-server v5.12.0+incompatible
 	github.com/pelletier/go-toml v1.4.0 // indirect
 	github.com/pkg/errors v0.8.1
+	github.com/robfig/cron v1.1.0
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/stretchr/testify v1.3.0
 	github.com/xanzy/go-gitlab v0.18.0

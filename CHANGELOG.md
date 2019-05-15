@@ -2,6 +2,10 @@
 
 ALl releases can be found at https://github.com/mattermost/mattermost-plugin-gitlab/releases.
 
+## 0.4.0 - unreleased
+
+- Add webhook in gitlab when user subscribe to group or project [#15](https://github.com/manland/mattermost-plugin-gitlab/pull/15)
+
 ## 0.3.0 - 2019-06-05
 
 - Give feedback to user when subscription has unknown feature [#47](https://github.com/manland/mattermost-plugin-gitlab/pull/47)

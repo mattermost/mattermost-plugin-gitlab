@@ -2,7 +2,7 @@ package gitlab
 
 import (
 	"github.com/mattermost/mattermost-server/model"
-	internGitlab "github.com/xanzy/go-gitlab"
+	"github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
 )
 
@@ -24,8 +24,8 @@ type UserSettings struct {
 	Notifications  bool   `json:"notifications"`
 }
 
-func (g *gitlab) GetCurrentUser(userID string, token oauth2.Token) (*GitlabUserInfo, error) {
-	client, err := g.gitlabConnect(token)
+func (g *myGitlab) GetCurrentUser(userID string, token oauth2.Token) (*GitlabUserInfo, error) {
+	client, err := g.connect(token)
 	if err != nil {
 		return nil, err
 	}
@@ -49,8 +49,8 @@ func (g *gitlab) GetCurrentUser(userID string, token oauth2.Token) (*GitlabUserI
 	}, nil
 }
 
-func (g *gitlab) GetUserDetails(user *GitlabUserInfo) (*internGitlab.User, error) {
-	client, err := g.gitlabConnect(*user.Token)
+func (g *myGitlab) GetUserDetails(user *GitlabUserInfo) (*gitlab.User, error) {
+	client, err := g.connect(*user.Token)
 	if err != nil {
 		return nil, err
 	}
