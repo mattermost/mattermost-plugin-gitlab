@@ -66,16 +66,15 @@ func (p *Plugin) OnActivate() error {
 	if ensureBotError != nil {
 		return errors.Wrap(ensureBotError, "can't ensure bot")
 	}
+	p.BotUserID = botID
+
+	p.WebhookHandler = webhook.NewWebhook(&gitlabRetreiver{p: p})
+	p.GitlabClient = gitlab.New(config.EnterpriseBaseURL, config.GitlabGroup, p.checkGroup)
 
 	bundlePath, err := p.API.GetBundlePath()
 	if err != nil {
 		return errors.Wrap(err, "can't retreive bundle path")
 	}
-
-	p.BotUserID = botID
-	p.WebhookHandler = webhook.NewWebhook(&gitlabRetreiver{p: p})
-	p.GitlabClient = gitlab.New(config.EnterpriseBaseURL, config.GitlabGroup, p.checkGroup)
-
 	profileImage, err := ioutil.ReadFile(filepath.Join(bundlePath, "assets", "profile.png"))
 	if err != nil {
 		return errors.Wrap(err, "failed to read profile image")
