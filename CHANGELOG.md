@@ -4,6 +4,7 @@ The changelog can be found at https://github.com/mattermost/mattermost-plugin-gi
 
 ## 0.3.0 - unreleased
 
+- Rewrite all `pull request` to `merge request`
 - Display coverage with [codecov](https://codecov.io) [#37](https://github.com/manland/mattermost-plugin-gitlab/pull/37)
 - Add screenshot in [README.md](https://github.com/manland/mattermost-plugin-gitlab/blob/master/README.md) [#26](https://github.com/manland/mattermost-plugin-gitlab/pull/26)
 - Backport [mattermost-plugin-sample](https://github.com/mattermost/mattermost-plugin-sample/) infra code : use go mod, rework makefile to use sub-module, repair coverage [#27](https://github.com/manland/mattermost-plugin-gitlab/pull/27)
