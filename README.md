@@ -18,7 +18,7 @@ A GitLab plugin for Mattermost. The plugin is currently in beta.
 
 ## Installation
 
-__Requires Mattermost 5.2 or higher__
+__Requires Mattermost 5.10 or higher__
 
 1. Install the plugin
     1. Download the latest version of the plugin from the GitHub releases page
