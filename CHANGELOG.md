@@ -4,6 +4,7 @@ The changelog can be found at https://github.com/mattermost/mattermost-plugin-gi
 
 ## 0.3.0 - unreleased
 
+- **Breaking** Configuration `EnterpriseBaseURL` become `GitlabURL` with `https://gitlab.com` as de fault value [#34](https://github.com/manland/mattermost-plugin-gitlab/pull/34)
 - Use a bot account [#9](https://github.com/manland/mattermost-plugin-gitlab/pull/9)
 - Rewrite all `pull request` to `merge request`
 - Display coverage with [codecov](https://codecov.io) [#37](https://github.com/manland/mattermost-plugin-gitlab/pull/37)

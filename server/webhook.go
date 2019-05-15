@@ -19,11 +19,7 @@ type gitlabRetreiver struct {
 
 func (g *gitlabRetreiver) GetUserURL(username string) string {
 	config := g.p.getConfiguration()
-	url := "https://gitlab.com"
-	if config.EnterpriseBaseURL != "" {
-		url = config.EnterpriseBaseURL
-	}
-	return fmt.Sprintf("%s/%s", url, username)
+	return fmt.Sprintf("%s/%s", config.GitlabURL, username)
 }
 
 func (g *gitlabRetreiver) GetUsernameByID(id int) string {
@@ -167,7 +163,7 @@ func (p *Plugin) permissionToRepo(userID string, fullPath string) bool {
 	}
 
 	config := p.getConfiguration()
-	_, owner, repo := parseOwnerAndRepo(fullPath, config.EnterpriseBaseURL)
+	_, owner, repo := parseOwnerAndRepo(fullPath, config.GitlabURL)
 
 	if owner == "" {
 		return false

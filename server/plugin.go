@@ -69,7 +69,7 @@ func (p *Plugin) OnActivate() error {
 	p.BotUserID = botID
 
 	p.WebhookHandler = webhook.NewWebhook(&gitlabRetreiver{p: p})
-	p.GitlabClient = gitlab.New(config.EnterpriseBaseURL, config.GitlabGroup, p.checkGroup)
+	p.GitlabClient = gitlab.New(config.GitlabURL, config.GitlabGroup, p.checkGroup)
 
 	bundlePath, err := p.API.GetBundlePath()
 	if err != nil {
@@ -89,12 +89,8 @@ func (p *Plugin) OnActivate() error {
 func (p *Plugin) getOAuthConfig() *oauth2.Config {
 	config := p.getConfiguration()
 
-	authURL, _ := url.Parse("https://gitlab.com/")
-	tokenURL, _ := url.Parse("https://gitlab.com/")
-	if len(config.EnterpriseBaseURL) > 0 {
-		authURL, _ = url.Parse(config.EnterpriseBaseURL)
-		tokenURL, _ = url.Parse(config.EnterpriseBaseURL)
-	}
+	authURL, _ := url.Parse(config.GitlabURL)
+	tokenURL, _ := url.Parse(config.GitlabURL)
 
 	authURL.Path = path.Join(authURL.Path, "oauth", "authorize")
 	tokenURL.Path = path.Join(tokenURL.Path, "oauth", "token")

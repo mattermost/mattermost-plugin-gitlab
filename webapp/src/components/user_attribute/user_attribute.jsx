@@ -5,7 +5,7 @@ export default class UserAttribute extends React.PureComponent {
     static propTypes = {
         id: PropTypes.string.isRequired,
         username: PropTypes.string,
-        enterpriseURL: PropTypes.string,
+        gitlabURL: PropTypes.string,
         actions: PropTypes.shape({
             getGitlabUser: PropTypes.func.isRequired,
         }).isRequired,
@@ -18,12 +18,9 @@ export default class UserAttribute extends React.PureComponent {
 
     render() {
         const username = this.props.username;
-        let baseURL = 'https://gitlab.com';
-        if (this.props.enterpriseURL) {
-            baseURL = this.props.enterpriseURL;
-        }
+        const baseURL = this.props.gitlabURL;
 
-        if (!username) {
+        if (!username || !baseURL) {
             return null;
         }
 

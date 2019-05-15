@@ -242,12 +242,12 @@ func (p *Plugin) handleProfileImage(w http.ResponseWriter, r *http.Request) {
 }
 
 type ConnectedResponse struct {
-	Connected         bool                 `json:"connected"`
-	GitlabUsername    string               `json:"gitlab_username"`
-	GitlabClientID    string               `json:"gitlab_client_id"`
-	EnterpriseBaseURL string               `json:"enterprise_base_url,omitempty"`
-	Organization      string               `json:"organization"`
-	Settings          *gitlab.UserSettings `json:"settings"`
+	Connected      bool                 `json:"connected"`
+	GitlabUsername string               `json:"gitlab_username"`
+	GitlabClientID string               `json:"gitlab_client_id"`
+	GitlabURL      string               `json:"gitlab_url,omitempty"`
+	Organization   string               `json:"organization"`
+	Settings       *gitlab.UserSettings `json:"settings"`
 }
 
 type GitlabUserRequest struct {
@@ -303,9 +303,9 @@ func (p *Plugin) getConnected(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := &ConnectedResponse{
-		Connected:         false,
-		EnterpriseBaseURL: config.EnterpriseBaseURL,
-		Organization:      config.GitlabGroup,
+		Connected:    false,
+		GitlabURL:    config.GitlabURL,
+		Organization: config.GitlabGroup,
 	}
 
 	info, _ := p.getGitlabUserInfoByMattermostID(userID)

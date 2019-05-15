@@ -21,7 +21,7 @@ function mapStateToProps(state) {
         yourPrs: state[`plugins-${id}`].yourPrs,
         yourAssignments: state[`plugins-${id}`].yourAssignments,
         unreads: state[`plugins-${id}`].unreads,
-        enterpriseURL: state[`plugins-${id}`].enterpriseURL,
+        gitlabURL: state[`plugins-${id}`].gitlabURL,
         org: state[`plugins-${id}`].organization,
     };
 }

@@ -18,6 +18,13 @@
         "header": "To set up the GitLab plugin, you need to register a GitLab OAuth app here https://gitlab.com/profile/applications.",
         "settings": [
             {
+                "key": "GitlabURL",
+                "display_name": "Gitlab URL",
+                "type": "text",
+                "default": "https://gitlab.com",
+                "help_text": "The base URL for using the plugin with a GitLab installation. Examples: https://gitlab.com or https://gitlab.example.com"
+            },
+            {
                 "key": "GitlabOAuthClientID",
                 "display_name": "GitLab OAuth Client ID",
                 "type": "text",
@@ -52,12 +59,6 @@
                 "display_name": "Gitlab Group",
                 "type": "text",
                 "help_text": "(Optional) Set to lock the plugin to a single GitLab group."
-            },
-            {
-                "key": "EnterpriseBaseURL",
-                "display_name": "Enterprise Base URL",
-                "type": "text",
-                "help_text": "(Optional) The base URL for using the plugin with a GitLab Enterprise installation. Example: https://gitlab.example.com"
             },
             {
                 "key": "EnablePrivateRepo",

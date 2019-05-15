@@ -12,11 +12,11 @@ function connected(state = false, action) {
     }
 }
 
-function enterpriseURL(state = '', action) {
+function gitlabURL(state = '', action) {
     switch (action.type) {
     case ActionTypes.RECEIVED_CONNECTED:
-        if (action.data && action.data.enterprise_base_url) {
-            return action.data.enterprise_base_url;
+        if (action.data && action.data.gitlab_url) {
+            return action.data.gitlab_url;
         }
         return '';
     default:
@@ -129,7 +129,7 @@ function gitlabUsers(state = {}, action) {
 
 export default combineReducers({
     connected,
-    enterpriseURL,
+    gitlabURL,
     organization,
     username,
     settings,
