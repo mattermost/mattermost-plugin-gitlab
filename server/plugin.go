@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/manland/mattermost-plugin-gitlab/server/webhook"
 	"github.com/mattermost/mattermost-server/model"
 	"github.com/mattermost/mattermost-server/plugin"
+	"github.com/pkg/errors"
 
 	"golang.org/x/oauth2"
 )
@@ -52,18 +55,33 @@ func (p *Plugin) OnActivate() error {
 		return err
 	}
 	if err := p.API.RegisterCommand(getCommand()); err != nil {
-		p.API.LogError("can't register command", "err", err.Error())
-		return fmt.Errorf("Unable to register command: %v", getCommand())
-	}
-	user, err := p.API.GetUserByUsername(config.Username)
-	if err != nil {
-		p.API.LogError("can't get user by username", "err", err.Error())
-		return fmt.Errorf("Unable to find user with configured username: %v", config.Username)
+		return errors.Wrap(err, fmt.Sprintf("Unable to register command: %v", getCommand()))
 	}
 
-	p.BotUserID = user.Id
+	botID, ensureBotError := p.Helpers.EnsureBot(&model.Bot{
+		Username:    "gitlab",
+		DisplayName: "GitLab Plugin",
+		Description: "A bot account created by the plugin GitLab.",
+	})
+	if ensureBotError != nil {
+		return errors.Wrap(ensureBotError, "can't ensure bot")
+	}
+	p.BotUserID = botID
+
 	p.WebhookHandler = webhook.NewWebhook(&gitlabRetreiver{p: p})
 	p.GitlabClient = gitlab.New(config.EnterpriseBaseURL, config.GitlabGroup, p.checkGroup)
+
+	bundlePath, err := p.API.GetBundlePath()
+	if err != nil {
+		return errors.Wrap(err, "can't retreive bundle path")
+	}
+	profileImage, err := ioutil.ReadFile(filepath.Join(bundlePath, "assets", "profile.png"))
+	if err != nil {
+		return errors.Wrap(err, "failed to read profile image")
+	}
+	if appErr := p.API.SetProfileImage(botID, profileImage); appErr != nil {
+		return errors.Wrap(err, "failed to set profile image")
+	}
 
 	return nil
 }
@@ -204,18 +222,11 @@ func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppErr
 		return err
 	}
 
-	config := p.getConfiguration()
-
 	post := &model.Post{
 		UserId:    p.BotUserID,
 		ChannelId: channel.Id,
 		Message:   message,
 		Type:      postType,
-		Props: map[string]interface{}{
-			"from_webhook":      "true",
-			"override_username": GITLAB_USERNAME,
-			"override_icon_url": config.ProfileImageURL,
-		},
 	}
 
 	if _, err := p.API.CreatePost(post); err != nil {

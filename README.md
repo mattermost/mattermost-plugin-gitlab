@@ -42,10 +42,6 @@ __Requires Mattermost 5.2 or higher__
         * Select the events: Issues, Issue comments, Pull requests, Pull request reviews, Pull request review comments, Pushes, Branch or Tag creation and Branch or Tag deletion
     3. Save the webhook
     4. __Note for each organization you want to receive notifications for or subscribe to, you must create a webhook__
-4. Configure a bot account
-    1. Create a new Mattermost user, through the regular UI or the CLI with the username "gitlab"
-    2. Go to the System Console -> Plugins -> GitLab and select this user in the User setting
-    3. Save the settings
 4. Generate an at rest encryption key
     1. Go to the System Console -> Plugins -> GitLab and click "Regenerate" under "At Rest Encryption Key"
     2. Save the settings

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"path"
 	"reflect"
 
 	"github.com/mattermost/mattermost-server/model"
@@ -22,7 +21,6 @@ import (
 // copy appropriate for your types.
 type configuration struct {
 	GitlabGroup             string
-	Username                string
 	GitlabOAuthClientID     string
 	GitlabOAuthClientSecret string
 	WebhookSecret           string
@@ -30,7 +28,6 @@ type configuration struct {
 	EncryptionKey           string
 	EnterpriseBaseURL       string
 	PluginsDirectory        string
-	ProfileImageURL         string
 }
 
 // Clone shallow copies the configuration. Your implementation may require a deep copy if
@@ -52,10 +49,6 @@ func (c *configuration) IsValid() error {
 
 	if c.EncryptionKey == "" {
 		return fmt.Errorf("Must have an encryption key")
-	}
-
-	if c.Username == "" {
-		return fmt.Errorf("Need a user to make posts as")
 	}
 
 	return nil
@@ -99,12 +92,9 @@ func (p *Plugin) setConfiguration(configuration *configuration, serverConfigurat
 		panic("setConfiguration called with the existing configuration")
 	}
 
-	// PluginDirectory & ProfileImageURL should be set based on server configuration and not the plugin configuration
+	// PluginDirectory should be set based on server configuration and not the plugin configuration
 	if serverConfiguration.PluginSettings.Directory != nil {
 		configuration.PluginsDirectory = *serverConfiguration.PluginSettings.Directory
-	}
-	if serverConfiguration.ServiceSettings.SiteURL != nil {
-		configuration.ProfileImageURL = path.Join(*serverConfiguration.ServiceSettings.SiteURL, "plugins", manifest.Id, "assets", "profile.png")
 	}
 
 	p.configuration = configuration
