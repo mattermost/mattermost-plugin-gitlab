@@ -41,7 +41,7 @@ func (c *configuration) Clone() *configuration {
 // IsValid checks if all needed fields are set.
 func (c *configuration) IsValid() error {
 	if _, err := url.ParseRequestURI(c.GitlabURL); err != nil {
-		return fmt.Errorf("Must have a valid GitLab URL")
+		return errors.New("Must have a valid GitLab URL")
 	}
 	if c.GitlabOAuthClientID == "" {
 		return fmt.Errorf("Must have a GitLab oauth client id")
