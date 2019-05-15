@@ -19,7 +19,7 @@
         "settings": [
             {
                 "key": "GitlabURL",
-                "display_name": "Gitlab Base URL",
+                "display_name": "Gitlab URL",
                 "type": "text",
                 "default": "https://gitlab.com",
                 "help_text": "The base URL for using the plugin with a GitLab installation. Examples: https://gitlab.com or https://gitlab.example.com"
