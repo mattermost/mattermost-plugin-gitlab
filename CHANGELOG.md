@@ -4,6 +4,7 @@ The changelog can be found at https://github.com/mattermost/mattermost-plugin-gi
 
 ## 0.3.0 - unreleased
 
+- `/gitlab help` is accessible before user is logged [#49](https://github.com/manland/mattermost-plugin-gitlab/pull/49)
 - Clean configuration for plugin [#51](https://github.com/manland/mattermost-plugin-gitlab/pull/51)
 - **Breaking** Configuration `EnterpriseBaseURL` become `GitlabURL` with `https://gitlab.com` as de fault value [#34](https://github.com/manland/mattermost-plugin-gitlab/pull/34)
 - Use a bot account [#9](https://github.com/manland/mattermost-plugin-gitlab/pull/9)
