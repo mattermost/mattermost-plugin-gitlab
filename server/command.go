@@ -143,9 +143,11 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 
 		repo := parameters[0]
 
-		if err := p.Unsubscribe(args.ChannelId, repo); err != nil {
+		if deleted, err := p.Unsubscribe(args.ChannelId, repo); err != nil {
 			p.API.LogError("can't unsubscribe channel in command", "err", err.Error())
 			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Encountered an error trying to unsubscribe. Please try again."), nil
+		} else if !deleted {
+			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Subscription not found, please check repository name."), nil
 		}
 
 		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, fmt.Sprintf("Succesfully unsubscribed from %s.", repo)), nil

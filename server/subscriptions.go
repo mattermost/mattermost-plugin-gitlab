@@ -8,6 +8,7 @@ import (
 
 	"github.com/manland/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -165,23 +166,25 @@ func (p *Plugin) GetSubscribedChannelsForRepository(fullNameOwnerAndRepo string,
 	return subsToReturn
 }
 
-func (p *Plugin) Unsubscribe(channelID string, repo string) error {
+// Unsubscribe delete link between channelID and repo
+// return true if repo was found, false else
+func (p *Plugin) Unsubscribe(channelID string, repo string) (bool, error) {
 	config := p.getConfiguration()
 
 	repo, _, _ = parseOwnerAndRepo(repo, config.GitlabURL)
 
 	if repo == "" {
-		return fmt.Errorf("Invalid repository")
+		return false, errors.New("Invalid repository")
 	}
 
 	subs, err := p.GetSubscriptions()
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	repoSubs := subs.Repositories[repo]
 	if repoSubs == nil {
-		return nil
+		return false, nil
 	}
 
 	removed := false
@@ -194,11 +197,16 @@ func (p *Plugin) Unsubscribe(channelID string, repo string) error {
 	}
 
 	if removed {
-		subs.Repositories[repo] = repoSubs
-		if err := p.StoreSubscriptions(subs); err != nil {
-			return err
+		if len(repoSubs) > 0 {
+			subs.Repositories[repo] = repoSubs
+		} else {
+			delete(subs.Repositories, repo)
 		}
+		if err := p.StoreSubscriptions(subs); err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 
-	return nil
+	return false, nil
 }
