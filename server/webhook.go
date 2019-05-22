@@ -131,7 +131,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				}
 				if info.Settings.Notifications {
 					if err := p.CreateBotDMPost(userTo, res.Message, "custom_git_review_request"); err != nil {
-						p.API.LogError("can't send dm post", "err", err.DetailedError)
+						p.API.LogError("can't send dm post", "err", err.Error())
 					}
 				}
 			}
