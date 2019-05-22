@@ -21,13 +21,13 @@ import (
 // If you add non-reference types to your configuration struct, be sure to rewrite Clone as a deep
 // copy appropriate for your types.
 type configuration struct {
-	GitlabGroup             string
+	GitlabURL               string
 	GitlabOAuthClientID     string
 	GitlabOAuthClientSecret string
 	WebhookSecret           string
-	EnablePrivateRepo       bool
 	EncryptionKey           string
-	GitlabURL               string
+	GitlabGroup             string
+	EnablePrivateRepo       bool
 	PluginsDirectory        string
 }
 

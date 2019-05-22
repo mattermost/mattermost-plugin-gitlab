@@ -22,6 +22,7 @@
                 "display_name": "Gitlab URL",
                 "type": "text",
                 "default": "https://gitlab.com",
+                "placeholder": "https://gitlab.com",
                 "help_text": "The base URL for using the plugin with a GitLab installation. Examples: https://gitlab.com or https://gitlab.example.com"
             },
             {
@@ -43,12 +44,6 @@
                 "help_text": "The webhook secret set in GitLab."
             },
             {
-                "key": "Username",
-                "display_name": "User",
-                "type": "username",
-                "help_text": "Select the username of the user that the plugin will post with. This can be any user, the name and icon will be overridden when posting."
-            },
-            {
                 "key": "EncryptionKey",
                 "display_name": "At Rest Encryption Key",
                 "type": "generated",
@@ -58,6 +53,7 @@
                 "key": "GitlabGroup",
                 "display_name": "Gitlab Group",
                 "type": "text",
+                "placeholder": "groupName",
                 "help_text": "(Optional) Set to lock the plugin to a single GitLab group."
             },
             {
