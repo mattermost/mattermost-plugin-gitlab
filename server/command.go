@@ -173,10 +173,6 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		}
 
 		setting := parameters[0]
-		if setting != SETTING_NOTIFICATIONS && setting != SETTING_REMINDERS {
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Unknown setting."), nil
-		}
-
 		strValue := parameters[1]
 		value := false
 		if strValue == SETTING_ON {
@@ -201,6 +197,8 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 			info.Settings.Notifications = value
 		} else if setting == SETTING_REMINDERS {
 			info.Settings.DailyReminder = value
+		} else {
+			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Unknown setting."), nil
 		}
 
 		if err := p.storeGitlabUserInfo(info); err != nil {
@@ -209,7 +207,8 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		}
 
 		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Settings updated."), nil
-	}
 
-	return &model.CommandResponse{}, nil
+	default:
+		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Unknown action, please use `/gitlab help` to see all actions available."), nil
+	}
 }

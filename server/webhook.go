@@ -124,8 +124,15 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		for _, to := range res.ToUsers {
 			userTo := p.sendRefreshIfNotAlreadySent(alreadySentRefresh, to)
 			if len(userTo) > 0 && len(res.Message) > 0 {
-				if err := p.CreateBotDMPost(userTo, res.Message, "custom_git_review_request"); err != nil {
-					p.API.LogError("can't send dm post", "err", err.DetailedError)
+				info, err := p.getGitlabUserInfoByMattermostID(userTo)
+				if err != nil {
+					p.API.LogError("can't get user info to know if user want to receive notification", "err", err.Message)
+					continue
+				}
+				if info.Settings.Notifications {
+					if err := p.CreateBotDMPost(userTo, res.Message, "custom_git_review_request"); err != nil {
+						p.API.LogError("can't send dm post", "err", err.Error())
+					}
 				}
 			}
 		}
