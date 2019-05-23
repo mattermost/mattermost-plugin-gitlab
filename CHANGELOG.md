@@ -4,6 +4,7 @@ The changelog can be found at https://github.com/mattermost/mattermost-plugin-gi
 
 ## 0.3.0 - unreleased
 
+- Implement `OnConfigurationChange` to have configuration changes without reload [#22](https://github.com/manland/mattermost-plugin-gitlab/issues/22)
 - Give feedback to user when deleting an unknown subscription [#48](https://github.com/manland/mattermost-plugin-gitlab/pull/48)
 - **Fix** Reject private group subscription when `Enable Private repository` is `False` [#52](https://github.com/manland/mattermost-plugin-gitlab/pull/52)
 - **Fix** `settings.notifications=off` was not implemented [#50](https://github.com/manland/mattermost-plugin-gitlab/pull/50)
@@ -12,15 +13,15 @@ The changelog can be found at https://github.com/mattermost/mattermost-plugin-gi
 - **Breaking** Configuration `EnterpriseBaseURL` become `GitlabURL` with `https://gitlab.com` as de fault value [#34](https://github.com/manland/mattermost-plugin-gitlab/pull/34)
 - Use a bot account [#9](https://github.com/manland/mattermost-plugin-gitlab/pull/9)
 - Rewrite all `pull request` to `merge request`
-- Display coverage with [codecov](https://codecov.io) [#37](https://github.com/manland/mattermost-plugin-gitlab/pull/37)
-- Add screenshot in [README.md](https://github.com/manland/mattermost-plugin-gitlab/blob/master/README.md) [#26](https://github.com/manland/mattermost-plugin-gitlab/pull/26)
-- Backport [mattermost-plugin-sample](https://github.com/mattermost/mattermost-plugin-sample/) infra code : use go mod, rework makefile to use sub-module, repair coverage [#27](https://github.com/manland/mattermost-plugin-gitlab/pull/27)
-- From `Gitlab` to `GitLab` [#31](https://github.com/manland/mattermost-plugin-gitlab/pull/31)
+- Display coverage with [codecov](https://codecov.io) [#37](https://github.com/manland/mattermost-plugin-gitlab/issues/37)
+- Add screenshot in [README.md](https://github.com/manland/mattermost-plugin-gitlab/blob/master/README.md) [#26](https://github.com/manland/mattermost-plugin-gitlab/issues/26)
+- Backport [mattermost-plugin-sample](https://github.com/mattermost/mattermost-plugin-sample/) infra code : use go mod, rework makefile to use sub-module, repair coverage [#27](https://github.com/manland/mattermost-plugin-gitlab/issues/27)
+- From `Gitlab` to `GitLab` [#31](https://github.com/manland/mattermost-plugin-gitlab/issues/31)
 
 ## 0.2.0 - 2019-05-06
 
-- Send refresh to webapp of the author of events received by webhook [#19](https://github.com/manland/mattermost-plugin-gitlab/pull/19)
-- Add all webhook events for pipeline (run, fail, success) [#17](https://github.com/manland/mattermost-plugin-gitlab/pull/17)
+- Send refresh to webapp of the author of events received by webhook [#25](https://github.com/manland/mattermost-plugin-gitlab/pull/25)
+- Add all webhook events for pipeline (run, fail, success) [#24](https://github.com/manland/mattermost-plugin-gitlab/pull/24)
 - Finish group restriction [#21](https://github.com/manland/mattermost-plugin-gitlab/pull/21)
 - Finish private repositories on/off [#18](https://github.com/manland/mattermost-plugin-gitlab/pull/18)
 - Finish all webhook implementation [#16](https://github.com/manland/mattermost-plugin-gitlab/pull/16): 

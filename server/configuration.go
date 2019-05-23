@@ -2,9 +2,13 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/url"
+	"path/filepath"
 	"reflect"
 
+	"github.com/manland/mattermost-plugin-gitlab/server/gitlab"
+	"github.com/manland/mattermost-plugin-gitlab/server/webhook"
 	"github.com/mattermost/mattermost-server/model"
 	"github.com/pkg/errors"
 )
@@ -116,6 +120,35 @@ func (p *Plugin) OnConfigurationChange() error {
 	serverConfiguration := p.API.GetConfig()
 
 	p.setConfiguration(configuration, serverConfiguration)
+
+	if err := configuration.IsValid(); err != nil {
+		return err
+	}
+
+	botID, ensureBotError := p.Helpers.EnsureBot(&model.Bot{
+		Username:    "gitlab",
+		DisplayName: "GitLab Plugin",
+		Description: "A bot account created by the plugin GitLab.",
+	})
+	if ensureBotError != nil {
+		return errors.Wrap(ensureBotError, "can't ensure bot")
+	}
+	p.BotUserID = botID
+
+	p.WebhookHandler = webhook.NewWebhook(&gitlabRetreiver{p: p})
+	p.GitlabClient = gitlab.New(configuration.GitlabURL, configuration.GitlabGroup, p.checkGroup)
+
+	bundlePath, err := p.API.GetBundlePath()
+	if err != nil {
+		return errors.Wrap(err, "can't retreive bundle path")
+	}
+	profileImage, err := ioutil.ReadFile(filepath.Join(bundlePath, "assets", "profile.png"))
+	if err != nil {
+		return errors.Wrap(err, "failed to read profile image")
+	}
+	if appErr := p.API.SetProfileImage(botID, profileImage); appErr != nil {
+		return errors.Wrap(err, "failed to set profile image")
+	}
 
 	return nil
 }

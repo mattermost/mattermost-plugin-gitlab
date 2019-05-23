@@ -3,11 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
-	"path/filepath"
 	"strings"
 	"sync"
 
@@ -49,38 +47,8 @@ type Plugin struct {
 }
 
 func (p *Plugin) OnActivate() error {
-	config := p.getConfiguration()
-
-	if err := config.IsValid(); err != nil {
-		return err
-	}
 	if err := p.API.RegisterCommand(getCommand()); err != nil {
 		return errors.Wrap(err, fmt.Sprintf("Unable to register command: %v", getCommand()))
-	}
-
-	botID, ensureBotError := p.Helpers.EnsureBot(&model.Bot{
-		Username:    "gitlab",
-		DisplayName: "GitLab Plugin",
-		Description: "A bot account created by the plugin GitLab.",
-	})
-	if ensureBotError != nil {
-		return errors.Wrap(ensureBotError, "can't ensure bot")
-	}
-	p.BotUserID = botID
-
-	p.WebhookHandler = webhook.NewWebhook(&gitlabRetreiver{p: p})
-	p.GitlabClient = gitlab.New(config.GitlabURL, config.GitlabGroup, p.checkGroup)
-
-	bundlePath, err := p.API.GetBundlePath()
-	if err != nil {
-		return errors.Wrap(err, "can't retreive bundle path")
-	}
-	profileImage, err := ioutil.ReadFile(filepath.Join(bundlePath, "assets", "profile.png"))
-	if err != nil {
-		return errors.Wrap(err, "failed to read profile image")
-	}
-	if appErr := p.API.SetProfileImage(botID, profileImage); appErr != nil {
-		return errors.Wrap(err, "failed to set profile image")
 	}
 
 	return nil
