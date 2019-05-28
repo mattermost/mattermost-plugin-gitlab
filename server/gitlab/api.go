@@ -129,6 +129,8 @@ func (g *gitlab) Exist(user *GitlabUserInfo, owner string, repo string, enablePr
 		return false, err
 	}
 
+	publicVisibility := internGitlab.PublicVisibility
+
 	if repo == "" {
 		group, resp, err := client.Groups.GetGroup(owner)
 		if group == nil && (err == nil || resp.StatusCode == http.StatusNotFound) {
@@ -140,6 +142,8 @@ func (g *gitlab) Exist(user *GitlabUserInfo, owner string, repo string, enablePr
 			}
 		} else if err != nil {
 			return false, errors.Wrapf(err, "can't call api for group %s", owner)
+		} else if !enablePrivateRepo && group.Visibility != &publicVisibility {
+			return false, errors.New("you can't add a private group on this mattermost instance")
 		}
 	} else {
 		result, _, err := client.Projects.GetProject(owner+"/"+repo, &internGitlab.GetProjectOptions{})
@@ -149,7 +153,7 @@ func (g *gitlab) Exist(user *GitlabUserInfo, owner string, repo string, enablePr
 			}
 			return false, nil // not an error just not found project
 		}
-		if !enablePrivateRepo && result.Visibility != internGitlab.PublicVisibility {
+		if !enablePrivateRepo && result.Visibility != publicVisibility {
 			return false, errors.New("you can't add a private project on this mattermost instance")
 		}
 	}
