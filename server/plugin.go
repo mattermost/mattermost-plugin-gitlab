@@ -49,11 +49,6 @@ type Plugin struct {
 }
 
 func (p *Plugin) OnActivate() error {
-	config := p.getConfiguration()
-
-	if err := config.IsValid(); err != nil {
-		return err
-	}
 	if err := p.API.RegisterCommand(getCommand()); err != nil {
 		return errors.Wrap(err, fmt.Sprintf("Unable to register command: %v", getCommand()))
 	}
@@ -69,7 +64,6 @@ func (p *Plugin) OnActivate() error {
 	p.BotUserID = botID
 
 	p.WebhookHandler = webhook.NewWebhook(&gitlabRetreiver{p: p})
-	p.GitlabClient = gitlab.New(config.GitlabURL, config.GitlabGroup, p.checkGroup)
 
 	bundlePath, err := p.API.GetBundlePath()
 	if err != nil {

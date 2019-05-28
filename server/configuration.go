@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"reflect"
 
+	"github.com/manland/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-server/model"
 	"github.com/pkg/errors"
 )
@@ -116,6 +117,12 @@ func (p *Plugin) OnConfigurationChange() error {
 	serverConfiguration := p.API.GetConfig()
 
 	p.setConfiguration(configuration, serverConfiguration)
+
+	if err := configuration.IsValid(); err != nil {
+		return err
+	}
+
+	p.GitlabClient = gitlab.New(configuration.GitlabURL, configuration.GitlabGroup, p.checkGroup)
 
 	return nil
 }
