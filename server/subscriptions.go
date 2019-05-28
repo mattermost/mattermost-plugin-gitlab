@@ -36,7 +36,10 @@ func (p *Plugin) Subscribe(info *gitlab.GitlabUserInfo, owner, repo, channelID, 
 		return fmt.Errorf("Unable to retreive informations for %s", fullNameFromOwnerAndRepo(owner, repo))
 	}
 
-	sub := subscription.New(channelID, info.UserID, features, fullNameFromOwnerAndRepo(owner, repo))
+	sub, err := subscription.New(channelID, info.UserID, features, fullNameFromOwnerAndRepo(owner, repo))
+	if err != nil {
+		return err
+	}
 
 	if err := p.AddSubscription(fullNameFromOwnerAndRepo(owner, repo), sub); err != nil {
 		return err

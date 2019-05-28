@@ -18,9 +18,11 @@ type testDataTagStr struct {
 
 var testDataTag = []testDataTagStr{
 	{
-		testTitle:       "manland create a tag",
-		fixture:         SimpleTag,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "tag", "manland/webhook")}),
+		testTitle: "manland create a tag",
+		fixture:   SimpleTag,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "tag", Repository: "manland/webhook"},
+		}),
 		res: []*HandleWebhook{{
 			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) New tag [tag1](http://localhost:3000/manland/webhook/commit/c30217b62542c586fdbadc7b5ee762bfdca10663) by [manland](http://my.gitlab.com/manland): Really beatiful tag",
 			ToUsers:    []string{}, // No DM because user know he has created a tag

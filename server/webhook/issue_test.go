@@ -18,9 +18,11 @@ type testDataIssueStr struct {
 
 var testDataIssue = []testDataIssueStr{
 	{
-		testTitle:       "root open issue with manland assignee and display in channel1",
-		fixture:         NewIssue,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "issues", "manland/webhook")}),
+		testTitle: "root open issue with manland assignee and display in channel1",
+		fixture:   NewIssue,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "issues", Repository: "manland/webhook"},
+		}),
 		res: []*HandleWebhook{{
 			Message:    "[root](http://my.gitlab.com/root) assigned you to issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
 			ToUsers:    []string{"manland"},
@@ -33,9 +35,11 @@ var testDataIssue = []testDataIssueStr{
 			From:       "root",
 		}},
 	}, {
-		testTitle:       "root open unassigned issue and display in channel",
-		fixture:         NewIssueUnassigned,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "issues", "manland/webhook")}),
+		testTitle: "root open unassigned issue and display in channel",
+		fixture:   NewIssueUnassigned,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "issues", Repository: "manland/webhook"},
+		}),
 		res: []*HandleWebhook{{
 			Message:    "#### new issue\n##### [manland/webhook#2](http://localhost:3000/manland/webhook/issues/2)\n# new issue by [root](http://my.gitlab.com/root) on [2019-04-06 21:13:03 UTC](http://localhost:3000/manland/webhook/issues/2)\n\nHello world",
 			ToUsers:    []string{},
@@ -43,9 +47,11 @@ var testDataIssue = []testDataIssueStr{
 			From:       "root",
 		}}, // no DM message because root don't received its own action and manland is not assigned
 	}, {
-		testTitle:       "manland close issue of root",
-		fixture:         CloseIssue,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "issues", "manland/webhook")}),
+		testTitle: "manland close issue of root",
+		fixture:   CloseIssue,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "issues", Repository: "manland/webhook"},
+		}),
 		res: []*HandleWebhook{{
 			Message:    "[manland](http://my.gitlab.com/manland) closed your issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
 			ToUsers:    []string{"root"},
@@ -58,9 +64,11 @@ var testDataIssue = []testDataIssueStr{
 			From:       "manland",
 		}},
 	}, {
-		testTitle:       "manland reopen issue of root and channel is not notified",
-		fixture:         ReopenIssue,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "issues", "manland/webhook")}),
+		testTitle: "manland reopen issue of root and channel is not notified",
+		fixture:   ReopenIssue,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "issues", Repository: "manland/webhook"},
+		}),
 		res: []*HandleWebhook{{
 			Message: "[manland](http://my.gitlab.com/manland) reopened your issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
 			ToUsers: []string{"root"},

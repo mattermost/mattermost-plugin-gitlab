@@ -4,6 +4,7 @@ The changelog can be found at https://github.com/mattermost/mattermost-plugin-gi
 
 ## 0.3.0 - unreleased
 
+- Give feedback to user when subscription has unknown feature [#47](https://github.com/manland/mattermost-plugin-gitlab/pull/47)
 - Implement `OnConfigurationChange` to have configuration changes without reload [#22](https://github.com/manland/mattermost-plugin-gitlab/issues/22)
 - Give feedback to user when deleting an unknown subscription [#48](https://github.com/manland/mattermost-plugin-gitlab/pull/48)
 - **Fix** Reject private group subscription when `Enable Private repository` is `False` [#52](https://github.com/manland/mattermost-plugin-gitlab/pull/52)
