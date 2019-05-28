@@ -4,6 +4,7 @@ The changelog can be found at https://github.com/mattermost/mattermost-plugin-gi
 
 ## 0.3.0 - unreleased
 
+- Give feedback to user when deleting an unknown subscription [#48](https://github.com/manland/mattermost-plugin-gitlab/pull/48)
 - **Fix** Reject private group subscription when `Enable Private repository` is `False` [#52](https://github.com/manland/mattermost-plugin-gitlab/pull/52)
 - **Fix** `settings.notifications=off` was not implemented [#50](https://github.com/manland/mattermost-plugin-gitlab/pull/50)
 - `/gitlab help` is accessible before user is logged [#49](https://github.com/manland/mattermost-plugin-gitlab/pull/49)
