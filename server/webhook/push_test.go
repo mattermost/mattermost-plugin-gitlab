@@ -18,9 +18,11 @@ type testDataPushStr struct {
 
 var testDataPush = []testDataPushStr{
 	{
-		testTitle:       "manland push 1 commit",
-		fixture:         PushEvent,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "pushes", "manland/webhook")}),
+		testTitle: "manland push 1 commit",
+		fixture:   PushEvent,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "pushes", Repository: "manland/webhook"},
+		}),
 		res: []*HandleWebhook{{
 			Message:    "[manland](http://my.gitlab.com/manland) has pushed 1 commit(s) to [manland/webhook](http://localhost:3000/manland/webhook)",
 			ToUsers:    []string{}, // No DM because user know he has push commits

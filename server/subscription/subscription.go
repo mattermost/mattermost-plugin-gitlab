@@ -1,6 +1,22 @@
 package subscription
 
-import "strings"
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
+
+var allFeatures = map[string]bool{
+	"merges":                 true,
+	"issues":                 true,
+	"pushes":                 true,
+	"issue_comments":         true,
+	"merge_request_comments": true,
+	"pipeline":               true,
+	"tag":                    true,
+	"pull_reviews":           true,
+	// "label:":                 true,//particular case for label:XXX
+}
 
 type Subscription struct {
 	ChannelID  string
@@ -9,13 +25,30 @@ type Subscription struct {
 	Repository string
 }
 
-func New(ChannelID, CreatorID, Features, Repository string) *Subscription {
+func New(ChannelID, CreatorID, Features, Repository string) (*Subscription, error) {
+	if strings.Contains(Features, "label:") && len(strings.Split(Features, "\"")) < 3 {
+		return nil, errors.New("Label is bad formatted")
+	}
+	if strings.Contains(Features, "label:") && len(strings.Split(Features, "\"")) > 3 {
+		return nil, errors.New("Can't add multiple label on same subscription")
+	}
+
+	features := strings.Split(Features, ",")
+	badFeatures := make([]string, 0)
+	for _, f := range features {
+		if _, ok := allFeatures[f]; !strings.HasPrefix(f, "label:") && !ok {
+			badFeatures = append(badFeatures, f)
+		}
+	}
+	if len(badFeatures) > 0 {
+		return nil, fmt.Errorf("Unknown features %s", strings.Join(badFeatures, ","))
+	}
 	return &Subscription{
 		ChannelID:  ChannelID,
 		CreatorID:  CreatorID,
 		Features:   Features,
 		Repository: Repository,
-	}
+	}, nil
 }
 
 func (s *Subscription) Merges() bool {
@@ -54,11 +87,5 @@ func (s *Subscription) Label() string {
 	if !strings.Contains(s.Features, "label:") {
 		return ""
 	}
-
-	labelSplit := strings.Split(s.Features, "\"")
-	if len(labelSplit) < 3 {
-		return ""
-	}
-
-	return labelSplit[1]
+	return strings.Split(s.Features, "\"")[1]
 }

@@ -20,10 +20,12 @@ type testDataNoteStr struct {
 
 var testDataNote = []testDataNoteStr{
 	{
-		testTitle:       "manland comment issue of root",
-		kind:            "issue",
-		fixture:         IssueComment,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "issue_comments", "manland/webhook")}),
+		testTitle: "manland comment issue of root",
+		kind:      "issue",
+		fixture:   IssueComment,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "issue_comments", Repository: "manland/webhook"},
+		}),
 		res: []*HandleWebhook{{
 			Message:    "[manland](http://my.gitlab.com/manland) commented on your issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1#note_997)",
 			ToUsers:    []string{"root"},
@@ -36,10 +38,12 @@ var testDataNote = []testDataNoteStr{
 			From:       "manland",
 		}},
 	}, {
-		testTitle:       "manland comment merge request of root",
-		kind:            "mr",
-		fixture:         MergeRequestComment,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{subscription.New("channel1", "1", "merge_request_comments", "manland/webhook")}),
+		testTitle: "manland comment merge request of root",
+		kind:      "mr",
+		fixture:   MergeRequestComment,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "merge_request_comments", Repository: "manland/webhook"},
+		}),
 		res: []*HandleWebhook{{
 			Message:    "[manland](http://my.gitlab.com/manland) commented on your merge request [manland/webhook#6](http://localhost:3000/manland/webhook/merge_requests/6#note_999)",
 			ToUsers:    []string{"root"},
