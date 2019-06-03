@@ -18,7 +18,7 @@ A GitLab plugin for Mattermost. The plugin is currently in beta.
 
 ## Installation
 
-__Requires Mattermost 5.10 or higher__
+__Requires Mattermost 5.10+ and Gitlab 11.2+ see [Compatibility](#Compatibility) for others versions__
 
 1. Install the plugin
     1. Download the latest version of the plugin from the GitHub releases page
@@ -34,14 +34,12 @@ __Requires Mattermost 5.10 or higher__
         * Fill in the Gitlab URL, Client ID and Secret and save the settings
 3. Create a GitLab webhook
     1. In Mattermost, go to the System Console -> Plugins -> GitLab and copy the "Webhook Secret"
-    2. Go to the settings page of your GitLab group and click on "Webhooks" in the sidebar
-        * Click "Add webhook"
-        * Use "https://your-mattermost-url.com/plugins/com.github.manland.mattermost-plugin-gitlab/webhook" as the payload URL, replacing `https://your-mattermost-url.com` with your Mattermost URL
-        * Change content type to "application/json"
-        * Paste the webhook secret you copied before into the secret field
-        * Select the events: Issues, Issue comments, Pull requests, Pull request reviews, Pull request review comments, Pushes, Branch or Tag creation and Branch or Tag deletion
+    2. Go to the settings page of your GitLab project and click on "Integrations" in the sidebar
+        * Use "https://your-mattermost-url.com/plugins/com.github.manland.mattermost-plugin-gitlab/webhook" as the URL, replacing `https://your-mattermost-url.com` with your Mattermost URL
+        * Paste the webhook secret you copied before into the secret token field
+        * Select all events
     3. Save the webhook
-    4. __Note for each organization you want to receive notifications for or subscribe to, you must create a webhook__
+    4. __Note for each project you want to receive notifications for or subscribe to, you must create a webhook__
 4. Generate an at rest encryption key
     1. Go to the System Console -> Plugins -> GitLab and click "Regenerate" under "At Rest Encryption Key"
     2. Save the settings
@@ -54,6 +52,14 @@ __Requires Mattermost 5.10 or higher__
     * Go to System Console -> Plugins -> Management and click "Enable" underneath the GitLab plugin
 6. Test it out
     * In Mattermost, run the slash command `/gitlab connect`
+
+## Compatibility
+
+| Matermost-Plugin-Gitlab | Mattermost | Gitlab |
+|:-----------------------:|:----------:|:------:|
+|        0.3.0            |     5.10+  |  11.2+ |
+|        0.2.0            |     5.8+   |  11.2+ |
+|        0.1.0            |     5.8+   |  11.2+ |
 
 ## Developing 
 
