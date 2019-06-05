@@ -55,7 +55,7 @@ __Requires Mattermost 5.10+ and Gitlab 11.2+ see [Compatibility](#Compatibility)
 
 ## Compatibility
 
-| Matermost-Plugin-Gitlab | Mattermost | Gitlab |
+| Mattermost-Plugin-Gitlab | Mattermost | Gitlab |
 |:-----------------------:|:----------:|:------:|
 |        0.3.0            |     5.10+  |  11.2+ |
 |        0.2.0            |     5.8+   |  11.2+ |
