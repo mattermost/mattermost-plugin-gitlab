@@ -1,8 +1,8 @@
 # Changelog
 
-The changelog can be found at https://github.com/mattermost/mattermost-plugin-gitlab/releases.
+ALl releases can be found at https://github.com/mattermost/mattermost-plugin-gitlab/releases.
 
-## 0.3.0 - unreleased
+## 0.3.0 - 2019-06-05
 
 - Give feedback to user when subscription has unknown feature [#47](https://github.com/manland/mattermost-plugin-gitlab/pull/47)
 - Implement `OnConfigurationChange` to have configuration changes without reload [#22](https://github.com/manland/mattermost-plugin-gitlab/issues/22)

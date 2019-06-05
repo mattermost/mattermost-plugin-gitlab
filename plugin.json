@@ -2,7 +2,7 @@
     "id": "com.github.manland.mattermost-plugin-gitlab",
     "name": "GitLab",
     "description": "GitLab plugin for Mattermost.",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "min_server_version": "5.10.0",
     "server": {
       "executables": {
@@ -63,6 +63,6 @@
                 "help_text": "(Optional) Allow the plugin to work with private repositories."
             }
         ],
-        "footer": "* To report an issue, make a suggestion or a contribution, [check the repository](https://github.com/manland/mattermost-plugin-gitlab)."
+        "footer": "To report an issue, make a suggestion or a contribution, [check the repository](https://github.com/manland/mattermost-plugin-gitlab)."
     }
 }
