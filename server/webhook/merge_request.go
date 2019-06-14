@@ -68,7 +68,7 @@ func (w *webhook) handleChannelMergeRequest(event *gitlab.MergeEvent) ([]*Handle
 	message := ""
 
 	if pr.Action == "open" {
-		message = fmt.Sprintf("#### %s\n##### [%s#%v](%s)\n# new merge-request by [%s](%s) on [%s](%s)\n\n%s", pr.Title, repo.PathWithNamespace, pr.IID, pr.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), pr.CreatedAt, pr.URL, pr.Description)
+		message = fmt.Sprintf("#### %s\n##### [%s#%v](%s) new merge-request by [%s](%s) on [%s](%s)\n\n%s", pr.Title, repo.PathWithNamespace, pr.IID, pr.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), pr.CreatedAt, pr.URL, pr.Description)
 	} else if pr.Action == "merge" {
 		message = fmt.Sprintf("[%s] Merge request [#%v %s](%s) was merged by [%s](%s)", repo.PathWithNamespace, pr.IID, pr.Title, pr.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
 	} else if pr.Action == "close" {
