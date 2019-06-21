@@ -21,7 +21,7 @@ A GitLab plugin for Mattermost. The plugin is currently in beta.
 __Requires Mattermost 5.10+ and Gitlab 11.2+ see [Compatibility](#Compatibility) for others versions__
 
 1. Install the plugin
-    1. Download the latest version of the plugin from the GitHub releases page
+    1. Download the tar.gz file of the latest version of the plugin from the [GitHub releases page](https://github.com/mattermost/mattermost-plugin-gitlab/releases)
     2. In Mattermost, go the System Console -> Plugins -> Management
     3. Upload the plugin
 2. Register a GitLab OAuth app
