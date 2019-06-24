@@ -29,7 +29,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			ToChannels: []string{},
 			From:       "root",
 		}, {
-			Message:    "#### Master\n##### [manland/webhook#4](http://localhost:3000/manland/webhook/merge_requests/4)\n# new merge-request by [root](http://my.gitlab.com/root) on [2019-04-03 21:07:32 UTC](http://localhost:3000/manland/webhook/merge_requests/4)\n\ntest open merge request",
+			Message:    "#### Master\n##### [manland/webhook#4](http://localhost:3000/manland/webhook/merge_requests/4) new merge-request by [root](http://my.gitlab.com/root) on [2019-04-03 21:07:32 UTC](http://localhost:3000/manland/webhook/merge_requests/4)\n\ntest open merge request",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "root",
