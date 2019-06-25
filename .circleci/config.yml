@@ -1,94 +1,52 @@
 version: 2.1
 
-executors:
-  default:
-    docker:
-      - image: circleci/golang:1.12-node
-
-jobs:
-  lint:
-    executor:
-      name: default
-    steps:
-      - checkout
-      - run: make check-style
-
-  test:
-    executor:
-      name: default
-    steps:
-      - checkout
-      - run: make test
-
-  coverage:
-    executor:
-      name: default
-    steps:
-      - checkout
-      - run: make coverage && bash <(curl -s https://codecov.io/bash)
-
-  build:
-    executor:
-      name: default
-    steps:
-      - checkout
-      - run: make dist
-      - persist_to_workspace:
-          root: .
-          paths: ./dist/*.tar.gz
-
-  publish-github-release:
-    docker:
-      - image: cibuilds/github:0.12
-    steps:
-      - attach_workspace:
-          at: .
-      - run:
-          name: "Publish Release on GitHub"
-          command: |
-            ghr -t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${CIRCLE_TAG} ./dist/*.tar.gz
+orbs:
+  plugin-ci: mattermost/plugin-ci@volatile
 
 workflows:
   version: 2
-  untagged-build:
+  ci:
     jobs:
-      - lint
-      - test
-      - coverage
-  tagged-build:
-    jobs:
-      - lint:
+      - plugin-ci/lint:
           filters:
             tags:
               only: /^v.*/
-            branches:
-              ignore: /.*/
-      - test:
+      - plugin-ci/coverage:
           filters:
             tags:
               only: /^v.*/
-            branches:
-              ignore: /.*/
-      - coverage:
+      - plugin-ci/build:
           filters:
             tags:
               only: /^v.*/
+      - plugin-ci/deploy-ci:
+          filters:
             branches:
-              ignore: /.*/
-      - build:
+              only: master
+          context: plugin-ci
           requires:
-            - lint
-            - test
+            - plugin-ci/lint
+            - plugin-ci/coverage
+            - plugin-ci/build
+      - plugin-ci/deploy-release:
           filters:
             tags:
               only: /^v.*/
             branches:
               ignore: /.*/
-      - publish-github-release:
+          context: plugin-ci
           requires:
-            - build
+            - plugin-ci/lint
+            - plugin-ci/coverage
+            - plugin-ci/build
+      - plugin-ci/deploy-release-github:
           filters:
             tags:
               only: /^v.*/
             branches:
               ignore: /.*/
+          context: matterbuild-github-token
+          requires:
+            - plugin-ci/lint
+            - plugin-ci/coverage
+            - plugin-ci/build
