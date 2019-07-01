@@ -93,7 +93,7 @@ func (p *Plugin) getOAuthConfig() *oauth2.Config {
 		ClientID:     config.GitlabOAuthClientID,
 		ClientSecret: config.GitlabOAuthClientSecret,
 		Scopes:       []string{"api", "read_user"},
-		RedirectURL:  fmt.Sprintf("%s/plugins/%s/oauth/complete", *p.API.GetConfig().ServiceSettings.SiteURL, manifest.Id),
+		RedirectURL:  fmt.Sprintf("%s/plugins/%s/oauth/complete", *p.API.GetConfig().ServiceSettings.SiteURL, manifest.ID),
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  authURL.String(),
 			TokenURL: tokenURL.String(),

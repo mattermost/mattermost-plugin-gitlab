@@ -48,7 +48,7 @@ func (p *Plugin) getCommandResponse(responseType, text string) *model.CommandRes
 		ResponseType: responseType,
 		Text:         text,
 		Username:     GITLAB_USERNAME,
-		IconURL:      path.Join(*p.API.GetConfig().ServiceSettings.SiteURL, "plugins", manifest.Id, "assets", "profile.png"),
+		IconURL:      path.Join(*p.API.GetConfig().ServiceSettings.SiteURL, "plugins", manifest.ID, "assets", "profile.png"),
 		Type:         model.POST_DEFAULT,
 	}
 }
@@ -75,7 +75,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Encountered an error connecting to GitLab."), nil
 		}
 
-		resp := p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, fmt.Sprintf("[Click here to link your GitLab account.](%s/plugins/%s/oauth/connect)", *config.ServiceSettings.SiteURL, manifest.Id))
+		resp := p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, fmt.Sprintf("[Click here to link your GitLab account.](%s/plugins/%s/oauth/connect)", *config.ServiceSettings.SiteURL, manifest.ID))
 		return resp, nil
 	}
 
