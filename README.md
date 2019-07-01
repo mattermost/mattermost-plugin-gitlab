@@ -1,4 +1,7 @@
-# Mattermost GitLab Plugin ![CircleCI branch](https://img.shields.io/circleci/project/github/manland/mattermost-plugin-gitlab/master.svg)
+# Mattermost GitLab Plugin
+
+[![Build Status](https://img.shields.io/circleci/project/github/mattermost/mattermost-plugin-gitlab/master.svg)](https://circleci.com/gh/mattermost/mattermost-plugin-gitlab)
+[![Code Coverage](https://img.shields.io/codecov/c/github/mattermost/mattermost-plugin-gitlab/master.svg)](https://codecov.io/gh/mattermost/mattermost-plugin-gitlab)
 
 A GitLab plugin for Mattermost. The plugin is currently in beta.
 
@@ -43,14 +46,14 @@ __Requires Mattermost 5.10+ and Gitlab 11.2+ see [Compatibility](#Compatibility)
 4. Generate an at rest encryption key
     1. Go to the System Console -> Plugins -> GitLab and click "Regenerate" under "At Rest Encryption Key"
     2. Save the settings
-4. (Optional) Lock the plugin to a GitLab group
+5. (Optional) Lock the plugin to a GitLab group
     * Go to System Console -> Plugins -> GitLab and set the GitLab Group field to the name of your GitLab group
-4. (Optional) Enable private repositories
+6. (Optional) Enable private repositories
     * Go to System Console -> Plugins -> GitLab and set Enable Private Repositories to true
     * Note that if you do this after users have already connected their accounts to GitLab they will need to disconnect and reconnect their accounts to be able to use private repositories
-5. Enable the plugin
+7. Enable the plugin
     * Go to System Console -> Plugins -> Management and click "Enable" underneath the GitLab plugin
-6. Test it out
+8. Test it out
     * In Mattermost, run the slash command `/gitlab connect`
 
 ## Compatibility

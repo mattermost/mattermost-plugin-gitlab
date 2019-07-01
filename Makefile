@@ -191,24 +191,8 @@ endif
 .PHONY: coverage
 coverage:
 ifneq ($(HAS_SERVER),)
-	@cd server; \
-	initial_path=$$(pwd); \
-	path_coverage="$$initial_path/coverage.txt"; \
-	echo "mode: count" > "$$path_coverage"; \
-	sub_modules=$$(go list -m all | grep -oP '(?<=\=>\s\.\/).*(?=$$)'); \
-	modules="./ $$sub_modules"; \
-	for module in $$modules ; do \
-		echo "Checking "$$module; \
-		cd $$module; \
-		$(GO) test -short -covermode=count -coverprofile=profile.tmp ./...; \
-		if [ -f profile.tmp ]; then \
-			cat profile.tmp | tail -n +2 >> "$$path_coverage"; \
-			rm profile.tmp; \
-		fi; \
-		cd $$initial_path; \
-	done; \
-	$(GO) tool cover -func="$$path_coverage" -o "$$initial_path/coverage.out"; \
-	rm $$path_coverage;
+	cd server && $(GO) test $(GO_TEST_FLAGS) -coverprofile=coverage.txt ./...
+	cd server && $(GO) tool cover -html=coverage.txt
 endif
 
 ## Clean removes all build artifacts.
