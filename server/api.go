@@ -222,7 +222,7 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 func (p *Plugin) handleProfileImage(w http.ResponseWriter, r *http.Request) {
 	config := p.getConfiguration()
 
-	img, err := os.Open(filepath.Join(config.PluginsDirectory, manifest.Id, "assets", "profile.png"))
+	img, err := os.Open(filepath.Join(config.PluginsDirectory, manifest.ID, "assets", "profile.png"))
 	if err != nil {
 		http.NotFound(w, r)
 		p.API.LogError("Unable to read GitLab profile image", "err", err.Error())

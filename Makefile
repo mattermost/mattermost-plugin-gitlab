@@ -2,7 +2,10 @@ GO ?= $(shell command -v go 2> /dev/null)
 NPM ?= $(shell command -v npm 2> /dev/null)
 CURL ?= $(shell command -v curl 2> /dev/null)
 MANIFEST_FILE ?= plugin.json
-# Explicitly opt into go modules, even though we're inside a GOPATH directory
+GO_TEST_FLAGS ?= -race
+GO_BUILD_FLAGS ?=
+MM_UTILITIES_DIR ?= ../mattermost-utilities
+
 export GO111MODULE=on
 
 # You can include assets this directory into the bundle. This can be e.g. used to include profile pictures.
@@ -12,6 +15,11 @@ ASSETS_DIR ?= assets
 include build/setup.mk
 
 BUNDLE_NAME ?= $(PLUGIN_ID)-$(PLUGIN_VERSION).tar.gz
+
+# Include custom makefile, if pressent
+ifneq ($(wildcard build/custom.mk),)
+	include build/custom.mk
+endif
 
 ## Checks the code style, tests, builds and bundles the plugin.
 all: check-style test dist
@@ -23,7 +31,7 @@ apply:
 
 ## Runs govet and gofmt against all packages.
 .PHONY: check-style
-check-style: webapp/node_modules gofmt govet errcheck
+check-style: webapp/.npminstall gofmt govet errcheck
 	@echo Checking for style guide compliance
 
 ifneq ($(HAS_WEBAPP),)
@@ -35,14 +43,9 @@ endif
 gofmt:
 ifneq ($(HAS_SERVER),)
 	@echo Running gofmt
-	@cd server; \
-	initial_path=$$(pwd); \
-	sub_modules=$$(go list -m all | grep -oP '(?<=\=>\s\.\/).*(?=$$)'); \
-	modules="./ $$sub_modules"; \
-	for module in $$modules ; do \
-		echo "Checking "$$module; \
-		cd $$module; \
-		files=$$(go list -f '{{range .GoFiles}}{{$$.Dir}}/{{.}} {{end}}'); \
+	@for package in $$(go list ./...); do \
+		echo "Checking "$$package; \
+		files=$$(go list -f '{{range .GoFiles}}{{$$.Dir}}/{{.}} {{end}}' $$package); \
 		if [ "$$files" ]; then \
 			gofmt_output=$$(gofmt -d -s $$files 2>&1); \
 			if [ "$$gofmt_output" ]; then \
@@ -51,7 +54,6 @@ ifneq ($(HAS_SERVER),)
 				exit 1; \
 			fi; \
 		fi; \
-		cd $$initial_path; \
 	done
 	@echo Gofmt success
 endif
@@ -63,52 +65,31 @@ ifneq ($(HAS_SERVER),)
 	@echo Running govet
 	@# Workaroung because you can't install binaries without adding them to go.mod 
 	env GO111MODULE=off $(GO) get golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
-	@cd server; \
-	initial_path=$$(pwd); \
-	sub_modules=$$(go list -m all | grep -oP '(?<=\=>\s\.\/).*(?=$$)'); \
-	modules="./ $$sub_modules"; \
-	for module in $$modules ; do \
-		echo "Checking "$$module; \
-		cd $$module; \
-		$(GO) vet ./... || exit 1; \
-		$(GO) vet -vettool=$(GOPATH)/bin/shadow ./... || exit 1; \
-		cd $$initial_path; \
-	done
+	$(GO) vet ./...
+	$(GO) vet -vettool=$(GOPATH)/bin/shadow ./...
 	@echo Govet success
 endif
 
-## Runs errcheck against all packages.
-.PHONY: errcheck
-errcheck:
-ifneq ($(HAS_SERVER),)
-	@echo Running errcheck
-	@# Workaroung because you can't install binaries without adding them to go.mod 
-	env GO111MODULE=off $(GO) get github.com/kisielk/errcheck
-	@cd server; \
-	initial_path=$$(pwd); \
-	sub_modules=$$(go list -m all | grep -oP '(?<=\=>\s\.\/).*(?=$$)'); \
-	modules="./ $$sub_modules"; \
-	for module in $$modules ; do \
-		echo "Checking "$$module; \
-		cd $$module; \
-		errcheck $$(go list ./...) || exit 1; \
-		cd $$initial_path; \
-	done
-	@echo errcheck success
-endif
+## Runs golint against all packages.
+.PHONY: golint
+golint:
+	@echo Running lint
+	env GO111MODULE=off $(GO) get golang.org/x/lint/golint
+	golint -set_exit_status ./...
+	@echo lint success
 
 ## Builds the server, if it exists, including support for multiple architectures.
 .PHONY: server
 server:
 ifneq ($(HAS_SERVER),)
 	mkdir -p server/dist;
-	cd server && env GOOS=linux GOARCH=amd64 $(GO) build -o dist/plugin-linux-amd64;
-	cd server && env GOOS=darwin GOARCH=amd64 $(GO) build -o dist/plugin-darwin-amd64;
-	cd server && env GOOS=windows GOARCH=amd64 $(GO) build -o dist/plugin-windows-amd64.exe;
+	cd server && env GOOS=linux GOARCH=amd64 $(GO) build $(GO_BUILD_FLAGS) -o dist/plugin-linux-amd64;
+	cd server && env GOOS=darwin GOARCH=amd64 $(GO) build $(GO_BUILD_FLAGS) -o dist/plugin-darwin-amd64;
+	cd server && env GOOS=windows GOARCH=amd64 $(GO) build $(GO_BUILD_FLAGS) -o dist/plugin-windows-amd64.exe;
 endif
 
 ## Ensures NPM dependencies are installed without having to run this all the time.
-webapp/node_modules:
+webapp/.npminstall:
 ifneq ($(HAS_WEBAPP),)
 	cd webapp && $(NPM) install
 	touch $@
@@ -116,7 +97,7 @@ endif
 
 ## Builds the webapp, if it exists.
 .PHONY: webapp
-webapp: webapp/node_modules
+webapp: webapp/.npminstall
 ifneq ($(HAS_WEBAPP),)
 	cd webapp && $(NPM) run build;
 endif
@@ -170,18 +151,9 @@ endif
 
 ## Runs any lints and unit tests defined for the server and webapp, if they exist.
 .PHONY: test
-test: webapp/node_modules
+test: webapp/.npminstall
 ifneq ($(HAS_SERVER),)
-	@cd server; \
-	initial_path=$$(pwd); \
-	sub_modules=$$(go list -m all | grep -oP '(?<=\=>\s\.\/).*(?=$$)'); \
-	modules="./ $$sub_modules"; \
-	for module in $$modules ; do \
-		echo "Checking "$$module; \
-		cd $$module; \
-		$(GO) test -race -v ./...  || exit 1; \
-		cd $$initial_path; \
-	done
+	$(GO) test -v $(GO_TEST_FLAGS) ./server/...
 endif
 ifneq ($(HAS_WEBAPP),)
 	cd webapp && $(NPM) run fix;
@@ -191,8 +163,19 @@ endif
 .PHONY: coverage
 coverage:
 ifneq ($(HAS_SERVER),)
-	cd server && $(GO) test $(GO_TEST_FLAGS) -coverprofile=coverage.txt ./...
-	cd server && $(GO) tool cover -html=coverage.txt
+	$(GO) test $(GO_TEST_FLAGS) -coverprofile=server/coverage.txt ./server/...
+	$(GO) tool cover -html=server/coverage.txt
+endif
+
+## Extract strings for translation from the source code.
+.PHONY: i18n-extract
+i18n-extract:
+ifneq ($(HAS_WEBAPP),)
+ifeq ($(HAS_MM_UTILITIES),)
+	@echo "You must clone github.com/mattermost/mattermost-utilities repo in .. to use this command"
+else
+	cd $(MM_UTILITIES_DIR) && npm install && npm run babel && node mmjstool/build/index.js i18n extract-webapp --webapp-dir $(PWD)/webapp
+endif
 endif
 
 ## Clean removes all build artifacts.
@@ -203,6 +186,7 @@ ifneq ($(HAS_SERVER),)
 	rm -fr server/dist
 endif
 ifneq ($(HAS_WEBAPP),)
+	rm -fr webapp/.npminstall
 	rm -fr webapp/dist
 	rm -fr webapp/node_modules
 endif
@@ -210,4 +194,4 @@ endif
 
 # Help documentatin à la https://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
 help:
-	@cat Makefile | grep -v '\.PHONY' |  grep -v '\help:' | grep -B1 -E '^[a-zA-Z_.-]+:.*' | sed -e "s/:.*//" | sed -e "s/^## //" |  grep -v '\-\-' | sed '1!G;h;$$!d' | awk 'NR%2{printf "\033[36m%-30s\033[0m",$$0;next;}1' | sort
+	@cat Makefile | grep -v '\.PHONY' |  grep -v '\help:' | grep -B1 -E '^[a-zA-Z0-9_.-]+:.*' | sed -e "s/:.*//" | sed -e "s/^## //" |  grep -v '\-\-' | sed '1!G;h;$$!d' | awk 'NR%2{printf "\033[36m%-30s\033[0m",$$0;next;}1' | sort
