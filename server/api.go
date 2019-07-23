@@ -102,8 +102,8 @@ func (p *Plugin) connectUserToGitlab(w http.ResponseWriter, r *http.Request) {
 	state := fmt.Sprintf("%v_%v", model.NewId()[0:15], userID)
 
 	if err := p.API.KVSet(state, []byte(state)); err != nil {
-		p.API.LogError("can't sotre state oauth2", "err", err.DetailedError)
-		http.Error(w, "can't sotre state oauth2", http.StatusInternalServerError)
+		p.API.LogError("can't store state oauth2", "err", err.DetailedError)
+		http.Error(w, "can't store state oauth2", http.StatusInternalServerError)
 		return
 	}
 

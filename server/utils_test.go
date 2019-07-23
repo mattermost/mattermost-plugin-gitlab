@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestParseGitHubUsernameFromText(t *testing.T) {
+func TestParseGitlabUsernamesFromText(t *testing.T) {
 	tcs := []struct {
 		Text     string
 		Expected []string

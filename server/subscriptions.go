@@ -138,16 +138,16 @@ func (p *Plugin) GetSubscribedChannelsForRepository(fullNameOwnerAndRepo string,
 
 	subs, err := p.GetSubscriptions()
 	if err != nil {
-		p.API.LogError("can't retreive subscriptions", "err", err.Error())
+		p.API.LogError("can't retrieve subscriptions", "err", err.Error())
 		return subsForRepo
 	}
 
-	// Add subcriptions for the specific repo
+	// Add subscriptions for the specific repo
 	if subs.Repositories[fullNameOwnerAndRepo] != nil {
 		subsForRepo = append(subsForRepo, subs.Repositories[fullNameOwnerAndRepo]...)
 	}
 
-	// Add subcriptions for the organization
+	// Add subscriptions for the organization
 	groupKey := fullNameFromOwnerAndRepo(group, "")
 	if subs.Repositories[groupKey] != nil {
 		subsForRepo = append(subsForRepo, subs.Repositories[groupKey]...)
@@ -169,8 +169,8 @@ func (p *Plugin) GetSubscribedChannelsForRepository(fullNameOwnerAndRepo string,
 	return subsToReturn
 }
 
-// Unsubscribe delete link between channelID and repo
-// return true if repo was found, false else
+// Unsubscribe deletes the link between channelID and repo
+// returns true if repo was found, else false
 func (p *Plugin) Unsubscribe(channelID string, repo string) (bool, error) {
 	config := p.getConfiguration()
 
