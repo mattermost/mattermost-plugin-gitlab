@@ -30,7 +30,7 @@ func New(ChannelID, CreatorID, Features, Repository string) (*Subscription, erro
 		return nil, errors.New("The label is formatted incorrectly")
 	}
 	if strings.Contains(Features, "label:") && len(strings.Split(Features, "\"")) > 3 {
-		return nil, errors.New("Can't add multiple labels on same subscription")
+		return nil, errors.New("Can't add multiple labels on the same subscription")
 	}
 
 	features := strings.Split(Features, ",")

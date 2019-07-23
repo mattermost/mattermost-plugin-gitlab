@@ -43,7 +43,7 @@ var testDataPipeline = []testDataPipelineStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "pipeline", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Your pipeline fail for [Start gitlab-ci](http://localhost:3000/manland/webhook/commit/ec0a1bcd4580bfec3495674e412f4834ee2c2550)",
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Your pipeline has failed for [Start gitlab-ci](http://localhost:3000/manland/webhook/commit/ec0a1bcd4580bfec3495674e412f4834ee2c2550)",
 			ToUsers:    []string{"root"},
 			ToChannels: []string{},
 			From:       "",
