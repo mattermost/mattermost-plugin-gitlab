@@ -27,10 +27,10 @@ type Subscription struct {
 
 func New(ChannelID, CreatorID, Features, Repository string) (*Subscription, error) {
 	if strings.Contains(Features, "label:") && len(strings.Split(Features, "\"")) < 3 {
-		return nil, errors.New("Label is bad formatted")
+		return nil, errors.New("The label is formatted incorrectly")
 	}
 	if strings.Contains(Features, "label:") && len(strings.Split(Features, "\"")) > 3 {
-		return nil, errors.New("Can't add multiple label on same subscription")
+		return nil, errors.New("Can't add multiple labels on the same subscription")
 	}
 
 	features := strings.Split(Features, ",")

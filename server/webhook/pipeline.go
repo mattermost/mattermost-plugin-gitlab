@@ -25,7 +25,7 @@ func (w *webhook) handleDMPipeline(event *gitlab.PipelineEvent) ([]*HandleWebhoo
 	handlers := []*HandleWebhook{}
 
 	if event.ObjectAttributes.Status == "failed" {
-		message := fmt.Sprintf("[%s](%s) Your pipeline fail for [%s](%s)", repo.PathWithNamespace, repo.WebURL, event.Commit.Message, event.Commit.URL)
+		message := fmt.Sprintf("[%s](%s) Your pipeline has failed for [%s](%s)", repo.PathWithNamespace, repo.WebURL, event.Commit.Message, event.Commit.URL)
 		handlers = append(handlers, &HandleWebhook{
 			Message:    message,
 			From:       "", // don't put senderGitlabUsername because we filter message where from == to

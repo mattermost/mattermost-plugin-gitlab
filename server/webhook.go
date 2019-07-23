@@ -126,7 +126,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			if len(userTo) > 0 && len(res.Message) > 0 {
 				info, err := p.getGitlabUserInfoByMattermostID(userTo)
 				if err != nil {
-					p.API.LogError("can't get user info to know if user want to receive notification", "err", err.Message)
+					p.API.LogError("can't get user info to know if user wants to receive notifications", "err", err.Message)
 					continue
 				}
 				if info.Settings.Notifications {
@@ -144,7 +144,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 					ChannelId: to,
 				}
 				if _, err := p.API.CreatePost(post); err != nil {
-					p.API.LogError("can't crate post for webhook event", "err", err.Error())
+					p.API.LogError("can't create post for webhook event", "err", err.Error())
 				}
 			}
 		}

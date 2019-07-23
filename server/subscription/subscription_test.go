@@ -68,11 +68,11 @@ func TestNewSubscriptionLabel(t *testing.T) {
 func TestNewSubscriptionBadFormated(t *testing.T) {
 	s, err := New("", "", `label:"`, "")
 	assert.Nil(t, s)
-	assert.Equal(t, err.Error(), "Label is bad formatted")
+	assert.Equal(t, err.Error(), "The label is formatted incorrectly")
 }
 
 func TestNewSubscriptionMultipleLabel(t *testing.T) {
 	s, err := New("", "", `label:"1",label:"2"`, "")
 	assert.Nil(t, s)
-	assert.Equal(t, err.Error(), "Can't add multiple label on same subscription")
+	assert.Equal(t, err.Error(), "Can't add multiple labels on the same subscription")
 }

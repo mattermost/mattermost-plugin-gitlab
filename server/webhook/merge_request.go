@@ -31,7 +31,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 	} else if event.ObjectAttributes.State == "opened" && event.ObjectAttributes.Action == "reopen" {
 		message = fmt.Sprintf("[%s](%s) reopen your merge request [%s#%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 	} else if event.ObjectAttributes.State == "opened" && event.ObjectAttributes.Action == "update" {
-		// TODO not enough check (opened/update) to say assignee to you...
+		// TODO not enough check (opened/update) to say assigned to you...
 		message = fmt.Sprintf("[%s](%s) assigned you to merge request [%s#%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 	} else if event.ObjectAttributes.State == "merged" && event.ObjectAttributes.Action == "merge" {
 		message = fmt.Sprintf("[%s](%s) merged your merge request [%s#%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
