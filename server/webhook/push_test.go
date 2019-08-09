@@ -24,7 +24,8 @@ var testDataPush = []testDataPushStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "pushes", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[manland](http://my.gitlab.com/manland) has pushed 1 commit(s) to [manland/webhook](http://localhost:3000/manland/webhook)",
+			Message: "[manland](http://my.gitlab.com/manland) has pushed 1 commit to [manland/webhook](http://localhost:3000/manland/webhook)\n" +
+				"- [really cool commit](http://localhost:3000/manland/webhook/commit/c30217b62542c586fdbadc7b5ee762bfdca10663)",
 			ToUsers:    []string{}, // No DM because user know he has push commits
 			ToChannels: []string{"channel1"},
 			From:       "manland",
