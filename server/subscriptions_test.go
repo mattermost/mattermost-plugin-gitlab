@@ -66,6 +66,20 @@ var dataUnsubscribeTest = []dataUnsubscribeTestStruct{
 		},
 		shouldDelete: false,
 		shouldError:  true,
+	}, {
+		name:      "should delete organisation",
+		channelID: "1",
+		repoName:  "owner",
+		initMock: func() *plugintest.API {
+			m := &plugintest.API{}
+			kvget := `{"Repositories":{"owner/":[{"ChannelID":"1","CreatorID":"1","Features":"all","Repository":"owner/"}]}}`
+			kvset := `{"Repositories":{}}`
+			m.On("KVGet", SUBSCRIPTIONS_KEY).Return([]byte(kvget), nil).Once()
+			m.On("KVSet", SUBSCRIPTIONS_KEY, []byte(kvset)).Return(nil).Once()
+			return m
+		},
+		shouldDelete: true,
+		shouldError:  false,
 	},
 }
 
