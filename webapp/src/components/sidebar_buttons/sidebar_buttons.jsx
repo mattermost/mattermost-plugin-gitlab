@@ -120,7 +120,7 @@ export default class SidebarButtons extends React.PureComponent {
             <div style={container}>
                 <a
                     key='gitlabHeader'
-                    href={baseURL + '/oauth/applications/'}
+                    href={baseURL}
                     target='_blank'
                     rel='noopener noreferrer'
                     style={button}
