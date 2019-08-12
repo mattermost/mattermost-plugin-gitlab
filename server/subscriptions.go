@@ -174,11 +174,12 @@ func (p *Plugin) GetSubscribedChannelsForRepository(fullNameOwnerAndRepo string,
 func (p *Plugin) Unsubscribe(channelID string, repo string) (bool, error) {
 	config := p.getConfiguration()
 
-	repo, _, _ = parseOwnerAndRepo(repo, config.GitlabURL)
-
 	if repo == "" {
 		return false, errors.New("Invalid repository")
 	}
+
+	_, owner, project := parseOwnerAndRepo(repo, config.GitlabURL)
+	repo = fullNameFromOwnerAndRepo(owner, project)
 
 	subs, err := p.GetSubscriptions()
 	if err != nil {

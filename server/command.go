@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"path"
 	"strings"
 
 	"github.com/mattermost/mattermost-server/plugin"
@@ -43,14 +42,18 @@ func getCommand() *model.Command {
 	}
 }
 
-func (p *Plugin) getCommandResponse(responseType, text string) *model.CommandResponse {
-	return &model.CommandResponse{
-		ResponseType: responseType,
-		Text:         text,
-		Username:     GITLAB_USERNAME,
-		IconURL:      path.Join(*p.API.GetConfig().ServiceSettings.SiteURL, "plugins", manifest.ID, "assets", "profile.png"),
-		Type:         model.POST_DEFAULT,
+func (p *Plugin) postCommandResponse(args *model.CommandArgs, text string) {
+	post := &model.Post{
+		UserId:    p.BotUserID,
+		ChannelId: args.ChannelId,
+		Message:   text,
 	}
+	_ = p.API.SendEphemeralPost(args.UserId, post)
+}
+
+func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string) *model.CommandResponse {
+	p.postCommandResponse(args, text)
+	return &model.CommandResponse{}
 }
 
 func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
@@ -72,16 +75,16 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 	if action == "connect" {
 		config := p.API.GetConfig()
 		if config.ServiceSettings.SiteURL == nil {
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Encountered an error connecting to GitLab."), nil
+			return p.getCommandResponse(args, "Encountered an error connecting to GitLab."), nil
 		}
 
-		resp := p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, fmt.Sprintf("[Click here to link your GitLab account.](%s/plugins/%s/oauth/connect)", *config.ServiceSettings.SiteURL, manifest.ID))
+		resp := p.getCommandResponse(args, fmt.Sprintf("[Click here to link your GitLab account.](%s/plugins/%s/oauth/connect)", *config.ServiceSettings.SiteURL, manifest.ID))
 		return resp, nil
 	}
 
 	if action == "help" || action == "" {
 		text := "###### Mattermost GitLab Plugin - Slash Command Help\n" + strings.Replace(COMMAND_HELP, "|", "`", -1)
-		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, text), nil
+		return p.getCommandResponse(args, text), nil
 	}
 
 	info, apiErr := p.getGitlabUserInfoByMattermostID(args.UserId)
@@ -90,7 +93,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		if apiErr.ID == API_ERROR_ID_NOT_CONNECTED {
 			text = "You must connect your account to GitLab first. Either click on the GitLab logo in the bottom left of the screen or enter `/gitlab connect`."
 		}
-		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, text), nil
+		return p.getCommandResponse(args, text), nil
 	}
 
 	config := p.getConfiguration()
@@ -101,11 +104,11 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 
 		txt := ""
 		if len(parameters) == 0 {
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Please specify a repository or 'list' command."), nil
+			return p.getCommandResponse(args, "Please specify a repository or 'list' command."), nil
 		} else if len(parameters) == 1 && parameters[0] == "list" {
 			subs, err := p.GetSubscriptionsByChannel(args.ChannelId)
 			if err != nil {
-				return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, err.Error()), nil
+				return p.getCommandResponse(args, err.Error()), nil
 			}
 
 			if len(subs) == 0 {
@@ -116,7 +119,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 			for _, sub := range subs {
 				txt += fmt.Sprintf("* `%s` - %s\n", strings.Trim(sub.Repository, "/"), sub.Features)
 			}
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, txt), nil
+			return p.getCommandResponse(args, txt), nil
 		} else if len(parameters) > 1 {
 			features = strings.Join(parameters[1:], " ")
 		}
@@ -124,54 +127,54 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		_, owner, repo := parseOwnerAndRepo(parameters[0], config.GitlabURL)
 		if repo == "" {
 			if err := p.SubscribeGroup(info, owner, args.ChannelId, features); err != nil {
-				return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, err.Error()), nil
+				return p.getCommandResponse(args, err.Error()), nil
 			}
 
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, fmt.Sprintf("Successfully subscribed to organization %s.", owner)), nil
+			return p.getCommandResponse(args, fmt.Sprintf("Successfully subscribed to organization %s.", owner)), nil
 		}
 
 		if err := p.Subscribe(info, owner, repo, args.ChannelId, features); err != nil {
 			p.API.LogError("can't subscribe", "err", err.Error())
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, err.Error()), nil
+			return p.getCommandResponse(args, err.Error()), nil
 		}
 
-		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, fmt.Sprintf("Successfully subscribed to %s.", repo)), nil
+		return p.getCommandResponse(args, fmt.Sprintf("Successfully subscribed to %s.", repo)), nil
 	case "unsubscribe":
 		if len(parameters) == 0 {
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Please specify a repository."), nil
+			return p.getCommandResponse(args, "Please specify a repository."), nil
 		}
 
 		repo := parameters[0]
 
 		if deleted, err := p.Unsubscribe(args.ChannelId, repo); err != nil {
 			p.API.LogError("can't unsubscribe channel in command", "err", err.Error())
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Encountered an error trying to unsubscribe. Please try again."), nil
+			return p.getCommandResponse(args, "Encountered an error trying to unsubscribe. Please try again."), nil
 		} else if !deleted {
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Subscription not found, please check repository name."), nil
+			return p.getCommandResponse(args, "Subscription not found, please check repository name."), nil
 		}
 
-		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, fmt.Sprintf("Succesfully unsubscribed from %s.", repo)), nil
+		return p.getCommandResponse(args, fmt.Sprintf("Succesfully unsubscribed from %s.", repo)), nil
 	case "disconnect":
 		p.disconnectGitlabAccount(args.UserId)
-		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Disconnected your GitLab account."), nil
+		return p.getCommandResponse(args, "Disconnected your GitLab account."), nil
 	case "todo":
 		text, err := p.GetToDo(info)
 		if err != nil {
 			p.API.LogError("can't get todo in command", "err", err.Error())
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Encountered an error getting your to do items."), nil
+			return p.getCommandResponse(args, "Encountered an error getting your to do items."), nil
 		}
-		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, text), nil
+		return p.getCommandResponse(args, text), nil
 	case "me":
 		gitUser, err := p.GitlabClient.GetUserDetails(info)
 		if err != nil {
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Encountered an error getting your GitLab profile."), nil
+			return p.getCommandResponse(args, "Encountered an error getting your GitLab profile."), nil
 		}
 
 		text := fmt.Sprintf("You are connected to GitLab as:\n# [![image](%s =40x40)](%s) [%s](%s)", gitUser.AvatarURL, gitUser.WebsiteURL, gitUser.Username, gitUser.WebsiteURL)
-		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, text), nil
+		return p.getCommandResponse(args, text), nil
 	case "settings":
 		if len(parameters) < 2 {
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Please specify both a setting and value. Use `/gitlab help` for more usage information."), nil
+			return p.getCommandResponse(args, "Please specify both a setting and value. Use `/gitlab help` for more usage information."), nil
 		}
 
 		setting := parameters[0]
@@ -180,19 +183,19 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		if strValue == SETTING_ON {
 			value = true
 		} else if strValue != SETTING_OFF {
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Invalid value. Accepted values are: \"on\" or \"off\"."), nil
+			return p.getCommandResponse(args, "Invalid value. Accepted values are: \"on\" or \"off\"."), nil
 		}
 
 		if setting == SETTING_NOTIFICATIONS {
 			if value {
 				if err := p.storeGitlabToUserIDMapping(info.GitlabUsername, info.UserID); err != nil {
 					p.API.LogError("can't store GitLab user id mapping", "err", err.Error())
-					return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Unknown error please retry or ask to an administrator to look at logs"), nil
+					return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 				}
 			} else {
 				if err := p.API.KVDelete(info.GitlabUsername + GITLAB_USERNAME_KEY); err != nil {
 					p.API.LogError("can't delete GitLab username in kvstore", "err", err.Error())
-					return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Unknown error please retry or ask to an administrator to look at logs"), nil
+					return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 				}
 			}
 
@@ -200,17 +203,17 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		} else if setting == SETTING_REMINDERS {
 			info.Settings.DailyReminder = value
 		} else {
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Unknown setting."), nil
+			return p.getCommandResponse(args, "Unknown setting."), nil
 		}
 
 		if err := p.storeGitlabUserInfo(info); err != nil {
 			p.API.LogError("can't store user info after update by command", "err", err.Error())
-			return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Unknown error please retry or ask to an administrator to look at logs"), nil
+			return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 		}
 
-		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Settings updated."), nil
+		return p.getCommandResponse(args, "Settings updated."), nil
 
 	default:
-		return p.getCommandResponse(model.COMMAND_RESPONSE_TYPE_EPHEMERAL, "Unknown action, please use `/gitlab help` to see all actions available."), nil
+		return p.getCommandResponse(args, "Unknown action, please use `/gitlab help` to see all actions available."), nil
 	}
 }
