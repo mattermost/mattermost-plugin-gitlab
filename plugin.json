@@ -2,7 +2,7 @@
     "id": "com.github.manland.mattermost-plugin-gitlab",
     "name": "GitLab",
     "description": "GitLab plugin for Mattermost.",
-    "version": "0.3.0",
+    "version": "1.0.0",
     "min_server_version": "5.10.0",
     "server": {
       "executables": {
