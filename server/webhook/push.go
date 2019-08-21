@@ -42,6 +42,10 @@ func (w *webhook) handleChannelPush(event *gitlab.PushEvent) ([]*HandleWebhook, 
 	repo := event.Project
 	res := []*HandleWebhook{}
 
+	if event.TotalCommitsCount == 0 {
+		return nil, nil
+	}
+
 	var message string
 	if event.TotalCommitsCount == 1 {
 		message = fmt.Sprintf("[%s](%s) has pushed %d commit to [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.TotalCommitsCount, event.Project.PathWithNamespace, event.Project.WebURL)

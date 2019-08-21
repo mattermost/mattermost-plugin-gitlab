@@ -16,7 +16,7 @@ type testDataPushStr struct {
 	res             []*HandleWebhook
 }
 
-var testDataPush = []testDataPushStr{	{
+var testDataPush = []testDataPushStr{{
 		testTitle: "manland push 1 commit",
 		fixture:   PushEvent,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
@@ -43,6 +43,13 @@ var testDataPush = []testDataPushStr{	{
 			ToChannels: []string{"channel1"},
 			From:       "manland",
 		}},
+	},	{
+		testTitle: "manland push 0 commits",
+		fixture:   pushEventWithoutCommits,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "pushes", Repository: "manland/webhook"},
+		}),
+		res: nil,
 	},
 }
 

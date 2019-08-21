@@ -127,3 +127,49 @@ const pushEventWithTwoCommits = `{
 		"visibility_level":20
 	}
 }`
+
+const pushEventWithoutCommits = `{
+	"object_kind":"push",
+	"event_name":"push",
+	"before":"9a7226e89f24282680dfa845587e14895ce62780",
+	"after":"c30217b62542c586fdbadc7b5ee762bfdca10663",
+	"ref":"refs/heads/master",
+	"checkout_sha":"c30217b62542c586fdbadc7b5ee762bfdca10663",
+	"message":null,
+	"user_id":50,
+	"user_name":"manland",
+	"user_username":"manland",
+	"user_email":"",
+	"user_avatar":"https://www.gravatar.com/avatar/c6b552a4cd47f7cf1701ea5b650cd2e3?s=80\\u0026d=identicon",
+	"project_id":24,
+	"project":{
+		"id":24,
+		"name":"webhook",
+		"description":"",
+		"web_url":"http://localhost:3000/manland/webhook",
+		"avatar_url":null,
+		"git_ssh_url":"ssh://rmaneschi@localhost:2222/manland/webhook.git",
+		"git_http_url":"http://localhost:3000/manland/webhook.git",
+		"namespace":"manland",
+		"visibility_level":20,
+		"path_with_namespace":"manland/webhook",
+		"default_branch":"master",
+		"ci_config_path":null,
+		"homepage":"http://localhost:3000/manland/webhook",
+		"url":"ssh://rmaneschi@localhost:2222/manland/webhook.git",
+		"ssh_url":"ssh://rmaneschi@localhost:2222/manland/webhook.git",
+		"http_url":"http://localhost:3000/manland/webhook.git"
+	},
+	"commits":[],
+	"total_commits_count":0,
+	"push_options":{},
+	"repository":{
+		"name":"webhook",
+		"url":"ssh://rmaneschi@localhost:2222/manland/webhook.git",
+		"description":"",
+		"homepage":"http://localhost:3000/manland/webhook",
+		"git_http_url":"http://localhost:3000/manland/webhook.git",
+		"git_ssh_url":"ssh://rmaneschi@localhost:2222/manland/webhook.git",
+		"visibility_level":20
+	}
+}`
