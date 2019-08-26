@@ -82,6 +82,20 @@ export MM_ADMIN_USERNAME=admin
 export MM_ADMIN_PASSWORD=password
 ```
 
+## Troubleshooting
+
+### Error message: `x509: certificate signed by unknown authority`
+
+The complete error message included in the Mattermost Server Logs is as follows
+
+```
+{"level":"error","ts":1566657710.0417624,"caller":"mlog/sugar.go:23","msg":"can't exchange state","plugin_id":"com.github.manland.mattermost-plugin-gitlab","err":"Post https://<my-git-url>/oauth/token: x509: certificate signed by unknown authority"}
+```
+
+This usually means that your self-signed certificate hasn't been added to your local trusted CA of the Mattermost server.
+
+To learn how to do so in Linux, see [this StackExchange article](https://unix.stackexchange.com/questions/90450/adding-a-self-signed-certificate-to-the-trusted-list)
+
 ## Inspiration
 
 This project is a fork of the [mattermost-plugin-github](https://github.com/mattermost/mattermost-plugin-github). Thanks to all contributors of it.
