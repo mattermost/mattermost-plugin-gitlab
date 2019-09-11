@@ -37,44 +37,24 @@ __Requires Mattermost 5.10+ and Gitlab 11.2+ see [Compatibility](#Compatibility)
         * Submit and copy the Client ID and Secret
     2. In Mattermost, go to System Console -> Plugins -> GitLab
         * Fill in the Gitlab URL, Client ID and Secret and save the settings
-<<<<<<< HEAD
-3. Create a GitLab webhook
-    1. In Mattermost, go to the System Console -> Plugins -> GitLab and copy the "Webhook Secret"
-    2. Go to the settings page of your GitLab project and click on "Integrations" in the sidebar
-        * Use "https://your-mattermost-url.com/plugins/com.github.manland.mattermost-plugin-gitlab/webhook" as the URL, replacing `https://your-mattermost-url.com` with your Mattermost URL
-        * Paste the webhook secret you copied before into the secret token field
-        * Select all events
-    3. Save the webhook
-    4. __Note for each project you want to receive notifications for or subscribe to, you must create a webhook__
-4. Generate an at rest encryption key
-=======
 3. Generate an at rest encryption key
->>>>>>> :sparkles: add webhook in gitlab when subscribe
     1. Go to the System Console -> Plugins -> GitLab and click "Regenerate" under "At Rest Encryption Key"
     2. Save the settings
-5. (Optional) Lock the plugin to a GitLab group
+4. (Optional) Lock the plugin to a GitLab group
     * Go to System Console -> Plugins -> GitLab and set the GitLab Group field to the name of your GitLab group
-<<<<<<< HEAD
-6. (Optional) Enable private repositories
-    * Go to System Console -> Plugins -> GitLab and set Enable Private Repositories to true
-    * Note that if you do this after users have already connected their accounts to GitLab they will need to disconnect and reconnect their accounts to be able to use private repositories
-7. Enable the plugin
-    * Go to System Console -> Plugins -> Management and click "Enable" underneath the GitLab plugin
-8. Test it out
-=======
 5. (Optional) Enable private repositories
     * Go to System Console -> Plugins -> GitLab and set Enable Private Repositories to true
     * Note that if you do this after users have already connected their accounts to GitLab they will need to disconnect and reconnect their accounts to be able to use private repositories
 6. Enable the plugin
     * Go to System Console -> Plugins -> Management and click "Enable" underneath the GitLab plugin
 7. Test it out
->>>>>>> :sparkles: add webhook in gitlab when subscribe
     * In Mattermost, run the slash command `/gitlab connect`
 
 ## Compatibility
 
 | Mattermost-Plugin-Gitlab | Mattermost | Gitlab |
 |:-----------------------:|:----------:|:------:|
+|        1.0.0            |     5.12+  |  11.2+ |
 |        0.3.0            |     5.10+  |  11.2+ |
 |        0.2.0            |     5.8+   |  11.2+ |
 |        0.1.0            |     5.8+   |  11.2+ |
