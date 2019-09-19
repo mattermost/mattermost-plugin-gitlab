@@ -23,7 +23,7 @@ Originally developed by [Romain Maneschi](https://github.com/manland).
 
 ## Installation
 
-__Requires Mattermost 5.10+ and Gitlab 11.2+ see [Compatibility](#Compatibility) for others versions__
+__Requires Mattermost 5.10+ and GitLab 11.2+ see [Compatibility](#Compatibility) for others versions__
 
 1. Install the plugin
     1. Download the com.github.manland.mattermost-plugin-gitlab-X.X.X.tar.gz file of the latest version of the plugin from the [GitHub releases page](https://github.com/mattermost/mattermost-plugin-gitlab/releases)
@@ -60,7 +60,7 @@ __Requires Mattermost 5.10+ and Gitlab 11.2+ see [Compatibility](#Compatibility)
 
 ## Compatibility
 
-| Mattermost-Plugin-Gitlab | Mattermost | Gitlab |
+| Mattermost-Plugin-Gitlab | Mattermost | GitLab |
 |:-----------------------:|:----------:|:------:|
 |        0.3.0            |     5.10+  |  11.2+ |
 |        0.2.0            |     5.8+   |  11.2+ |
