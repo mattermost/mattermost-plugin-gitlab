@@ -24,7 +24,7 @@ var testDataPush = []testDataPushStr{{
 		}),
 		res: []*HandleWebhook{{
 			Message: "[manland](http://my.gitlab.com/manland) has pushed 1 commit to [manland/webhook](http://localhost:3000/manland/webhook)\n" +
-				"- [really cool commit](http://localhost:3000/manland/webhook/commit/c30217b62542c586fdbadc7b5ee762bfdca10663)",
+				"really cool commit\n[View Commit](http://localhost:3000/manland/webhook/commit/c30217b62542c586fdbadc7b5ee762bfdca10663)",
 			ToUsers:    []string{}, // No DM because user know he has push commits
 			ToChannels: []string{"channel1"},
 			From:       "manland",
@@ -37,8 +37,8 @@ var testDataPush = []testDataPushStr{{
 		}),
 		res: []*HandleWebhook{{
 			Message: "[manland](http://my.gitlab.com/manland) has pushed 2 commits to [manland/webhook](http://localhost:3000/manland/webhook)\n" +
-				"- [really cool commit](http://localhost:3000/manland/webhook/commit/c30217b62542c586fdbadc7b5ee762bfdca10663)\n"+
-				"- [another cool commit](http://localhost:3000/manland/webhook/commit/595f2a068cce60954565b224bc7c966c9e708cbf)",
+				"really cool commit\n[View Commit](http://localhost:3000/manland/webhook/commit/c30217b62542c586fdbadc7b5ee762bfdca10663)\n"+
+				"another cool commit\n[View Commit](http://localhost:3000/manland/webhook/commit/595f2a068cce60954565b224bc7c966c9e708cbf)",
 			ToUsers:    []string{}, // No DM because user know he has push commits
 			ToChannels: []string{"channel1"},
 			From:       "manland",
