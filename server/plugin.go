@@ -39,6 +39,7 @@ type Plugin struct {
 	BotUserID      string
 	WebhookHandler webhook.Webhook
 	GitlabClient   gitlab.Gitlab
+	Cron           *Cron
 
 	// configurationLock synchronizes access to the configuration.
 	configurationLock sync.RWMutex
@@ -77,6 +78,17 @@ func (p *Plugin) OnActivate() error {
 		return errors.Wrap(err, "failed to set profile image")
 	}
 
+	c, errCron := NewCron(p)
+	if errCron != nil {
+		return errors.Wrap(err, "can't start cron")
+	}
+	p.Cron = c
+
+	return nil
+}
+
+func (p *Plugin) OnDeactivate() error {
+	p.Cron.Stop()
 	return nil
 }
 

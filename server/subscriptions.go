@@ -28,7 +28,9 @@ func (p *Plugin) Subscribe(info *gitlab.GitlabUserInfo, owner, repo, channelID, 
 		return err
 	}
 
-	exist, err := p.GitlabClient.Exist(info, owner, repo, p.getConfiguration().EnablePrivateRepo)
+	config := p.getConfiguration()
+
+	exist, err := p.GitlabClient.Exist(info, owner, repo, config.EnablePrivateRepo)
 	if !exist || err != nil {
 		if err != nil {
 			p.API.LogError(fmt.Sprintf("Unable to retreive informations for %s", fullNameFromOwnerAndRepo(owner, repo)), "err", err.Error())
@@ -45,7 +47,8 @@ func (p *Plugin) Subscribe(info *gitlab.GitlabUserInfo, owner, repo, channelID, 
 		return err
 	}
 
-	return nil
+	url := fmt.Sprintf("%s/plugins/%s/webhook", *p.API.GetConfig().ServiceSettings.SiteURL, manifest.ID)
+	return p.GitlabClient.AddWebHooks(info, owner, repo, url, config.WebhookSecret)
 }
 
 func (p *Plugin) SubscribeGroup(info *gitlab.GitlabUserInfo, org, channelID, features string) error {
