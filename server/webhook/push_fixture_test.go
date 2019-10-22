@@ -34,7 +34,7 @@ const PushEvent = `{
 	},
 	"commits":[{
 		"id":"c30217b62542c586fdbadc7b5ee762bfdca10663",
-		"message":"really cool commit",
+		"message":"really cool commit\n",
 		"timestamp":"2019-04-17T20:22:03Z",
 		"url":"http://localhost:3000/manland/webhook/commit/c30217b62542c586fdbadc7b5ee762bfdca10663",
 		"author":{
@@ -92,7 +92,7 @@ const pushEventWithTwoCommits = `{
 	},
 	"commits":[{
 		"id":"c30217b62542c586fdbadc7b5ee762bfdca10663",
-		"message":"really cool commit",
+		"message":"really cool commit\n",
 		"timestamp":"2019-04-17T20:22:03Z",
 		"url":"http://localhost:3000/manland/webhook/commit/c30217b62542c586fdbadc7b5ee762bfdca10663",
 		"author":{
@@ -104,7 +104,7 @@ const pushEventWithTwoCommits = `{
 		"removed":[]
 	}, {
 		"id":"595f2a068cce60954565b224bc7c966c9e708cbf",
-		"message":"another cool commit",
+		"message":"another cool commit\n",
 		"timestamp":"2019-04-17T20:23:05Z",
 		"url":"http://localhost:3000/manland/webhook/commit/595f2a068cce60954565b224bc7c966c9e708cbf",
 		"author":{
