@@ -32,7 +32,7 @@ apply:
 
 ## Runs govet and gofmt against all packages.
 .PHONY: check-style
-check-style: webapp/.npminstall gofmt govet
+check-style: webapp/.npminstall gofmt govet errcheck
 	@echo Checking for style guide compliance
 
 ifneq ($(HAS_WEBAPP),)
