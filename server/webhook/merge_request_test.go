@@ -52,13 +52,20 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			From:       "manland",
 		}},
 	}, {
-		testTitle:       "manland reopen merge request of root",
-		fixture:         ReopenMerge,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
+		testTitle: "manland reopen merge request of root and display in channel1",
+		fixture:   ReopenMerge,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
+		}),
 		res: []*HandleWebhook{{
 			Message:    "[manland](http://my.gitlab.com/manland) reopen your merge request [manland/webhook#1](http://localhost:3000/manland/webhook/merge_requests/1)",
 			ToUsers:    []string{"root"},
 			ToChannels: []string{},
+			From:       "manland",
+		}, {
+			Message:    "[manland/webhook] Merge request [#1 Update README.md](http://localhost:3000/manland/webhook/merge_requests/1) was reopened by [manland](http://my.gitlab.com/manland)",
+			ToUsers:    []string{},
+			ToChannels: []string{"channel1"},
 			From:       "manland",
 		}},
 	}, {

@@ -73,6 +73,8 @@ func (w *webhook) handleChannelMergeRequest(event *gitlab.MergeEvent) ([]*Handle
 		message = fmt.Sprintf("[%s] Merge request [#%v %s](%s) was merged by [%s](%s)", repo.PathWithNamespace, pr.IID, pr.Title, pr.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
 	} else if pr.Action == "close" {
 		message = fmt.Sprintf("[%s] Merge request [#%v %s](%s) was closed by [%s](%s)", repo.PathWithNamespace, pr.IID, pr.Title, pr.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
+	} else if pr.Action == "reopen" {
+		message = fmt.Sprintf("[%s] Merge request [#%v %s](%s) was reopened by [%s](%s)", repo.PathWithNamespace, pr.IID, pr.Title, pr.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
 	}
 
 	if len(message) > 0 {
