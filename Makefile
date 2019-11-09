@@ -2,6 +2,7 @@ GO ?= $(shell command -v go 2> /dev/null)
 NPM ?= $(shell command -v npm 2> /dev/null)
 CURL ?= $(shell command -v curl 2> /dev/null)
 MANIFEST_FILE ?= plugin.json
+GOPATH ?= $(shell go env GOPATH)
 GO_TEST_FLAGS ?= -race
 GO_BUILD_FLAGS ?=
 MM_UTILITIES_DIR ?= ../mattermost-utilities
@@ -16,7 +17,7 @@ include build/setup.mk
 
 BUNDLE_NAME ?= $(PLUGIN_ID)-$(PLUGIN_VERSION).tar.gz
 
-# Include custom makefile, if pressent
+# Include custom makefile, if present
 ifneq ($(wildcard build/custom.mk),)
 	include build/custom.mk
 endif
@@ -63,7 +64,7 @@ endif
 govet:
 ifneq ($(HAS_SERVER),)
 	@echo Running govet
-	@# Workaroung because you can't install binaries without adding them to go.mod 
+	@# Workaround because you can't install binaries without adding them to go.mod
 	env GO111MODULE=off $(GO) get golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow
 	$(GO) vet ./...
 	$(GO) vet -vettool=$(GOPATH)/bin/shadow ./...
@@ -75,7 +76,7 @@ endif
 golint:
 	@echo Running lint
 	env GO111MODULE=off $(GO) get golang.org/x/lint/golint
-	golint -set_exit_status ./...
+	$(GOPATH)/bin/golint -set_exit_status ./...
 	@echo lint success
 
 ## Builds the server, if it exists, including support for multiple architectures.
@@ -100,6 +101,13 @@ endif
 webapp: webapp/.npminstall
 ifneq ($(HAS_WEBAPP),)
 	cd webapp && $(NPM) run build;
+endif
+
+## Builds the webapp in debug mode, if it exists.
+webapp-debug: webapp/.npminstall
+ifneq ($(HAS_WEBAPP),)
+	cd webapp && \
+	$(NPM) run debug;
 endif
 
 ## Generates a tar bundle of the plugin for install.
@@ -149,6 +157,12 @@ else
 	@echo "No supported deployment method available. Install plugin manually."
 endif
 
+.PHONY: debug-deploy
+debug-deploy: debug-dist deploy
+
+.PHONY: debug-dist
+debug-dist: apply server webapp-debug bundle
+
 ## Runs any lints and unit tests defined for the server and webapp, if they exist.
 .PHONY: test
 test: webapp/.npminstall
@@ -156,12 +170,12 @@ ifneq ($(HAS_SERVER),)
 	$(GO) test -v $(GO_TEST_FLAGS) ./server/...
 endif
 ifneq ($(HAS_WEBAPP),)
-	cd webapp && $(NPM) run fix;
+	cd webapp && $(NPM) run fix && $(NPM) run test;
 endif
 
 ## Creates a coverage report for the server code.
 .PHONY: coverage
-coverage:
+coverage: webapp/.npminstall
 ifneq ($(HAS_SERVER),)
 	$(GO) test $(GO_TEST_FLAGS) -coverprofile=server/coverage.txt ./server/...
 	$(GO) tool cover -html=server/coverage.txt
