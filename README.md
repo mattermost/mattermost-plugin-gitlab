@@ -7,7 +7,7 @@ A GitLab plugin for Mattermost. The plugin is currently in beta.
 
 Originally developed by [Romain Maneschi](https://github.com/manland).
 
-![GitLab Plugin screenshot](https://user-images.githubusercontent.com/1492516/57301593-afbb1b80-70d9-11e9-9134-809e5cc69a45.png)
+![GitLab Plugin screenshot](https://user-images.githubusercontent.com/13119842/68875288-96220e80-06d0-11ea-8005-10274fea8fe0.png)
 
 ## Features
 
