@@ -19,7 +19,7 @@
         "settings": [
             {
                 "key": "GitlabURL",
-                "display_name": "Gitlab URL",
+                "display_name": "GitLab URL",
                 "type": "text",
                 "default": "https://gitlab.com",
                 "placeholder": "https://gitlab.com",
@@ -33,7 +33,7 @@
             },
             {
                 "key": "GitlabOAuthClientSecret",
-                "display_name": "Gitlab OAuth Client Secret",
+                "display_name": "GitLab OAuth Client Secret",
                 "type": "text",
                 "help_text": "The client secret for the OAuth app registered with GitLab."
             },
@@ -51,7 +51,7 @@
             },
             {
                 "key": "GitlabGroup",
-                "display_name": "Gitlab Group",
+                "display_name": "GitLab Group",
                 "type": "text",
                 "placeholder": "groupName",
                 "help_text": "(Optional) Set to lock the plugin to a single GitLab group."
@@ -63,6 +63,6 @@
                 "help_text": "(Optional) Allow the plugin to work with private repositories."
             }
         ],
-        "footer": "To report an issue, make a suggestion or a contribution, [check the repository](https://github.com/manland/mattermost-plugin-gitlab)."
+        "footer": "To report an issue, make a suggestion or a contribution, [check the repository](https://github.com/mattermost/mattermost-plugin-gitlab)."
     }
 }
