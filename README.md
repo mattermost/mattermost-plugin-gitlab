@@ -41,7 +41,7 @@ See [Compatibility](#Compatibility) for supported versions.
    - **Redirect URI**: `https://your-mattermost-url.com/plugins/com.github.manland.mattermost-plugin-gitlab/oauth/complete`, replacing `https://your-mattermost-url.com` with your Mattermost URL
 3. Select `api` and `read_user` in **Scopes**
 4. Save the application. Copy the **Application ID* and **Secret** fields in the resulting screen.
-2. In Mattermost, go to **System Console > Plugins > GitLab**, and enter the **GitLab URL**, **GitLab OAuth Client ID**, and **Gitlab OAuth Client Secret**
+2. In Mattermost, go to **Plugins Marketplace > GitLab > Configure**, and enter the **GitLab URL**, **GitLab OAuth Client ID**, and **Gitlab OAuth Client Secret**
 
 ### Step 2: Create a GitLab webhook
 
