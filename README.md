@@ -23,7 +23,7 @@ Originally developed by [Romain Maneschi](https://github.com/manland).
 
 ## Installation
 
-In Mattermost 5.14 and later, the GitLab plugin is pre-packaged and no steps are required for installation. You can go directly to [Configuration](#configuration).
+In Mattermost 5.16 and later, the GitLab plugin is included in the Plugin Marketplace which can be accessed from **Main Menu > Plugins Marketplace**. You can install the GitLab plugin and then configure it via the [Plugin Marketplace "Configure" button](#configuration).
 
 In Mattermost 5.13 and earlier, follow these steps:
 1. Go to https://github.com/mattermost/mattermost-plugin-gitlab/releases to download the latest release file in zip or tar.gz format.
