@@ -76,7 +76,7 @@ __Note for each project you want to receive notifications for or subscribe to, y
   - (Optional) **Enable Private Repositories**: Allow the plugin to receive notifications from private repositories by setting this value to true.
     When enabled, existing users must reconnect their accounts to gain access to private project. Affected users will be notified by the plugin once private repositories are enabled.
 2. Hit **Save**.
-3. Go to **System Console > Plugins > Management** and click **Enable** to enable the GitLab plugin.
+3. Go to **Plugins Marketplace > GitLab > Configure > Enable Plugin** and click **Enable** to enable the GitLab plugin.
 
 You're all set! To test it, run the `/gitlab connect` slash command to connect your Mattermost account with GitLab.
 
