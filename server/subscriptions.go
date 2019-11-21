@@ -31,9 +31,9 @@ func (p *Plugin) Subscribe(info *gitlab.GitlabUserInfo, owner, repo, channelID, 
 	exist, err := p.GitlabClient.Exist(info, owner, repo, p.getConfiguration().EnablePrivateRepo)
 	if !exist || err != nil {
 		if err != nil {
-			p.API.LogError(fmt.Sprintf("Unable to retreive informations for %s", fullNameFromOwnerAndRepo(owner, repo)), "err", err.Error())
+			p.API.LogError(fmt.Sprintf("Unable to retrieve repository %s", fullNameFromOwnerAndRepo(owner, repo)), "err", err.Error())
 		}
-		return fmt.Errorf("Unable to retreive informations for %s", fullNameFromOwnerAndRepo(owner, repo))
+		return fmt.Errorf("Unable to retrieve repository %s", fullNameFromOwnerAndRepo(owner, repo))
 	}
 
 	sub, err := subscription.New(channelID, info.UserID, features, fullNameFromOwnerAndRepo(owner, repo))
