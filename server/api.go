@@ -206,6 +206,8 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 			"connected":        true,
 			"gitlab_username":  userInfo.GitlabUsername,
 			"gitlab_client_id": config.GitlabOAuthClientID,
+			"gitlab_url":       config.GitlabURL,
+			"organization":     config.GitlabGroup,
 		},
 		&model.WebsocketBroadcast{UserId: userID},
 	)
