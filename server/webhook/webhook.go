@@ -17,8 +17,8 @@ type GitlabRetreiver interface {
 	GetUsernameByID(id int) string
 	// ParseGitlabUsernamesFromText from a text return an array of username
 	ParseGitlabUsernamesFromText(text string) []string
-	// GetSubscribedChannelsForRepository return all subscription for this repository
-	GetSubscribedChannelsForRepository(repoWithNamespace string, isPublicVisibility bool) []*subscription.Subscription
+	// GetSubscribedChannelsForProject returns all subscriptions for given project.
+	GetSubscribedChannelsForProject(namespace, project string, isPublicVisibility bool) []*subscription.Subscription
 }
 
 type HandleWebhook struct {
@@ -132,4 +132,8 @@ func labelToString(a []gitlab.Label) string {
 		names[index] = l.Name
 	}
 	return strings.Join(names, ", ")
+}
+
+func projectPath(namespace, pathWithNamespace string) string {
+	return strings.TrimPrefix(pathWithNamespace, namespace+"/")
 }

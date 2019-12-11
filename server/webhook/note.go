@@ -58,7 +58,11 @@ func (w *webhook) handleChannelIssueComment(event *gitlab.IssueCommentEvent) ([]
 	message := fmt.Sprintf("[%s](%s) New comment by [%s](%s) on [#%v %s](%s):\n\n%s", repo.PathWithNamespace, repo.WebURL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Issue.IID, event.Issue.Title, event.ObjectAttributes.URL, body)
 
 	toChannels := make([]string, 0)
-	subs := w.gitlabRetreiver.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
+	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
+		repo.Namespace,
+		projectPath(repo.Namespace, repo.PathWithNamespace),
+		repo.Visibility == gitlab.PublicVisibility,
+	)
 	for _, sub := range subs {
 		if !sub.IssueComments() {
 			continue
@@ -120,7 +124,11 @@ func (w *webhook) handleChannelMergeRequestComment(event *gitlab.MergeCommentEve
 	message := fmt.Sprintf("[%s](%s) New comment by [%s](%s) on [#%v %s](%s):\n\n%s", repo.PathWithNamespace, repo.WebURL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.MergeRequest.IID, event.MergeRequest.Title, event.ObjectAttributes.URL, body)
 
 	toChannels := make([]string, 0)
-	subs := w.gitlabRetreiver.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
+	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
+		repo.Namespace,
+		projectPath(repo.Namespace, repo.PathWithNamespace),
+		repo.Visibility == gitlab.PublicVisibility,
+	)
 	for _, sub := range subs {
 		if !sub.MergeRequestComments() {
 			continue

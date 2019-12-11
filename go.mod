@@ -8,4 +8,5 @@ require (
 	github.com/stretchr/testify v1.3.0
 	github.com/xanzy/go-gitlab v0.20.1
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
+	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 )

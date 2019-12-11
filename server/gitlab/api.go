@@ -1,11 +1,14 @@
 package gitlab
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/pkg/errors"
 	internGitlab "github.com/xanzy/go-gitlab"
+	"golang.org/x/sync/errgroup"
 )
 
 func (g *gitlab) GetProject(user *GitlabUserInfo, owner, repo string) (*internGitlab.Project, error) {
@@ -112,9 +115,9 @@ func (g *gitlab) GetUnreads(user *GitlabUserInfo) ([]*internGitlab.Todo, error) 
 	if err != nil {
 		return nil, errors.Wrap(err, "can't list todo in GitLab api")
 	}
-	notifications := []*internGitlab.Todo{}
+	notifications := make([]*internGitlab.Todo, len(result))
 	for _, todo := range result {
-		if g.checkGroup(todo.Project.NameWithNamespace) != nil {
+		if g.checkGroup(strings.TrimSuffix(todo.Project.PathWithNamespace, "/"+todo.Project.Path)) != nil {
 			continue
 		}
 		notifications = append(notifications, todo)
@@ -123,39 +126,84 @@ func (g *gitlab) GetUnreads(user *GitlabUserInfo) ([]*internGitlab.Todo, error) 
 	return notifications, err
 }
 
-func (g *gitlab) Exist(user *GitlabUserInfo, owner string, repo string, enablePrivateRepo bool) (bool, error) {
-	client, err := g.gitlabConnect(*user.Token)
+func (g *gitlab) ResolveNamespaceAndProject(
+	userInfo *GitlabUserInfo,
+	fullPath string,
+	allowPrivate bool,
+) (owner string, repo string, err error) {
+
+	// Initialize client
+	client, err := g.gitlabConnect(*userInfo.Token)
 	if err != nil {
-		return false, err
+		return "", "", err
 	}
 
-	publicVisibility := internGitlab.PublicVisibility
-
-	if repo == "" {
-		group, resp, err := client.Groups.GetGroup(owner)
-		if group == nil && (err == nil || resp.StatusCode == http.StatusNotFound) {
-			users, _, errListUser := client.Users.ListUsers(&internGitlab.ListUsersOptions{Username: &owner})
-			if (users == nil || len(users) == 0) && errListUser == nil {
-				return false, nil // not an error just not found group, owner
-			} else if errListUser != nil {
-				return false, errors.Wrapf(errListUser, "can't list user %s", owner)
-			}
-		} else if err != nil {
-			return false, errors.Wrapf(err, "can't call api for group %s", owner)
-		} else if !enablePrivateRepo && group.Visibility != &publicVisibility {
-			return false, errors.New("you can't add a private group on this mattermost instance")
-		}
-	} else {
-		result, _, err := client.Projects.GetProject(owner+"/"+repo, &internGitlab.GetProjectOptions{})
-		if result == nil || err != nil {
+	// Search for matching user, group and project concurrently
+	//
+	// Note: Calls to Users and Groups could be replaced with a single call to Namespaces.
+	// However, Namespaces endpoint will not return Group visibility, so we will have to make additional call anyway.
+	// Making this extra call here should reduce overall latency.
+	var (
+		user           *internGitlab.User
+		group          *internGitlab.Group
+		project        *internGitlab.Project
+		ctx, ctxCancel = context.WithTimeout(context.Background(), DefaultRequestTimeout)
+	)
+	defer ctxCancel()
+	errGroup, _ := errgroup.WithContext(ctx)
+	if strings.Count(fullPath, "/") == 0 { // This request only makes sense for single path component
+		errGroup.Go(func() error {
+			users, _, err := client.Users.ListUsers(&internGitlab.ListUsersOptions{
+				Username: &fullPath,
+			})
 			if err != nil {
-				return false, errors.Wrapf(err, "can't get project %s/%s", owner, repo)
+				return fmt.Errorf("failed to search users by username: %w", err)
 			}
-			return false, nil // not an error just not found project
-		}
-		if !enablePrivateRepo && result.Visibility != publicVisibility {
-			return false, errors.New("you can't add a private project on this mattermost instance")
-		}
+			if len(users) == 1 {
+				user = users[0]
+			}
+			return nil
+		})
 	}
-	return true, nil
+	errGroup.Go(func() error {
+		gr, response, err := client.Groups.GetGroup(fullPath)
+		if err != nil && response != nil && response.StatusCode != http.StatusNotFound {
+			return fmt.Errorf("failed to retrieve group by path: %w", err)
+		}
+		group = gr
+		return nil
+	})
+	errGroup.Go(func() error {
+		p, response, err := client.Projects.GetProject(fullPath, nil, nil)
+		if err != nil && response != nil && response.StatusCode != http.StatusNotFound {
+			return fmt.Errorf("failed to retrieve project by path: %w", err)
+		}
+		project = p
+		return nil
+	})
+	if err := errGroup.Wait(); err != nil {
+		return "", "", err
+	}
+
+	// Decide what to return
+	if user != nil {
+		return user.Username, "", nil
+	} else if group != nil {
+		if !allowPrivate && group.Visibility != nil && *group.Visibility != internGitlab.PublicVisibility {
+			return "", "", fmt.Errorf(
+				"you can't add a private group on this Mattermost instance: %w",
+				ErrPrivateResource,
+			)
+		}
+		return group.FullPath, "", nil
+	} else if project != nil {
+		if !allowPrivate && project.Visibility != internGitlab.PublicVisibility {
+			return "", "", fmt.Errorf(
+				"you can't add a private project on this Mattermost instance: %w",
+				ErrPrivateResource,
+			)
+		}
+		return project.Namespace.FullPath, project.Path, nil
+	}
+	return "", "", ErrNotFound
 }

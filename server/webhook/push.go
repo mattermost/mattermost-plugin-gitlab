@@ -57,7 +57,11 @@ func (w *webhook) handleChannelPush(event *gitlab.PushEvent) ([]*HandleWebhook, 
 	}
 
 	toChannels := make([]string, 0)
-	subs := w.gitlabRetreiver.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
+	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
+		repo.Namespace,
+		projectPath(repo.Namespace, repo.PathWithNamespace),
+		repo.Visibility == gitlab.PublicVisibility,
+	)
 	for _, sub := range subs {
 		if !sub.Pushes() {
 			continue

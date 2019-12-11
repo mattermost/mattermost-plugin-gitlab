@@ -77,7 +77,11 @@ func (w *webhook) handleChannelIssue(event *gitlab.IssueEvent) ([]*HandleWebhook
 
 	if len(message) > 0 {
 		toChannels := make([]string, 0)
-		subs := w.gitlabRetreiver.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
+		subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
+			repo.Namespace,
+			projectPath(repo.Namespace, repo.PathWithNamespace),
+			repo.Visibility == gitlab.PublicVisibility,
+		)
 		for _, sub := range subs {
 			if !sub.Issues() {
 				continue
