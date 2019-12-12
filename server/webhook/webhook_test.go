@@ -2,7 +2,9 @@ package webhook
 
 import (
 	"fmt"
+	"testing"
 
+	"github.com/bmizerany/assert"
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
 )
 
@@ -36,4 +38,38 @@ func (*fakeWebhook) ParseGitlabUsernamesFromText(body string) []string {
 
 func (f *fakeWebhook) GetSubscribedChannelsForProject(namespace, project string, isPublicVisibility bool) []*subscription.Subscription {
 	return f.subs
+}
+
+type testDataNormalizeNamespacedProjectStr struct {
+	Title                  string
+	InputNamespace         string
+	InputPathWithNamespace string
+	ExpectedNamespace      string
+	ExpectedProject        string
+}
+
+var testDataNormalizeNamespacedProject = []testDataNormalizeNamespacedProjectStr{
+	{
+		Title:                  "project in group",
+		InputPathWithNamespace: "group/project",
+		ExpectedNamespace:      "group",
+		ExpectedProject:        "project",
+	},
+	{
+		Title:                  "project in subgroup",
+		InputPathWithNamespace: "group/subgroup/project",
+		ExpectedNamespace:      "group/subgroup",
+		ExpectedProject:        "project",
+	},
+}
+
+func TestNormalizeNamespacedProject(t *testing.T) {
+	t.Parallel()
+	for _, test := range testDataNormalizeNamespacedProject {
+		t.Run(test.Title, func(t *testing.T) {
+			namespace, project := normalizeNamespacedProject(test.InputPathWithNamespace)
+			assert.Equal(t, test.ExpectedNamespace, namespace)
+			assert.Equal(t, test.ExpectedProject, project)
+		})
+	}
 }

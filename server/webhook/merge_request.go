@@ -77,9 +77,9 @@ func (w *webhook) handleChannelMergeRequest(event *gitlab.MergeEvent) ([]*Handle
 
 	if len(message) > 0 {
 		toChannels := make([]string, 0)
+		namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
 		subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
-			repo.Namespace,
-			projectPath(repo.Namespace, repo.PathWithNamespace),
+			namespace, project,
 			repo.Visibility == gitlab.PublicVisibility,
 		)
 		for _, sub := range subs {

@@ -134,6 +134,18 @@ func labelToString(a []gitlab.Label) string {
 	return strings.Join(names, ", ")
 }
 
-func projectPath(namespace, pathWithNamespace string) string {
-	return strings.TrimPrefix(pathWithNamespace, namespace+"/")
+// normalizeNamespacedProject converts data from web hooks to format expected by our plugin.
+//
+// The difference is that this plugin requires separate namespace and project path parts.
+// However in web hooks only pathWithNamespace is available.
+// In other words,
+// group/subgroup/project
+// becomes
+// namespace = group/subgroup; project = project
+func normalizeNamespacedProject(pathWithNamespace string) (namespace string, project string) {
+	splits := strings.Split(pathWithNamespace, "/")
+	if len(splits) < 2 {
+		return "", ""
+	}
+	return strings.Join(splits[:len(splits)-1], "/"), splits[len(splits)-1]
 }

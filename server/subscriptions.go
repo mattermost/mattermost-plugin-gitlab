@@ -125,7 +125,7 @@ func (p *Plugin) GetSubscribedChannelsForProject(
 	subs, err := p.GetSubscriptions()
 	if err != nil {
 		p.API.LogError("can't retrieve subscriptions", "err", err.Error())
-		return subsForRepo
+		return nil
 	}
 
 	// Add subscriptions for the specific repo

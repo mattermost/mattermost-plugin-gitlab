@@ -48,9 +48,9 @@ func (w *webhook) handleChannelTag(event *gitlab.TagEvent) ([]*HandleWebhook, er
 	message := fmt.Sprintf("[%s](%s) New tag [%s](%s) by [%s](%s): %s", repo.PathWithNamespace, repo.WebURL, tagName, event.Commits[0].URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Message)
 
 	toChannels := make([]string, 0)
+	namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
-		repo.Namespace,
-		projectPath(repo.Namespace, repo.PathWithNamespace),
+		namespace, project,
 		repo.Visibility == gitlab.PublicVisibility,
 	)
 	for _, sub := range subs {

@@ -133,12 +133,15 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 		namespace, project, err := p.GitlabClient.
 			ResolveNamespaceAndProject(info, fullPath, config.EnablePrivateRepo)
 		if err != nil {
-			if !errors.Is(err, gitlab.ErrNotFound) {
-				p.API.LogError(
-					"unable to resolve subscription namespace and project name",
-					"err", err.Error(),
-				)
+			if errors.Is(err, gitlab.ErrNotFound) {
+				return p.getCommandResponse(args, "Resource with such path is not found."), nil
+			} else if errors.Is(err, gitlab.ErrPrivateResource) {
+				return p.getCommandResponse(args, "Requested resource is private."), nil
 			}
+			p.API.LogError(
+				"unable to resolve subscription namespace and project name",
+				"err", err.Error(),
+			)
 			return p.getCommandResponse(args, err.Error()), nil
 		}
 

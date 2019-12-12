@@ -65,9 +65,9 @@ func (w *webhook) handleChannelPipeline(event *gitlab.PipelineEvent) ([]*HandleW
 	}
 
 	toChannels := make([]string, 0)
+	namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
-		repo.Namespace,
-		projectPath(repo.Namespace, repo.PathWithNamespace),
+		namespace, project,
 		repo.Visibility == gitlab.PublicVisibility,
 	)
 	for _, sub := range subs {
