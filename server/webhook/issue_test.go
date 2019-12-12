@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
@@ -30,6 +31,23 @@ var testDataIssue = []testDataIssueStr{
 			From:       "root",
 		}, {
 			Message:    "#### test new issue\n##### [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)\n# new issue by [root](http://my.gitlab.com/root) on [2019-04-06 21:03:04 UTC](http://localhost:3000/manland/webhook/issues/1)\n\nhello world!",
+			ToUsers:    []string{},
+			ToChannels: []string{"channel1"},
+			From:       "root",
+		}},
+	}, {
+		testTitle: "root open issue with manland assignee and display in channel1 (subgroup)",
+		fixture:   strings.Replace(NewIssue, "manland/webhook", "manland/subgroup/webhook", -1),
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "issues", Repository: "manland/subgroup/webhook"},
+		}),
+		res: []*HandleWebhook{{
+			Message:    "[root](http://my.gitlab.com/root) assigned you to issue [manland/subgroup/webhook#1](http://localhost:3000/manland/subgroup/webhook/issues/1)",
+			ToUsers:    []string{"manland"},
+			ToChannels: []string{},
+			From:       "root",
+		}, {
+			Message:    "#### test new issue\n##### [manland/subgroup/webhook#1](http://localhost:3000/manland/subgroup/webhook/issues/1)\n# new issue by [root](http://my.gitlab.com/root) on [2019-04-06 21:03:04 UTC](http://localhost:3000/manland/subgroup/webhook/issues/1)\n\nhello world!",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "root",

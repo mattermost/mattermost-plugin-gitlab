@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
@@ -30,6 +31,23 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			From:       "root",
 		}, {
 			Message:    "#### Master\n##### [manland/webhook#4](http://localhost:3000/manland/webhook/merge_requests/4) new merge-request by [root](http://my.gitlab.com/root) on [2019-04-03 21:07:32 UTC](http://localhost:3000/manland/webhook/merge_requests/4)\n\ntest open merge request",
+			ToUsers:    []string{},
+			ToChannels: []string{"channel1"},
+			From:       "root",
+		}},
+	}, {
+		testTitle: "root open merge request for manland and display in channel1 (subgroup)",
+		fixture:   strings.Replace(OpenMergeRequest, "manland/webhook", "manland/subgroup/webhook", -1),
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/subgroup/webhook"},
+		}),
+		res: []*HandleWebhook{{
+			Message:    "[root](http://my.gitlab.com/root) requested your review on [manland/subgroup/webhook#4](http://localhost:3000/manland/subgroup/webhook/merge_requests/4)",
+			ToUsers:    []string{"manland"},
+			ToChannels: []string{},
+			From:       "root",
+		}, {
+			Message:    "#### Master\n##### [manland/subgroup/webhook#4](http://localhost:3000/manland/subgroup/webhook/merge_requests/4) new merge-request by [root](http://my.gitlab.com/root) on [2019-04-03 21:07:32 UTC](http://localhost:3000/manland/subgroup/webhook/merge_requests/4)\n\ntest open merge request",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "root",
