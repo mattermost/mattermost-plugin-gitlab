@@ -115,7 +115,7 @@ func (g *gitlab) GetUnreads(user *GitlabUserInfo) ([]*internGitlab.Todo, error) 
 	if err != nil {
 		return nil, errors.Wrap(err, "can't list todo in GitLab api")
 	}
-	notifications := make([]*internGitlab.Todo, len(result))
+	notifications := make([]*internGitlab.Todo, 0, len(result))
 	for _, todo := range result {
 		if g.checkGroup(strings.TrimSuffix(todo.Project.PathWithNamespace, "/"+todo.Project.Path)) != nil {
 			continue

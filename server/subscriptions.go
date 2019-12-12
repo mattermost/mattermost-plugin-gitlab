@@ -144,7 +144,7 @@ func (p *Plugin) GetSubscribedChannelsForProject(
 		return nil
 	}
 
-	subsToReturn := make([]*subscription.Subscription, len(subsForRepo))
+	subsToReturn := make([]*subscription.Subscription, 0, len(subsForRepo))
 	for _, sub := range subsForRepo {
 		if !isPublicVisibility && !p.permissionToProject(sub.CreatorID, namespace, project) {
 			continue
