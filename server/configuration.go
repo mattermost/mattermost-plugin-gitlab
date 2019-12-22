@@ -122,7 +122,7 @@ func (p *Plugin) OnConfigurationChange() error {
 		return err
 	}
 
-	p.GitlabClient = gitlab.New(configuration.GitlabURL, configuration.GitlabGroup, p.checkGroup)
+	p.GitlabClient = gitlab.New(configuration.GitlabURL, configuration.GitlabGroup, p.isNamespaceAllowed)
 
 	return nil
 }

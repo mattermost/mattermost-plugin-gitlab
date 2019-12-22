@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/manland/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-server/plugin"
 
 	"github.com/mattermost/mattermost-server/model"
@@ -56,18 +58,20 @@ func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string) *model
 	return &model.CommandResponse{}
 }
 
-func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
-	split := strings.Fields(args.Command)
-	command := split[0]
-	parameters := []string{}
-	action := ""
+func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+
+	var (
+		split      = strings.Fields(args.Command)
+		command    = split[0]
+		action     string
+		parameters []string
+	)
 	if len(split) > 1 {
 		action = split[1]
 	}
 	if len(split) > 2 {
 		parameters = split[2:]
 	}
-
 	if command != "/gitlab" {
 		return &model.CommandResponse{}, nil
 	}
@@ -124,36 +128,55 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 			features = strings.Join(parameters[1:], " ")
 		}
 
-		_, owner, repo := parseOwnerAndRepo(parameters[0], config.GitlabURL)
-		if repo == "" {
-			if err := p.SubscribeGroup(info, owner, args.ChannelId, features); err != nil {
-				return p.getCommandResponse(args, err.Error()), nil
+		// Resolve namespace and project name
+		fullPath := normalizePath(parameters[0], config.GitlabURL)
+		namespace, project, err := p.GitlabClient.
+			ResolveNamespaceAndProject(info, fullPath, config.EnablePrivateRepo)
+		if err != nil {
+			if errors.Is(err, gitlab.ErrNotFound) {
+				return p.getCommandResponse(args, "Resource with such path is not found."), nil
+			} else if errors.Is(err, gitlab.ErrPrivateResource) {
+				return p.getCommandResponse(args, "Requested resource is private."), nil
 			}
-
-			return p.getCommandResponse(args, fmt.Sprintf("Successfully subscribed to organization %s.", owner)), nil
-		}
-
-		if err := p.Subscribe(info, owner, repo, args.ChannelId, features); err != nil {
-			p.API.LogError("can't subscribe", "err", err.Error())
+			p.API.LogError(
+				"unable to resolve subscription namespace and project name",
+				"err", err.Error(),
+			)
 			return p.getCommandResponse(args, err.Error()), nil
 		}
 
-		return p.getCommandResponse(args, fmt.Sprintf("Successfully subscribed to %s.", repo)), nil
+		// Create subscription
+		if err := p.Subscribe(info, namespace, project, args.ChannelId, features); err != nil {
+			p.API.LogError(
+				"failed to subscribe",
+				"namespace", namespace,
+				"project", project,
+				"err", err.Error(),
+			)
+			return p.getCommandResponse(args, err.Error()), nil
+		}
+
+		return p.getCommandResponse(
+			args,
+			fmt.Sprintf("Successfully subscribed to %s.", fullPath),
+		), nil
+
 	case "unsubscribe":
+
 		if len(parameters) == 0 {
 			return p.getCommandResponse(args, "Please specify a repository."), nil
 		}
 
-		repo := parameters[0]
-
-		if deleted, err := p.Unsubscribe(args.ChannelId, repo); err != nil {
+		fullPath := normalizePath(parameters[0], config.GitlabURL)
+		if deleted, err := p.Unsubscribe(args.ChannelId, fullPath); err != nil {
 			p.API.LogError("can't unsubscribe channel in command", "err", err.Error())
 			return p.getCommandResponse(args, "Encountered an error trying to unsubscribe. Please try again."), nil
 		} else if !deleted {
 			return p.getCommandResponse(args, "Subscription not found, please check repository name."), nil
 		}
 
-		return p.getCommandResponse(args, fmt.Sprintf("Succesfully unsubscribed from %s.", repo)), nil
+		return p.getCommandResponse(args, fmt.Sprintf("Succesfully unsubscribed from %s.", fullPath)), nil
+
 	case "disconnect":
 		p.disconnectGitlabAccount(args.UserId)
 		return p.getCommandResponse(args, "Disconnected your GitLab account."), nil

@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
@@ -25,6 +26,19 @@ var testDataTag = []testDataTagStr{
 		}),
 		res: []*HandleWebhook{{
 			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) New tag [tag1](http://localhost:3000/manland/webhook/commit/c30217b62542c586fdbadc7b5ee762bfdca10663) by [manland](http://my.gitlab.com/manland): Really beatiful tag",
+			ToUsers:    []string{}, // No DM because user know he has created a tag
+			ToChannels: []string{"channel1"},
+			From:       "manland",
+		}},
+	},
+	{
+		testTitle: "manland create a tag (subgroup)",
+		fixture:   strings.Replace(SimpleTag, "manland/webhook", "manland/subgroup/webhook", -1),
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "tag", Repository: "manland/subgroup/webhook"},
+		}),
+		res: []*HandleWebhook{{
+			Message:    "[manland/subgroup/webhook](http://localhost:3000/manland/subgroup/webhook) New tag [tag1](http://localhost:3000/manland/subgroup/webhook/commit/c30217b62542c586fdbadc7b5ee762bfdca10663) by [manland](http://my.gitlab.com/manland): Really beatiful tag",
 			ToUsers:    []string{}, // No DM because user know he has created a tag
 			ToChannels: []string{"channel1"},
 			From:       "manland",
