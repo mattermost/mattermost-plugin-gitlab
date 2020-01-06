@@ -67,17 +67,24 @@ func (w *webhook) handleChannelMergeRequest(event *gitlab.MergeEvent) ([]*Handle
 
 	message := ""
 
-	if pr.Action == "open" {
+	switch pr.Action {
+	case "open":
 		message = fmt.Sprintf("#### %s\n##### [%s#%v](%s) new merge-request by [%s](%s) on [%s](%s)\n\n%s", pr.Title, repo.PathWithNamespace, pr.IID, pr.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), pr.CreatedAt, pr.URL, pr.Description)
-	} else if pr.Action == "merge" {
+	case "merge":
 		message = fmt.Sprintf("[%s] Merge request [#%v %s](%s) was merged by [%s](%s)", repo.PathWithNamespace, pr.IID, pr.Title, pr.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
-	} else if pr.Action == "close" {
+	case "close":
 		message = fmt.Sprintf("[%s] Merge request [#%v %s](%s) was closed by [%s](%s)", repo.PathWithNamespace, pr.IID, pr.Title, pr.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
+	case "reopen":
+		message = fmt.Sprintf("[%s] Merge request [#%v %s](%s) was reopened by [%s](%s)", repo.PathWithNamespace, pr.IID, pr.Title, pr.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
 	}
 
 	if len(message) > 0 {
 		toChannels := make([]string, 0)
-		subs := w.gitlabRetreiver.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
+		namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
+		subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
+			namespace, project,
+			repo.Visibility == gitlab.PublicVisibility,
+		)
 		for _, sub := range subs {
 			if !sub.Merges() {
 				continue

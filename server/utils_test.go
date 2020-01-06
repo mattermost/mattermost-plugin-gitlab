@@ -34,31 +34,27 @@ func TestParseGitlabUsernamesFromText(t *testing.T) {
 	}
 }
 
-func TestParseOwnerAndRepo(t *testing.T) {
+func TestNormalizePath(t *testing.T) {
 	tcs := []struct {
-		Full          string
-		BaseURL       string
-		ExpectedOwner string
-		ExpectedRepo  string
+		Full     string
+		BaseURL  string
+		Expected string
 	}{
-		{Full: "mattermost", BaseURL: "", ExpectedOwner: "mattermost", ExpectedRepo: ""},
-		{Full: "mattermost", BaseURL: "https://gitlab.com/", ExpectedOwner: "mattermost", ExpectedRepo: ""},
-		{Full: "https://gitlab.com/mattermost", BaseURL: "", ExpectedOwner: "mattermost", ExpectedRepo: ""},
-		{Full: "https://gitlab.com/mattermost", BaseURL: "https://gitlab.com/", ExpectedOwner: "mattermost", ExpectedRepo: ""},
-		{Full: "mattermost/mattermost-server", BaseURL: "", ExpectedOwner: "mattermost", ExpectedRepo: "mattermost-server"},
-		{Full: "mattermost/mattermost-server", BaseURL: "https://gitlab.com/", ExpectedOwner: "mattermost", ExpectedRepo: "mattermost-server"},
-		{Full: "https://gitlab.com/mattermost/mattermost-server", BaseURL: "", ExpectedOwner: "mattermost", ExpectedRepo: "mattermost-server"},
-		{Full: "https://gitlab.com/mattermost/mattermost-server", BaseURL: "https://gitlab.com/", ExpectedOwner: "mattermost", ExpectedRepo: "mattermost-server"},
-		{Full: "", BaseURL: "", ExpectedOwner: "", ExpectedRepo: ""},
-		{Full: "mattermost/mattermost/invalid_repo_url", BaseURL: "", ExpectedOwner: "", ExpectedRepo: ""},
-		{Full: "https://gitlab.com/mattermost/mattermost/invalid_repo_url", BaseURL: "", ExpectedOwner: "", ExpectedRepo: ""},
-		{Full: "http://127.0.0.1:3000/manland/personal", BaseURL: "http://127.0.0.1:3000", ExpectedOwner: "manland", ExpectedRepo: "personal"},
+		{Full: "mattermost", BaseURL: "", Expected: "mattermost"},
+		{Full: "mattermost", BaseURL: "https://gitlab.com/", Expected: "mattermost"},
+		{Full: "https://gitlab.com/mattermost", BaseURL: "", Expected: "mattermost"},
+		{Full: "https://gitlab.com/mattermost", BaseURL: "https://gitlab.com/", Expected: "mattermost"},
+		{Full: "mattermost/mattermost-server", BaseURL: "", Expected: "mattermost/mattermost-server"},
+		{Full: "mattermost/mattermost-server", BaseURL: "https://gitlab.com/", Expected: "mattermost/mattermost-server"},
+		{Full: "https://gitlab.com/mattermost/mattermost-server", BaseURL: "", Expected: "mattermost/mattermost-server"},
+		{Full: "https://gitlab.com/mattermost/mattermost-server", BaseURL: "https://gitlab.com/", Expected: "mattermost/mattermost-server"},
+		{Full: "", BaseURL: "", Expected: ""},
+		{Full: "group/subgroup/project", BaseURL: "", Expected: "group/subgroup/project"},
+		{Full: "https://gitlab.com/group/subgroup/project", BaseURL: "", Expected: "group/subgroup/project"},
+		{Full: "http://127.0.0.1:3000/manland/personal", BaseURL: "http://127.0.0.1:3000", Expected: "manland/personal"},
 	}
 
 	for _, tc := range tcs {
-		_, owner, repo := parseOwnerAndRepo(tc.Full, tc.BaseURL)
-
-		assert.Equal(t, owner, tc.ExpectedOwner)
-		assert.Equal(t, repo, tc.ExpectedRepo)
+		assert.Equal(t, tc.Expected, normalizePath(tc.Full, tc.BaseURL))
 	}
 }

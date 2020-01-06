@@ -42,6 +42,10 @@ func (w *webhook) handleChannelPush(event *gitlab.PushEvent) ([]*HandleWebhook, 
 	repo := event.Project
 	res := []*HandleWebhook{}
 
+	if event.TotalCommitsCount == 0 {
+		return nil, nil
+	}
+
 	var message string
 	if event.TotalCommitsCount == 1 {
 		message = fmt.Sprintf("[%s](%s) has pushed %d commit to [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.TotalCommitsCount, event.Project.PathWithNamespace, event.Project.WebURL)
@@ -49,11 +53,15 @@ func (w *webhook) handleChannelPush(event *gitlab.PushEvent) ([]*HandleWebhook, 
 		message = fmt.Sprintf("[%s](%s) has pushed %d commits to [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.TotalCommitsCount, event.Project.PathWithNamespace, event.Project.WebURL)
 	}
 	for _, commit := range event.Commits {
-		message += fmt.Sprintf("\n- [%s](%s)", commit.Message, commit.URL)
+		message += fmt.Sprintf("\n%s[%s](%s)", commit.Message, "View Commit", commit.URL)
 	}
 
 	toChannels := make([]string, 0)
-	subs := w.gitlabRetreiver.GetSubscribedChannelsForRepository(repo.PathWithNamespace, repo.Visibility == gitlab.PublicVisibility)
+	namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
+	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
+		namespace, project,
+		repo.Visibility == gitlab.PublicVisibility,
+	)
 	for _, sub := range subs {
 		if !sub.Pushes() {
 			continue

@@ -17,8 +17,8 @@ type GitlabRetreiver interface {
 	GetUsernameByID(id int) string
 	// ParseGitlabUsernamesFromText from a text return an array of username
 	ParseGitlabUsernamesFromText(text string) []string
-	// GetSubscribedChannelsForRepository return all subscription for this repository
-	GetSubscribedChannelsForRepository(repoWithNamespace string, isPublicVisibility bool) []*subscription.Subscription
+	// GetSubscribedChannelsForProject returns all subscriptions for given project.
+	GetSubscribedChannelsForProject(namespace, project string, isPublicVisibility bool) []*subscription.Subscription
 }
 
 type HandleWebhook struct {
@@ -132,4 +132,20 @@ func labelToString(a []gitlab.Label) string {
 		names[index] = l.Name
 	}
 	return strings.Join(names, ", ")
+}
+
+// normalizeNamespacedProject converts data from web hooks to format expected by our plugin.
+//
+// The difference is that this plugin requires separate namespace and project path parts.
+// However in web hooks only pathWithNamespace is available.
+// In other words,
+// group/subgroup/project
+// becomes
+// namespace = group/subgroup; project = project
+func normalizeNamespacedProject(pathWithNamespace string) (namespace string, project string) {
+	splits := strings.Split(pathWithNamespace, "/")
+	if len(splits) < 2 {
+		return "", ""
+	}
+	return strings.Join(splits[:len(splits)-1], "/"), splits[len(splits)-1]
 }

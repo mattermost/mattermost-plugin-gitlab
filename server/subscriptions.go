@@ -3,12 +3,10 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
-	"strings"
+	"errors"
 
 	"github.com/manland/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -19,40 +17,23 @@ type Subscriptions struct {
 	Repositories map[string][]*subscription.Subscription
 }
 
-func (p *Plugin) Subscribe(info *gitlab.GitlabUserInfo, owner, repo, channelID, features string) error {
-	if owner == "" {
-		return fmt.Errorf("Invalid repository")
-	}
+func (p *Plugin) Subscribe(info *gitlab.GitlabUserInfo, namespace, project, channelID, features string) error {
 
-	if err := p.checkGroup(owner); err != nil {
+	if err := p.isNamespaceAllowed(namespace); err != nil {
 		return err
 	}
 
-	exist, err := p.GitlabClient.Exist(info, owner, repo, p.getConfiguration().EnablePrivateRepo)
-	if !exist || err != nil {
-		if err != nil {
-			p.API.LogError(fmt.Sprintf("Unable to retreive informations for %s", fullNameFromOwnerAndRepo(owner, repo)), "err", err.Error())
-		}
-		return fmt.Errorf("Unable to retreive informations for %s", fullNameFromOwnerAndRepo(owner, repo))
-	}
-
-	sub, err := subscription.New(channelID, info.UserID, features, fullNameFromOwnerAndRepo(owner, repo))
+	fullPath := fullPathFromNamespaceAndProject(namespace, project)
+	sub, err := subscription.New(channelID, info.UserID, features, fullPath)
 	if err != nil {
 		return err
 	}
 
-	if err := p.AddSubscription(fullNameFromOwnerAndRepo(owner, repo), sub); err != nil {
+	if err := p.AddSubscription(fullPath, sub); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (p *Plugin) SubscribeGroup(info *gitlab.GitlabUserInfo, org, channelID, features string) error {
-	if org == "" {
-		return fmt.Errorf("Invalid group")
-	}
-	return p.Subscribe(info, org, "", channelID, features)
 }
 
 func (p *Plugin) GetSubscriptionsByChannel(channelID string) ([]*subscription.Subscription, error) {
@@ -73,13 +54,14 @@ func (p *Plugin) GetSubscriptionsByChannel(channelID string) ([]*subscription.Su
 	return filteredSubs, nil
 }
 
-func (p *Plugin) AddSubscription(repo string, sub *subscription.Subscription) error {
+func (p *Plugin) AddSubscription(fullPath string, sub *subscription.Subscription) error {
+
 	subs, err := p.GetSubscriptions()
 	if err != nil {
 		return err
 	}
 
-	repoSubs := subs.Repositories[repo]
+	repoSubs := subs.Repositories[fullPath]
 	if repoSubs == nil {
 		repoSubs = []*subscription.Subscription{sub}
 	} else {
@@ -97,7 +79,7 @@ func (p *Plugin) AddSubscription(repo string, sub *subscription.Subscription) er
 		}
 	}
 
-	subs.Repositories[repo] = repoSubs
+	subs.Repositories[fullPath] = repoSubs
 	return p.StoreSubscriptions(subs)
 }
 
@@ -132,35 +114,39 @@ func (p *Plugin) StoreSubscriptions(s *Subscriptions) error {
 	return nil
 }
 
-func (p *Plugin) GetSubscribedChannelsForRepository(fullNameOwnerAndRepo string, repoPublic bool) []*subscription.Subscription {
-	group := strings.Split(fullNameOwnerAndRepo, "/")[0]
-	subsForRepo := []*subscription.Subscription{}
+func (p *Plugin) GetSubscribedChannelsForProject(
+	namespace string,
+	project string,
+	isPublicVisibility bool,
+) []*subscription.Subscription {
+
+	var subsForRepo []*subscription.Subscription
 
 	subs, err := p.GetSubscriptions()
 	if err != nil {
 		p.API.LogError("can't retrieve subscriptions", "err", err.Error())
-		return subsForRepo
+		return nil
 	}
 
 	// Add subscriptions for the specific repo
-	if subs.Repositories[fullNameOwnerAndRepo] != nil {
-		subsForRepo = append(subsForRepo, subs.Repositories[fullNameOwnerAndRepo]...)
+	fullPath := fullPathFromNamespaceAndProject(namespace, project)
+	if subs.Repositories[fullPath] != nil {
+		subsForRepo = append(subsForRepo, subs.Repositories[fullPath]...)
 	}
 
-	// Add subscriptions for the organization
-	groupKey := fullNameFromOwnerAndRepo(group, "")
-	if subs.Repositories[groupKey] != nil {
-		subsForRepo = append(subsForRepo, subs.Repositories[groupKey]...)
+	// Add subscriptions for the namespace
+	namespacePath := fullPathFromNamespaceAndProject(namespace, "")
+	if namespacePath != fullPath && subs.Repositories[namespacePath] != nil {
+		subsForRepo = append(subsForRepo, subs.Repositories[namespacePath]...)
 	}
 
 	if len(subsForRepo) == 0 {
 		return nil
 	}
 
-	subsToReturn := []*subscription.Subscription{}
-
+	subsToReturn := make([]*subscription.Subscription, 0, len(subsForRepo))
 	for _, sub := range subsForRepo {
-		if !repoPublic && !p.permissionToRepo(sub.CreatorID, fullNameOwnerAndRepo) {
+		if !isPublicVisibility && !p.permissionToProject(sub.CreatorID, namespace, project) {
 			continue
 		}
 		subsToReturn = append(subsToReturn, sub)
@@ -169,48 +155,50 @@ func (p *Plugin) GetSubscribedChannelsForRepository(fullNameOwnerAndRepo string,
 	return subsToReturn
 }
 
-// Unsubscribe deletes the link between channelID and repo
-// returns true if repo was found, else false
-func (p *Plugin) Unsubscribe(channelID string, repo string) (bool, error) {
-	config := p.getConfiguration()
+// Unsubscribe deletes the link between namespace/project and channelID.
+// Returns true if subscription was found, false otherwise.
+func (p *Plugin) Unsubscribe(channelID string, fullPath string) (bool, error) {
 
-	if repo == "" {
-		return false, errors.New("Invalid repository")
+	if fullPath == "" {
+		return false, errors.New("invalid repository")
 	}
-
-	_, owner, project := parseOwnerAndRepo(repo, config.GitlabURL)
-	repo = fullNameFromOwnerAndRepo(owner, project)
 
 	subs, err := p.GetSubscriptions()
 	if err != nil {
 		return false, err
 	}
 
-	repoSubs := subs.Repositories[repo]
-	if repoSubs == nil {
+	var removed bool
+
+	// We don't know whether fullPath is a namespace or project, so we have to check both cases
+	for _, path := range []string{fullPath, fullPath + "/"} {
+
+		pathSubs := subs.Repositories[path]
+		if pathSubs == nil {
+			continue
+		}
+
+		pathRemoved := false
+		for index, sub := range pathSubs {
+			if sub.ChannelID == channelID {
+				pathSubs = append(pathSubs[:index], pathSubs[index+1:]...)
+				pathRemoved = true
+				break
+			}
+		}
+
+		if pathRemoved {
+			if len(pathSubs) > 0 {
+				subs.Repositories[path] = pathSubs
+			} else {
+				delete(subs.Repositories, path)
+			}
+			removed = true
+		}
+	}
+
+	if !removed {
 		return false, nil
 	}
-
-	removed := false
-	for index, sub := range repoSubs {
-		if sub.ChannelID == channelID {
-			repoSubs = append(repoSubs[:index], repoSubs[index+1:]...)
-			removed = true
-			break
-		}
-	}
-
-	if removed {
-		if len(repoSubs) > 0 {
-			subs.Repositories[repo] = repoSubs
-		} else {
-			delete(subs.Repositories, repo)
-		}
-		if err := p.StoreSubscriptions(subs); err != nil {
-			return false, err
-		}
-		return true, nil
-	}
-
-	return false, nil
+	return true, p.StoreSubscriptions(subs)
 }

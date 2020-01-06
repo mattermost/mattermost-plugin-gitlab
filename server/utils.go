@@ -78,25 +78,16 @@ func decrypt(key []byte, text string) (string, error) {
 	return string(unpadMsg), nil
 }
 
-func parseOwnerAndRepo(full, baseURL string) (string, string, string) {
+// normalizePath is responsible for parsing GitLab project URL leaving only <GROUP>/<SUBGROUP>/<REPO> components.
+func normalizePath(full, baseURL string) string {
+
 	if baseURL == "" {
 		baseURL = "https://gitlab.com/"
 	} else if !strings.HasSuffix(baseURL, "/") {
 		baseURL = baseURL + "/"
 	}
-	full = strings.TrimSuffix(strings.TrimSpace(strings.Replace(full, baseURL, "", 1)), "/")
-	splitStr := strings.Split(full, "/")
 
-	if len(splitStr) == 1 {
-		owner := splitStr[0]
-		return owner, owner, ""
-	} else if len(splitStr) != 2 {
-		return "", "", ""
-	}
-	owner := splitStr[0]
-	repo := splitStr[1]
-
-	return fmt.Sprintf("%s/%s", owner, repo), owner, repo
+	return strings.TrimSuffix(strings.TrimSpace(strings.Replace(full, baseURL, "", 1)), "/")
 }
 
 func parseGitlabUsernamesFromText(text string) []string {
@@ -128,6 +119,6 @@ func parseGitlabUsernamesFromText(text string) []string {
 	return usernames
 }
 
-func fullNameFromOwnerAndRepo(owner, repo string) string {
-	return fmt.Sprintf("%s/%s", owner, repo)
+func fullPathFromNamespaceAndProject(namespace, project string) string {
+	return fmt.Sprintf("%s/%s", namespace, project)
 }
