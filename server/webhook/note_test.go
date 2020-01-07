@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
@@ -33,6 +34,24 @@ var testDataNote = []testDataNoteStr{
 			From:       "manland",
 		}, {
 			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) New comment by [manland](http://my.gitlab.com/manland) on [#1 test new issue](http://localhost:3000/manland/webhook/issues/1#note_997):\n\ncoucou3",
+			ToUsers:    []string{},
+			ToChannels: []string{"channel1"},
+			From:       "manland",
+		}},
+	}, {
+		testTitle: "manland comment issue of root (subgroup)",
+		kind:      "issue",
+		fixture:   strings.Replace(IssueComment, "manland/webhook", "manland/subgroup/webhook", -1),
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "issue_comments", Repository: "manland/subgroup/webhook"},
+		}),
+		res: []*HandleWebhook{{
+			Message:    "[manland](http://my.gitlab.com/manland) commented on your issue [manland/subgroup/webhook#1](http://localhost:3000/manland/subgroup/webhook/issues/1#note_997)",
+			ToUsers:    []string{"root"},
+			ToChannels: []string{},
+			From:       "manland",
+		}, {
+			Message:    "[manland/subgroup/webhook](http://localhost:3000/manland/subgroup/webhook) New comment by [manland](http://my.gitlab.com/manland) on [#1 test new issue](http://localhost:3000/manland/subgroup/webhook/issues/1#note_997):\n\ncoucou3",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "manland",

@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
@@ -32,6 +33,18 @@ var testDataPipeline = []testDataPipelineStr{
 		}),
 		res: []*HandleWebhook{{
 			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) New pipeline by [root](http://my.gitlab.com/root) for [Start gitlab-ci](http://localhost:3000/manland/webhook/commit/ec0a1bcd4580bfec3495674e412f4834ee2c2550)",
+			ToUsers:    []string{}, // No DM because user know he has launch a pipeline
+			ToChannels: []string{"channel1"},
+			From:       "root",
+		}},
+	}, {
+		testTitle: "root start a pipeline in running (subgroup)",
+		fixture:   strings.Replace(PipelineRun, "manland/webhook", "manland/subgroup/webhook", -1),
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "pipeline", Repository: "manland/subgroup/webhook"},
+		}),
+		res: []*HandleWebhook{{
+			Message:    "[manland/subgroup/webhook](http://localhost:3000/manland/subgroup/webhook) New pipeline by [root](http://my.gitlab.com/root) for [Start gitlab-ci](http://localhost:3000/manland/subgroup/webhook/commit/ec0a1bcd4580bfec3495674e412f4834ee2c2550)",
 			ToUsers:    []string{}, // No DM because user know he has launch a pipeline
 			ToChannels: []string{"channel1"},
 			From:       "root",

@@ -265,7 +265,7 @@ func (p *Plugin) GetToDo(user *gitlab.GitlabUserInfo) (string, error) {
 	notificationCount := 0
 	notificationContent := ""
 	for _, n := range unreads {
-		if p.checkGroup(n.Project.NameWithNamespace) != nil {
+		if p.isNamespaceAllowed(n.Project.NameWithNamespace) != nil {
 			continue
 		}
 		notificationCount++
@@ -318,12 +318,11 @@ func (p *Plugin) GetToDo(user *gitlab.GitlabUserInfo) (string, error) {
 	return text, nil
 }
 
-func (p *Plugin) checkGroup(projectNameWithGroup string) error {
-	config := p.getConfiguration()
+func (p *Plugin) isNamespaceAllowed(namespace string) error {
 
-	group := strings.TrimSpace(config.GitlabGroup)
-	if group != "" && group != strings.Split(projectNameWithGroup, "/")[0] {
-		return fmt.Errorf("Only repositories in the %v group are supported", config.GitlabGroup)
+	allowedNamespace := strings.TrimSpace(p.getConfiguration().GitlabGroup)
+	if allowedNamespace != "" && allowedNamespace != namespace {
+		return fmt.Errorf("only repositories in the %s namespace are allowed", allowedNamespace)
 	}
 
 	return nil

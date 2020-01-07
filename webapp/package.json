@@ -9,13 +9,13 @@
         "fix": "eslint --ignore-pattern node_modules --ignore-pattern dist --ext .js --ext .jsx . --quiet --fix"
     },
     "dependencies": {
-        "mattermost-redux": "5.12.0",
+        "core-js": "3.1.4",
+        "mattermost-redux": "github:mattermost/mattermost-redux#b56e7e3a6f7f5de281fd3541eefec9345a8bbc89",
         "prop-types": "15.7.2",
-        "react": "^16.8.6",
-        "react-bootstrap": "^0.32.4",
-        "react-redux": "^5.1.1",
-        "redux": "^4.0.1",
-        "superagent": "5.1.0"
+        "react": "16.8.6",
+        "react-bootstrap": "0.32.4",
+        "react-redux": "5.1.1",
+        "redux": "4.0.1"
     },
     "devDependencies": {
         "@babel/cli": "7.5.0",

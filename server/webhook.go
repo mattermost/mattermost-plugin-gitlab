@@ -30,8 +30,12 @@ func (g *gitlabRetreiver) ParseGitlabUsernamesFromText(text string) []string {
 	return parseGitlabUsernamesFromText(text)
 }
 
-func (g *gitlabRetreiver) GetSubscribedChannelsForRepository(repoWithNamespace string, isPublicVisibility bool) []*subscription.Subscription {
-	return g.p.GetSubscribedChannelsForRepository(repoWithNamespace, isPublicVisibility)
+func (g *gitlabRetreiver) GetSubscribedChannelsForProject(
+	namespace string,
+	project string,
+	isPublicVisibility bool,
+) []*subscription.Subscription {
+	return g.p.GetSubscribedChannelsForProject(namespace, project, isPublicVisibility)
 }
 
 func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
@@ -108,7 +112,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if errCheckGroup := p.checkGroup(pathWithNamespace); errCheckGroup != nil {
+	if errCheckGroup := p.isNamespaceAllowed(pathWithNamespace); errCheckGroup != nil {
 		return
 	}
 
@@ -164,19 +168,13 @@ func (p *Plugin) sendRefreshIfNotAlreadySent(alreadySentRefresh map[string]bool,
 	return userMattermostID
 }
 
-func (p *Plugin) permissionToRepo(userID string, fullPath string) bool {
+func (p *Plugin) permissionToProject(userID, namespace, project string) bool {
+
 	if userID == "" {
 		return false
 	}
 
-	config := p.getConfiguration()
-	_, owner, repo := parseOwnerAndRepo(fullPath, config.GitlabURL)
-
-	if owner == "" {
-		return false
-	}
-
-	if err := p.checkGroup(fullPath); err != nil {
+	if err := p.isNamespaceAllowed(namespace); err != nil {
 		return false
 	}
 
@@ -185,9 +183,9 @@ func (p *Plugin) permissionToRepo(userID string, fullPath string) bool {
 		return false
 	}
 
-	if result, err := p.GitlabClient.GetProject(info, owner, repo); result == nil || err != nil {
+	if result, err := p.GitlabClient.GetProject(info, namespace, project); result == nil || err != nil {
 		if err != nil {
-			p.API.LogError("can't get project in webhook", "err", err.Error(), "project", owner+"/"+repo)
+			p.API.LogError("can't get project in webhook", "err", err.Error(), "project", namespace+"/"+project)
 		}
 		return false
 	}
