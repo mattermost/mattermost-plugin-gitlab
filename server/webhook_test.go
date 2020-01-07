@@ -8,8 +8,8 @@ import (
 
 	gitlabLib "github.com/xanzy/go-gitlab"
 	"github.com/manland/mattermost-plugin-gitlab/server/webhook"
-	"github.com/mattermost/mattermost-server/model"
-	"github.com/mattermost/mattermost-server/plugin/plugintest"
+	"github.com/mattermost/mattermost-server/v5/model"
+	"github.com/mattermost/mattermost-server/v5/plugin/plugintest"
 	"github.com/stretchr/testify/assert"
 )
 

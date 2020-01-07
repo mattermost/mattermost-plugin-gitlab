@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/bmizerany/assert"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
 )
 

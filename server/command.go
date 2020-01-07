@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/manland/mattermost-plugin-gitlab/server/gitlab"
-	"github.com/mattermost/mattermost-server/plugin"
 
-	"github.com/mattermost/mattermost-server/model"
+	"github.com/mattermost/mattermost-server/v5/model"
+	"github.com/mattermost/mattermost-server/v5/plugin"
 )
 
 const COMMAND_HELP = `* |/gitlab connect| - Connect your Mattermost account to your GitLab account

@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/manland/mattermost-plugin-gitlab/server/gitlab"
-	"github.com/mattermost/mattermost-server/model"
-	"github.com/mattermost/mattermost-server/plugin"
+	"github.com/mattermost/mattermost-server/v5/model"
+	"github.com/mattermost/mattermost-server/v5/plugin"
 
 	"golang.org/x/oauth2"
 )
