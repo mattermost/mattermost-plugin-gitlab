@@ -2,6 +2,9 @@
     "id": "com.github.manland.mattermost-plugin-gitlab",
     "name": "GitLab",
     "description": "GitLab plugin for Mattermost.",
+    "homepage_url": "https://github.com/mattermost/mattermost-plugin-gitlab",
+    "support_url": "https://github.com/mattermost/mattermost-plugin-gitlab/issues",
+    "icon_path": "assets/icon.svg",
     "version": "1.1.0",
     "min_server_version": "5.10.0",
     "server": {
