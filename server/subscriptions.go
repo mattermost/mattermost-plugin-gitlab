@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/manland/mattermost-plugin-gitlab/server/gitlab"
-	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
+	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
+	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
 
 const (

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/manland/mattermost-plugin-gitlab/server/gitlab"
+	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin"
@@ -33,6 +33,8 @@ const COMMAND_HELP = `* |/gitlab connect| - Connect your Mattermost account to y
   * |setting| can be "notifications" or "reminders"
   * |value| can be "on" or "off"`
 
+const webhookHowToURL = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
+
 func getCommand() *model.Command {
 	return &model.Command{
 		Trigger:          "gitlab",
@@ -58,6 +60,7 @@ func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string) *model
 	return &model.CommandResponse{}
 }
 
+//ExecuteCommand is the entrypoint for /gitlab commands. It returns a message to display to the user or an error.
 func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
 
 	var (
@@ -104,63 +107,9 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 
 	switch action {
 	case "subscribe":
-		features := "merges,issues,tag"
-
-		txt := ""
-		if len(parameters) == 0 {
-			return p.getCommandResponse(args, "Please specify a repository or 'list' command."), nil
-		} else if len(parameters) == 1 && parameters[0] == "list" {
-			subs, err := p.GetSubscriptionsByChannel(args.ChannelId)
-			if err != nil {
-				return p.getCommandResponse(args, err.Error()), nil
-			}
-
-			if len(subs) == 0 {
-				txt = "Currently there are no subscriptions in this channel"
-			} else {
-				txt = "### Subscriptions in this channel\n"
-			}
-			for _, sub := range subs {
-				txt += fmt.Sprintf("* `%s` - %s\n", strings.Trim(sub.Repository, "/"), sub.Features)
-			}
-			return p.getCommandResponse(args, txt), nil
-		} else if len(parameters) > 1 {
-			features = strings.Join(parameters[1:], " ")
-		}
-
-		// Resolve namespace and project name
-		fullPath := normalizePath(parameters[0], config.GitlabURL)
-		namespace, project, err := p.GitlabClient.
-			ResolveNamespaceAndProject(info, fullPath, config.EnablePrivateRepo)
-		if err != nil {
-			if errors.Is(err, gitlab.ErrNotFound) {
-				return p.getCommandResponse(args, "Resource with such path is not found."), nil
-			} else if errors.Is(err, gitlab.ErrPrivateResource) {
-				return p.getCommandResponse(args, "Requested resource is private."), nil
-			}
-			p.API.LogError(
-				"unable to resolve subscription namespace and project name",
-				"err", err.Error(),
-			)
-			return p.getCommandResponse(args, err.Error()), nil
-		}
-
-		// Create subscription
-		if err := p.Subscribe(info, namespace, project, args.ChannelId, features); err != nil {
-			p.API.LogError(
-				"failed to subscribe",
-				"namespace", namespace,
-				"project", project,
-				"err", err.Error(),
-			)
-			return p.getCommandResponse(args, err.Error()), nil
-		}
-
-		return p.getCommandResponse(
-			args,
-			fmt.Sprintf("Successfully subscribed to %s.", fullPath),
-		), nil
-
+		message := p.subscribeCommand(parameters, args.ChannelId, config, info)
+		response := p.getCommandResponse(args, message)
+		return response, nil
 	case "unsubscribe":
 
 		if len(parameters) == 0 {
@@ -175,7 +124,7 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 			return p.getCommandResponse(args, "Subscription not found, please check repository name."), nil
 		}
 
-		return p.getCommandResponse(args, fmt.Sprintf("Succesfully unsubscribed from %s.", fullPath)), nil
+		return p.getCommandResponse(args, fmt.Sprintf("Successfully unsubscribed from %s.", fullPath)), nil
 
 	case "disconnect":
 		p.disconnectGitlabAccount(args.UserId)
@@ -239,4 +188,87 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 	default:
 		return p.getCommandResponse(args, "Unknown action, please use `/gitlab help` to see all actions available."), nil
 	}
+}
+
+// SubscribeCommand proccess the /gitlab subscribe command.
+// It returns a message and handles all errors my including helpful information in the message
+func (p *Plugin) subscribeCommand(parameters []string, channelID string, config *configuration, info *gitlab.GitlabUserInfo) string {
+
+	features := "merges,issues,tag"
+
+	txt := ""
+	if len(parameters) == 0 {
+		return "Please specify a repository or 'list' command."
+	} else if len(parameters) == 1 && parameters[0] == "list" {
+		subs, err := p.GetSubscriptionsByChannel(channelID)
+		if err != nil {
+			txt = err.Error()
+			return txt
+		}
+
+		if len(subs) == 0 {
+			txt = "Currently there are no subscriptions in this channel"
+		} else {
+			txt = "### Subscriptions in this channel\n"
+		}
+		for _, sub := range subs {
+			txt += fmt.Sprintf("* `%s` - %s\n", strings.Trim(sub.Repository, "/"), sub.Features)
+		}
+		return txt
+	} else if len(parameters) > 1 {
+		features = strings.Join(parameters[1:], " ")
+	}
+
+	// Resolve namespace and project name
+	fullPath := normalizePath(parameters[0], config.GitlabURL)
+
+	namespace, project, err := p.GitlabClient.
+		ResolveNamespaceAndProject(info, fullPath, config.EnablePrivateRepo)
+	if err != nil {
+		if errors.Is(err, gitlab.ErrNotFound) {
+			return "Resource with such path is not found."
+		} else if errors.Is(err, gitlab.ErrPrivateResource) {
+			return "Requested resource is private."
+		}
+		p.API.LogError(
+			"unable to resolve subscription namespace and project name",
+			"err", err.Error(),
+		)
+		return err.Error()
+	}
+
+	// Create subscription
+	if subscribeErr := p.Subscribe(info, namespace, project, channelID, features); subscribeErr != nil {
+		p.API.LogError(
+			"failed to subscribe",
+			"namespace", namespace,
+			"project", project,
+			"err", subscribeErr.Error(),
+		)
+		return subscribeErr.Error()
+	}
+	var hookStatusMessage string
+	hasHook, err := p.HasProjectHook(info, namespace, project)
+	if err == nil {
+		if hasHook {
+			//web hook found
+			return fmt.Sprintf("Successfully subscribed to %s.", fullPath)
+		}
+		//no web hook found
+		hookStatusMessage = fmt.Sprintf(
+			"Please [setup a WebHook](%s/%s/%s/-/settings/integrations) in GitLab to complete integration. See [setup instructions](%s) for more info.",
+			config.GitlabURL,
+			namespace,
+			project,
+			webhookHowToURL,
+		)
+	} else {
+		//unable to get web hook info
+		hookStatusMessage = fmt.Sprintf(
+			"Unable to determine status of Webhook. See [setup instructions](%s) to validate.",
+			webhookHowToURL,
+		)
+	}
+
+	return fmt.Sprintf("Successfully subscribed to %s. %s", fullPath, hookStatusMessage)
 }

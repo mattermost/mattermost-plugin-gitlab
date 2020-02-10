@@ -6,11 +6,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	gitlabLib "github.com/xanzy/go-gitlab"
-	"github.com/manland/mattermost-plugin-gitlab/server/webhook"
+	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin/plugintest"
 	"github.com/stretchr/testify/assert"
+	gitlabLib "github.com/xanzy/go-gitlab"
 )
 
 type fakeWebhookHandler struct{}

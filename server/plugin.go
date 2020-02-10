@@ -11,8 +11,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/manland/mattermost-plugin-gitlab/server/gitlab"
-	"github.com/manland/mattermost-plugin-gitlab/server/webhook"
+	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
+	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin"
 	"github.com/pkg/errors"
@@ -334,4 +334,24 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 		nil,
 		&model.WebsocketBroadcast{UserId: userID},
 	)
+}
+
+// HasProjectHook checks if the subscribed GitLab Project has a web hook
+// with a URL that matches the Mattermost Site URL.
+func (p *Plugin) HasProjectHook(user *gitlab.GitlabUserInfo, namespace string, project string) (bool, error) {
+
+	hooks, err := p.GitlabClient.GetProjectHooks(user, namespace, project)
+	if err != nil {
+		return false, errors.New("Unable to connect to GitLab")
+	}
+
+	siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
+	found := false
+	for _, hook := range hooks {
+		if strings.Contains(hook.URL, siteURL) {
+			found = true
+		}
+	}
+
+	return found, err
 }
