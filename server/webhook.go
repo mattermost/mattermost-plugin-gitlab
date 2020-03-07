@@ -169,7 +169,6 @@ func (p *Plugin) sendRefreshIfNotAlreadySent(alreadySentRefresh map[string]bool,
 }
 
 func (p *Plugin) permissionToProject(userID, namespace, project string) bool {
-
 	if userID == "" {
 		return false
 	}

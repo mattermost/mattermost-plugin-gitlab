@@ -319,7 +319,6 @@ func (p *Plugin) GetToDo(user *gitlab.GitlabUserInfo) (string, error) {
 }
 
 func (p *Plugin) isNamespaceAllowed(namespace string) error {
-
 	allowedNamespace := strings.TrimSpace(p.getConfiguration().GitlabGroup)
 	if allowedNamespace != "" && allowedNamespace != namespace {
 		return fmt.Errorf("only repositories in the %s namespace are allowed", allowedNamespace)
@@ -339,7 +338,6 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 // HasProjectHook checks if the subscribed GitLab Project has a web hook
 // with a URL that matches the Mattermost Site URL.
 func (p *Plugin) HasProjectHook(user *gitlab.GitlabUserInfo, namespace string, project string) (bool, error) {
-
 	hooks, err := p.GitlabClient.GetProjectHooks(user, namespace, project)
 	if err != nil {
 		return false, errors.New("Unable to connect to GitLab")

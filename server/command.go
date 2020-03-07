@@ -62,7 +62,6 @@ func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string) *model
 
 //ExecuteCommand is the entrypoint for /gitlab commands. It returns a message to display to the user or an error.
 func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
-
 	var (
 		split      = strings.Fields(args.Command)
 		command    = split[0]
@@ -193,7 +192,6 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 // SubscribeCommand proccess the /gitlab subscribe command.
 // It returns a message and handles all errors my including helpful information in the message
 func (p *Plugin) subscribeCommand(parameters []string, channelID string, config *configuration, info *gitlab.GitlabUserInfo) string {
-
 	features := "merges,issues,tag"
 
 	txt := ""

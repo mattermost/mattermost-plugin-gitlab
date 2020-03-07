@@ -18,7 +18,6 @@ type Subscriptions struct {
 }
 
 func (p *Plugin) Subscribe(info *gitlab.GitlabUserInfo, namespace, project, channelID, features string) error {
-
 	if err := p.isNamespaceAllowed(namespace); err != nil {
 		return err
 	}
@@ -55,7 +54,6 @@ func (p *Plugin) GetSubscriptionsByChannel(channelID string) ([]*subscription.Su
 }
 
 func (p *Plugin) AddSubscription(fullPath string, sub *subscription.Subscription) error {
-
 	subs, err := p.GetSubscriptions()
 	if err != nil {
 		return err
@@ -158,7 +156,6 @@ func (p *Plugin) GetSubscribedChannelsForProject(
 // Unsubscribe deletes the link between namespace/project and channelID.
 // Returns true if subscription was found, false otherwise.
 func (p *Plugin) Unsubscribe(channelID string, fullPath string) (bool, error) {
-
 	if fullPath == "" {
 		return false, errors.New("invalid repository")
 	}
