@@ -156,6 +156,21 @@ func (mr *MockGitlabMockRecorder) GetYourPrs(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetYourPrs", reflect.TypeOf((*MockGitlab)(nil).GetYourPrs), arg0)
 }
 
+// NewProjectHook mocks base method
+func (m *MockGitlab) NewProjectHook(user *gitlab.GitlabUserInfo, projectID interface{}, projectHookOptions *gitlab0.AddProjectHookOptions) (*gitlab0.ProjectHook, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewProjectHook", user, projectID, projectHookOptions)
+	ret0, _ := ret[0].(*gitlab0.ProjectHook)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewProjectHook indicates an expected call of NewProjectHook
+func (mr *MockGitlabMockRecorder) NewProjectHook(user, projectID, projectHookOptions interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewProjectHook", reflect.TypeOf((*MockGitlab)(nil).NewProjectHook), user, projectID, projectHookOptions)
+}
+
 // ResolveNamespaceAndProject mocks base method
 func (m *MockGitlab) ResolveNamespaceAndProject(arg0 *gitlab.GitlabUserInfo, arg1 string, arg2 bool) (string, string, error) {
 	m.ctrl.T.Helper()
