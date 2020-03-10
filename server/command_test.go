@@ -47,7 +47,7 @@ func TestSubscribeCommand(t *testing.T) {
 			mattermostURL: "example.com",
 			projectHooks:  []*internGitlab.ProjectHook{{}},
 			mockGitlab:    true,
-			want:          "Successfully subscribed to group/project. Please [setup a WebHook](/group/project/-/settings/integrations) in GitLab to complete integration. See [setup instructions](https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook) for more info.",
+			want:          "Successfully subscribed to group/project. Please [setup a WebHook](/group/project/hooks) in GitLab to complete integration. See [setup instructions](https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook) for more info.",
 		},
 		{
 			testName:      "Multiple un-matching hooks",
@@ -55,7 +55,7 @@ func TestSubscribeCommand(t *testing.T) {
 			mattermostURL: "example.com",
 			mockGitlab:    true,
 			projectHooks:  []*internGitlab.ProjectHook{{URL: "www.anotherhook.io/wrong"}, {URL: "www.213210948239324.edu/notgood"}},
-			want:          "Successfully subscribed to group/project. Please [setup a WebHook](/group/project/-/settings/integrations) in GitLab to complete integration. See [setup instructions](https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook) for more info.",
+			want:          "Successfully subscribed to group/project. Please [setup a WebHook](/group/project/hooks) in GitLab to complete integration. See [setup instructions](https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook) for more info.",
 		},
 		{
 			testName:               "Error getting webhooks",
