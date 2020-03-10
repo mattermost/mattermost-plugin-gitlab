@@ -254,7 +254,7 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 		}
 		//no web hook found
 		hookStatusMessage = fmt.Sprintf(
-			"Please [setup a WebHook](%s/%s/%s/-/settings/integrations) in GitLab to complete integration. See [setup instructions](%s) for more info.",
+			"Please [setup a WebHook](%s/%s/%s/hooks) in GitLab to complete integration. See [setup instructions](%s) for more info.",
 			config.GitlabURL,
 			namespace,
 			project,
