@@ -11,6 +11,18 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// GetProjectHooks gathers all the project level hooks from a single GitLab project.
+func (g *gitlab) GetProjectHooks(user *GitlabUserInfo, owner string, repo string) ([]*internGitlab.ProjectHook, error) {
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+
+	projectPath := fmt.Sprintf("%s/%s", owner, repo)
+	projectHooks, _, err := client.Projects.ListProjectHooks(projectPath, nil)
+	return projectHooks, err
+}
+
 func (g *gitlab) GetProject(user *GitlabUserInfo, owner, repo string) (*internGitlab.Project, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {

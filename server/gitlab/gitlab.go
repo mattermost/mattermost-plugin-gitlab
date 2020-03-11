@@ -28,6 +28,7 @@ type Gitlab interface {
 	GetYourPrs(user *GitlabUserInfo) ([]*internGitlab.MergeRequest, error)
 	GetYourAssignments(user *GitlabUserInfo) ([]*internGitlab.Issue, error)
 	GetUnreads(user *GitlabUserInfo) ([]*internGitlab.Todo, error)
+	GetProjectHooks(user *GitlabUserInfo, owner string, repo string) ([]*internGitlab.ProjectHook, error)
 	// ResolveNamespaceAndProject accepts full path to User, Group or namespaced Project and returns corresponding
 	// namespace and project name.
 	//

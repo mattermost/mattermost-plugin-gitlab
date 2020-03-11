@@ -7,8 +7,8 @@ import (
 
 	gitlabLib "github.com/xanzy/go-gitlab"
 
-	"github.com/manland/mattermost-plugin-gitlab/server/subscription"
-	"github.com/manland/mattermost-plugin-gitlab/server/webhook"
+	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
+	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 
 	"github.com/mattermost/mattermost-server/v5/model"
 )
@@ -169,7 +169,6 @@ func (p *Plugin) sendRefreshIfNotAlreadySent(alreadySentRefresh map[string]bool,
 }
 
 func (p *Plugin) permissionToProject(userID, namespace, project string) bool {
-
 	if userID == "" {
 		return false
 	}

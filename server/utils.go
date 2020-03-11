@@ -80,7 +80,6 @@ func decrypt(key []byte, text string) (string, error) {
 
 // normalizePath is responsible for parsing GitLab project URL leaving only <GROUP>/<SUBGROUP>/<REPO> components.
 func normalizePath(full, baseURL string) string {
-
 	if baseURL == "" {
 		baseURL = "https://gitlab.com/"
 	} else if !strings.HasSuffix(baseURL, "/") {

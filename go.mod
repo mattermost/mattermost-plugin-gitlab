@@ -1,8 +1,9 @@
-module github.com/manland/mattermost-plugin-gitlab
+module github.com/mattermost/mattermost-plugin-gitlab
 
 go 1.13
 
 require (
+	github.com/golang/mock v1.4.1
 	github.com/mattermost/mattermost-server/v5 v5.18.0
 	github.com/pkg/errors v0.8.1
 	github.com/stretchr/testify v1.4.0
