@@ -34,10 +34,10 @@ const COMMAND_HELP = `* |/gitlab connect| - Connect your Mattermost account to y
   * |setting| can be "notifications" or "reminders"
   * |value| can be "on" or "off"
 * |/gitlab webhook list [owner]/repo| - Will list associated group or project hooks.
-* |/gitlab webhook add owner[/repo] [options] [url] [token]
+* |/gitlab webhook add owner[/repo] [options] [url] [token]|
   * |options| is a comma-delimited list of one or more the following:
-	 * |*| or missing defaults to all with SSL verification enabled
-	 * |*noSSL| all triggers with SSL verification not enabled.
+	 * |*| - or missing defaults to all with SSL verification enabled
+	 * *noSSL - all triggers with SSL verification not enabled.
 	 * PushEvents
 	 * TagPushEvents 
 	 * IssuesEvents 
@@ -278,84 +278,185 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.GitlabUserInfo
 	case "add":
 		namespace := parameters[1]
 		fullPath := strings.Split(namespace, "/")
-		owner := fullPath[0]
-		repo := fullPath[1]
-
-		//default to all triggers unless specified
-		hookOptions := parseTriggers("*")
-		if len(parameters) > 2 {
-			triggersCsv := parameters[2]
-			hookOptions = parseTriggers(triggersCsv)
-		}
 
 		siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
 		urlPath := fmt.Sprintf("%v/%s", siteURL, inboundWebhookURL)
 		if len(parameters) > 3 {
 			urlPath = parameters[3]
 		}
-		hookOptions.URL = &urlPath
 
-		if len(parameters) > 4 {
-			hookOptions.Token = &parameters[4]
-		} else {
-			hookOptions.Token = &p.getConfiguration().WebhookSecret
+		//if project scope
+		if len(fullPath) == 2 {
+			owner := fullPath[0]
+			repo := fullPath[1]
+
+			project, _ := p.GitlabClient.GetProject(info, owner, repo)
+
+			//default to all triggers unless specified
+			hookOptions := parseProjectTriggers("*")
+			if len(parameters) > 2 {
+				triggersCsv := parameters[2]
+				hookOptions = parseProjectTriggers(triggersCsv)
+			}
+
+			newWebhook, err := p.GitlabClient.NewProjectHook(info, project.ID, hookOptions)
+			if err != nil {
+				return err.Error()
+			}
+			newprojecthookInfo := gitlab.GetProjectHookInfo(newWebhook)
+			return fmt.Sprintf("Webhook Created:\n%s", newprojecthookInfo.Stringify())
+
+			// If webhook is group scoped
+			if len(fullPath) == 1 {
+				groupName := fullPath[0]
+
+				//default to all triggers unless specified
+				hookOptions := parseGroupTriggers("*")
+				if len(parameters) > 2 {
+					triggersCsv := parameters[2]
+					hookOptions = parseGroupTriggers(triggersCsv)
+				}
+
+				hookOptions.URL = &urlPath
+
+				if len(parameters) > 4 {
+					hookOptions.Token = &parameters[4]
+				} else {
+					hookOptions.Token = &p.getConfiguration().WebhookSecret
+				}
+
+				newWebhook, err := p.GitlabClient.NewGroupHook(info, groupName, hookOptions)
+				if err != nil {
+					return err.Error()
+				}
+				newGroupHookInfo := gitlab.GetGroupHookInfo(newWebhook)
+				return fmt.Sprintf("Webhook Created:\n%s", newGroupHookInfo.Stringify())
+			}
+			return fmt.Sprintf("Invalid command")
+
 		}
-
-		project, _ := p.GitlabClient.GetProject(info, owner, repo)
-
-		newWebhook, err := p.GitlabClient.NewProjectHook(info, project.ID, hookOptions)
-		if err != nil {
-			return err.Error()
-		}
-		newprojecthookInfo := gitlab.GetProjectHookInfo(newWebhook)
-		return fmt.Sprintf("Webhook Created:\n%s", newprojecthookInfo.Stringify())
 	default:
 		return p.getCommandResponse(args, "Unknown action, please use `/gitlab help` to see all actions available."), nil
 	}
+	return fmt.Sprintf("invalid command")
 }
 
-func parseTriggers(triggersCsv string) *gitLabAPI.AddProjectHookOptions {
+func parseProjectTriggers(triggersCsv string) *gitLabAPI.AddProjectHookOptions {
+	var sslVerification, pushEvents, tagPushEvents, issuesEvents, confidentialIssuesEvents, noteEvents bool
+	var confidentialNoteEvents, mergeRequestsEvents, jobEvents, pipelineEvents, wikiPageEvents bool
 	var all bool
 	if triggersCsv == "*" {
 		all = true
+		sslVerification = true
+	}
+	if strings.EqualFold(triggersCsv, "*noSSL") {
+		all = true
+		sslVerification = false
 	}
 	triggers := strings.Split(triggersCsv, ",")
-	var pushEvents, tagPushEvents, issuesEvents, confidentialIssuesEvents, noteEvents bool
-	var confidentialNoteEvents, mergeRequestsEvents, jobEvents, pipelineEvents, wikiPageEvents bool
 	for _, trigger := range triggers {
-		if all || trigger == "PushEvents" {
+		if strings.EqualFold(trigger, "SSLverification") {
+			sslVerification = true
+		}
+		if all || strings.EqualFold(trigger, "PushEvents") {
 			pushEvents = true
 		}
-		if all || trigger == "TagPushEvents" {
+		if all || strings.EqualFold(trigger, "TagPushEvents") {
 			tagPushEvents = true
 		}
-		if all || trigger == "IssuesEvents" {
+		if all || strings.EqualFold(trigger, "IssuesEvents") {
 			issuesEvents = true
 		}
-		if all || trigger == "ConfidentialIssuesEvents" {
+		if all || strings.EqualFold(trigger, "ConfidentialIssuesEvents") {
 			confidentialIssuesEvents = true
 		}
-		if all || trigger == "NoteEvents" {
+		if all || strings.EqualFold(trigger, "NoteEvents") {
 			noteEvents = true
 		}
-		if all || trigger == "ConfidentialNoteEvents" {
+		if all || strings.EqualFold(trigger, "ConfidentialNoteEvents") {
 			confidentialNoteEvents = true
 		}
-		if all || trigger == "MergeRequestsEvents" {
+		if all || strings.EqualFold(trigger, "MergeRequestsEvents") {
 			mergeRequestsEvents = true
 		}
-		if all || trigger == "JobEvents" {
+		if all || strings.EqualFold(trigger, "JobEvents") {
 			jobEvents = true
 		}
-		if all || trigger == "PipelineEvents" {
+		if all || strings.EqualFold(trigger, "PipelineEvents") {
 			pipelineEvents = true
 		}
-		if all || trigger == "WikiPageEvents" {
+		if all || strings.EqualFold(trigger, "WikiPageEvents") {
 			wikiPageEvents = true
 		}
 	}
 
 	return &gitLabAPI.AddProjectHookOptions{
+		EnableSSLVerification:    &sslVerification,
+		ConfidentialNoteEvents:   &confidentialNoteEvents,
+		PushEvents:               &pushEvents,
+		IssuesEvents:             &issuesEvents,
+		ConfidentialIssuesEvents: &confidentialIssuesEvents,
+		MergeRequestsEvents:      &mergeRequestsEvents,
+		TagPushEvents:            &tagPushEvents,
+		NoteEvents:               &noteEvents,
+		JobEvents:                &jobEvents,
+		PipelineEvents:           &pipelineEvents,
+		WikiPageEvents:           &wikiPageEvents,
+	}
+
+}
+
+func parseGroupTriggers(triggersCsv string) *gitLabAPI.AddGroupHookOptions {
+	var sslVerification, pushEvents, tagPushEvents, issuesEvents, confidentialIssuesEvents, noteEvents bool
+	var confidentialNoteEvents, mergeRequestsEvents, jobEvents, pipelineEvents, wikiPageEvents bool
+	var all bool
+	if triggersCsv == "*" {
+		all = true
+		sslVerification = true
+	}
+	if strings.EqualFold(triggersCsv, "*noSSL") {
+		all = true
+		sslVerification = false
+	}
+	triggers := strings.Split(triggersCsv, ",")
+	for _, trigger := range triggers {
+		if strings.EqualFold(trigger, "SSLverification") {
+			sslVerification = true
+		}
+		if all || strings.EqualFold(trigger, "PushEvents") {
+			pushEvents = true
+		}
+		if all || strings.EqualFold(trigger, "TagPushEvents") {
+			tagPushEvents = true
+		}
+		if all || strings.EqualFold(trigger, "IssuesEvents") {
+			issuesEvents = true
+		}
+		if all || strings.EqualFold(trigger, "ConfidentialIssuesEvents") {
+			confidentialIssuesEvents = true
+		}
+		if all || strings.EqualFold(trigger, "NoteEvents") {
+			noteEvents = true
+		}
+		if all || strings.EqualFold(trigger, "ConfidentialNoteEvents") {
+			confidentialNoteEvents = true
+		}
+		if all || strings.EqualFold(trigger, "MergeRequestsEvents") {
+			mergeRequestsEvents = true
+		}
+		if all || strings.EqualFold(trigger, "JobEvents") {
+			jobEvents = true
+		}
+		if all || strings.EqualFold(trigger, "PipelineEvents") {
+			pipelineEvents = true
+		}
+		if all || strings.EqualFold(trigger, "WikiPageEvents") {
+			wikiPageEvents = true
+		}
+	}
+
+	return &gitLabAPI.AddGroupHookOptions{
+		EnableSSLVerification:    &sslVerification,
 		ConfidentialNoteEvents:   &confidentialNoteEvents,
 		PushEvents:               &pushEvents,
 		IssuesEvents:             &issuesEvents,

@@ -1,9 +1,7 @@
 package gitlab
 
 import (
-	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	internGitlab "github.com/xanzy/go-gitlab"
@@ -31,6 +29,7 @@ type Gitlab interface {
 	GetProjectHooks(user *GitlabUserInfo, owner string, repo string) ([]*WebhookInfo, error)
 	GetGroupHooks(user *GitlabUserInfo, owner string) ([]*WebhookInfo, error)
 	NewProjectHook(user *GitlabUserInfo, projectID interface{}, projectHookOptions *internGitlab.AddProjectHookOptions) (*internGitlab.ProjectHook, error)
+	NewGroupHook(user *GitlabUserInfo, groupName string, groupHookOptions *internGitlab.AddGroupHookOptions) (*internGitlab.GroupHook, error)
 	// ResolveNamespaceAndProject accepts full path to User, Group or namespaced Project and returns corresponding
 	// namespace and project name.
 	//
@@ -55,17 +54,14 @@ func New(enterpriseBaseURL string, gitlabGroup string, checkGroup func(projectNa
 }
 
 func (g *gitlab) gitlabConnect(token oauth2.Token) (*internGitlab.Client, error) {
-	ctx := context.Background()
-	ts := oauth2.StaticTokenSource(&token)
-	tc := oauth2.NewClient(ctx, ts)
-
 	if len(g.enterpriseBaseURL) == 0 {
-		return internGitlab.NewOAuthClient(tc, token.AccessToken), nil
+		return internGitlab.NewOAuthClient(token.AccessToken)
 	}
 
-	client := internGitlab.NewOAuthClient(tc, token.AccessToken)
-	if err := client.SetBaseURL(g.enterpriseBaseURL); err != nil {
-		return nil, fmt.Errorf("can't set base url to GitLab client lib: %w", err)
+	client, err := internGitlab.NewOAuthClient(token.AccessToken)
+	if err != nil {
+		return nil, err
 	}
+
 	return client, nil
 }

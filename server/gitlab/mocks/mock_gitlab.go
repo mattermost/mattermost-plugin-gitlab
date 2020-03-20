@@ -171,6 +171,21 @@ func (mr *MockGitlabMockRecorder) NewProjectHook(user, projectID, projectHookOpt
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewProjectHook", reflect.TypeOf((*MockGitlab)(nil).NewProjectHook), user, projectID, projectHookOptions)
 }
 
+// NewGroupHook mocks base method
+func (m *MockGitlab) NewGroupHook(user *gitlab.GitlabUserInfo, groupName string, groupHookOptions *gitlab0.AddGroupHookOptions) (*gitlab0.GroupHook, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewGroupHook", user, groupName, groupHookOptions)
+	ret0, _ := ret[0].(*gitlab0.GroupHook)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewGroupHook indicates an expected call of NewGroupHook
+func (mr *MockGitlabMockRecorder) NewGroupHook(user, groupName, groupHookOptions interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewGroupHook", reflect.TypeOf((*MockGitlab)(nil).NewGroupHook), user, groupName, groupHookOptions)
+}
+
 // ResolveNamespaceAndProject mocks base method
 func (m *MockGitlab) ResolveNamespaceAndProject(arg0 *gitlab.GitlabUserInfo, arg1 string, arg2 bool) (string, string, error) {
 	m.ctrl.T.Helper()

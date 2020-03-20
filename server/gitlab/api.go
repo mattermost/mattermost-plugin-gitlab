@@ -11,6 +11,27 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// NewGroupHook creates a webhook associated with a GitLab group
+func (g *gitlab) NewGroupHook(user *GitlabUserInfo, groupName string, groupHookOptions *internGitlab.AddGroupHookOptions) (*internGitlab.GroupHook, error) {
+
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+
+	group, _, err := client.Groups.GetGroup(groupName)
+	if err != nil {
+		return nil, err
+	}
+
+	groupHook, _, err := client.Groups.AddGroupHook(group.ID, groupHookOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	return groupHook, nil
+}
+
 // NewProjectHook creates a webhook associated with a GitLab project
 func (g *gitlab) NewProjectHook(user *GitlabUserInfo, projectID interface{}, projectHookOptions *internGitlab.AddProjectHookOptions) (*internGitlab.ProjectHook, error) {
 	client, err := g.gitlabConnect(*user.Token)
@@ -18,12 +39,6 @@ func (g *gitlab) NewProjectHook(user *GitlabUserInfo, projectID interface{}, pro
 		return nil, err
 	}
 
-	///	url := "http://www.example.com"
-	//	pushEvents := true
-	//projectHookOptions := &internGitlab.AddProjectHookOptions{
-	//URL:        &url,
-	//PushEvents: &pushEvents,
-	//}
 	projectHook, _, err := client.Projects.AddProjectHook(projectID, projectHookOptions)
 	if err != nil {
 		return nil, err
@@ -33,7 +48,6 @@ func (g *gitlab) NewProjectHook(user *GitlabUserInfo, projectID interface{}, pro
 }
 
 // GetGroupHooks gathers all the group level hooks for a GitLab group.
-// group hooks are not available on Comunity Edition.
 func (g *gitlab) GetGroupHooks(user *GitlabUserInfo, owner string) ([]*WebhookInfo, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
@@ -61,7 +75,7 @@ func (g *gitlab) GetGroupHooks(user *GitlabUserInfo, owner string) ([]*WebhookIn
 				JobEvents:                hook.JobEvents,
 				PipelineEvents:           hook.PipelineEvents,
 				WikiPageEvents:           hook.WikiPageEvents,
-				EnableSslVerification:    hook.EnableSslVerification,
+				EnableSslVerification:    hook.EnableSSLVerification,
 				CreatedAt:                hook.CreatedAt,
 			},
 		)
@@ -113,6 +127,27 @@ func (w *WebhookInfo) Stringify() string {
 }
 
 func GetProjectHookInfo(hook *internGitlab.ProjectHook) *WebhookInfo {
+	webhook := &WebhookInfo{
+		Scope:                    project,
+		URL:                      hook.URL,
+		ID:                       hook.ID,
+		ConfidentialNoteEvents:   hook.ConfidentialNoteEvents,
+		PushEvents:               hook.PushEvents,
+		IssuesEvents:             hook.IssuesEvents,
+		ConfidentialIssuesEvents: hook.ConfidentialIssuesEvents,
+		MergeRequestsEvents:      hook.MergeRequestsEvents,
+		TagPushEvents:            hook.TagPushEvents,
+		NoteEvents:               hook.NoteEvents,
+		JobEvents:                hook.JobEvents,
+		PipelineEvents:           hook.PipelineEvents,
+		WikiPageEvents:           hook.WikiPageEvents,
+		EnableSslVerification:    hook.EnableSSLVerification,
+		CreatedAt:                hook.CreatedAt,
+	}
+	return webhook
+}
+
+func GetGroupHookInfo(hook *internGitlab.GroupHook) *WebhookInfo {
 	webhook := &WebhookInfo{
 		Scope:                    project,
 		URL:                      hook.URL,
