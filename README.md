@@ -1,3 +1,9 @@
+# Mattermost/GitLab Integration
+
+The GitLab/Mattermost plugin documentation is currently being updated and relocated to a new location: https://mattermost.gitbook.io/gitlab-plugin/ - let us know your thoughts on the new format in the [Plugin: GitLab Channel](https://community-daily.mattermost.com/core/channels/gitlab-plugin) on our Mattermost community!
+
+
+
 # Mattermost GitLab Plugin
 
 [![Build Status](https://img.shields.io/circleci/project/github/mattermost/mattermost-plugin-gitlab/master.svg)](https://circleci.com/gh/mattermost/mattermost-plugin-gitlab)
@@ -34,7 +40,7 @@ See [Compatibility](#Compatibility) for supported versions.
 ## Configuration
 
 ### Step 1: Register an OAuth application in GitLab
-   
+
 1. Go to https://gitlab.com/profile/applications or https://gitlab.yourdomain.com/profile/applications to register an OAuth app.
 2. Set the following values:
    - **Name**: `Mattermost GitLab Plugin - <your company name>`
