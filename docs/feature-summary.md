@@ -4,7 +4,9 @@
 
 ### Channel Subscriptions
 
-Notify your team of the latest updates by sending notifications from your GitLab group or repository to Mattermost channels.  When team members log in the first time to Mattermost each day, they can get a post letting them know what issues and merge requests need their attention. You can specify which events trigger a notification. They can see:
+Notify your team of the latest updates by sending notifications from your GitLab group or repository to Mattermost channels.  When team members log in the first time to Mattermost each day, they can get a post letting them know what issues and merge requests need their attention.  They can also get a refresh of new events by clicking on *Refresh* and from every webhook configured in GitLab.
+
+You can specify which events trigger a notification. They can see:
 
 - issues - includes new and closed issues
 - merges - includes new and closed merge requests
@@ -39,19 +41,37 @@ Team members can stay up-to-date with how many reviews, unread messages, assignm
 
 Interact with the GitLab plugin using the `/gitlab` slash command
 
-### Subscribe to a repository
+### Subscribe to / unsubscribe from a repository
 
-Use `/gitlab subscribe` to subscribe a Mattermost channel to receive posts for new merge requests and/or issues in a GitLab repository
+Use `/gitlab subscribe owner[/repo] [features]` to subscribe a Mattermost channel to receive posts for new merge requests and / or issues, or other features (as listed above), from a GitLab repository. 
+
+Use `/gitlab unsubscribe owner/repo` to unsubscribe from it.  
+
+`/gitlab subscribe list` lists what you have subscribed to.
+
+### Connect to / disconnect from GitLab
+
+Connect your Mattermost account to your GitLab account using `/gitlab connect` and disconnect it using`/gitlab disconnect`. 
+
+`/gitlab me` displays the connected GitLab account.
 
 ### Get to-do items
 
-Use `/gitlab todo` to get an ephemeral message with items to do in GitLab
+Use `/gitlab todo` to get a list of unread messages and merge requests awaiting your review
 
 ### Update Settings
 
-Use `/gitlab settings` to update your settings for the plugin
+Use `/gitlab settings [setting] [value]` to update your settings for the plugin.  There are two settings:
+
+- To turn **personal notifications** *on* or *off*
+- To turn **reminders** *on* or *off* for when you connect for the first time each day  
 
 ### And more ...
 
 Run `/gitlab help` to see what else the slash command can do
 
+
+
+## *Don't forget to add a webhook in GitLab*
+
+See [Configuration](setup/configuration.md)
