@@ -21,16 +21,4 @@ If your server doesn't have access to the internet, you can download the latest 
 
 See [documentation](https://docs.mattermost.com/administration/plugins.html#set-up-guide) for more details.
 
-<<<<<<< HEAD
 See [GitLab plugin release page](https://github.com/mattermost/mattermost-plugin-gitlab/releases) for compatibility considerations.
-=======
-### Compatibility
-
-| Mattermost-Plugin-Gitlab | Mattermost | GitLab |
-| :----------------------: | :--------: | :----: |
-|          0.3.0           |   5.10+    | 11.2+  |
-|          0.2.0           |    5.8+    | 11.2+  |
-|          0.1.0           |    5.8+    | 11.2+  |
-
-
->>>>>>> 4abea43fdf1eb8f6eac1e6c539be3dd33e8b8340
