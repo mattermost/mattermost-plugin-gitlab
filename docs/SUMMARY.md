@@ -1,4 +1,4 @@
-# Table of contents
+# Table of Contents
 
 * [Mattermost/GitLab Integration](README.md)
 * [Feature Summary](feature-summary.md)
@@ -14,4 +14,3 @@
 * [Environment](development/environment.md)
 * [Help Wanted!](development/help-wanted.md)
 * [Help and Support](help-and-support.md)
-
