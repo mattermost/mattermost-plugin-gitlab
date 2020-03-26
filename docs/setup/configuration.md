@@ -37,7 +37,7 @@ For each project you want to receive notifications for, or subscribe to, you mus
 
 To test it, run the `/gitlab connect` slash command to connect your Mattermost account with GitLab.
 
-## 
+
 
 If you face issues installing the plugin, see our [Frequently Asked Questions]() for troubleshooting help, or open an issue in the [Mattermost Forum](http://forum.mattermost.org).
 
