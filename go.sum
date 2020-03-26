@@ -200,12 +200,8 @@ github.com/mattermost/gorp v2.0.1-0.20190301154413-3b31e9a39d05+incompatible h1:
 github.com/mattermost/gorp v2.0.1-0.20190301154413-3b31e9a39d05+incompatible/go.mod h1:0kX1qa3DOpaPJyOdMLeo7TcBN0QmUszj9a/VygOhDe0=
 github.com/mattermost/ldap v3.0.4+incompatible h1:SOeNnz+JNR+foQ3yHkYqijb9MLPhXN2BZP/PdX23VDU=
 github.com/mattermost/ldap v3.0.4+incompatible/go.mod h1:b4reDCcGpBxJ4WX0f224KFY+OR0npin7or7EFpeIko4=
-github.com/mattermost/mattermost-server v5.11.1+incompatible h1:LPzKY0+2Tic/ik67qIg6VrydRCgxNXZQXOeaiJ2rMBY=
 github.com/mattermost/mattermost-server/v5 v5.18.0 h1:In1v/1vrYMEDRHiXe6sA50KJ5WGkE2mLtsIz7YOGsN8=
 github.com/mattermost/mattermost-server/v5 v5.18.0/go.mod h1:10vIYDohcPNDMDk3XlRUjNO9nGk9fnFHEFeSIUYR82k=
-github.com/mattermost/mattermost-server/v5 v5.19.1 h1:lV9LKShbW3PsSQJknDN5lxd0X5yjylu8JmWAbAasufU=
-github.com/mattermost/mattermost-server/v5 v5.20.0 h1:4YZ2sfyoMxUHyjjRhvr21D2fjclCi+b+svJHNwyTUn4=
-github.com/mattermost/mattermost-server/v5 v5.20.1 h1:BGTFJPVRbLmAV8MbFFyStIqgx6TqDtunZynJaQgBVQc=
 github.com/mattermost/rsc v0.0.0-20160330161541-bbaefb05eaa0/go.mod h1:nV5bfVpT//+B1RPD2JvRnxbkLmJEYXmRaaVl15fsXjs=
 github.com/mattermost/viper v1.0.4/go.mod h1:uc5hKG9lv4/KRwPOt2c1omOyirS/UnuA2TytiZQSFHM=
 github.com/mattn/go-colorable v0.0.9/go.mod h1:9vuHe8Xs5qXnSaW/c/ABM9alt+Vo+STaOChaDxuIBZU=
@@ -327,8 +323,6 @@ github.com/throttled/throttled v2.2.4+incompatible/go.mod h1:0BjlrEGQmvxps+HuXLs
 github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqriFuLhtthL60Sar/7RFoluCcXsuvEwTV5KM=
 github.com/tylerb/graceful v1.2.15/go.mod h1:LPYTbOYmUTdabwRt0TGhLllQ0MUNbs0Y5q1WXJOI9II=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
-github.com/vektra/mockery v0.0.0-20181123154057-e78b021dcbb5 h1:Xim2mBRFdXzXmKRO8DJg/FJtn/8Fj9NOEpO6+WuMPmk=
-github.com/vektra/mockery v0.0.0-20181123154057-e78b021dcbb5/go.mod h1:ppEjwdhyy7Y31EnHRDm1JkChoC7LXIJ7Ex0VYLWtZtQ=
 github.com/xanzy/go-gitlab v0.22.2 h1:KYPewSm3Tl7WHrVON7BOwX6FZ1gaiFEdpOt0DNIYySA=
 github.com/xanzy/go-gitlab v0.22.2/go.mod h1:t4Bmvnxj7k37S4Y17lfLx+nLqkf/oQwT2HagfWKv5Og=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
@@ -435,7 +429,6 @@ golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2/go.mod h1:tRJNPiyCQ0inRvYxb
 golang.org/x/time v0.0.0-20181108054448-85acf8d2951c/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
 golang.org/x/tools v0.0.0-20180828015842-6cd1fcedba52/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
 golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
-golang.org/x/tools v0.0.0-20181112210238-4b1f3b6b1646/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
 golang.org/x/tools v0.0.0-20181219222714-6e267b5cc78e/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
 golang.org/x/tools v0.0.0-20190114222345-bf090417da8b/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
 golang.org/x/tools v0.0.0-20190226205152-f727befe758c/go.mod h1:9Yl7xja0Znq3iFh3HoIrodX9oNMXvdceNzlUR8zjMvY=
