@@ -6,7 +6,7 @@ description: Get started by installing the GitLab plugin from the Marketplace
 
 ### Release Dependency
 
-* The GitLab plugin is included in the Plugin Marketplace in Mattermost v5.16 and above
+* The GitLab plugin is included in the Plugin Marketplace in Mattermost v5.16 and above.
 * For Mattermost v5.13 and earlier a manual install is necessary.
 
 ### Marketplace Installation
