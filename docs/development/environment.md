@@ -2,7 +2,7 @@
 
 ## Development
 
-This plugin contains both a server and web app portion.
+This plugin contains both a server and web app component.
 
 Use `make dist` to build distributions of the plugin that you can upload to a Mattermost server. 
 
