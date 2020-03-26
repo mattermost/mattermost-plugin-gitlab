@@ -13,7 +13,7 @@ description: Get started by installing the GitLab plugin from the Marketplace
 
 1. Go to **Main Menu &gt; Plugin Marketplace** in Mattermost
 2. Search for "gitlab" or manually find the plugin from the list and click **Install**
-3. After the plugin has downloaded and been installed, click the **Configure** button
+3. After the plugin has downloaded and been installed, click the **Configure** button.
 
 ### Manual Installation
 
