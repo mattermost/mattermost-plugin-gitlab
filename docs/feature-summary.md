@@ -68,7 +68,7 @@ Use `/gitlab settings [setting] [value]` to update your settings for the plugin.
 
 ### And more ...
 
-Run `/gitlab help` to see what else the slash command can do
+Run `/gitlab help` to see what else the slash command can do.
 
 
 
