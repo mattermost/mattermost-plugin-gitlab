@@ -57,7 +57,7 @@ Connect your Mattermost account to your GitLab account using `/gitlab connect` a
 
 ### Get to-do items
 
-Use `/gitlab todo` to get a list of unread messages and merge requests awaiting your review
+Use `/gitlab todo` to get a list of unread messages and merge requests awaiting your review.
 
 ### Update Settings
 
