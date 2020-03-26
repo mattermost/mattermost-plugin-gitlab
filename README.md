@@ -39,7 +39,7 @@ See [Compatibility](#Compatibility) for supported versions.
 
 ## Configuration
 
-### Step 1: Register an OAuth application in GitLab
+### Step 1: Register an OAuth Application in GitLab
 
 1. Go to https://gitlab.com/profile/applications or https://gitlab.yourdomain.com/profile/applications to register an OAuth app.
 2. Set the following values:

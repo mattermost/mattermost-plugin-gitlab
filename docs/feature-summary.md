@@ -41,7 +41,7 @@ Team members can stay up-to-date with how many reviews, unread messages, assignm
 
 Interact with the GitLab plugin using the `/gitlab` slash command
 
-### Subscribe to / unsubscribe from a repository
+### Subscribe To/Unsubscribe From a Repository
 
 Use `/gitlab subscribe owner[/repo] [features]` to subscribe a Mattermost channel to receive posts for new merge requests and / or issues, or other features (as listed above), from a GitLab repository. 
 
@@ -57,7 +57,7 @@ Connect your Mattermost account to your GitLab account using `/gitlab connect` a
 
 ### Get to-do items
 
-Use `/gitlab todo` to get a list of unread messages and merge requests awaiting your review
+Use `/gitlab todo` to get a list of unread messages and merge requests awaiting your review.
 
 ### Update Settings
 
@@ -68,7 +68,7 @@ Use `/gitlab settings [setting] [value]` to update your settings for the plugin.
 
 ### And more ...
 
-Run `/gitlab help` to see what else the slash command can do
+Run `/gitlab help` to see what else the slash command can do.
 
 
 
