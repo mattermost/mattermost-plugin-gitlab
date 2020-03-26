@@ -41,7 +41,7 @@ Team members can stay up-to-date with how many reviews, unread messages, assignm
 
 Interact with the GitLab plugin using the `/gitlab` slash command
 
-### Subscribe to / unsubscribe from a repository
+### Subscribe To/Unsubscribe From a Repository
 
 Use `/gitlab subscribe owner[/repo] [features]` to subscribe a Mattermost channel to receive posts for new merge requests and / or issues, or other features (as listed above), from a GitLab repository. 
 
