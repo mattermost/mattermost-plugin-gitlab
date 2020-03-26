@@ -17,7 +17,7 @@ description: Get started by installing the GitLab plugin from the Marketplace
 
 ### Manual Installation
 
-If your server doesn't have access to the internet, you can download the latest [plugin binary release](https://github.com/mattermost/mattermost-plugin-gitlab/releases) and upload it to your server via **System Console > Plugins &gt; Plugin Management.**  The releases on this page are the same used by the Marketplace. 
+If your server doesn't have access to the internet, you can download the latest [plugin binary release](https://github.com/mattermost/mattermost-plugin-gitlab/releases) and upload it to your server via **System Console > Plugins &gt; Plugin Management**. The releases on this page are the same used by the Marketplace. 
 
 See [documentation](https://docs.mattermost.com/administration/plugins.html#set-up-guide) for more details.
 
