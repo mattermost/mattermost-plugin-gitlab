@@ -335,10 +335,35 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 	)
 }
 
-// HasProjectHook checks if the subscribed GitLab Project has a web hook
+// HasProjectHook checks if the subscribed GitLab Project or its parrent Group has a webhook
 // with a URL that matches the Mattermost Site URL.
 func (p *Plugin) HasProjectHook(user *gitlab.GitlabUserInfo, namespace string, project string) (bool, error) {
 	hooks, err := p.GitlabClient.GetProjectHooks(user, namespace, project)
+	if err != nil {
+		return false, errors.New("Unable to connect to GitLab")
+	}
+
+	//ignore error becouse many project won't be part of groups
+	hasGroupHook, _ := p.HasGroupHook(user, namespace)
+
+	if hasGroupHook {
+		return true, err
+	}
+
+	siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
+	found := false
+	for _, hook := range hooks {
+		if strings.Contains(hook.URL, siteURL) {
+			found = true
+		}
+	}
+	return found, nil
+}
+
+// HasGroupHook checks if the subscribed GitLab Group has a webhook
+// with a URL that matches the Mattermost Site URL.
+func (p *Plugin) HasGroupHook(user *gitlab.GitlabUserInfo, namespace string) (bool, error) {
+	hooks, err := p.GitlabClient.GetGroupHooks(user, namespace)
 	if err != nil {
 		return false, errors.New("Unable to connect to GitLab")
 	}

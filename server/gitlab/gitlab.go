@@ -28,8 +28,8 @@ type Gitlab interface {
 	GetUnreads(user *GitlabUserInfo) ([]*internGitlab.Todo, error)
 	GetProjectHooks(user *GitlabUserInfo, owner string, repo string) ([]*WebhookInfo, error)
 	GetGroupHooks(user *GitlabUserInfo, owner string) ([]*WebhookInfo, error)
-	NewProjectHook(user *GitlabUserInfo, projectID interface{}, projectHookOptions *internGitlab.AddProjectHookOptions) (*internGitlab.ProjectHook, error)
-	NewGroupHook(user *GitlabUserInfo, groupName string, groupHookOptions *internGitlab.AddGroupHookOptions) (*internGitlab.GroupHook, error)
+	NewProjectHook(user *GitlabUserInfo, projectID interface{}, projectHookOptions *AddWebhookOptions) (*WebhookInfo, error)
+	NewGroupHook(user *GitlabUserInfo, groupName string, groupHookOptions *AddWebhookOptions) (*WebhookInfo, error)
 	// ResolveNamespaceAndProject accepts full path to User, Group or namespaced Project and returns corresponding
 	// namespace and project name.
 	//
@@ -46,6 +46,56 @@ type gitlab struct {
 	enterpriseBaseURL string
 	gitlabGroup       string
 	checkGroup        func(projectNameWithGroup string) error
+}
+
+// Scope identifies the scope of a webhook
+type Scope int
+
+const (
+	//Group is a type for group hooks
+	Group Scope = iota
+	//Project is a type for project hooks
+	Project
+)
+
+func (s Scope) String() string {
+	return [...]string{"group", "project"}[s]
+}
+
+// WebhookInfo Provides information about group or project hooks.
+type WebhookInfo struct {
+	ID                       int
+	URL                      string
+	ConfidentialNoteEvents   bool
+	PushEvents               bool
+	IssuesEvents             bool
+	ConfidentialIssuesEvents bool
+	MergeRequestsEvents      bool
+	TagPushEvents            bool
+	NoteEvents               bool
+	JobEvents                bool
+	PipelineEvents           bool
+	WikiPageEvents           bool
+	EnableSSLVerification    bool
+	CreatedAt                *time.Time
+	Scope                    Scope
+}
+
+//AddWebhookOptions is a paramater object with options for creating a project or group hook.
+type AddWebhookOptions struct {
+	URL                      string
+	ConfidentialNoteEvents   bool
+	PushEvents               bool
+	IssuesEvents             bool
+	ConfidentialIssuesEvents bool
+	MergeRequestsEvents      bool
+	TagPushEvents            bool
+	NoteEvents               bool
+	JobEvents                bool
+	PipelineEvents           bool
+	WikiPageEvents           bool
+	EnableSSLVerification    bool
+	Token                    string
 }
 
 // New return a client to call GitLab API
