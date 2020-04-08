@@ -25,12 +25,12 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[root](http://my.gitlab.com/root) requested your review on [manland/webhook#4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			Message:    "[root](http://my.gitlab.com/root) requested your review on [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
 			ToUsers:    []string{"manland"},
 			ToChannels: []string{},
 			From:       "root",
 		}, {
-			Message:    "#### Master\n##### [manland/webhook#4](http://localhost:3000/manland/webhook/merge_requests/4) new merge-request by [root](http://my.gitlab.com/root) on [2019-04-03 21:07:32 UTC](http://localhost:3000/manland/webhook/merge_requests/4)\n\ntest open merge request",
+			Message:    "#### Master\n##### [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4) new merge-request by [root](http://my.gitlab.com/root) on [2019-04-03 21:07:32 UTC](http://localhost:3000/manland/webhook/merge_requests/4)\n\ntest open merge request",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "root",
@@ -42,12 +42,12 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/subgroup/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[root](http://my.gitlab.com/root) requested your review on [manland/subgroup/webhook#4](http://localhost:3000/manland/subgroup/webhook/merge_requests/4)",
+			Message:    "[root](http://my.gitlab.com/root) requested your review on [manland/subgroup/webhook!4](http://localhost:3000/manland/subgroup/webhook/merge_requests/4)",
 			ToUsers:    []string{"manland"},
 			ToChannels: []string{},
 			From:       "root",
 		}, {
-			Message:    "#### Master\n##### [manland/subgroup/webhook#4](http://localhost:3000/manland/subgroup/webhook/merge_requests/4) new merge-request by [root](http://my.gitlab.com/root) on [2019-04-03 21:07:32 UTC](http://localhost:3000/manland/subgroup/webhook/merge_requests/4)\n\ntest open merge request",
+			Message:    "#### Master\n##### [manland/subgroup/webhook!4](http://localhost:3000/manland/subgroup/webhook/merge_requests/4) new merge-request by [root](http://my.gitlab.com/root) on [2019-04-03 21:07:32 UTC](http://localhost:3000/manland/subgroup/webhook/merge_requests/4)\n\ntest open merge request",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "root",
@@ -59,12 +59,12 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[manland](http://my.gitlab.com/manland) closed your merge request [manland/webhook#4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			Message:    "[manland](http://my.gitlab.com/manland) closed your merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
 			ToUsers:    []string{"root"},
 			ToChannels: []string{},
 			From:       "manland",
 		}, {
-			Message:    "[manland/webhook] Merge request [#4 Master](http://localhost:3000/manland/webhook/merge_requests/4) was closed by [manland](http://my.gitlab.com/manland)",
+			Message:    "[manland/webhook] Merge request [!4 Master](http://localhost:3000/manland/webhook/merge_requests/4) was closed by [manland](http://my.gitlab.com/manland)",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "manland",
@@ -76,12 +76,12 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[manland](http://my.gitlab.com/manland) reopen your merge request [manland/webhook#1](http://localhost:3000/manland/webhook/merge_requests/1)",
+			Message:    "[manland](http://my.gitlab.com/manland) reopen your merge request [manland/webhook!1](http://localhost:3000/manland/webhook/merge_requests/1)",
 			ToUsers:    []string{"root"},
 			ToChannels: []string{},
 			From:       "manland",
 		}, {
-			Message:    "[manland/webhook] Merge request [#1 Update README.md](http://localhost:3000/manland/webhook/merge_requests/1) was reopened by [manland](http://my.gitlab.com/manland)",
+			Message:    "[manland/webhook] Merge request [!1 Update README.md](http://localhost:3000/manland/webhook/merge_requests/1) was reopened by [manland](http://my.gitlab.com/manland)",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "manland",
@@ -91,7 +91,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 		fixture:         AssigneeMergeRequest,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
 		res: []*HandleWebhook{{
-			Message:    "[root](http://my.gitlab.com/root) assigned you to merge request [manland/webhook#4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			Message:    "[root](http://my.gitlab.com/root) assigned you to merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
 			ToUsers:    []string{"manland"},
 			ToChannels: []string{},
 			From:       "root",
@@ -103,12 +103,12 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[manland](http://my.gitlab.com/manland) merged your merge request [manland/webhook#4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			Message:    "[manland](http://my.gitlab.com/manland) merged your merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
 			ToUsers:    []string{"root"},
 			ToChannels: []string{},
 			From:       "manland",
 		}, {
-			Message:    "[manland/webhook] Merge request [#4 Master](http://localhost:3000/manland/webhook/merge_requests/4) was merged by [manland](http://my.gitlab.com/manland)",
+			Message:    "[manland/webhook] Merge request [!4 Master](http://localhost:3000/manland/webhook/merge_requests/4) was merged by [manland](http://my.gitlab.com/manland)",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "manland",
@@ -120,12 +120,12 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[root](http://my.gitlab.com/root) closed your merge request [manland/webhook#1](http://localhost:3000/manland/webhook/merge_requests/1)",
+			Message:    "[root](http://my.gitlab.com/root) closed your merge request [manland/webhook!1](http://localhost:3000/manland/webhook/merge_requests/1)",
 			ToUsers:    []string{}, //no assignee
 			ToChannels: []string{},
 			From:       "root",
 		}, {
-			Message:    "[manland/webhook] Merge request [#1 Update README.md](http://localhost:3000/manland/webhook/merge_requests/1) was closed by [root](http://my.gitlab.com/root)",
+			Message:    "[manland/webhook] Merge request [!1 Update README.md](http://localhost:3000/manland/webhook/merge_requests/1) was closed by [root](http://my.gitlab.com/root)",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "root",
@@ -137,7 +137,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "issues", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[root](http://my.gitlab.com/root) requested your review on [manland/webhook#4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			Message:    "[root](http://my.gitlab.com/root) requested your review on [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
 			ToUsers:    []string{"manland"},
 			ToChannels: []string{},
 			From:       "root",
