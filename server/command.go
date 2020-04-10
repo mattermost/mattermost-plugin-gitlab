@@ -39,16 +39,16 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	 * *noSSL - all triggers with SSL verification not enabled.
 	 * PushEvents
 	 * TagPushEvents 
-	 * IssuesEvents 
+	 * Comments 
+	 * ConfidentialComments 
+	 * IssuesEvents
 	 * ConfidentialIssuesEvents 
-	 * NoteEvents 
-	 * ConfidentialNoteEvents 
 	 * MergeRequestsEvents 
 	 * JobEvents 
 	 * PipelineEvents 
 	 * WikiPageEvents
 	 * SSLverification
-  * |url| is the URL that when triggered. Defaults to this plugins URL
+  * |url| is the URL that will be called when triggered. Defaults to this plugins URL
   * |token| Secret token. Defaults to secrete token used in plugin's settings.
 `
 const webhookHowToURL = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
@@ -355,10 +355,10 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 		if all || strings.EqualFold(trigger, "ConfidentialIssuesEvents") {
 			confidentialIssuesEvents = true
 		}
-		if all || strings.EqualFold(trigger, "NoteEvents") {
+		if all || strings.EqualFold(trigger, "Comments") {
 			noteEvents = true
 		}
-		if all || strings.EqualFold(trigger, "ConfidentialNoteEvents") {
+		if all || strings.EqualFold(trigger, "ConfidentialComments") {
 			confidentialNoteEvents = true
 		}
 		if all || strings.EqualFold(trigger, "MergeRequestsEvents") {

@@ -343,7 +343,7 @@ func (p *Plugin) HasProjectHook(user *gitlab.GitlabUserInfo, namespace string, p
 		return false, errors.New("Unable to connect to GitLab")
 	}
 
-	//ignore error becouse many project won't be part of groups
+	//ignore error because many project won't be part of groups
 	hasGroupHook, _ := p.HasGroupHook(user, namespace)
 
 	if hasGroupHook {
