@@ -3,6 +3,9 @@
 [![Build Status](https://img.shields.io/circleci/project/github/mattermost/mattermost-plugin-gitlab/master.svg)](https://circleci.com/gh/mattermost/mattermost-plugin-gitlab)
 [![Code Coverage](https://img.shields.io/codecov/c/github/mattermost/mattermost-plugin-gitlab/master.svg)](https://codecov.io/gh/mattermost/mattermost-plugin-gitlab)
 
+**Maintainer:** [@iomodo](https://github.com/iomodo)
+**Co-Maintainer:** [@hanzei](https://github.com/hanzei)
+
 A GitLab plugin for Mattermost.
 
 Originally developed by [Romain Maneschi](https://github.com/manland).
