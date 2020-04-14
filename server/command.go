@@ -54,6 +54,8 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 const webhookHowToURL = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
 const inboundWebhookURL = "plugins/com.github.manland.mattermost-plugin-gitlab/webhook"
 const unknownActionMessage = "Unknown action, please use `/gitlab help` to see all actions available."
+const newWebhookEmptySiteURLmessage = "Unable to create webhook. The Mattermot Site URL is not set. " +
+	"Set it in the Admin Console or rerun /gitlab webhook add group/project URL including the desired URL."
 
 const (
 	groupNotFoundError   = "404 {message: 404 Group Not Found}"
@@ -278,6 +280,10 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.GitlabUserInfo
 		fullPath := strings.Split(namespace, "/")
 
 		siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
+		if siteURL == "" {
+			return newWebhookEmptySiteURLmessage
+		}
+
 		urlPath := fmt.Sprintf("%v/%s", siteURL, inboundWebhookURL)
 		if len(parameters) > 3 {
 			urlPath = parameters[3]

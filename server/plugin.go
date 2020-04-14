@@ -33,6 +33,8 @@ const (
 	SETTING_OFF           = "off"
 )
 
+var emptySiteURLErr = errors.New("Unable to connect to GitLab")
+
 type Plugin struct {
 	plugin.MattermostPlugin
 
@@ -351,6 +353,10 @@ func (p *Plugin) HasProjectHook(user *gitlab.GitlabUserInfo, namespace string, p
 	}
 
 	siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
+	if siteURL == "" {
+		return false, emptySiteURLErr
+	}
+
 	found := false
 	for _, hook := range hooks {
 		if strings.Contains(hook.URL, siteURL) {
@@ -369,6 +375,10 @@ func (p *Plugin) HasGroupHook(user *gitlab.GitlabUserInfo, namespace string) (bo
 	}
 
 	siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
+	if siteURL == "" {
+		return false, emptySiteURLErr
+	}
+
 	found := false
 	for _, hook := range hooks {
 		if strings.Contains(hook.URL, siteURL) {
