@@ -61,7 +61,7 @@ See [Compatibility](#Compatibility) for supported versions.
 
 __Note for each project you want to receive notifications for or subscribe to, you must create a webhook__
 
-1. In GitLab, go to the project you want to subscribe to, select **Settings** then **Integrations** in the sidebar.
+1. In GitLab, go to the project you want to subscribe to, select **Settings** then **Webhooks** in the sidebar.
 2. Set the following values:
    - **URL**: `https://your-mattermost-url.com/plugins/com.github.manland.mattermost-plugin-gitlab/webhook`, replacing `https://your-mattermost-url.com` with your Mattermost URL
    - **Secret Token**: the webhook secret you copied previously
