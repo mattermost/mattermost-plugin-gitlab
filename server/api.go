@@ -188,8 +188,8 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 		"##### Sidebar Buttons\n"+
 		"Check out the buttons in the left-hand sidebar of Mattermost.\n"+
 		"* The first button tells you how many merge requests you have submitted.\n"+
-		"* The second shows the number of PR that are awaiting your review.\n"+
-		"* The third shows the number of PR and issues your are assigned to.\n"+
+		"* The second shows the number of merge requests that are awaiting your review.\n"+
+		"* The third shows the number of merge requests and issues you are assigned to.\n"+
 		"* The fourth tracks the number of unread messages you have.\n"+
 		"* The fifth will refresh the numbers.\n\n"+
 		"Click on them!\n\n"+
