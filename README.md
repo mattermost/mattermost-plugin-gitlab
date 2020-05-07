@@ -100,4 +100,4 @@ This project is a fork of the [mattermost-plugin-github](https://github.com/matt
 
 ## Feedback and Feature Requests
 
-Feel free to create a GitHub issue or [join the GitLab Plugin channel on our community Mattermost instance](https://pre-release.mattermost.com/core/channels/gitlab-plugin) to discuss.
+Feel free to create a GitHub issue or [join the GitLab Plugin channel on our community Mattermost instance](https://community.mattermost.com/core/channels/plugin-gitlab) to discuss.
