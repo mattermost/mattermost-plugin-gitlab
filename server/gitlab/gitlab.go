@@ -62,42 +62,6 @@ func (s Scope) String() string {
 	return [...]string{"group", "project"}[s]
 }
 
-// WebhookInfo Provides information about group or project hooks.
-type WebhookInfo struct {
-	ID                       int
-	URL                      string
-	ConfidentialNoteEvents   bool
-	PushEvents               bool
-	IssuesEvents             bool
-	ConfidentialIssuesEvents bool
-	MergeRequestsEvents      bool
-	TagPushEvents            bool
-	NoteEvents               bool
-	JobEvents                bool
-	PipelineEvents           bool
-	WikiPageEvents           bool
-	EnableSSLVerification    bool
-	CreatedAt                *time.Time
-	Scope                    Scope
-}
-
-//AddWebhookOptions is a paramater object with options for creating a project or group hook.
-type AddWebhookOptions struct {
-	URL                      string
-	ConfidentialNoteEvents   bool
-	PushEvents               bool
-	IssuesEvents             bool
-	ConfidentialIssuesEvents bool
-	MergeRequestsEvents      bool
-	TagPushEvents            bool
-	NoteEvents               bool
-	JobEvents                bool
-	PipelineEvents           bool
-	WikiPageEvents           bool
-	EnableSSLVerification    bool
-	Token                    string
-}
-
 // New return a client to call GitLab API
 func New(enterpriseBaseURL string, gitlabGroup string, checkGroup func(projectNameWithGroup string) error) Gitlab {
 	return &gitlab{enterpriseBaseURL: enterpriseBaseURL, gitlabGroup: gitlabGroup, checkGroup: checkGroup}

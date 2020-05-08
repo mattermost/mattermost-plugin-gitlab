@@ -102,8 +102,8 @@ func (g *gitlab) GetGroupHooks(user *GitlabUserInfo, owner string) ([]*WebhookIn
 	return webhooks, nil
 }
 
-//Stringify produces a multiline bulleted string for displaying webhook information.
-func (w *WebhookInfo) Stringify() string {
+//String produces a multiline bulleted string for displaying webhook information.
+func (w *WebhookInfo) String() string {
 	var formatedTriggers string
 	if w.EnableSSLVerification {
 		formatedTriggers += "SSL Verification Enabled\n"

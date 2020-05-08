@@ -33,7 +33,7 @@ const (
 	SETTING_OFF           = "off"
 )
 
-var emptySiteURLErr = errors.New("Unable to connect to GitLab")
+var emptySiteURLErr = errors.New("SiteURL is not set. Please set it and restart the plugin.")
 
 type Plugin struct {
 	plugin.MattermostPlugin
@@ -77,6 +77,11 @@ func (p *Plugin) OnActivate() error {
 	}
 	if appErr := p.API.SetProfileImage(botID, profileImage); appErr != nil {
 		return errors.Wrap(err, "failed to set profile image")
+	}
+
+	siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
+	if siteURL == "" {
+		return emptySiteURLErr
 	}
 
 	return nil
@@ -353,9 +358,6 @@ func (p *Plugin) HasProjectHook(user *gitlab.GitlabUserInfo, namespace string, p
 	}
 
 	siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
-	if siteURL == "" {
-		return false, emptySiteURLErr
-	}
 
 	found := false
 	for _, hook := range hooks {
@@ -375,9 +377,6 @@ func (p *Plugin) HasGroupHook(user *gitlab.GitlabUserInfo, namespace string) (bo
 	}
 
 	siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
-	if siteURL == "" {
-		return false, emptySiteURLErr
-	}
 
 	found := false
 	for _, hook := range hooks {

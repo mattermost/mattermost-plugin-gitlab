@@ -51,11 +51,13 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
   * |url| is the URL that will be called when triggered. Defaults to this plugins URL
   * |token| Secret token. Defaults to secrete token used in plugin's settings.
 `
-const webhookHowToURL = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
-const inboundWebhookURL = "plugins/com.github.manland.mattermost-plugin-gitlab/webhook"
-const unknownActionMessage = "Unknown action, please use `/gitlab help` to see all actions available."
-const newWebhookEmptySiteURLmessage = "Unable to create webhook. The Mattermot Site URL is not set. " +
-	"Set it in the Admin Console or rerun /gitlab webhook add group/project URL including the desired URL."
+const (
+	webhookHowToURL               = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
+	inboundWebhookURL             = "plugins/com.github.manland.mattermost-plugin-gitlab/webhook"
+	unknownActionMessage          = "Unknown action, please use `/gitlab help` to see all actions available."
+	newWebhookEmptySiteURLmessage = "Unable to create webhook. The Mattermot Site URL is not set. " +
+		"Set it in the Admin Console or rerun /gitlab webhook add group/project URL including the desired URL."
+)
 
 const (
 	groupNotFoundError   = "404 {message: 404 Group Not Found}"
@@ -271,7 +273,7 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.GitlabUserInfo
 		}
 		var formatedWebhooks string
 		for _, hook := range webhookInfo {
-			formatedWebhooks += hook.Stringify()
+			formatedWebhooks += hook.String()
 		}
 		return formatedWebhooks
 
@@ -313,7 +315,7 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.GitlabUserInfo
 			if err != nil {
 				return err.Error()
 			}
-			return fmt.Sprintf("Webhook Created:\n%s", newWebhook.Stringify())
+			return fmt.Sprintf("Webhook Created:\n%s", newWebhook.String())
 		}
 		// If webhook is group scoped
 		if len(fullPath) == 1 {
@@ -323,7 +325,7 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.GitlabUserInfo
 			if err != nil {
 				return err.Error()
 			}
-			return fmt.Sprintf("Webhook Created:\n%s", newWebhook.Stringify())
+			return fmt.Sprintf("Webhook Created:\n%s", newWebhook.String())
 		}
 		return fmt.Sprintf("Invalid command")
 
@@ -452,7 +454,6 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 		)
 		return subscribeErr.Error()
 	}
-	var hookStatusMessage string
 	var hasHook bool
 	if project != "" {
 		hasHook, err = p.HasProjectHook(info, namespace, project)
@@ -472,15 +473,14 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 		}
 	}
 
-	if hasHook {
-		//web hook found
-		return fmt.Sprintf("Successfully subscribed to %s.", fullPath)
+	var hookStatusMessage string
+	if hasHook == false {
+		//no web hook found
+		hookStatusMessage = fmt.Sprintf(
+			"\nA Webhook is needed, run ```/gitlab webhook add %s``` to create one now.",
+			fullPath,
+		)
 	}
-	//no web hook found
-	hookStatusMessage = fmt.Sprintf(
-		"\nA Webhook is needed, run ```/gitlab webhook add %s``` to create one now.",
-		fullPath,
-	)
 
 	return fmt.Sprintf("Successfully subscribed to %s.%s", fullPath, hookStatusMessage)
 }
