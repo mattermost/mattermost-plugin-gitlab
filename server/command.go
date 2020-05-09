@@ -474,7 +474,7 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 	}
 
 	var hookStatusMessage string
-	if hasHook == false {
+	if !hasHook {
 		//no web hook found
 		hookStatusMessage = fmt.Sprintf(
 			"\nA Webhook is needed, run ```/gitlab webhook add %s``` to create one now.",
