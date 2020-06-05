@@ -18,6 +18,7 @@ export default class SidebarButtons extends React.PureComponent {
         yourPrs: PropTypes.arrayOf(PropTypes.object),
         yourAssignments: PropTypes.arrayOf(PropTypes.object),
         isTeamSidebar: PropTypes.bool,
+        pluginServerRoute: PropTypes.string.isRequired,
         actions: PropTypes.shape({
             getReviews: PropTypes.func.isRequired,
             getUnreads: PropTypes.func.isRequired,
@@ -67,7 +68,7 @@ export default class SidebarButtons extends React.PureComponent {
 
     openConnectWindow = (e) => {
         e.preventDefault();
-        window.open(`/plugins/${id}/oauth/connect`, 'Connect Mattermost to GitLab', 'height=570,width=520');
+        window.open(`${this.props.pluginServerRoute}/oauth/connect`, 'Connect Mattermost to GitLab', 'height=570,width=520');
     }
 
     render() {
@@ -92,7 +93,7 @@ export default class SidebarButtons extends React.PureComponent {
                         overlay={<Tooltip id='reviewTooltip'>Connect to your GitLab</Tooltip>}
                     >
                         <a
-                            href={`/plugins/${id}/oauth/connect`}
+                            href={`${this.props.pluginServerRoute}/oauth/connect`}
                             onClick={this.openConnectWindow}
                             style={button}
                         >
