@@ -1,8 +1,6 @@
 import {Client4} from 'mattermost-redux/client';
 import {ClientError} from 'mattermost-redux/client/client4';
 
-import {id} from '../manifest';
-
 export default class Client {
     setServerRoute = (url) => {
         this.url = `${url}/api/v1`;

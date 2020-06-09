@@ -10,8 +10,9 @@ import {
 
 import {id} from '../../manifest';
 
-import SidebarButtons from './sidebar_buttons.jsx';
 import {getPluginServerRoute} from '../../selectors';
+
+import SidebarButtons from './sidebar_buttons.jsx';
 
 function mapStateToProps(state) {
     return {
