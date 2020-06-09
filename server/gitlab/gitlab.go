@@ -2,6 +2,7 @@ package gitlab
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	internGitlab "github.com/xanzy/go-gitlab"
@@ -10,6 +11,8 @@ import (
 
 // DefaultRequestTimeout specifies default value for request timeouts.
 const DefaultRequestTimeout = 5 * time.Second
+
+const gitlabdotcom = "https://gitlab.com"
 
 // Errors returned by this package.
 var (
@@ -68,14 +71,9 @@ func New(enterpriseBaseURL string, gitlabGroup string, checkGroup func(projectNa
 }
 
 func (g *gitlab) gitlabConnect(token oauth2.Token) (*internGitlab.Client, error) {
-	if len(g.enterpriseBaseURL) == 0 {
+	if len(g.enterpriseBaseURL) == 0 || strings.EqualFold(g.enterpriseBaseURL, gitlabdotcom) {
 		return internGitlab.NewOAuthClient(token.AccessToken)
 	}
 
-	client, err := internGitlab.NewOAuthClient(token.AccessToken)
-	if err != nil {
-		return nil, err
-	}
-
-	return client, nil
+	return internGitlab.NewOAuthClient(token.AccessToken, internGitlab.WithBaseURL(g.enterpriseBaseURL))
 }
