@@ -1,9 +1,8 @@
 package gitlab
 
 import (
-	"context"
 	"errors"
-	"fmt"
+	"strings"
 	"time"
 
 	internGitlab "github.com/xanzy/go-gitlab"
@@ -12,6 +11,8 @@ import (
 
 // DefaultRequestTimeout specifies default value for request timeouts.
 const DefaultRequestTimeout = 5 * time.Second
+
+const gitlabdotcom = "https://gitlab.com"
 
 // Errors returned by this package.
 var (
@@ -28,7 +29,10 @@ type Gitlab interface {
 	GetYourPrs(user *GitlabUserInfo) ([]*internGitlab.MergeRequest, error)
 	GetYourAssignments(user *GitlabUserInfo) ([]*internGitlab.Issue, error)
 	GetUnreads(user *GitlabUserInfo) ([]*internGitlab.Todo, error)
-	GetProjectHooks(user *GitlabUserInfo, owner string, repo string) ([]*internGitlab.ProjectHook, error)
+	GetProjectHooks(user *GitlabUserInfo, owner string, repo string) ([]*WebhookInfo, error)
+	GetGroupHooks(user *GitlabUserInfo, owner string) ([]*WebhookInfo, error)
+	NewProjectHook(user *GitlabUserInfo, projectID interface{}, projectHookOptions *AddWebhookOptions) (*WebhookInfo, error)
+	NewGroupHook(user *GitlabUserInfo, groupName string, groupHookOptions *AddWebhookOptions) (*WebhookInfo, error)
 	// ResolveNamespaceAndProject accepts full path to User, Group or namespaced Project and returns corresponding
 	// namespace and project name.
 	//
@@ -47,23 +51,29 @@ type gitlab struct {
 	checkGroup        func(projectNameWithGroup string) error
 }
 
+// Scope identifies the scope of a webhook
+type Scope int
+
+const (
+	//Group is a type for group hooks
+	Group Scope = iota
+	//Project is a type for project hooks
+	Project
+)
+
+func (s Scope) String() string {
+	return [...]string{"group", "project"}[s]
+}
+
 // New return a client to call GitLab API
 func New(enterpriseBaseURL string, gitlabGroup string, checkGroup func(projectNameWithGroup string) error) Gitlab {
 	return &gitlab{enterpriseBaseURL: enterpriseBaseURL, gitlabGroup: gitlabGroup, checkGroup: checkGroup}
 }
 
 func (g *gitlab) gitlabConnect(token oauth2.Token) (*internGitlab.Client, error) {
-	ctx := context.Background()
-	ts := oauth2.StaticTokenSource(&token)
-	tc := oauth2.NewClient(ctx, ts)
-
-	if len(g.enterpriseBaseURL) == 0 {
-		return internGitlab.NewOAuthClient(tc, token.AccessToken), nil
+	if len(g.enterpriseBaseURL) == 0 || strings.EqualFold(g.enterpriseBaseURL, gitlabdotcom) {
+		return internGitlab.NewOAuthClient(token.AccessToken)
 	}
 
-	client := internGitlab.NewOAuthClient(tc, token.AccessToken)
-	if err := client.SetBaseURL(g.enterpriseBaseURL); err != nil {
-		return nil, fmt.Errorf("can't set base url to GitLab client lib: %w", err)
-	}
-	return client, nil
+	return internGitlab.NewOAuthClient(token.AccessToken, internGitlab.WithBaseURL(g.enterpriseBaseURL))
 }

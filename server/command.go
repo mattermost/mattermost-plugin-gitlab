@@ -11,7 +11,7 @@ import (
 	"github.com/mattermost/mattermost-server/v5/plugin"
 )
 
-const COMMAND_HELP = `* |/gitlab connect| - Connect your Mattermost account to your GitLab account
+const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to your GitLab account
 * |/gitlab disconnect| - Disconnect your Mattermost account from your GitLab account
 * |/gitlab todo| - Get a list of unread messages and merge requests awaiting your review
 * |/gitlab subscribe list| - Will list the current channel subscriptions
@@ -31,9 +31,43 @@ const COMMAND_HELP = `* |/gitlab connect| - Connect your Mattermost account to y
 * |/gitlab me| - Display the connected GitLab account
 * |/gitlab settings [setting] [value]| - Update your user settings
   * |setting| can be "notifications" or "reminders"
-  * |value| can be "on" or "off"`
+  * |value| can be "on" or "off"
+* |/gitlab webhook list [owner]/repo| - Will list associated group or project hooks.
+* |/gitlab webhook add owner[/repo] [options] [url] [token]|
+  * |options| is a comma-delimited list of one or more the following:
+	 * |*| - or missing defaults to all with SSL verification enabled
+	 * *noSSL - all triggers with SSL verification not enabled.
+	 * PushEvents
+	 * TagPushEvents 
+	 * Comments 
+	 * ConfidentialComments 
+	 * IssuesEvents
+	 * ConfidentialIssuesEvents 
+	 * MergeRequestsEvents 
+	 * JobEvents 
+	 * PipelineEvents 
+	 * WikiPageEvents
+	 * SSLverification
+  * |url| is the URL that will be called when triggered. Defaults to this plugins URL
+  * |token| Secret token. Defaults to secrete token used in plugin's settings.
+`
+const (
+	webhookHowToURL               = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
+	inboundWebhookURL             = "plugins/com.github.manland.mattermost-plugin-gitlab/webhook"
+	unknownActionMessage          = "Unknown action, please use `/gitlab help` to see all actions available."
+	newWebhookEmptySiteURLmessage = "Unable to create webhook. The Mattermot Site URL is not set. " +
+		"Set it in the Admin Console or rerun /gitlab webhook add group/project URL including the desired URL."
+)
 
-const webhookHowToURL = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
+const (
+	groupNotFoundError   = "404 {message: 404 Group Not Found}"
+	groupNotFoundMessage = "Unable to find GitLab group: "
+)
+
+const (
+	projectNotFoundError   = "404 {message: 404 Project Not Found}"
+	projectNotFoundMessage = "Unable to find project with namespace: "
+)
 
 func getCommand() *model.Command {
 	return &model.Command{
@@ -89,7 +123,7 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 	}
 
 	if action == "help" || action == "" {
-		text := "###### Mattermost GitLab Plugin - Slash Command Help\n" + strings.Replace(COMMAND_HELP, "|", "`", -1)
+		text := "###### Mattermost GitLab Plugin - Slash Command Help\n" + strings.Replace(commandHelp, "|", "`", -1)
 		return p.getCommandResponse(args, text), nil
 	}
 
@@ -184,8 +218,183 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 
 		return p.getCommandResponse(args, "Settings updated."), nil
 
+	case "webhook":
+		message := p.webhookCommand(parameters, info)
+		response := p.getCommandResponse(args, message)
+		return response, nil
+
 	default:
-		return p.getCommandResponse(args, "Unknown action, please use `/gitlab help` to see all actions available."), nil
+		return p.getCommandResponse(args, unknownActionMessage), nil
+	}
+}
+
+// webhookCommand processes the /gitlab webhook commands
+func (p *Plugin) webhookCommand(parameters []string, info *gitlab.GitlabUserInfo) string {
+	if len(parameters) < 1 {
+		return unknownActionMessage
+	}
+	subCommand := parameters[0]
+
+	switch subCommand {
+	case "list":
+		if len(parameters) != 2 {
+			return unknownActionMessage
+		}
+
+		namespace := parameters[1]
+		fullPath := strings.Split(namespace, "/")
+
+		var webhookInfo []*gitlab.WebhookInfo
+		var err error
+		if len(fullPath) == 2 {
+			owner := fullPath[0]
+			repo := fullPath[1]
+
+			webhookInfo, err = p.GitlabClient.GetProjectHooks(info, owner, repo)
+			if err != nil {
+				if strings.Contains(err.Error(), projectNotFoundError) {
+					return projectNotFoundMessage + namespace
+				}
+				return err.Error()
+			}
+
+		} else {
+			owner := fullPath[0]
+			webhookInfo, err = p.GitlabClient.GetGroupHooks(info, owner)
+			if err != nil {
+				if strings.Contains(err.Error(), groupNotFoundError) {
+					return groupNotFoundMessage + owner
+				}
+				return err.Error()
+			}
+		}
+		if len(webhookInfo) == 0 {
+			return fmt.Sprintf("No webhooks found in %s", namespace)
+		}
+		var formatedWebhooks string
+		for _, hook := range webhookInfo {
+			formatedWebhooks += hook.String()
+		}
+		return formatedWebhooks
+
+	case "add":
+		namespace := parameters[1]
+		fullPath := strings.Split(namespace, "/")
+
+		siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
+		if siteURL == "" {
+			return newWebhookEmptySiteURLmessage
+		}
+
+		urlPath := fmt.Sprintf("%v/%s", siteURL, inboundWebhookURL)
+		if len(parameters) > 3 {
+			urlPath = parameters[3]
+		}
+
+		//default to all triggers unless specified
+		hookOptions := parseTriggers("*")
+		if len(parameters) > 2 {
+			triggersCsv := parameters[2]
+			hookOptions = parseTriggers(triggersCsv)
+		}
+		hookOptions.URL = urlPath
+
+		if len(parameters) > 4 {
+			hookOptions.Token = parameters[4]
+		} else {
+			hookOptions.Token = p.getConfiguration().WebhookSecret
+		}
+
+		//if project scope
+		if len(fullPath) == 2 {
+			owner := fullPath[0]
+			repo := fullPath[1]
+
+			project, _ := p.GitlabClient.GetProject(info, owner, repo)
+			newWebhook, err := p.GitlabClient.NewProjectHook(info, project.ID, hookOptions)
+			if err != nil {
+				return err.Error()
+			}
+			return fmt.Sprintf("Webhook Created:\n%s", newWebhook.String())
+		}
+		// If webhook is group scoped
+		if len(fullPath) == 1 {
+			groupName := fullPath[0]
+
+			newWebhook, err := p.GitlabClient.NewGroupHook(info, groupName, hookOptions)
+			if err != nil {
+				return err.Error()
+			}
+			return fmt.Sprintf("Webhook Created:\n%s", newWebhook.String())
+		}
+		return fmt.Sprintf("Invalid command")
+
+	default:
+		return fmt.Sprintf("Unknown webhook command: %s", subCommand)
+	}
+}
+
+func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
+	var sslVerification, pushEvents, tagPushEvents, issuesEvents, confidentialIssuesEvents, noteEvents bool
+	var confidentialNoteEvents, mergeRequestsEvents, jobEvents, pipelineEvents, wikiPageEvents bool
+	var all bool
+	if triggersCsv == "*" {
+		all = true
+		sslVerification = true
+	}
+	if strings.EqualFold(triggersCsv, "*noSSL") {
+		all = true
+		sslVerification = false
+	}
+	triggers := strings.Split(triggersCsv, ",")
+	for _, trigger := range triggers {
+		if strings.EqualFold(trigger, "SSLverification") {
+			sslVerification = true
+		}
+		if all || strings.EqualFold(trigger, "PushEvents") {
+			pushEvents = true
+		}
+		if all || strings.EqualFold(trigger, "TagPushEvents") {
+			tagPushEvents = true
+		}
+		if all || strings.EqualFold(trigger, "IssuesEvents") {
+			issuesEvents = true
+		}
+		if all || strings.EqualFold(trigger, "ConfidentialIssuesEvents") {
+			confidentialIssuesEvents = true
+		}
+		if all || strings.EqualFold(trigger, "Comments") {
+			noteEvents = true
+		}
+		if all || strings.EqualFold(trigger, "ConfidentialComments") {
+			confidentialNoteEvents = true
+		}
+		if all || strings.EqualFold(trigger, "MergeRequestsEvents") {
+			mergeRequestsEvents = true
+		}
+		if all || strings.EqualFold(trigger, "JobEvents") {
+			jobEvents = true
+		}
+		if all || strings.EqualFold(trigger, "PipelineEvents") {
+			pipelineEvents = true
+		}
+		if all || strings.EqualFold(trigger, "WikiPageEvents") {
+			wikiPageEvents = true
+		}
+	}
+
+	return &gitlab.AddWebhookOptions{
+		EnableSSLVerification:    sslVerification,
+		ConfidentialNoteEvents:   confidentialNoteEvents,
+		PushEvents:               pushEvents,
+		IssuesEvents:             issuesEvents,
+		ConfidentialIssuesEvents: confidentialIssuesEvents,
+		MergeRequestsEvents:      mergeRequestsEvents,
+		TagPushEvents:            tagPushEvents,
+		NoteEvents:               noteEvents,
+		JobEvents:                jobEvents,
+		PipelineEvents:           pipelineEvents,
+		WikiPageEvents:           wikiPageEvents,
 	}
 }
 
@@ -245,28 +454,33 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 		)
 		return subscribeErr.Error()
 	}
-	var hookStatusMessage string
-	hasHook, err := p.HasProjectHook(info, namespace, project)
-	if err == nil {
-		if hasHook {
-			//web hook found
-			return fmt.Sprintf("Successfully subscribed to %s.", fullPath)
+	var hasHook bool
+	if project != "" {
+		hasHook, err = p.HasProjectHook(info, namespace, project)
+		if err != nil {
+			return fmt.Sprintf(
+				"Unable to determine status of Webhook. See [setup instructions](%s) to validate.",
+				webhookHowToURL,
+			)
 		}
+	} else {
+		hasHook, err = p.HasGroupHook(info, namespace)
+		if err != nil {
+			return fmt.Sprintf(
+				"Unable to determine status of Webhook. See [setup instructions](%s) to validate.",
+				webhookHowToURL,
+			)
+		}
+	}
+
+	var hookStatusMessage string
+	if !hasHook {
 		//no web hook found
 		hookStatusMessage = fmt.Sprintf(
-			"Please [setup a WebHook](%s/%s/%s/hooks) in GitLab to complete integration. See [setup instructions](%s) for more info.",
-			config.GitlabURL,
-			namespace,
-			project,
-			webhookHowToURL,
-		)
-	} else {
-		//unable to get web hook info
-		hookStatusMessage = fmt.Sprintf(
-			"Unable to determine status of Webhook. See [setup instructions](%s) to validate.",
-			webhookHowToURL,
+			"\nA Webhook is needed, run ```/gitlab webhook add %s``` to create one now.",
+			fullPath,
 		)
 	}
 
-	return fmt.Sprintf("Successfully subscribed to %s. %s", fullPath, hookStatusMessage)
+	return fmt.Sprintf("Successfully subscribed to %s.%s", fullPath, hookStatusMessage)
 }

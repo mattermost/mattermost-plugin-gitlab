@@ -189,12 +189,12 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 		"Check out the buttons in the left-hand sidebar of Mattermost.\n"+
 		"* The first button tells you how many merge requests you have submitted.\n"+
 		"* The second shows the number of merge requests that are awaiting your review.\n"+
-		"* The third shows the number of merge requests and issues you are assiged to.\n"+
+		"* The third shows the number of merge requests and issues you are assigned to.\n"+
 		"* The fourth tracks the number of unread messages you have.\n"+
 		"* The fifth will refresh the numbers.\n\n"+
 		"Click on them!\n\n"+
 		"##### Slash Commands\n"+
-		strings.Replace(COMMAND_HELP, "|", "`", -1), userInfo.GitlabUsername)
+		strings.Replace(commandHelp, "|", "`", -1), userInfo.GitlabUsername)
 
 	if err := p.CreateBotDMPost(userID, message, "custom_git_welcome"); err != nil {
 		p.API.LogError("can't send help message with bot dm", "err", err.Error())
@@ -343,7 +343,7 @@ func (p *Plugin) getConnected(w http.ResponseWriter, r *http.Request) {
 				p.PostToDo(info)
 				info.LastToDoPostAt = now
 				if err := p.storeGitlabUserInfo(info); err != nil {
-					p.API.LogError("can't sotre user info", "err", err.Error())
+					p.API.LogError("can't store user info", "err", err.Error())
 				}
 			}
 		}
