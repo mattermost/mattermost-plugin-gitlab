@@ -77,6 +77,7 @@ func getCommand() *model.Command {
 		AutoComplete:     true,
 		AutoCompleteDesc: "Available commands: connect, disconnect, todo, me, settings, subscribe, unsubscribe, help",
 		AutoCompleteHint: "[command]",
+		AutocompleteData: getAutocompleteData(),
 	}
 }
 
@@ -483,4 +484,75 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 	}
 
 	return fmt.Sprintf("Successfully subscribed to %s.%s", fullPath, hookStatusMessage)
+}
+
+func getAutocompleteData() *model.AutocompleteData {
+	gitlabCommand := model.NewAutocompleteData("gitlab", "[command]", "Avaliable commands: connect, disconnect, todo, subscribe, unsubscribe, me, settings, webhook")
+
+	connect := model.NewAutocompleteData("connect", "", "Connect your GitLab account")
+	gitlabCommand.AddCommand(connect)
+
+	disconnect := model.NewAutocompleteData("disconnect", "", "disconnect your GitLab account")
+	gitlabCommand.AddCommand(disconnect)
+
+	todo := model.NewAutocompleteData("todo", "", "Get a list of unread messages and merge requests awaiting your review")
+	gitlabCommand.AddCommand(todo)
+
+	subscribe := model.NewAutocompleteData("subscribe", "[command]", "Available commands: list")
+	subscribeList := model.NewAutocompleteData("list", "", "List current channel subscritpions")
+	subscribe.AddCommand(subscribeList)
+
+	subscribeChannel := model.NewAutocompleteData("subscribe", "owner[/repo] [features]", "Subscribe the current channel to receive notifications from a project")
+	subscribeChannel.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
+	subscribeChannel.AddTextArgument("Features: comma-delimited list of features to subscribe to", "[issues,][merges,][pushes,][issue_comments,][merge_request_comments,][pipeline,][tag,][pull_reviews,][label:<labelName>]", "")
+	subscribe.AddCommand(subscribeChannel)
+
+	gitlabCommand.AddCommand(subscribe)
+
+	unsubscribe := model.NewAutocompleteData("unsubscribe", "owner[/repo]", "Unsubscribe the current channel from a repository")
+	unsubscribe.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
+	gitlabCommand.AddCommand(unsubscribe)
+
+	me := model.NewAutocompleteData("me", "", "Displays the connected GitLab account")
+	gitlabCommand.AddCommand(me)
+
+	settings := model.NewAutocompleteData("settings", "[setting]", "Update your user settings")
+	settingOptions := []model.AutocompleteListItem{{
+		HelpText: "Turn notifications on/off",
+		Hint:     "",
+		Item:     "notifications",
+	}, {
+		HelpText: "Turn reminders on/off",
+		Hint:     "",
+		Item:     "reminders",
+	}}
+	settings.AddStaticListArgument("Setting to update", true, settingOptions)
+
+	value := []model.AutocompleteListItem{{
+		HelpText: "Turn setting on",
+		Hint:     "",
+		Item:     "on",
+	}, {
+		HelpText: "Turn setting off",
+		Hint:     "",
+		Item:     "off",
+	}}
+	settings.AddStaticListArgument("New value", true, value)
+	gitlabCommand.AddCommand(settings)
+
+	webhook := model.NewAutocompleteData("webhook", "[command]", "Available Commands: list, add")
+	webhookList := model.NewAutocompleteData("list", "owner/[repo]", "List existing project or group webhooks")
+	webhookList.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
+	webhook.AddCommand(webhookList)
+
+	webhookAdd := model.NewAutocompleteData("add", "owner/[repo] [options] [url] [token]", "Add a project or group webhook")
+	webhookAdd.AddTextArgument("Group or Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
+	webhookAdd.AddTextArgument("[Optional] options: comma-delimited list of actions to trigger a webhook, defaults to all with SSL verification", "[* or *noSSL] or [PushEvents,][TagPushEvents,][Comments,][ConfidentialComments,][IssuesEvents,][ConfidentialIssuesEvents,][MergeRequestsEvents,][JobEvents,][PipelineEvents,][WikiPageEvents,][SSLverification]", "")
+	webhookAdd.AddTextArgument("[Optional] url: URL to be triggered triggered. Defaults to this plugins URL", "[url]", "")
+	webhookAdd.AddTextArgument("[Optional] token: Secret for webhook. Defaults to token used in plugin's settings.", "[token]", "")
+	webhook.AddCommand(webhookAdd)
+
+	gitlabCommand.AddCommand(webhook)
+
+	return gitlabCommand
 }
