@@ -3,8 +3,6 @@ module github.com/mattermost/mattermost-plugin-gitlab
 go 1.13
 
 require (
-	github.com/NYTimes/gziphandler v1.1.1 // indirect
-	github.com/RackSec/srslog v0.0.0-20180709174129-a4725f04ec91 // indirect
 	github.com/golang/mock v1.4.3
 	github.com/hashicorp/go-retryablehttp v0.6.5 // indirect
 	github.com/mattermost/ldap v3.0.4+incompatible // indirect
@@ -20,6 +18,5 @@ require (
 	golang.org/x/tools v0.0.0-20200612182155-3c1b287bbdbb // indirect
 	google.golang.org/appengine v1.6.5 // indirect
 	gopkg.in/asn1-ber.v1 v1.0.0-20181015200546-f715ec2f112d // indirect
-	gopkg.in/olivere/elastic.v5 v5.0.82 // indirect
 	honnef.co/go/tools v0.0.1-2020.1.4 // indirect
 )
