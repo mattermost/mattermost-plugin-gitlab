@@ -518,22 +518,18 @@ func getAutocompleteData() *model.AutocompleteData {
 	settings := model.NewAutocompleteData("settings", "[setting]", "Update your user settings")
 	settingOptions := []model.AutocompleteListItem{{
 		HelpText: "Turn notifications on/off",
-		Hint:     "",
 		Item:     "notifications",
 	}, {
 		HelpText: "Turn reminders on/off",
-		Hint:     "",
 		Item:     "reminders",
 	}}
 	settings.AddStaticListArgument("Setting to update", true, settingOptions)
 
 	value := []model.AutocompleteListItem{{
 		HelpText: "Turn setting on",
-		Hint:     "",
 		Item:     "on",
 	}, {
 		HelpText: "Turn setting off",
-		Hint:     "",
 		Item:     "off",
 	}}
 	settings.AddStaticListArgument("New value", true, value)

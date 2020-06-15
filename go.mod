@@ -6,7 +6,7 @@ require (
 	github.com/golang/mock v1.4.3
 	github.com/hashicorp/go-retryablehttp v0.6.5 // indirect
 	github.com/mattermost/ldap v3.0.4+incompatible // indirect
-	github.com/mattermost/mattermost-server/v5 v5.3.2-0.20200527124843-dea705969ca4
+	github.com/mattermost/mattermost-server/v5 v5.24.0-rc1
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.5.1
