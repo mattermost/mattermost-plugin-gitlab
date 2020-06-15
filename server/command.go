@@ -501,13 +501,12 @@ func getAutocompleteData() *model.AutocompleteData {
 	subscribe := model.NewAutocompleteData("subscribe", "[command]", "Available commands: list")
 	subscribeList := model.NewAutocompleteData("list", "", "List current channel subscritpions")
 	subscribe.AddCommand(subscribeList)
+	gitlabCommand.AddCommand(subscribe)
 
 	subscribeChannel := model.NewAutocompleteData("subscribe", "owner[/repo] [features]", "Subscribe the current channel to receive notifications from a project")
 	subscribeChannel.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
 	subscribeChannel.AddTextArgument("Features: comma-delimited list of features to subscribe to", "[issues,][merges,][pushes,][issue_comments,][merge_request_comments,][pipeline,][tag,][pull_reviews,][label:<labelName>]", "")
-	subscribe.AddCommand(subscribeChannel)
-
-	gitlabCommand.AddCommand(subscribe)
+	gitlabCommand.AddCommand(subscribeChannel)
 
 	unsubscribe := model.NewAutocompleteData("unsubscribe", "owner[/repo]", "Unsubscribe the current channel from a repository")
 	unsubscribe.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
