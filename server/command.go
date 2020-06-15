@@ -554,5 +554,8 @@ func getAutocompleteData() *model.AutocompleteData {
 
 	gitlabCommand.AddCommand(webhook)
 
+	help := model.NewAutocompleteData("help", "", "Display GiLab Plug Help.")
+	gitlabCommand.AddCommand(help)
+
 	return gitlabCommand
 }
