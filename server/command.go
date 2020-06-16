@@ -49,7 +49,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	 * WikiPageEvents
 	 * SSLverification
   * |url| is the URL that will be called when triggered. Defaults to this plugins URL
-  * |token| Secret token. Defaults to secrete token used in plugin's settings.
+  * |token| Secret token. Defaults to secret token used in plugin's settings.
 `
 const (
 	webhookHowToURL               = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
