@@ -10,6 +10,8 @@ import {
 
 import {id} from '../../manifest';
 
+import {getPluginServerRoute} from '../../selectors';
+
 import SidebarButtons from './sidebar_buttons.jsx';
 
 function mapStateToProps(state) {
@@ -23,6 +25,7 @@ function mapStateToProps(state) {
         unreads: state[`plugins-${id}`].unreads,
         gitlabURL: state[`plugins-${id}`].gitlabURL,
         org: state[`plugins-${id}`].organization,
+        pluginServerRoute: getPluginServerRoute(state),
     };
 }
 

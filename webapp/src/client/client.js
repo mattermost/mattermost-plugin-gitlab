@@ -1,11 +1,9 @@
 import {Client4} from 'mattermost-redux/client';
 import {ClientError} from 'mattermost-redux/client/client4';
 
-import {id} from '../manifest';
-
 export default class Client {
-    constructor() {
-        this.url = `/plugins/${id}/api/v1`;
+    setServerRoute = (url) => {
+        this.url = `${url}/api/v1`;
     }
 
     getConnected = async (reminder = false) => {
