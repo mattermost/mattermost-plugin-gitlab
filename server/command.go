@@ -487,7 +487,7 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 }
 
 func getAutocompleteData() *model.AutocompleteData {
-	gitlabCommand := model.NewAutocompleteData("gitlab", "[command]", "Avaliable commands: connect, disconnect, todo, subscribe, unsubscribe, me, settings, webhook")
+	gitlabCommand := model.NewAutocompleteData("gitlab", "[command]", "Available commands: connect, disconnect, todo, subscribe, unsubscribe, me, settings, webhook")
 
 	connect := model.NewAutocompleteData("connect", "", "Connect your GitLab account")
 	gitlabCommand.AddCommand(connect)
@@ -499,7 +499,7 @@ func getAutocompleteData() *model.AutocompleteData {
 	gitlabCommand.AddCommand(todo)
 
 	subscribe := model.NewAutocompleteData("subscribe", "[command]", "Available commands: list")
-	subscribeList := model.NewAutocompleteData("list", "", "List current channel subscritpions")
+	subscribeList := model.NewAutocompleteData("list", "", "List current channel subscriptions")
 	subscribe.AddCommand(subscribeList)
 	gitlabCommand.AddCommand(subscribe)
 
