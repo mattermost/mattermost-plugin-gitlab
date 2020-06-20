@@ -15,7 +15,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 * |/gitlab disconnect| - Disconnect your Mattermost account from your GitLab account
 * |/gitlab todo| - Get a list of unread messages and merge requests awaiting your review
 * |/gitlab subscribe list| - Will list the current channel subscriptions
-* |/gitlab subscribe owner[/repo] [features]| - Subscribe the current channel to receive notifications about opened merge requests and issues for a group or repository
+* |/gitlab subscribe add owner[/repo] [features]| - Subscribe the current channel to receive notifications about opened merge requests and issues for a group or repository
   * |features| is a comma-delimited list of one or more the following:
     * issues - includes new and closed issues
 	* merges - includes new and closed merge requests
@@ -62,11 +62,11 @@ const (
 const (
 	groupNotFoundError   = "404 {message: 404 Group Not Found}"
 	groupNotFoundMessage = "Unable to find GitLab group: "
-)
 
-const (
 	projectNotFoundError   = "404 {message: 404 Project Not Found}"
 	projectNotFoundMessage = "Unable to find project with namespace: "
+
+	invalidSubscribeSubCommand = "Invalid subscribe command. Available commands are 'add' and 'list'"
 )
 
 func getCommand() *model.Command {
@@ -399,39 +399,31 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 	}
 }
 
-// SubscribeCommand proccess the /gitlab subscribe command.
-// It returns a message and handles all errors my including helpful information in the message
-func (p *Plugin) subscribeCommand(parameters []string, channelID string, config *configuration, info *gitlab.GitlabUserInfo) string {
-	features := "merges,issues,tag"
-
-	txt := ""
-	if len(parameters) == 0 {
-		return "Please specify a repository or 'list' command."
-	} else if len(parameters) == 1 && parameters[0] == "list" {
-		subs, err := p.GetSubscriptionsByChannel(channelID)
-		if err != nil {
-			txt = err.Error()
-			return txt
-		}
-
-		if len(subs) == 0 {
-			txt = "Currently there are no subscriptions in this channel"
-		} else {
-			txt = "### Subscriptions in this channel\n"
-		}
-		for _, sub := range subs {
-			txt += fmt.Sprintf("* `%s` - %s\n", strings.Trim(sub.Repository, "/"), sub.Features)
-		}
+//subscribeListCommand list GitLab subscriptions in a channel
+func (p *Plugin) subscribeListCommand(channelID string) string {
+	var txt string
+	subs, err := p.GetSubscriptionsByChannel(channelID)
+	if err != nil {
+		txt = err.Error()
 		return txt
-	} else if len(parameters) > 1 {
-		features = strings.Join(parameters[1:], " ")
 	}
+	if len(subs) == 0 {
+		txt = "Currently there are no subscriptions in this channel"
+	} else {
+		txt = "### Subscriptions in this channel\n"
+	}
+	for _, sub := range subs {
+		txt += fmt.Sprintf("* `%s` - %s\n", strings.Trim(sub.Repository, "/"), sub.Features)
+	}
+	return txt
+}
 
-	// Resolve namespace and project name
-	fullPath := normalizePath(parameters[0], config.GitlabURL)
-
+//subscribeAddCommand subscripes to A GitLab Project
+func (p *Plugin) subscribeAddCommand(info *gitlab.GitlabUserInfo, config *configuration, fullPath, channelID, features string) string {
+	var err error
 	namespace, project, err := p.GitlabClient.
 		ResolveNamespaceAndProject(info, fullPath, config.EnablePrivateRepo)
+
 	if err != nil {
 		if errors.Is(err, gitlab.ErrNotFound) {
 			return "Resource with such path is not found."
@@ -445,7 +437,6 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 		return err.Error()
 	}
 
-	// Create subscription
 	if subscribeErr := p.Subscribe(info, namespace, project, channelID, features); subscribeErr != nil {
 		p.API.LogError(
 			"failed to subscribe",
@@ -473,7 +464,6 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 			)
 		}
 	}
-
 	var hookStatusMessage string
 	if !hasHook {
 		//no web hook found
@@ -482,8 +472,34 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 			fullPath,
 		)
 	}
-
 	return fmt.Sprintf("Successfully subscribed to %s.%s", fullPath, hookStatusMessage)
+}
+
+// subscribeCommand proccess the /gitlab subscribe command.
+// It returns a message and handles all errors my including helpful information in the message
+func (p *Plugin) subscribeCommand(parameters []string, channelID string, config *configuration, info *gitlab.GitlabUserInfo) string {
+	if len(parameters) == 0 {
+		return invalidSubscribeSubCommand
+	}
+
+	subcommand := parameters[0]
+
+	switch subcommand {
+	case "list":
+		return p.subscribeListCommand(channelID)
+	case "add":
+		features := "merges,issues,tag"
+		if len(parameters) > 2 {
+			features = strings.Join(parameters[2:], " ")
+		}
+		// Resolve namespace and project name
+		fullPath := normalizePath(parameters[1], config.GitlabURL)
+
+		return p.subscribeAddCommand(info, config, fullPath, channelID, features)
+	default:
+		return invalidSubscribeSubCommand
+	}
+
 }
 
 func getAutocompleteData() *model.AutocompleteData {
@@ -498,15 +514,17 @@ func getAutocompleteData() *model.AutocompleteData {
 	todo := model.NewAutocompleteData("todo", "", "Get a list of unread messages and merge requests awaiting your review")
 	gitlabCommand.AddCommand(todo)
 
-	subscribe := model.NewAutocompleteData("subscribe", "[command]", "Available commands: list")
+	subscribe := model.NewAutocompleteData("subscribe", "[command]", "Available commands: Add, list")
+
 	subscribeList := model.NewAutocompleteData("list", "", "List current channel subscriptions")
 	subscribe.AddCommand(subscribeList)
-	gitlabCommand.AddCommand(subscribe)
 
-	subscribeChannel := model.NewAutocompleteData("subscribe", "owner[/repo] [features]", "Subscribe the current channel to receive notifications from a project")
-	subscribeChannel.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
-	subscribeChannel.AddTextArgument("Features: comma-delimited list of features to subscribe to", "[issues,][merges,][pushes,][issue_comments,][merge_request_comments,][pipeline,][tag,][pull_reviews,][label:<labelName>]", "")
-	gitlabCommand.AddCommand(subscribeChannel)
+	subscribeAdd := model.NewAutocompleteData("add", "owner[/repo] [features]", "Subscribe the current channel to receive notifications from a project")
+	subscribeAdd.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
+	subscribeAdd.AddTextArgument("Features: comma-delimited list of features to subscribe to", "[issues,][merges,][pushes,][issue_comments,][merge_request_comments,][pipeline,][tag,][pull_reviews,][label:<labelName>]", "")
+	subscribe.AddCommand(subscribeAdd)
+
+	gitlabCommand.AddCommand(subscribe)
 
 	unsubscribe := model.NewAutocompleteData("unsubscribe", "owner[/repo]", "Unsubscribe the current channel from a repository")
 	unsubscribe.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")

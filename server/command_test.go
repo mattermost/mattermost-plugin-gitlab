@@ -34,7 +34,7 @@ var subscribeCommandTests = []subscribeCommandTest{
 	},
 	{
 		testName:      "Hook Found",
-		paramaters:    []string{"group/project"},
+		paramaters:    []string{"add", "group/project"},
 		mockGitlab:    true,
 		want:          "Successfully subscribed to group/project.",
 		webhookInfo:   []*gitlab.WebhookInfo{{URL: "example.com/somewebhookURL"}},
@@ -42,7 +42,7 @@ var subscribeCommandTests = []subscribeCommandTest{
 	},
 	{
 		testName:      "No webhooks",
-		paramaters:    []string{"group/project"},
+		paramaters:    []string{"add", "group/project"},
 		mattermostURL: "example.com",
 		webhookInfo:   []*gitlab.WebhookInfo{{}},
 		mockGitlab:    true,
@@ -50,7 +50,7 @@ var subscribeCommandTests = []subscribeCommandTest{
 	},
 	{
 		testName:      "Multiple un-matching hooks",
-		paramaters:    []string{"group/project"},
+		paramaters:    []string{"add", "group/project"},
 		mattermostURL: "example.com",
 		mockGitlab:    true,
 		webhookInfo:   []*gitlab.WebhookInfo{{URL: "www.anotherhook.io/wrong"}, {URL: "www.213210948239324.edu/notgood"}},
@@ -58,7 +58,7 @@ var subscribeCommandTests = []subscribeCommandTest{
 	},
 	{
 		testName:       "Error getting webhooks",
-		paramaters:     []string{"group"},
+		paramaters:     []string{"add", "group"},
 		mattermostURL:  "example.com",
 		mockGitlab:     true,
 		webhookInfo:    []*gitlab.WebhookInfo{{}},
