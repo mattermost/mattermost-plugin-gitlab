@@ -20,7 +20,7 @@ Originally developed by [Romain Maneschi](https://github.com/manland).
 * __Notifications__ - get a direct message in Mattermost when someone mentions you, requests your review, comments on or modifies one of your merge requests/issues, or assigns you on GitLab
 * __Sidebar buttons__ - stay up-to-date with how many reviews, unread messages, assignments and open merge requests you have with buttons in the Mattermost sidebar
 * __Slash commands__ - interact with the GitLab plugin using the `/gitlab` slash command
-    * __Subscribe to a repository__ - Use `/gitlab subscribe` to subscribe a Mattermost channel to receive posts for new merge requests and/or issues in a GitLab repository
+    * __Subscribe to a repository__ - Use `/gitlab subscriptions add` to subscribe a Mattermost channel to receive posts for new merge requests and/or issues in a GitLab repository
     * __Get to do items__ - Use `/gitlab todo` to get an ephemeral message with items to do in GitLab
     * __Update settings__ - Use `/gitlab settings` to update your settings for the plugin
     * __And more!__ - Run `/gitlab help` to see what else the slash command can do
@@ -69,7 +69,7 @@ __Note for each project you want to receive notifications for or subscribe to, y
 
 Run the subscribe slash command to watch events sent from GitLab.
 
-```/gitlab subscribe group[/project]```
+```/gitlab subscriptions add group[/project]```
 
 Run the webhook slash command to have GitLab send events to Mattermost. 
 

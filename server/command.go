@@ -14,8 +14,8 @@ import (
 const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to your GitLab account
 * |/gitlab disconnect| - Disconnect your Mattermost account from your GitLab account
 * |/gitlab todo| - Get a list of unread messages and merge requests awaiting your review
-* |/gitlab subscribe list| - Will list the current channel subscriptions
-* |/gitlab subscribe add owner[/repo] [features]| - Subscribe the current channel to receive notifications about opened merge requests and issues for a group or repository
+* |/gitlab subscriptions list| - Will list the current channel subscriptions
+* |/gitlab subscriptions add owner[/repo] [features]| - Subscribe the current channel to receive notifications about opened merge requests and issues for a group or repository
   * |features| is a comma-delimited list of one or more the following:
     * issues - includes new and closed issues
 	* merges - includes new and closed merge requests
@@ -27,7 +27,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
     * pull_reviews - includes merge request reviews
 	* label:"<labelname>" - must include "merges" or "issues" in feature list when using a label
     * Defaults to "merges,issues,tag"
-* |/gitlab unsubscribe owner/repo| - Unsubscribe the current channel from a repository
+* |/gitlab subscriptions delete owner/repo| - Unsubscribe the current channel from a repository
 * |/gitlab me| - Display the connected GitLab account
 * |/gitlab settings [setting] [value]| - Update your user settings
   * |setting| can be "notifications" or "reminders"
@@ -140,26 +140,25 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 	config := p.getConfiguration()
 
 	switch action {
-	case "subscribe":
+	case "subscriptions", "subscription", "subscribe":
 		message := p.subscribeCommand(parameters, args.ChannelId, config, info)
 		response := p.getCommandResponse(args, message)
 		return response, nil
 	case "unsubscribe":
+		//subcommand subscriptions delete is preferred but unsubscribe remains to prevent breaking existing workflows
+		var message string
+		var err error
 
 		if len(parameters) == 0 {
-			return p.getCommandResponse(args, "Please specify a repository."), nil
+			message = "Please specify a repository."
+		} else {
+			message, err = p.subscriptionDelete(info, config, parameters[0], args.ChannelId)
+			if err != nil {
+				message = err.Error()
+			}
 		}
-
-		fullPath := normalizePath(parameters[0], config.GitlabURL)
-		if deleted, err := p.Unsubscribe(args.ChannelId, fullPath); err != nil {
-			p.API.LogError("can't unsubscribe channel in command", "err", err.Error())
-			return p.getCommandResponse(args, "Encountered an error trying to unsubscribe. Please try again."), nil
-		} else if !deleted {
-			return p.getCommandResponse(args, "Subscription not found, please check repository name."), nil
-		}
-
-		return p.getCommandResponse(args, fmt.Sprintf("Successfully unsubscribed from %s.", fullPath)), nil
-
+		response := p.getCommandResponse(args, message)
+		return response, nil
 	case "disconnect":
 		p.disconnectGitlabAccount(args.UserId)
 		return p.getCommandResponse(args, "Disconnected your GitLab account."), nil
@@ -399,8 +398,20 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 	}
 }
 
-//subscribeListCommand list GitLab subscriptions in a channel
-func (p *Plugin) subscribeListCommand(channelID string) string {
+func (p *Plugin) subscriptionDelete(info *gitlab.GitlabUserInfo, config *configuration, fullPath, channelID string) (string, error) {
+	normalizedPath := normalizePath(fullPath, config.GitlabURL)
+	if deleted, err := p.Unsubscribe(channelID, normalizedPath); err != nil {
+		p.API.LogError("can't unsubscribe channel in command", "err", err.Error())
+		return "Encountered an error trying to unsubscribe. Please try again.", nil
+	} else if !deleted {
+		return "Subscription not found, please check repository name.", nil
+	}
+
+	return fmt.Sprintf("Successfully deleted subscription for %s.", normalizedPath), nil
+}
+
+//subscriptionsListCommand list GitLab subscriptions in a channel
+func (p *Plugin) subscriptionsListCommand(channelID string) string {
 	var txt string
 	subs, err := p.GetSubscriptionsByChannel(channelID)
 	if err != nil {
@@ -418,8 +429,8 @@ func (p *Plugin) subscribeListCommand(channelID string) string {
 	return txt
 }
 
-//subscribeAddCommand subscripes to A GitLab Project
-func (p *Plugin) subscribeAddCommand(info *gitlab.GitlabUserInfo, config *configuration, fullPath, channelID, features string) string {
+//subscriptionsAddCommand subscripes to A GitLab Project
+func (p *Plugin) subscriptionsAddCommand(info *gitlab.GitlabUserInfo, config *configuration, fullPath, channelID, features string) string {
 	var err error
 	namespace, project, err := p.GitlabClient.
 		ResolveNamespaceAndProject(info, fullPath, config.EnablePrivateRepo)
@@ -486,7 +497,7 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 
 	switch subcommand {
 	case "list":
-		return p.subscribeListCommand(channelID)
+		return p.subscriptionsListCommand(channelID)
 	case "add":
 		features := "merges,issues,tag"
 		if len(parameters) > 2 {
@@ -495,7 +506,17 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 		// Resolve namespace and project name
 		fullPath := normalizePath(parameters[1], config.GitlabURL)
 
-		return p.subscribeAddCommand(info, config, fullPath, channelID, features)
+		return p.subscriptionsAddCommand(info, config, fullPath, channelID, features)
+	case "delete":
+		if len(parameters) < 2 {
+			return "Please specify a repository."
+		}
+
+		message, err := p.subscriptionDelete(info, config, parameters[1], channelID)
+		if err != nil {
+			return err.Error()
+		}
+		return message
 	default:
 		return invalidSubscribeSubCommand
 	}
@@ -514,21 +535,21 @@ func getAutocompleteData() *model.AutocompleteData {
 	todo := model.NewAutocompleteData("todo", "", "Get a list of unread messages and merge requests awaiting your review")
 	gitlabCommand.AddCommand(todo)
 
-	subscribe := model.NewAutocompleteData("subscribe", "[command]", "Available commands: Add, list")
+	subscriptions := model.NewAutocompleteData("subscriptions", "[command]", "Available commands: Add, List, Delete")
 
-	subscribeList := model.NewAutocompleteData("list", "", "List current channel subscriptions")
-	subscribe.AddCommand(subscribeList)
+	subscriptionsList := model.NewAutocompleteData("list", "", "List current channel subscriptions")
+	subscriptions.AddCommand(subscriptionsList)
 
-	subscribeAdd := model.NewAutocompleteData("add", "owner[/repo] [features]", "Subscribe the current channel to receive notifications from a project")
-	subscribeAdd.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
-	subscribeAdd.AddTextArgument("Features: comma-delimited list of features to subscribe to", "[issues,][merges,][pushes,][issue_comments,][merge_request_comments,][pipeline,][tag,][pull_reviews,][label:<labelName>]", "")
-	subscribe.AddCommand(subscribeAdd)
+	subscriptionsAdd := model.NewAutocompleteData("add", "owner[/repo] [features]", "Subscribe the current channel to receive notifications from a project")
+	subscriptionsAdd.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
+	subscriptionsAdd.AddTextArgument("Features: comma-delimited list of features to subscribe to", "[issues,][merges,][pushes,][issue_comments,][merge_request_comments,][pipeline,][tag,][pull_reviews,][label:<labelName>]", "")
+	subscriptions.AddCommand(subscriptionsAdd)
 
-	gitlabCommand.AddCommand(subscribe)
+	subscriptionsDelete := model.NewAutocompleteData("delete", "owner[/repo]", "Unsubscribe the current channel from a repository")
+	subscriptionsDelete.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
+	subscriptions.AddCommand(subscriptionsDelete)
 
-	unsubscribe := model.NewAutocompleteData("unsubscribe", "owner[/repo]", "Unsubscribe the current channel from a repository")
-	unsubscribe.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
-	gitlabCommand.AddCommand(unsubscribe)
+	gitlabCommand.AddCommand(subscriptions)
 
 	me := model.NewAutocompleteData("me", "", "Displays the connected GitLab account")
 	gitlabCommand.AddCommand(me)
