@@ -66,7 +66,8 @@ const (
 	projectNotFoundError   = "404 {message: 404 Project Not Found}"
 	projectNotFoundMessage = "Unable to find project with namespace: "
 
-	invalidSubscribeSubCommand = "Invalid subscribe command. Available commands are 'add' and 'list'"
+	invalidSubscribeSubCommand = "Invalid subscribe command. Available commands are add, delete, and list"
+
 )
 
 func getCommand() *model.Command {
@@ -75,7 +76,7 @@ func getCommand() *model.Command {
 		DisplayName:      "GitLab",
 		Description:      "Integration with GitLab.",
 		AutoComplete:     true,
-		AutoCompleteDesc: "Available commands: connect, disconnect, todo, me, settings, subscribe, unsubscribe, help",
+		AutoCompleteDesc: "Available commands: connect, disconnect, todo, me, settings, subscriptions, webhook, and help",
 		AutoCompleteHint: "[command]",
 		AutocompleteData: getAutocompleteData(),
 	}
