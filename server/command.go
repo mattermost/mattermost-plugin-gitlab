@@ -67,7 +67,6 @@ const (
 	projectNotFoundMessage = "Unable to find project with namespace: "
 
 	invalidSubscribeSubCommand = "Invalid subscribe command. Available commands are add, delete, and list"
-
 )
 
 func getCommand() *model.Command {
@@ -401,12 +400,12 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 
 func (p *Plugin) subscriptionDelete(info *gitlab.GitlabUserInfo, config *configuration, fullPath, channelID string) (string, error) {
 	normalizedPath := normalizePath(fullPath, config.GitlabURL)
-	deleted, err := p.Unsubscribe(channelID, normalizedPath);
+	deleted, err := p.Unsubscribe(channelID, normalizedPath)
 	if err != nil {
 		p.API.LogError("can't unsubscribe channel in command", "err", err.Error())
 		return "Encountered an error trying to unsubscribe. Please try again.", nil
-	} 
-	
+	}
+
 	if !deleted {
 		return "Subscription not found, please check repository name.", nil
 	}
