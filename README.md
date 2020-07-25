@@ -41,27 +41,27 @@ See [Compatibility](#Compatibility) for supported versions.
 ### Step 1: Register an OAuth application in GitLab
    
 1. Go to https://gitlab.com/profile/applications or https://gitlab.yourdomain.com/profile/applications to register an OAuth app.
-2. Set the following values:
+1. Set the following values:
    - **Name**: `Mattermost GitLab Plugin - <your company name>`
    - **Redirect URI**: `https://your-mattermost-url.com/plugins/com.github.manland.mattermost-plugin-gitlab/oauth/complete`, replacing `https://your-mattermost-url.com` with your Mattermost URL
-3. Select `api` and `read_user` in **Scopes**
-4. Save the application. Copy the **Application ID* and **Secret** fields in the resulting screen.
-2. In Mattermost, go to **Plugins Marketplace > GitLab > Configure**, and enter the **GitLab URL**, **GitLab OAuth Client ID**, and **Gitlab OAuth Client Secret**
+1. Select `api` and `read_user` in **Scopes**
+1. Save the application. Copy the **Application ID** and **Secret** fields in the resulting screen.
+1. In Mattermost, go to **Plugins Marketplace > GitLab > Configure**, and enter the **GitLab URL**, **GitLab OAuth Client ID**, and **GitLab OAuth Client Secret**
 
 ### Step 2: Configure plugin in Mattermost
 
 1. Go to **System Console > Plugins > GitLab** and do the following:
-  - Generate a new value for **Webhook Secret**. Copy it as you will use it in a later step.
+  - Generate a new value for **Webhook Secret**.
   - Generate a new value for **At Rest Encryption Key**.
   - (Optional) **GitLab Group**: Lock the plugin to a single GitLab group by setting this field to the name of your GitLab group.
   - (Optional) **Enable Private Repositories**: Allow the plugin to receive notifications from private repositories by setting this value to true.
     When enabled, existing users must reconnect their accounts to gain access to private project. Affected users will be notified by the plugin once private repositories are enabled.
-2. Hit **Save**.
-3. Go to **Plugins Marketplace > GitLab > Configure > Enable Plugin** and click **Enable** to enable the GitLab plugin.
+1. Hit **Save**.
+1. Go to **Plugins Marketplace > GitLab > Configure > Enable Plugin** and click **Enable** to enable the GitLab plugin.
 
 ### Step 3: Connect your GitLab accounts
 
-run the `/gitlab connect` slash command to connect your Mattermost account with GitLab.
+Run the `/gitlab connect` slash command to connect your Mattermost account with GitLab.
 
 ### Step 4: Subscribe to Projects and Groups
 
