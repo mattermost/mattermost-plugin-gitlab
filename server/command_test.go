@@ -116,8 +116,7 @@ var listWebhookCommandTests = []webhookCommandTest{
 				WikiPageEvents:           false,
 			},
 		},
-		want: `
-http://yourURL/plugins/com.github.manland.mattermost-plugin-gitlab/webhook
+		want: "\n\n`http://yourURL/plugins/com.github.manland.mattermost-plugin-gitlab/webhook`" + `
 Triggers:
 * Push Events
 * Tag Push Events
@@ -141,12 +140,10 @@ Triggers:
 				PushEvents: true,
 			},
 		},
-		want: `
-http://yourURL/plugins/com.github.manland.mattermost-plugin-gitlab/webhook
+		want: "\n\n`http://yourURL/plugins/com.github.manland.mattermost-plugin-gitlab/webhook`" + `
 Triggers:
 * Push Events
-
-http://anotherURL
+` + "\n\n`http://anotherURL`" + `
 Triggers:
 * Push Events
 `,
@@ -169,8 +166,7 @@ Triggers:
 				WikiPageEvents:           false,
 			},
 		},
-		want: `
-http://yourURL/plugins/com.github.manland.mattermost-plugin-gitlab/webhook
+		want: "\n\n`http://yourURL/plugins/com.github.manland.mattermost-plugin-gitlab/webhook`" + `
 Triggers:
 * Push Events
 * Tag Push Events
@@ -276,23 +272,21 @@ var addWebhookCommandTests = []webhookCommandTest{
 	{
 		testName:   "Create project hook with defaults",
 		paramaters: []string{"add", "group/project"},
-		want:       "Webhook Created:\n\nhttps://example.com" + allTriggersFormated,
+		want:       "Webhook Created:\n\n\n`https://example.com`" + allTriggersFormated,
 		siteURL:    "https://example.com",
 		webhook:    exampleWebhookWithAlltriggers,
 	},
 	{
 		testName:   "Create project hook with all trigers",
 		paramaters: []string{"add", "group/project", "*"},
-		want:       "Webhook Created:\n\nhttps://example.com" + allTriggersFormated,
+		want:       "Webhook Created:\n\n\n`https://example.com`" + allTriggersFormated,
 		siteURL:    "https://example.com",
 		webhook:    exampleWebhookWithAlltriggers,
 	},
 	{
 		testName:   "Create project hook with explicit trigers",
 		paramaters: []string{"add", "group/project", "PushEvents,MergeRequestEvents"},
-		want: `Webhook Created:
-
-https://example.com
+		want: "Webhook Created:\n\n\n`https://example.com`" + `
 Triggers:
 * Push Events
 * Merge Request Events
@@ -307,7 +301,7 @@ Triggers:
 	{
 		testName:   "Create project hook with explicit URL",
 		paramaters: []string{"add", "group/project", "*", "https://anothersite.com"},
-		want:       "Webhook Created:\n\nhttps://anothersite.com" + allTriggersFormated,
+		want:       "Webhook Created:\n\n\n`https://anothersite.com`" + allTriggersFormated,
 		siteURL:    "https://example.com",
 		webhook: &gitlab.WebhookInfo{
 			URL:                      "https://anothersite.com",
@@ -327,14 +321,14 @@ Triggers:
 	{
 		testName:   "Create project hook with explicit token",
 		paramaters: []string{"add", "group/project", "*", "https://example.com", "1234abcd"},
-		want:       "Webhook Created:\n\nhttps://example.com" + allTriggersFormated,
+		want:       "Webhook Created:\n\n\n`https://example.com`" + allTriggersFormated,
 		siteURL:    "https://example.com",
 		webhook:    exampleWebhookWithAlltriggers,
 	},
 	{
 		testName:   "Create Group hook with defaults",
 		paramaters: []string{"add", "group"},
-		want:       "Webhook Created:\n\nhttps://example.com" + allTriggersFormated,
+		want:       "Webhook Created:\n\n\n`https://example.com`" + allTriggersFormated,
 		siteURL:    "https://example.com",
 		scope:      "group",
 		webhook:    exampleWebhookWithAlltriggers,
