@@ -141,7 +141,7 @@ func (w *WebhookInfo) String() string {
 		formatedTriggers += "* Wiki Page Events\n"
 	}
 
-	return "\n" + w.URL + "\n" + formatedTriggers
+	return "\n\n`" + w.URL + "`\n" + formatedTriggers
 }
 
 func getProjectHookInfo(hook *internGitlab.ProjectHook) *WebhookInfo {
