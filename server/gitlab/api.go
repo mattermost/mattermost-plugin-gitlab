@@ -280,6 +280,7 @@ func (g *gitlab) GetYourAssignments(user *GitlabUserInfo) ([]*internGitlab.Issue
 	}
 
 	opened := "opened"
+	scope := "all"
 
 	var result []*internGitlab.Issue
 	var errRequest error
@@ -288,11 +289,13 @@ func (g *gitlab) GetYourAssignments(user *GitlabUserInfo) ([]*internGitlab.Issue
 		result, _, errRequest = client.Issues.ListIssues(&internGitlab.ListIssuesOptions{
 			AssigneeID: &user.GitlabUserId,
 			State:      &opened,
+			Scope:      &scope,
 		})
 	} else {
 		result, _, errRequest = client.Issues.ListGroupIssues(g.gitlabGroup, &internGitlab.ListGroupIssuesOptions{
 			AssigneeID: &user.GitlabUserId,
 			State:      &opened,
+			Scope:      &scope,
 		})
 	}
 
