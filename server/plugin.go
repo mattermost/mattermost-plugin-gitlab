@@ -55,8 +55,13 @@ func (p *Plugin) OnActivate() error {
 		return err
 	}
 
-	if err := p.API.RegisterCommand(getCommand()); err != nil {
-		return errors.Wrap(err, fmt.Sprintf("Unable to register command: %v", getCommand()))
+	command, err := p.getCommand()
+	if err != nil {
+		return errors.Wrap(err, "failed to get command")
+	}
+
+	if err := p.API.RegisterCommand(command); err != nil {
+		return errors.Wrap(err, "failed to register command")
 	}
 
 	botID, ensureBotError := p.Helpers.EnsureBot(&model.Bot{

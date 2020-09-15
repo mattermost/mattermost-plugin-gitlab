@@ -1,14 +1,15 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
-
+	"github.com/mattermost/mattermost-plugin-api/experimental/command"
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin"
+	"github.com/pkg/errors"
+
+	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 )
 
 const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to your GitLab account
@@ -69,16 +70,20 @@ const (
 	invalidSubscribeSubCommand = "Invalid subscribe command. Available commands are add, delete, and list"
 )
 
-func getCommand() *model.Command {
-	return &model.Command{
-		Trigger:          "gitlab",
-		DisplayName:      "GitLab",
-		Description:      "Integration with GitLab.",
-		AutoComplete:     true,
-		AutoCompleteDesc: "Available commands: connect, disconnect, todo, me, settings, subscriptions, webhook, and help",
-		AutoCompleteHint: "[command]",
-		AutocompleteData: getAutocompleteData(),
+func (p *Plugin) getCommand() (*model.Command, error) {
+	iconData, err := command.GetIconData(p.API, "assets/icon.svg")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get icon data")
 	}
+
+	return &model.Command{
+		Trigger:              "gitlab",
+		AutoComplete:         true,
+		AutoCompleteDesc:     "Available commands: connect, disconnect, todo, me, settings, subscriptions, webhook, and help",
+		AutoCompleteHint:     "[command]",
+		AutocompleteData:     getAutocompleteData(),
+		AutocompleteIconData: iconData,
+	}, nil
 }
 
 func (p *Plugin) postCommandResponse(args *model.CommandArgs, text string) {
