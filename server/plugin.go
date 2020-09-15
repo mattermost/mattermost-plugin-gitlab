@@ -60,17 +60,18 @@ func (p *Plugin) OnActivate() error {
 		return errors.Wrap(err, "failed to get command")
 	}
 
-	if err := p.API.RegisterCommand(command); err != nil {
+	err = p.API.RegisterCommand(command)
+	if err != nil {
 		return errors.Wrap(err, "failed to register command")
 	}
 
-	botID, ensureBotError := p.Helpers.EnsureBot(&model.Bot{
+	botID, err := p.Helpers.EnsureBot(&model.Bot{
 		Username:    "gitlab",
 		DisplayName: "GitLab Plugin",
 		Description: "A bot account created by the plugin GitLab.",
 	})
-	if ensureBotError != nil {
-		return errors.Wrap(ensureBotError, "can't ensure bot")
+	if err != nil {
+		return errors.Wrap(err, "can't ensure bot")
 	}
 	p.BotUserID = botID
 
