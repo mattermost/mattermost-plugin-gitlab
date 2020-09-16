@@ -3,8 +3,6 @@ import {Tooltip, OverlayTrigger} from 'react-bootstrap';
 import PropTypes from 'prop-types';
 import {makeStyleFromTheme, changeOpacity} from 'mattermost-redux/utils/theme_utils';
 
-import {id} from '../../manifest';
-
 export default class SidebarButtons extends React.PureComponent {
     static propTypes = {
         theme: PropTypes.object.isRequired,
@@ -18,6 +16,7 @@ export default class SidebarButtons extends React.PureComponent {
         yourPrs: PropTypes.arrayOf(PropTypes.object),
         yourAssignments: PropTypes.arrayOf(PropTypes.object),
         isTeamSidebar: PropTypes.bool,
+        pluginServerRoute: PropTypes.string.isRequired,
         actions: PropTypes.shape({
             getReviews: PropTypes.func.isRequired,
             getUnreads: PropTypes.func.isRequired,
@@ -67,7 +66,7 @@ export default class SidebarButtons extends React.PureComponent {
 
     openConnectWindow = (e) => {
         e.preventDefault();
-        window.open(`/plugins/${id}/oauth/connect`, 'Connect Mattermost to GitLab', 'height=570,width=520');
+        window.open(`${this.props.pluginServerRoute}/oauth/connect`, 'Connect Mattermost to GitLab', 'height=570,width=520');
     }
 
     render() {
@@ -92,7 +91,7 @@ export default class SidebarButtons extends React.PureComponent {
                         overlay={<Tooltip id='reviewTooltip'>Connect to your GitLab</Tooltip>}
                     >
                         <a
-                            href={`/plugins/${id}/oauth/connect`}
+                            href={`${this.props.pluginServerRoute}/oauth/connect`}
                             onClick={this.openConnectWindow}
                             style={button}
                         >
@@ -145,7 +144,7 @@ export default class SidebarButtons extends React.PureComponent {
                 <OverlayTrigger
                     key='gitlabReviewsLink'
                     placement={placement}
-                    overlay={<Tooltip id='reviewTooltip'>Pull requests needing review</Tooltip>}
+                    overlay={<Tooltip id='reviewTooltip'>Merge requests needing review</Tooltip>}
                 >
                     <a
                         href={baseURL + orgQuery + '/merge_requests?assignee_username=' + this.props.username}

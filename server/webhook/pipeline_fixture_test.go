@@ -37,7 +37,7 @@ const PipelinePending = `{
 	},
 	"commit":{
 		"id":"ec0a1bcd4580bfec3495674e412f4834ee2c2550",
-		"message":"Start gitlab-ci",
+		"message":"Start gitlab-ci\n",
 		"timestamp":"2019-04-17T20:38:43Z",
 		"url":"http://localhost:3000/manland/webhook/commit/ec0a1bcd4580bfec3495674e412f4834ee2c2550",
 		"author":{
@@ -104,7 +104,7 @@ const PipelineRun = `{
 	},
 	"commit":{
 		"id":"ec0a1bcd4580bfec3495674e412f4834ee2c2550",
-		"message":"Start gitlab-ci",
+		"message":"Start gitlab-ci\n",
 		"timestamp":"2019-04-17T20:38:43Z",
 		"url":"http://localhost:3000/manland/webhook/commit/ec0a1bcd4580bfec3495674e412f4834ee2c2550",
 		"author":{
@@ -178,7 +178,7 @@ const PipelineFail = `{
 	},
 	"commit":{
 		"id":"ec0a1bcd4580bfec3495674e412f4834ee2c2550",
-		"message":"Start gitlab-ci",
+		"message":"Start gitlab-ci\n",
 		"timestamp":"2019-04-17T20:38:43Z",
 		"url":"http://localhost:3000/manland/webhook/commit/ec0a1bcd4580bfec3495674e412f4834ee2c2550",
 		"author":{
@@ -252,7 +252,7 @@ const PipelineSuccess = `{
 	},
 	"commit":{
 		"id":"ec0a1bcd4580bfec3495674e412f4834ee2c2550",
-		"message":"Start gitlab-ci",
+		"message":"Start gitlab-ci\n",
 		"timestamp":"2019-04-17T20:38:43Z",
 		"url":"http://localhost:3000/manland/webhook/commit/ec0a1bcd4580bfec3495674e412f4834ee2c2550",
 		"author":{

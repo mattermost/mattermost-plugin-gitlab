@@ -171,10 +171,10 @@ func (mr *MockGitlabMockRecorder) GetGroupHooks(user, owner interface{}) *gomock
 }
 
 // NewProjectHook mocks base method
-func (m *MockGitlab) NewProjectHook(user *gitlab.GitlabUserInfo, projectID interface{}, projectHookOptions *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error) {
+func (m *MockGitlab) NewProjectHook(user *gitlab.GitlabUserInfo, projectID interface{}, projectHookOptions *gitlab0.AddProjectHookOptions) (*gitlab0.ProjectHook, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewProjectHook", user, projectID, projectHookOptions)
-	ret0, _ := ret[0].(*gitlab.WebhookInfo)
+	ret0, _ := ret[0].(*gitlab0.ProjectHook)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -183,21 +183,6 @@ func (m *MockGitlab) NewProjectHook(user *gitlab.GitlabUserInfo, projectID inter
 func (mr *MockGitlabMockRecorder) NewProjectHook(user, projectID, projectHookOptions interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewProjectHook", reflect.TypeOf((*MockGitlab)(nil).NewProjectHook), user, projectID, projectHookOptions)
-}
-
-// NewGroupHook mocks base method
-func (m *MockGitlab) NewGroupHook(user *gitlab.GitlabUserInfo, groupName string, groupHookOptions *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewGroupHook", user, groupName, groupHookOptions)
-	ret0, _ := ret[0].(*gitlab.WebhookInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// NewGroupHook indicates an expected call of NewGroupHook
-func (mr *MockGitlabMockRecorder) NewGroupHook(user, groupName, groupHookOptions interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewGroupHook", reflect.TypeOf((*MockGitlab)(nil).NewGroupHook), user, groupName, groupHookOptions)
 }
 
 // ResolveNamespaceAndProject mocks base method

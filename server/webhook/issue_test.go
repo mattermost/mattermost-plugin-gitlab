@@ -30,7 +30,7 @@ var testDataIssue = []testDataIssueStr{
 			ToChannels: []string{},
 			From:       "root",
 		}, {
-			Message:    "#### test new issue\n##### [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)\n# new issue by [root](http://my.gitlab.com/root) on [2019-04-06 21:03:04 UTC](http://localhost:3000/manland/webhook/issues/1)\n\nhello world!",
+			Message:    "#### test new issue\n##### [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)\n###### new issue by [root](http://my.gitlab.com/root) on [2019-04-06 21:03:04 UTC](http://localhost:3000/manland/webhook/issues/1)\n\nhello world!",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "root",
@@ -47,7 +47,7 @@ var testDataIssue = []testDataIssueStr{
 			ToChannels: []string{},
 			From:       "root",
 		}, {
-			Message:    "#### test new issue\n##### [manland/subgroup/webhook#1](http://localhost:3000/manland/subgroup/webhook/issues/1)\n# new issue by [root](http://my.gitlab.com/root) on [2019-04-06 21:03:04 UTC](http://localhost:3000/manland/subgroup/webhook/issues/1)\n\nhello world!",
+			Message:    "#### test new issue\n##### [manland/subgroup/webhook#1](http://localhost:3000/manland/subgroup/webhook/issues/1)\n###### new issue by [root](http://my.gitlab.com/root) on [2019-04-06 21:03:04 UTC](http://localhost:3000/manland/subgroup/webhook/issues/1)\n\nhello world!",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "root",
@@ -59,7 +59,7 @@ var testDataIssue = []testDataIssueStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "issues", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "#### new issue\n##### [manland/webhook#2](http://localhost:3000/manland/webhook/issues/2)\n# new issue by [root](http://my.gitlab.com/root) on [2019-04-06 21:13:03 UTC](http://localhost:3000/manland/webhook/issues/2)\n\nHello world",
+			Message:    "#### new issue\n##### [manland/webhook#2](http://localhost:3000/manland/webhook/issues/2)\n###### new issue by [root](http://my.gitlab.com/root) on [2019-04-06 21:13:03 UTC](http://localhost:3000/manland/webhook/issues/2)\n\nHello world",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "root",

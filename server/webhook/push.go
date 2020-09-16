@@ -46,14 +46,16 @@ func (w *webhook) handleChannelPush(event *gitlab.PushEvent) ([]*HandleWebhook, 
 		return nil, nil
 	}
 
-	var message string
+	var plural string = "commits"
+
 	if event.TotalCommitsCount == 1 {
-		message = fmt.Sprintf("[%s](%s) has pushed %d commit to [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.TotalCommitsCount, event.Project.PathWithNamespace, event.Project.WebURL)
-	} else {
-		message = fmt.Sprintf("[%s](%s) has pushed %d commits to [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.TotalCommitsCount, event.Project.PathWithNamespace, event.Project.WebURL)
+		plural = "commit"
 	}
+
+	var message string = fmt.Sprintf("[%s](%s) has pushed %d %s to [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.TotalCommitsCount, plural, event.Project.PathWithNamespace, event.Project.WebURL)
+
 	for _, commit := range event.Commits {
-		message += fmt.Sprintf("\n%s[%s](%s)", commit.Message, "View Commit", commit.URL)
+		message += fmt.Sprintf("\n%s [%s](%s)", commit.Message, "View Commit", commit.URL)
 	}
 
 	toChannels := make([]string, 0)

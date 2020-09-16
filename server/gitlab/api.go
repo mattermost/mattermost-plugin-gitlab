@@ -11,8 +11,183 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// NewGroupHook creates a webhook associated with a GitLab group
+func (g *gitlab) NewGroupHook(user *GitlabUserInfo, groupName string, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+
+	group, _, err := client.Groups.GetGroup(groupName)
+	if err != nil {
+		return nil, err
+	}
+
+	groupHookOptions := internGitlab.AddGroupHookOptions{
+		URL:                      &webhookOptions.URL,
+		ConfidentialNoteEvents:   &webhookOptions.ConfidentialNoteEvents,
+		PushEvents:               &webhookOptions.PushEvents,
+		IssuesEvents:             &webhookOptions.IssuesEvents,
+		ConfidentialIssuesEvents: &webhookOptions.ConfidentialIssuesEvents,
+		MergeRequestsEvents:      &webhookOptions.MergeRequestsEvents,
+		TagPushEvents:            &webhookOptions.TagPushEvents,
+		NoteEvents:               &webhookOptions.NoteEvents,
+		JobEvents:                &webhookOptions.JobEvents,
+		PipelineEvents:           &webhookOptions.PipelineEvents,
+		WikiPageEvents:           &webhookOptions.WikiPageEvents,
+		EnableSSLVerification:    &webhookOptions.EnableSSLVerification,
+		Token:                    &webhookOptions.Token,
+	}
+
+	groupHook, _, err := client.Groups.AddGroupHook(group.ID, &groupHookOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	groupHookInfo := getGroupHookInfo(groupHook)
+
+	return groupHookInfo, nil
+}
+
+// NewProjectHook creates a webhook associated with a GitLab project
+func (g *gitlab) NewProjectHook(user *GitlabUserInfo, projectID interface{}, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+
+	projectHookOptions := internGitlab.AddProjectHookOptions{
+		URL:                      &webhookOptions.URL,
+		ConfidentialNoteEvents:   &webhookOptions.ConfidentialNoteEvents,
+		PushEvents:               &webhookOptions.PushEvents,
+		IssuesEvents:             &webhookOptions.IssuesEvents,
+		ConfidentialIssuesEvents: &webhookOptions.ConfidentialIssuesEvents,
+		MergeRequestsEvents:      &webhookOptions.MergeRequestsEvents,
+		TagPushEvents:            &webhookOptions.TagPushEvents,
+		NoteEvents:               &webhookOptions.NoteEvents,
+		JobEvents:                &webhookOptions.JobEvents,
+		PipelineEvents:           &webhookOptions.PipelineEvents,
+		WikiPageEvents:           &webhookOptions.WikiPageEvents,
+		EnableSSLVerification:    &webhookOptions.EnableSSLVerification,
+		Token:                    &webhookOptions.Token,
+	}
+
+	projectHook, _, err := client.Projects.AddProjectHook(projectID, &projectHookOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	projectHookInfo := getProjectHookInfo(projectHook)
+
+	return projectHookInfo, nil
+}
+
+// GetGroupHooks gathers all the group level hooks for a GitLab group.
+func (g *gitlab) GetGroupHooks(user *GitlabUserInfo, owner string) ([]*WebhookInfo, error) {
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+
+	hooks, _, err := client.Groups.ListGroupHooks(owner)
+	if err != nil {
+		return nil, err
+	}
+
+	var webhooks []*WebhookInfo
+	for _, hook := range hooks {
+		webhooks = append(webhooks, getGroupHookInfo(hook))
+	}
+
+	return webhooks, nil
+}
+
+//String produces a multiline bulleted string for displaying webhook information.
+func (w *WebhookInfo) String() string {
+	var formatedTriggers string
+	if w.EnableSSLVerification {
+		formatedTriggers += "SSL Verification Enabled\n"
+	}
+
+	formatedTriggers += "Triggers:\n"
+	if w.PushEvents {
+		formatedTriggers += "* Push Events\n"
+	}
+	if w.TagPushEvents {
+		formatedTriggers += "* Tag Push Events\n"
+	}
+	if w.NoteEvents {
+		formatedTriggers += "* Comments\n"
+	}
+	if w.ConfidentialNoteEvents {
+		formatedTriggers += "* Confidential Comments\n"
+	}
+	if w.IssuesEvents {
+		formatedTriggers += "* Issues Events\n"
+	}
+	if w.ConfidentialIssuesEvents {
+		formatedTriggers += "* Confidential Issues Events\n"
+	}
+	if w.MergeRequestsEvents {
+		formatedTriggers += "* Merge Request Events\n"
+	}
+	if w.JobEvents {
+		formatedTriggers += "* Job Events\n"
+	}
+	if w.PipelineEvents {
+		formatedTriggers += "* Pipeline Events\n"
+	}
+	if w.WikiPageEvents {
+		formatedTriggers += "* Wiki Page Events\n"
+	}
+
+	return "\n\n`" + w.URL + "`\n" + formatedTriggers
+}
+
+func getProjectHookInfo(hook *internGitlab.ProjectHook) *WebhookInfo {
+	webhook := &WebhookInfo{
+		Scope:                    Project,
+		URL:                      hook.URL,
+		ID:                       hook.ID,
+		ConfidentialNoteEvents:   hook.ConfidentialNoteEvents,
+		PushEvents:               hook.PushEvents,
+		IssuesEvents:             hook.IssuesEvents,
+		ConfidentialIssuesEvents: hook.ConfidentialIssuesEvents,
+		MergeRequestsEvents:      hook.MergeRequestsEvents,
+		TagPushEvents:            hook.TagPushEvents,
+		NoteEvents:               hook.NoteEvents,
+		JobEvents:                hook.JobEvents,
+		PipelineEvents:           hook.PipelineEvents,
+		WikiPageEvents:           hook.WikiPageEvents,
+		EnableSSLVerification:    hook.EnableSSLVerification,
+		CreatedAt:                hook.CreatedAt,
+	}
+	return webhook
+}
+
+func getGroupHookInfo(hook *internGitlab.GroupHook) *WebhookInfo {
+	webhook := &WebhookInfo{
+		Scope:                    Project,
+		URL:                      hook.URL,
+		ID:                       hook.ID,
+		ConfidentialNoteEvents:   hook.ConfidentialNoteEvents,
+		PushEvents:               hook.PushEvents,
+		IssuesEvents:             hook.IssuesEvents,
+		ConfidentialIssuesEvents: hook.ConfidentialIssuesEvents,
+		MergeRequestsEvents:      hook.MergeRequestsEvents,
+		TagPushEvents:            hook.TagPushEvents,
+		NoteEvents:               hook.NoteEvents,
+		JobEvents:                hook.JobEvents,
+		PipelineEvents:           hook.PipelineEvents,
+		WikiPageEvents:           hook.WikiPageEvents,
+		EnableSSLVerification:    hook.EnableSSLVerification,
+		CreatedAt:                hook.CreatedAt,
+	}
+	return webhook
+}
+
 // GetProjectHooks gathers all the project level hooks from a single GitLab project.
-func (g *gitlab) GetProjectHooks(user *GitlabUserInfo, owner string, repo string) ([]*internGitlab.ProjectHook, error) {
+func (g *gitlab) GetProjectHooks(user *GitlabUserInfo, owner string, repo string) ([]*WebhookInfo, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -20,7 +195,14 @@ func (g *gitlab) GetProjectHooks(user *GitlabUserInfo, owner string, repo string
 
 	projectPath := fmt.Sprintf("%s/%s", owner, repo)
 	projectHooks, _, err := client.Projects.ListProjectHooks(projectPath, nil)
-	return projectHooks, err
+	if err != nil {
+		return nil, err
+	}
+	var webhooks []*WebhookInfo
+	for _, hook := range projectHooks {
+		webhooks = append(webhooks, getProjectHookInfo(hook))
+	}
+	return webhooks, err
 }
 
 func (g *gitlab) GetProject(user *GitlabUserInfo, owner, repo string) (*internGitlab.Project, error) {
@@ -98,6 +280,7 @@ func (g *gitlab) GetYourAssignments(user *GitlabUserInfo) ([]*internGitlab.Issue
 	}
 
 	opened := "opened"
+	scope := "all"
 
 	var result []*internGitlab.Issue
 	var errRequest error
@@ -106,11 +289,13 @@ func (g *gitlab) GetYourAssignments(user *GitlabUserInfo) ([]*internGitlab.Issue
 		result, _, errRequest = client.Issues.ListIssues(&internGitlab.ListIssuesOptions{
 			AssigneeID: &user.GitlabUserId,
 			State:      &opened,
+			Scope:      &scope,
 		})
 	} else {
 		result, _, errRequest = client.Issues.ListGroupIssues(g.gitlabGroup, &internGitlab.ListGroupIssuesOptions{
 			AssigneeID: &user.GitlabUserId,
 			State:      &opened,
+			Scope:      &scope,
 		})
 	}
 
@@ -201,7 +386,7 @@ func (g *gitlab) ResolveNamespaceAndProject(
 	if user != nil {
 		return user.Username, "", nil
 	} else if group != nil {
-		if !allowPrivate && group.Visibility != nil && *group.Visibility != internGitlab.PublicVisibility {
+		if !allowPrivate && &group.Visibility != nil && group.Visibility != internGitlab.PublicVisibility {
 			return "", "", fmt.Errorf(
 				"you can't add a private group on this Mattermost instance: %w",
 				ErrPrivateResource,

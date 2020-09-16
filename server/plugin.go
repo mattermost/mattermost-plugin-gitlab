@@ -33,6 +33,8 @@ const (
 	SETTING_OFF           = "off"
 )
 
+var emptySiteURLErr = errors.New("SiteURL is not set. Please set it and restart the plugin.")
+
 type Plugin struct {
 	plugin.MattermostPlugin
 
@@ -49,6 +51,10 @@ type Plugin struct {
 }
 
 func (p *Plugin) OnActivate() error {
+	if err := p.getConfiguration().IsValid(); err != nil {
+		return err
+	}
+
 	if err := p.API.RegisterCommand(getCommand()); err != nil {
 		return errors.Wrap(err, fmt.Sprintf("Unable to register command: %v", getCommand()))
 	}
@@ -75,6 +81,11 @@ func (p *Plugin) OnActivate() error {
 	}
 	if appErr := p.API.SetProfileImage(botID, profileImage); appErr != nil {
 		return errors.Wrap(err, "failed to set profile image")
+	}
+
+	siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
+	if siteURL == "" {
+		return emptySiteURLErr
 	}
 
 	return nil
@@ -335,7 +346,7 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 	)
 }
 
-// HasProjectHook checks if the subscribed GitLab Project has a web hook
+// HasProjectHook checks if the subscribed GitLab Project or its parrent Group has a webhook
 // with a URL that matches the Mattermost Site URL.
 func (p *Plugin) HasProjectHook(user *gitlab.GitlabUserInfo, namespace string, project string) (bool, error) {
 	hooks, err := p.GitlabClient.GetProjectHooks(user, namespace, project)
@@ -343,7 +354,34 @@ func (p *Plugin) HasProjectHook(user *gitlab.GitlabUserInfo, namespace string, p
 		return false, errors.New("Unable to connect to GitLab")
 	}
 
+	//ignore error because many project won't be part of groups
+	hasGroupHook, _ := p.HasGroupHook(user, namespace)
+
+	if hasGroupHook {
+		return true, err
+	}
+
 	siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
+
+	found := false
+	for _, hook := range hooks {
+		if strings.Contains(hook.URL, siteURL) {
+			found = true
+		}
+	}
+	return found, nil
+}
+
+// HasGroupHook checks if the subscribed GitLab Group has a webhook
+// with a URL that matches the Mattermost Site URL.
+func (p *Plugin) HasGroupHook(user *gitlab.GitlabUserInfo, namespace string) (bool, error) {
+	hooks, err := p.GitlabClient.GetGroupHooks(user, namespace)
+	if err != nil {
+		return false, errors.New("Unable to connect to GitLab")
+	}
+
+	siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
+
 	found := false
 	for _, hook := range hooks {
 		if strings.Contains(hook.URL, siteURL) {

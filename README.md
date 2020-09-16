@@ -8,6 +8,11 @@ The GitLab/Mattermost plugin documentation is currently being updated and reloca
 
 [![Build Status](https://img.shields.io/circleci/project/github/mattermost/mattermost-plugin-gitlab/master.svg)](https://circleci.com/gh/mattermost/mattermost-plugin-gitlab)
 [![Code Coverage](https://img.shields.io/codecov/c/github/mattermost/mattermost-plugin-gitlab/master.svg)](https://codecov.io/gh/mattermost/mattermost-plugin-gitlab)
+[![Release](https://img.shields.io/github/v/release/mattermost/mattermost-plugin-gitlab)](https://github.com/mattermost/mattermost-plugin-gitlab/releases/latest)
+[![HW](https://img.shields.io/github/issues/mattermost/mattermost-plugin-gitlab/Up%20For%20Grabs?color=dark%20green&label=Help%20Wanted)](https://github.com/mattermost/mattermost-plugin-gitlab/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A%22Up+For+Grabs%22+label%3A%22Help+Wanted%22)
+
+**Maintainer:** [@iomodo](https://github.com/iomodo)
+**Co-Maintainer:** [@hanzei](https://github.com/hanzei)
 
 A GitLab plugin for Mattermost.
 
@@ -21,7 +26,7 @@ Originally developed by [Romain Maneschi](https://github.com/manland).
 * __Notifications__ - get a direct message in Mattermost when someone mentions you, requests your review, comments on or modifies one of your merge requests/issues, or assigns you on GitLab
 * __Sidebar buttons__ - stay up-to-date with how many reviews, unread messages, assignments and open merge requests you have with buttons in the Mattermost sidebar
 * __Slash commands__ - interact with the GitLab plugin using the `/gitlab` slash command
-    * __Subscribe to a respository__ - Use `/gitlab subscribe` to subscribe a Mattermost channel to receive posts for new merge requests and/or issues in a GitLab repository
+    * __Subscribe to a repository__ - Use `/gitlab subscriptions add` to subscribe a Mattermost channel to receive posts for new merge requests and/or issues in a GitLab repository
     * __Get to do items__ - Use `/gitlab todo` to get an ephemeral message with items to do in GitLab
     * __Update settings__ - Use `/gitlab settings` to update your settings for the plugin
     * __And more!__ - Run `/gitlab help` to see what else the slash command can do
@@ -42,36 +47,39 @@ See [Compatibility](#Compatibility) for supported versions.
 ### Step 1: Register an OAuth Application in GitLab
 
 1. Go to https://gitlab.com/profile/applications or https://gitlab.yourdomain.com/profile/applications to register an OAuth app.
-2. Set the following values:
+1. Set the following values:
    - **Name**: `Mattermost GitLab Plugin - <your company name>`
    - **Redirect URI**: `https://your-mattermost-url.com/plugins/com.github.manland.mattermost-plugin-gitlab/oauth/complete`, replacing `https://your-mattermost-url.com` with your Mattermost URL
-3. Select `api` and `read_user` in **Scopes**
-4. Save the application. Copy the **Application ID* and **Secret** fields in the resulting screen.
-2. In Mattermost, go to **Plugins Marketplace > GitLab > Configure**, and enter the **GitLab URL**, **GitLab OAuth Client ID**, and **Gitlab OAuth Client Secret**
+1. Select `api` and `read_user` in **Scopes**
+1. Save the application. Copy the **Application ID** and **Secret** fields in the resulting screen.
+1. In Mattermost, go to **Plugins Marketplace > GitLab > Configure**, and enter the **GitLab URL**, **GitLab OAuth Client ID**, and **GitLab OAuth Client Secret**
 
 ### Step 2: Configure plugin in Mattermost
 
 1. Go to **System Console > Plugins > GitLab** and do the following:
-  - Generate a new value for **Webhook Secret**. Copy it as you will use it in a later step.
+  - Generate a new value for **Webhook Secret**.
   - Generate a new value for **At Rest Encryption Key**.
   - (Optional) **GitLab Group**: Lock the plugin to a single GitLab group by setting this field to the name of your GitLab group.
   - (Optional) **Enable Private Repositories**: Allow the plugin to receive notifications from private repositories by setting this value to true.
     When enabled, existing users must reconnect their accounts to gain access to private project. Affected users will be notified by the plugin once private repositories are enabled.
-2. Hit **Save**.
-3. Go to **Plugins Marketplace > GitLab > Configure > Enable Plugin** and click **Enable** to enable the GitLab plugin.
+1. Hit **Save**.
+1. Go to **Plugins Marketplace > GitLab > Configure > Enable Plugin** and click **Enable** to enable the GitLab plugin.
 
-### Step 3: Create a GitLab webhook
+### Step 3: Connect your GitLab accounts
+
+Run the `/gitlab connect` slash command to connect your Mattermost account with GitLab.
+
+### Step 4: Subscribe to Projects and Groups
 
 __Note for each project you want to receive notifications for or subscribe to, you must create a webhook__
 
-1. In GitLab, go to the project you want to subscribe to, select **Settings** then **Integrations** in the sidebar.
-2. Set the following values:
-   - **URL**: `https://your-mattermost-url.com/plugins/com.github.manland.mattermost-plugin-gitlab/webhook`, replacing `https://your-mattermost-url.com` with your Mattermost URL
-   - **Secret Token**: the webhook secret you copied previously
-3. Select all the events in **Triggers**.
-4. Add the webhook.
+Run the subscribe slash command to watch events sent from GitLab.
 
-You're all set! To test it, run the `/gitlab connect` slash command to connect your Mattermost account with GitLab.
+```/gitlab subscriptions add group[/project]```
+
+Run the webhook slash command to have GitLab send events to Mattermost. 
+
+```/gitlab webhook add group[/project]```
 
 ## Compatibility
 
@@ -103,4 +111,4 @@ This project is a fork of the [mattermost-plugin-github](https://github.com/matt
 
 ## Feedback and Feature Requests
 
-Feel free to create a GitHub issue or [join the GitLab Plugin channel on our community Mattermost instance](https://pre-release.mattermost.com/core/channels/gitlab-plugin) to discuss.
+Feel free to create a GitHub issue or [join the GitLab Plugin channel on our community Mattermost instance](https://community.mattermost.com/core/channels/plugin-gitlab) to discuss.

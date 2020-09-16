@@ -13,6 +13,8 @@ import {
     handleRefresh,
 } from './websocket';
 import {id} from './manifest';
+import Client from './client';
+import {getPluginServerRoute} from './selectors';
 
 let activityFunc;
 let lastActivityTime = Number.MAX_SAFE_INTEGER;
@@ -21,6 +23,9 @@ const activityTimeout = 60 * 60 * 1000; // 1 hour
 class PluginClass {
     async initialize(registry, store) {
         registry.registerReducer(Reducer);
+
+        // This needs to be called before any API calls below
+        Client.setServerRoute(getPluginServerRoute(store.getState()));
 
         await getConnected(true)(store.dispatch, store.getState);
 
