@@ -4,6 +4,7 @@
     "description": "GitLab plugin for Mattermost.",
     "homepage_url": "https://github.com/mattermost/mattermost-plugin-gitlab",
     "support_url": "https://github.com/mattermost/mattermost-plugin-gitlab/issues",
+    "release_notes_url": "https://github.com/mattermost/mattermost-plugin-gitlab/releases/tag/v1.2.0",
     "icon_path": "assets/icon.svg",
     "version": "1.2.0",
     "min_server_version": "5.10.0",
