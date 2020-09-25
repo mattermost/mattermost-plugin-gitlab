@@ -25,29 +25,28 @@ type Subscription struct {
 	Repository string
 }
 
-func New(ChannelID, CreatorID, Features, Repository string) (*Subscription, error) {
-	if strings.Contains(Features, "label:") && len(strings.Split(Features, "\"")) < 3 {
-		return nil, errors.New("The label is formatted incorrectly")
+func New(channelID, creatorID, features, repository string) (*Subscription, error) {
+	if strings.Contains(features, "label:") && len(strings.Split(features, "\"")) < 3 {
+		return nil, errors.New("the label is formatted incorrectly")
 	}
-	if strings.Contains(Features, "label:") && len(strings.Split(Features, "\"")) > 3 {
-		return nil, errors.New("Can't add multiple labels on the same subscription")
+	if strings.Contains(features, "label:") && len(strings.Split(features, "\"")) > 3 {
+		return nil, errors.New("can't add multiple labels on the same subscription")
 	}
 
-	features := strings.Split(Features, ",")
 	badFeatures := make([]string, 0)
-	for _, f := range features {
-		if _, ok := allFeatures[f]; !strings.HasPrefix(f, "label:") && !ok {
-			badFeatures = append(badFeatures, f)
+	for _, feature := range strings.Split(features, ",") {
+		if _, ok := allFeatures[feature]; !strings.HasPrefix(feature, "label:") && !ok {
+			badFeatures = append(badFeatures, feature)
 		}
 	}
 	if len(badFeatures) > 0 {
-		return nil, fmt.Errorf("Unknown features %s", strings.Join(badFeatures, ","))
+		return nil, fmt.Errorf("unknown features %s", strings.Join(badFeatures, ","))
 	}
 	return &Subscription{
-		ChannelID:  ChannelID,
-		CreatorID:  CreatorID,
-		Features:   Features,
-		Repository: Repository,
+		ChannelID:  channelID,
+		CreatorID:  creatorID,
+		Features:   features,
+		Repository: repository,
 	}, nil
 }
 

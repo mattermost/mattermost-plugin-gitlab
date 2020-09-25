@@ -11,29 +11,29 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
-	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin"
 	"github.com/pkg/errors"
-
 	"golang.org/x/oauth2"
+
+	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
+	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 )
 
 const (
-	GITLAB_TOKEN_KEY      = "_gitlabtoken"
-	GITLAB_USERNAME_KEY   = "_gitlabusername"
-	GITLAB_IDUSERNAME_KEY = "_gitlabidusername"
-	WS_EVENT_CONNECT      = "gitlab_connect"
-	WS_EVENT_DISCONNECT   = "gitlab_disconnect"
-	WS_EVENT_REFRESH      = "gitlab_refresh"
-	SETTING_NOTIFICATIONS = "notifications"
-	SETTING_REMINDERS     = "reminders"
-	SETTING_ON            = "on"
-	SETTING_OFF           = "off"
+	GitlabTokenKey       = "_gitlabtoken"
+	GitlabUsernameKey    = "_gitlabusername"
+	GitlabIDUsernameKey  = "_gitlabidusername"
+	WsEventConnect       = "gitlab_connect"
+	WsEventDisconnect    = "gitlab_disconnect"
+	WsEventRefresh       = "gitlab_refresh"
+	SettingNotifications = "notifications"
+	SettingReminders     = "reminders"
+	SettingOn            = "on"
+	SettingOff           = "off"
 )
 
-var emptySiteURLErr = errors.New("SiteURL is not set. Please set it and restart the plugin.")
+var errEmptySiteURL = errors.New("siteURL is not set. Please set it and restart the plugin")
 
 type Plugin struct {
 	plugin.MattermostPlugin
@@ -73,7 +73,7 @@ func (p *Plugin) OnActivate() error {
 
 	bundlePath, err := p.API.GetBundlePath()
 	if err != nil {
-		return errors.Wrap(err, "can't retreive bundle path")
+		return errors.Wrap(err, "can't retrieve bundle path")
 	}
 	profileImage, err := ioutil.ReadFile(filepath.Join(bundlePath, "assets", "profile.png"))
 	if err != nil {
@@ -85,7 +85,7 @@ func (p *Plugin) OnActivate() error {
 
 	siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
 	if siteURL == "" {
-		return emptySiteURLErr
+		return errEmptySiteURL
 	}
 
 	return nil
@@ -112,7 +112,7 @@ func (p *Plugin) getOAuthConfig() *oauth2.Config {
 	}
 }
 
-func (p *Plugin) storeGitlabUserInfo(info *gitlab.GitlabUserInfo) error {
+func (p *Plugin) storeGitlabUserInfo(info *gitlab.UserInfo) error {
 	config := p.getConfiguration()
 
 	encryptedToken, err := encrypt([]byte(config.EncryptionKey), info.Token.AccessToken)
@@ -127,20 +127,20 @@ func (p *Plugin) storeGitlabUserInfo(info *gitlab.GitlabUserInfo) error {
 		return err
 	}
 
-	if err := p.API.KVSet(info.UserID+GITLAB_TOKEN_KEY, jsonInfo); err != nil {
+	if err := p.API.KVSet(info.UserID+GitlabTokenKey, jsonInfo); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.GitlabUserInfo, *APIErrorResponse) {
+func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInfo, *APIErrorResponse) {
 	config := p.getConfiguration()
 
-	var userInfo gitlab.GitlabUserInfo
+	var userInfo gitlab.UserInfo
 
-	if infoBytes, err := p.API.KVGet(userID + GITLAB_TOKEN_KEY); err != nil || infoBytes == nil {
-		return nil, &APIErrorResponse{ID: API_ERROR_ID_NOT_CONNECTED, Message: "Must connect user account to GitLab first.", StatusCode: http.StatusBadRequest}
+	if infoBytes, err := p.API.KVGet(userID + GitlabTokenKey); err != nil || infoBytes == nil {
+		return nil, &APIErrorResponse{ID: APIErrorIDNotConnected, Message: "Must connect user account to GitLab first.", StatusCode: http.StatusBadRequest}
 	} else if err := json.Unmarshal(infoBytes, &userInfo); err != nil {
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to parse token.", StatusCode: http.StatusInternalServerError}
 	}
@@ -157,17 +157,17 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.GitlabU
 }
 
 func (p *Plugin) storeGitlabToUserIDMapping(gitlabUsername, userID string) error {
-	if err := p.API.KVSet(gitlabUsername+GITLAB_USERNAME_KEY, []byte(userID)); err != nil {
-		return fmt.Errorf("Encountered error saving GitLab username mapping")
+	if err := p.API.KVSet(gitlabUsername+GitlabUsernameKey, []byte(userID)); err != nil {
+		return fmt.Errorf("encountered error saving GitLab username mapping")
 	}
-	if err := p.API.KVSet(userID+GITLAB_IDUSERNAME_KEY, []byte(gitlabUsername)); err != nil {
-		return fmt.Errorf("Encountered error saving GitLab id mapping")
+	if err := p.API.KVSet(userID+GitlabIDUsernameKey, []byte(gitlabUsername)); err != nil {
+		return fmt.Errorf("encountered error saving GitLab id mapping")
 	}
 	return nil
 }
 
 func (p *Plugin) getGitlabToUserIDMapping(gitlabUsername string) string {
-	userID, err := p.API.KVGet(gitlabUsername + GITLAB_USERNAME_KEY)
+	userID, err := p.API.KVGet(gitlabUsername + GitlabUsernameKey)
 	if err != nil {
 		p.API.LogError("can't get userId from store with username", "err", err.DetailedError, "username", gitlabUsername)
 	}
@@ -175,7 +175,7 @@ func (p *Plugin) getGitlabToUserIDMapping(gitlabUsername string) string {
 }
 
 func (p *Plugin) getGitlabIDToUsernameMapping(gitlabUserID string) string {
-	gitlabUsername, err := p.API.KVGet(gitlabUserID + GITLAB_IDUSERNAME_KEY)
+	gitlabUsername, err := p.API.KVGet(gitlabUserID + GitlabIDUsernameKey)
 	if err != nil {
 		p.API.LogError("can't get user id by login", "err", err.DetailedError)
 	}
@@ -192,14 +192,14 @@ func (p *Plugin) disconnectGitlabAccount(userID string) {
 		return
 	}
 
-	if err := p.API.KVDelete(userID + GITLAB_TOKEN_KEY); err != nil {
+	if err := p.API.KVDelete(userID + GitlabTokenKey); err != nil {
 		p.API.LogError("can't delete token in store", "err", err.DetailedError, "userId", userID)
 	}
-	if err := p.API.KVDelete(userInfo.GitlabUsername + GITLAB_USERNAME_KEY); err != nil {
+	if err := p.API.KVDelete(userInfo.GitlabUsername + GitlabUsernameKey); err != nil {
 		p.API.LogError("can't delete username in store", "err", err.DetailedError, "username", userInfo.GitlabUsername)
 	}
-	if err := p.API.KVDelete(fmt.Sprintf("%d%s", userInfo.GitlabUserId, GITLAB_IDUSERNAME_KEY)); err != nil {
-		p.API.LogError("can't delete user id in sotre", "err", err.DetailedError, "id", userInfo.GitlabUserId)
+	if err := p.API.KVDelete(fmt.Sprintf("%d%s", userInfo.GitlabUserID, GitlabIDUsernameKey)); err != nil {
+		p.API.LogError("can't delete user id in sotre", "err", err.DetailedError, "id", userInfo.GitlabUserID)
 	}
 
 	if user, err := p.API.GetUser(userID); err == nil && user.Props != nil && len(user.Props["git_user"]) > 0 {
@@ -210,7 +210,7 @@ func (p *Plugin) disconnectGitlabAccount(userID string) {
 	}
 
 	p.API.PublishWebSocketEvent(
-		WS_EVENT_DISCONNECT,
+		WsEventDisconnect,
 		nil,
 		&model.WebsocketBroadcast{UserId: userID},
 	)
@@ -238,7 +238,7 @@ func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppErr
 	return nil
 }
 
-func (p *Plugin) PostToDo(info *gitlab.GitlabUserInfo) {
+func (p *Plugin) PostToDo(info *gitlab.UserInfo) {
 	text, err := p.GetToDo(info)
 	if err != nil {
 		p.API.LogError("can't post todo", "err", err.Error())
@@ -250,7 +250,7 @@ func (p *Plugin) PostToDo(info *gitlab.GitlabUserInfo) {
 	}
 }
 
-func (p *Plugin) GetToDo(user *gitlab.GitlabUserInfo) (string, error) {
+func (p *Plugin) GetToDo(user *gitlab.UserInfo) (string, error) {
 	unreads, err := p.GitlabClient.GetUnreads(user)
 	if err != nil {
 		return "", err
@@ -340,7 +340,7 @@ func (p *Plugin) isNamespaceAllowed(namespace string) error {
 
 func (p *Plugin) sendRefreshEvent(userID string) {
 	p.API.PublishWebSocketEvent(
-		WS_EVENT_REFRESH,
+		WsEventRefresh,
 		nil,
 		&model.WebsocketBroadcast{UserId: userID},
 	)
@@ -348,13 +348,13 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 
 // HasProjectHook checks if the subscribed GitLab Project or its parrent Group has a webhook
 // with a URL that matches the Mattermost Site URL.
-func (p *Plugin) HasProjectHook(user *gitlab.GitlabUserInfo, namespace string, project string) (bool, error) {
+func (p *Plugin) HasProjectHook(user *gitlab.UserInfo, namespace string, project string) (bool, error) {
 	hooks, err := p.GitlabClient.GetProjectHooks(user, namespace, project)
 	if err != nil {
-		return false, errors.New("Unable to connect to GitLab")
+		return false, errors.New("unable to connect to GitLab")
 	}
 
-	//ignore error because many project won't be part of groups
+	// ignore error because many project won't be part of groups
 	hasGroupHook, _ := p.HasGroupHook(user, namespace)
 
 	if hasGroupHook {
@@ -374,10 +374,10 @@ func (p *Plugin) HasProjectHook(user *gitlab.GitlabUserInfo, namespace string, p
 
 // HasGroupHook checks if the subscribed GitLab Group has a webhook
 // with a URL that matches the Mattermost Site URL.
-func (p *Plugin) HasGroupHook(user *gitlab.GitlabUserInfo, namespace string) (bool, error) {
+func (p *Plugin) HasGroupHook(user *gitlab.UserInfo, namespace string) (bool, error) {
 	hooks, err := p.GitlabClient.GetGroupHooks(user, namespace)
 	if err != nil {
-		return false, errors.New("Unable to connect to GitLab")
+		return false, errors.New("unable to connect to GitLab")
 	}
 
 	siteURL := *p.API.GetConfig().ServiceSettings.SiteURL

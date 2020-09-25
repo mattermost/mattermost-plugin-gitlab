@@ -24,11 +24,12 @@ func (*fakeWebhook) GetUserURL(username string) string {
 }
 
 func (*fakeWebhook) GetUsernameByID(id int) string {
-	if id == 1 {
+	switch id {
+	case 1:
 		return "root"
-	} else if id == 50 {
+	case 50:
 		return "manland"
-	} else {
+	default:
 		return ""
 	}
 }

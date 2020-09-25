@@ -5,9 +5,10 @@ import (
 	"net/url"
 	"reflect"
 
-	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/pkg/errors"
+
+	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 )
 
 // configuration captures the plugin's external configuration as exposed in the Mattermost server
@@ -42,18 +43,18 @@ func (c *configuration) Clone() *configuration {
 // IsValid checks if all needed fields are set.
 func (c *configuration) IsValid() error {
 	if _, err := url.ParseRequestURI(c.GitlabURL); err != nil {
-		return errors.New("Must have a valid GitLab URL")
+		return errors.New("must have a valid GitLab URL")
 	}
 	if c.GitlabOAuthClientID == "" {
-		return fmt.Errorf("Must have a GitLab oauth client id")
+		return fmt.Errorf("must have a GitLab oauth client id")
 	}
 
 	if c.GitlabOAuthClientSecret == "" {
-		return fmt.Errorf("Must have a GitLab oauth client secret")
+		return fmt.Errorf("must have a GitLab oauth client secret")
 	}
 
 	if c.EncryptionKey == "" {
-		return fmt.Errorf("Must have an encryption key")
+		return fmt.Errorf("must have an encryption key")
 	}
 
 	return nil

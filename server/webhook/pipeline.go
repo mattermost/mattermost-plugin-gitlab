@@ -24,7 +24,7 @@ func (w *webhook) handleDMPipeline(event *gitlab.PipelineEvent) ([]*HandleWebhoo
 
 	handlers := []*HandleWebhook{}
 
-	if event.ObjectAttributes.Status == "failed" {
+	if event.ObjectAttributes.Status == statusFailed {
 		message := fmt.Sprintf("[%s](%s) Your pipeline has failed for %s[View Commit](%s)", repo.PathWithNamespace, repo.WebURL, event.Commit.Message, event.Commit.URL)
 		handlers = append(handlers, &HandleWebhook{
 			Message:    message,
@@ -54,11 +54,11 @@ func (w *webhook) handleChannelPipeline(event *gitlab.PipelineEvent) ([]*HandleW
 	message := ""
 
 	switch event.ObjectAttributes.Status {
-	case "running":
+	case statusRunning:
 		message = fmt.Sprintf("[%s](%s) New pipeline by [%s](%s) for %s[%s](%s)", repo.PathWithNamespace, repo.WebURL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Commit.Message, "View Commit", event.Commit.URL)
-	case "success":
+	case statusSuccess:
 		message = fmt.Sprintf("[%s](%s) Pipeline by [%s](%s) success for %s[%s](%s)", repo.PathWithNamespace, repo.WebURL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Commit.Message, "View Commit", event.Commit.URL)
-	case "failed":
+	case statusFailed:
 		message = fmt.Sprintf("[%s](%s) Pipeline by [%s](%s) fail for %s[%s](%s)", repo.PathWithNamespace, repo.WebURL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Commit.Message, "View Commit", event.Commit.URL)
 	default:
 		return res, nil
