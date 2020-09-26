@@ -12,9 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin"
+
+	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 
 	"golang.org/x/oauth2"
 )
@@ -464,7 +465,7 @@ func (p *Plugin) postToDo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	text, errRequest := p.GetToDo(user)
+	_, text, errRequest := p.GetToDo(user)
 	if errRequest != nil {
 		p.API.LogError("can't get todo", "err", errRequest.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an error getting the to do items.", StatusCode: http.StatusUnauthorized})

@@ -11,11 +11,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
-	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin"
 	"github.com/pkg/errors"
+
+	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
+	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 
 	"golang.org/x/oauth2"
 )
@@ -239,9 +240,12 @@ func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppErr
 }
 
 func (p *Plugin) PostToDo(info *gitlab.GitlabUserInfo) {
-	text, err := p.GetToDo(info)
+	hasTodo, text, err := p.GetToDo(info)
 	if err != nil {
 		p.API.LogError("can't post todo", "err", err.Error())
+		return
+	}
+	if !hasTodo {
 		return
 	}
 
@@ -250,25 +254,27 @@ func (p *Plugin) PostToDo(info *gitlab.GitlabUserInfo) {
 	}
 }
 
-func (p *Plugin) GetToDo(user *gitlab.GitlabUserInfo) (string, error) {
+func (p *Plugin) GetToDo(user *gitlab.GitlabUserInfo) (bool, string, error) {
+	var hasTodo bool
+
 	unreads, err := p.GitlabClient.GetUnreads(user)
 	if err != nil {
-		return "", err
+		return false, "", err
 	}
 
 	yourAssignments, err := p.GitlabClient.GetYourAssignments(user)
 	if err != nil {
-		return "", err
+		return false, "", err
 	}
 
 	yourMergeRequests, err := p.GitlabClient.GetYourPrs(user)
 	if err != nil {
-		return "", err
+		return false, "", err
 	}
 
 	reviews, err := p.GitlabClient.GetReviews(user)
 	if err != nil {
-		return "", err
+		return false, "", err
 	}
 
 	text := "##### Unread Messages\n"
@@ -288,6 +294,8 @@ func (p *Plugin) GetToDo(user *gitlab.GitlabUserInfo) (string, error) {
 	} else {
 		text += fmt.Sprintf("You have %v unread messages:\n", notificationCount)
 		text += notificationContent
+
+		hasTodo = true
 	}
 
 	text += "##### Review Requests\n"
@@ -300,6 +308,8 @@ func (p *Plugin) GetToDo(user *gitlab.GitlabUserInfo) (string, error) {
 		for _, pr := range reviews {
 			text += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
 		}
+
+		hasTodo = true
 	}
 
 	text += "##### Assignments\n"
@@ -312,6 +322,8 @@ func (p *Plugin) GetToDo(user *gitlab.GitlabUserInfo) (string, error) {
 		for _, pr := range yourAssignments {
 			text += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
 		}
+
+		hasTodo = true
 	}
 
 	text += "##### Your Open Merge Requests\n"
@@ -324,9 +336,11 @@ func (p *Plugin) GetToDo(user *gitlab.GitlabUserInfo) (string, error) {
 		for _, pr := range yourMergeRequests {
 			text += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
 		}
+
+		hasTodo = true
 	}
 
-	return text, nil
+	return hasTodo, text, nil
 }
 
 func (p *Plugin) isNamespaceAllowed(namespace string) error {
