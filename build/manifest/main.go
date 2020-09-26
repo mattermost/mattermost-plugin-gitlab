@@ -113,11 +113,10 @@ func applyManifest(manifest *model.Manifest) error {
 	}
 
 	if manifest.HasWebapp() {
-		// #nosec G306
-		if err := ioutil.WriteFile( // #nosec G306
+		if err := ioutil.WriteFile(
 			"webapp/src/manifest.js",
 			[]byte(fmt.Sprintf(pluginIDJSFileTemplate, manifest.Id, manifest.Version)),
-			0644,
+			0600,
 		); err != nil {
 			return errors.Wrap(err, "failed to open webapp/src/manifest.js")
 		}
