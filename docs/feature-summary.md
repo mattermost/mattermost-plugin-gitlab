@@ -49,7 +49,7 @@ Use `/gitlab unsubscribe owner/repo` to unsubscribe from it.
 
 `/gitlab subscribe list` lists what you have subscribed to.
 
-### Connect to / disconnect from GitLab
+### Connect To/Disconnect From GitLab
 
 Connect your Mattermost account to your GitLab account using `/gitlab connect` and disconnect it using`/gitlab disconnect`. 
 
