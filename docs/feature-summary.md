@@ -27,7 +27,7 @@ You can specify which events trigger a notification. They can see:
 
 ### Personal Notifications: GitLab Bot
 
-Each user in Mattermost is connected with their own personal GitLab account.  Users can get a direct message in Mattermost when someone mentions them, requests their review, comments on or modifies one of their merge requests/issues, or assigns them on GitLab.
+Each user in Mattermost is connected with their own personal GitLab account. Users can get a direct message in Mattermost when someone mentions them, requests their review, comments on, or modifies one of their merge requests/issues, or assigns them on GitLab.
 
 
 
