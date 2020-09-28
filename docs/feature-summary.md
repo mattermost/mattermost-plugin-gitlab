@@ -4,7 +4,7 @@
 
 ### Channel Subscriptions
 
-Notify your team of the latest updates by sending notifications from your GitLab group or repository to Mattermost channels.  When team members log in the first time to Mattermost each day, they can get a post letting them know what issues and merge requests need their attention.  They can also get a refresh of new events by clicking on *Refresh* and from every webhook configured in GitLab.
+Notify your team of the latest updates by sending notifications from your GitLab group or repository to Mattermost channels.  When team members log in the first time to Mattermost each day, they can get a post letting them know what issues and merge requests need their attention. They can also get a refresh of new events by clicking on *Refresh* and from every webhook configured in GitLab.
 
 You can specify which events trigger a notification. They can see:
 
