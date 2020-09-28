@@ -18,7 +18,7 @@
    1. Generate a new value for  `Webhook Secret` 
    2. Generate a new value for **At Rest Encryption Key**
      3. (Optional) **GitLab Group**: Lock the plugin to a single GitLab group by setting this field to the name of your GitLab group
-     4. (Optional) **Enable Private Repositories**: Allow the plugin to receive notifications from private repositories by setting this value to true. When enabled, existing users must reconnect their accounts to gain access to a private project. Affected users will be notified by the plugin once private repositories are enabled.
+     4. (Optional) **Enable Private Repositories**: Allow the plugin to receive notifications from private repositories by setting this value as `true`. When enabled, existing users must reconnect their accounts to gain access to a private project. Affected users will be notified by the plugin once private repositories are enabled.
    5. Click **Save**.
 2. Go to the top of the screen and set **Enable Plugin** to `True`and then click **Save** to enable the GitLab plugin.
 
