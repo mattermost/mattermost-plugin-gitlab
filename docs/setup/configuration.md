@@ -12,7 +12,7 @@
 6. In Mattermost, go to **Plugins Marketplace > GitLab > Configure**
 7. Enter the **GitLab URL**, **GitLab OAuth Client ID**, and **Gitlab OAuth Client Secret**
 
-### Step 2: Configure plugin in Mattermost
+### Step 2: Configure Plugin in Mattermost
 
 1. Go to **Plugins Marketplace &gt; GitLab** and click the **Configure** button or go to **System Console > Plugins > GitLab** and do the following:
    1. Generate a new value for  `Webhook Secret` 
