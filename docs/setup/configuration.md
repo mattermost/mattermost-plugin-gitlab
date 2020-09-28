@@ -22,7 +22,7 @@
    5. Click **Save**.
 2. Go to the top of the screen and set **Enable Plugin** to `True`and then click **Save** to enable the GitLab plugin.
 
-### Step 3: Configure webhooks in GitLab
+### Step 3: Configure Webhooks in GitLab
 
 For each project you want to receive notifications for, or subscribe to, you must create a webhook.
 
