@@ -33,13 +33,13 @@ Each user in Mattermost is connected with their own personal GitLab account. Use
 
 ### Sidebar Buttons
 
-Team members can stay up-to-date with how many reviews, unread messages, assignments and open merge requests they have by using buttons in the Mattermost sidebar.
+Team members can stay up-to-date with how many reviews, unread messages, assignments, and open merge requests they have by using buttons in the Mattermost sidebar.
 
 
 
 ## Mattermost Commands
 
-Interact with the GitLab plugin using the `/gitlab` slash command
+Interact with the GitLab plugin using the `/gitlab` slash command.
 
 ### Subscribe To/Unsubscribe From a Repository
 
@@ -55,7 +55,7 @@ Connect your Mattermost account to your GitLab account using `/gitlab connect` a
 
 `/gitlab me` displays the connected GitLab account.
 
-### Get to-do items
+### Get "To Do" Items
 
 Use `/gitlab todo` to get a list of unread messages and merge requests awaiting your review.
 
@@ -63,10 +63,10 @@ Use `/gitlab todo` to get a list of unread messages and merge requests awaiting 
 
 Use `/gitlab settings [setting] [value]` to update your settings for the plugin.  There are two settings:
 
-- To turn **personal notifications** *on* or *off*
-- To turn **reminders** *on* or *off* for when you connect for the first time each day  
+- To turn **personal notifications** `on` or `off.
+- To turn **reminders** `on` or `off` for when you connect for the first time each day.  
 
-### And more ...
+### And More...
 
 Run `/gitlab help` to see what else the slash command can do.
 
