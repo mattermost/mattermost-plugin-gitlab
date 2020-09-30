@@ -244,7 +244,7 @@ func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppErr
 	return nil
 }
 
-func (p *Plugin) PostToDo(info *gitlab.GitlabUserInfo) {
+func (p *Plugin) PostToDo(info *gitlab.UserInfo) {
 	hasTodo, text, err := p.GetToDo(info)
 	if err != nil {
 		p.API.LogError("can't post todo", "err", err.Error())
@@ -259,7 +259,7 @@ func (p *Plugin) PostToDo(info *gitlab.GitlabUserInfo) {
 	}
 }
 
-func (p *Plugin) GetToDo(user *gitlab.GitlabUserInfo) (bool, string, error) {
+func (p *Plugin) GetToDo(user *gitlab.UserInfo) (bool, string, error) {
 	var hasTodo bool
 
 	unreads, err := p.GitlabClient.GetUnreads(user)
