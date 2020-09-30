@@ -54,7 +54,7 @@ func TestNewSubscriptionAll(t *testing.T) {
 func TestNewSubscriptionUnknown(t *testing.T) {
 	s, err := New("", "", "unknown,merges,missing", "")
 	assert.Nil(t, s)
-	assert.Equal(t, err.Error(), "Unknown features unknown,missing")
+	assert.Equal(t, err.Error(), "unknown features unknown,missing")
 }
 
 func TestNewSubscriptionLabel(t *testing.T) {
@@ -68,11 +68,11 @@ func TestNewSubscriptionLabel(t *testing.T) {
 func TestNewSubscriptionBadFormated(t *testing.T) {
 	s, err := New("", "", `label:"`, "")
 	assert.Nil(t, s)
-	assert.Equal(t, err.Error(), "The label is formatted incorrectly")
+	assert.Equal(t, err.Error(), "the label is formatted incorrectly")
 }
 
 func TestNewSubscriptionMultipleLabel(t *testing.T) {
 	s, err := New("", "", `label:"1",label:"2"`, "")
 	assert.Nil(t, s)
-	assert.Equal(t, err.Error(), "Can't add multiple labels on the same subscription")
+	assert.Equal(t, err.Error(), "can't add multiple labels on the same subscription")
 }

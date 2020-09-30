@@ -21,7 +21,7 @@ type WebhookInfo struct {
 	Scope                    Scope
 }
 
-//AddWebhookOptions is a paramater object with options for creating a project or group hook.
+// AddWebhookOptions is a paramater object with options for creating a project or group hook.
 type AddWebhookOptions struct {
 	URL                      string
 	ConfidentialNoteEvents   bool

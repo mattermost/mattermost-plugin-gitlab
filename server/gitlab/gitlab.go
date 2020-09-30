@@ -22,24 +22,24 @@ var (
 
 // Gitlab is a client to call GitLab api see New() to build one
 type Gitlab interface {
-	GetCurrentUser(userID string, token oauth2.Token) (*GitlabUserInfo, error)
-	GetUserDetails(user *GitlabUserInfo) (*internGitlab.User, error)
-	GetProject(user *GitlabUserInfo, owner, repo string) (*internGitlab.Project, error)
-	GetReviews(user *GitlabUserInfo) ([]*internGitlab.MergeRequest, error)
-	GetYourPrs(user *GitlabUserInfo) ([]*internGitlab.MergeRequest, error)
-	GetYourAssignments(user *GitlabUserInfo) ([]*internGitlab.Issue, error)
-	GetUnreads(user *GitlabUserInfo) ([]*internGitlab.Todo, error)
-	GetProjectHooks(user *GitlabUserInfo, owner string, repo string) ([]*WebhookInfo, error)
-	GetGroupHooks(user *GitlabUserInfo, owner string) ([]*WebhookInfo, error)
-	NewProjectHook(user *GitlabUserInfo, projectID interface{}, projectHookOptions *AddWebhookOptions) (*WebhookInfo, error)
-	NewGroupHook(user *GitlabUserInfo, groupName string, groupHookOptions *AddWebhookOptions) (*WebhookInfo, error)
+	GetCurrentUser(userID string, token oauth2.Token) (*UserInfo, error)
+	GetUserDetails(user *UserInfo) (*internGitlab.User, error)
+	GetProject(user *UserInfo, owner, repo string) (*internGitlab.Project, error)
+	GetReviews(user *UserInfo) ([]*internGitlab.MergeRequest, error)
+	GetYourPrs(user *UserInfo) ([]*internGitlab.MergeRequest, error)
+	GetYourAssignments(user *UserInfo) ([]*internGitlab.Issue, error)
+	GetUnreads(user *UserInfo) ([]*internGitlab.Todo, error)
+	GetProjectHooks(user *UserInfo, owner string, repo string) ([]*WebhookInfo, error)
+	GetGroupHooks(user *UserInfo, owner string) ([]*WebhookInfo, error)
+	NewProjectHook(user *UserInfo, projectID interface{}, projectHookOptions *AddWebhookOptions) (*WebhookInfo, error)
+	NewGroupHook(user *UserInfo, groupName string, groupHookOptions *AddWebhookOptions) (*WebhookInfo, error)
 	// ResolveNamespaceAndProject accepts full path to User, Group or namespaced Project and returns corresponding
 	// namespace and project name.
 	//
 	// ErrNotFound will be returned if no resource can be found.
 	// If allowPrivate is set to false, and resolved group/project is private, ErrPrivateResource will be returned.
 	ResolveNamespaceAndProject(
-		userInfo *GitlabUserInfo,
+		userInfo *UserInfo,
 		fullPath string,
 		allowPrivate bool,
 	) (namespace string, project string, err error)
@@ -55,9 +55,9 @@ type gitlab struct {
 type Scope int
 
 const (
-	//Group is a type for group hooks
+	// Group is a type for group hooks
 	Group Scope = iota
-	//Project is a type for project hooks
+	// Project is a type for project hooks
 	Project
 )
 

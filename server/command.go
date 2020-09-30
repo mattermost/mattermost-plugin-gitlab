@@ -55,6 +55,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 const (
 	webhookHowToURL               = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
 	inboundWebhookURL             = "plugins/com.github.manland.mattermost-plugin-gitlab/webhook"
+	specifyRepositoryMessage      = "Please specify a repository."
 	unknownActionMessage          = "Unknown action, please use `/gitlab help` to see all actions available."
 	newWebhookEmptySiteURLmessage = "Unable to create webhook. The Mattermot Site URL is not set. " +
 		"Set it in the Admin Console or rerun /gitlab webhook add group/project URL including the desired URL."
@@ -68,6 +69,12 @@ const (
 	projectNotFoundMessage = "Unable to find project with namespace: "
 
 	invalidSubscribeSubCommand = "Invalid subscribe command. Available commands are add, delete, and list"
+)
+
+const (
+	commandAdd    = "add"
+	commandDelete = "delete"
+	commandList   = "list"
 )
 
 func (p *Plugin) getCommand() (*model.Command, error) {
@@ -100,7 +107,7 @@ func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string) *model
 	return &model.CommandResponse{}
 }
 
-//ExecuteCommand is the entrypoint for /gitlab commands. It returns a message to display to the user or an error.
+// ExecuteCommand is the entrypoint for /gitlab commands. It returns a message to display to the user or an error.
 func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
 	var (
 		split      = strings.Fields(args.Command)
@@ -129,14 +136,14 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 	}
 
 	if action == "help" || action == "" {
-		text := "###### Mattermost GitLab Plugin - Slash Command Help\n" + strings.Replace(commandHelp, "|", "`", -1)
+		text := "###### Mattermost GitLab Plugin - Slash Command Help\n" + strings.ReplaceAll(commandHelp, "|", "`")
 		return p.getCommandResponse(args, text), nil
 	}
 
 	info, apiErr := p.getGitlabUserInfoByMattermostID(args.UserId)
 	if apiErr != nil {
 		text := "Unknown error."
-		if apiErr.ID == API_ERROR_ID_NOT_CONNECTED {
+		if apiErr.ID == APIErrorIDNotConnected {
 			text = "You must connect your account to GitLab first. Either click on the GitLab logo in the bottom left of the screen or enter `/gitlab connect`."
 		}
 		return p.getCommandResponse(args, text), nil
@@ -150,12 +157,12 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 		response := p.getCommandResponse(args, message)
 		return response, nil
 	case "unsubscribe":
-		//subcommand subscriptions delete is preferred but unsubscribe remains to prevent breaking existing workflows
+		// subcommand subscriptions delete is preferred but unsubscribe remains to prevent breaking existing workflows
 		var message string
 		var err error
 
 		if len(parameters) == 0 {
-			message = "Please specify a repository."
+			message = specifyRepositoryMessage
 		} else {
 			message, err = p.subscriptionDelete(info, config, parameters[0], args.ChannelId)
 			if err != nil {
@@ -190,29 +197,29 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 		setting := parameters[0]
 		strValue := parameters[1]
 		value := false
-		if strValue == SETTING_ON {
+		if strValue == SettingOn {
 			value = true
-		} else if strValue != SETTING_OFF {
+		} else if strValue != SettingOff {
 			return p.getCommandResponse(args, "Invalid value. Accepted values are: \"on\" or \"off\"."), nil
 		}
 
-		if setting == SETTING_NOTIFICATIONS {
+		switch setting {
+		case SettingNotifications:
 			if value {
 				if err := p.storeGitlabToUserIDMapping(info.GitlabUsername, info.UserID); err != nil {
 					p.API.LogError("can't store GitLab user id mapping", "err", err.Error())
 					return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 				}
 			} else {
-				if err := p.API.KVDelete(info.GitlabUsername + GITLAB_USERNAME_KEY); err != nil {
+				if err := p.API.KVDelete(info.GitlabUsername + GitlabUsernameKey); err != nil {
 					p.API.LogError("can't delete GitLab username in kvstore", "err", err.Error())
 					return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 				}
 			}
-
 			info.Settings.Notifications = value
-		} else if setting == SETTING_REMINDERS {
+		case SettingReminders:
 			info.Settings.DailyReminder = value
-		} else {
+		default:
 			return p.getCommandResponse(args, "Unknown setting."), nil
 		}
 
@@ -234,14 +241,14 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 }
 
 // webhookCommand processes the /gitlab webhook commands
-func (p *Plugin) webhookCommand(parameters []string, info *gitlab.GitlabUserInfo) string {
+func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo) string {
 	if len(parameters) < 1 {
 		return unknownActionMessage
 	}
 	subCommand := parameters[0]
 
 	switch subCommand {
-	case "list":
+	case commandList:
 		if len(parameters) != 2 {
 			return unknownActionMessage
 		}
@@ -262,7 +269,6 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.GitlabUserInfo
 				}
 				return err.Error()
 			}
-
 		} else {
 			owner := fullPath[0]
 			webhookInfo, err = p.GitlabClient.GetGroupHooks(info, owner)
@@ -282,7 +288,7 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.GitlabUserInfo
 		}
 		return formatedWebhooks
 
-	case "add":
+	case commandAdd:
 		namespace := parameters[1]
 		fullPath := strings.Split(namespace, "/")
 
@@ -296,7 +302,7 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.GitlabUserInfo
 			urlPath = parameters[3]
 		}
 
-		//default to all triggers unless specified
+		// default to all triggers unless specified
 		hookOptions := parseTriggers("*")
 		if len(parameters) > 2 {
 			triggersCsv := parameters[2]
@@ -310,7 +316,7 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.GitlabUserInfo
 			hookOptions.Token = p.getConfiguration().WebhookSecret
 		}
 
-		//if project scope
+		// if project scope
 		if len(fullPath) == 2 {
 			owner := fullPath[0]
 			repo := fullPath[1]
@@ -332,7 +338,7 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.GitlabUserInfo
 			}
 			return fmt.Sprintf("Webhook Created:\n%s", newWebhook.String())
 		}
-		return fmt.Sprintf("Invalid command")
+		return fmt.Sprintf("Invalid command: %s", subCommand)
 
 	default:
 		return fmt.Sprintf("Unknown webhook command: %s", subCommand)
@@ -403,7 +409,7 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 	}
 }
 
-func (p *Plugin) subscriptionDelete(info *gitlab.GitlabUserInfo, config *configuration, fullPath, channelID string) (string, error) {
+func (p *Plugin) subscriptionDelete(info *gitlab.UserInfo, config *configuration, fullPath, channelID string) (string, error) {
 	normalizedPath := normalizePath(fullPath, config.GitlabURL)
 	deleted, err := p.Unsubscribe(channelID, normalizedPath)
 	if err != nil {
@@ -418,7 +424,7 @@ func (p *Plugin) subscriptionDelete(info *gitlab.GitlabUserInfo, config *configu
 	return fmt.Sprintf("Successfully deleted subscription for %s.", normalizedPath), nil
 }
 
-//subscriptionsListCommand list GitLab subscriptions in a channel
+// subscriptionsListCommand list GitLab subscriptions in a channel
 func (p *Plugin) subscriptionsListCommand(channelID string) string {
 	var txt string
 	subs, err := p.GetSubscriptionsByChannel(channelID)
@@ -437,8 +443,8 @@ func (p *Plugin) subscriptionsListCommand(channelID string) string {
 	return txt
 }
 
-//subscriptionsAddCommand subscripes to A GitLab Project
-func (p *Plugin) subscriptionsAddCommand(info *gitlab.GitlabUserInfo, config *configuration, fullPath, channelID, features string) string {
+// subscriptionsAddCommand subscripes to A GitLab Project
+func (p *Plugin) subscriptionsAddCommand(info *gitlab.UserInfo, config *configuration, fullPath, channelID, features string) string {
 	var err error
 	namespace, project, err := p.GitlabClient.
 		ResolveNamespaceAndProject(info, fullPath, config.EnablePrivateRepo)
@@ -485,7 +491,7 @@ func (p *Plugin) subscriptionsAddCommand(info *gitlab.GitlabUserInfo, config *co
 	}
 	var hookStatusMessage string
 	if !hasHook {
-		//no web hook found
+		// no web hook found
 		hookStatusMessage = fmt.Sprintf(
 			"\nA Webhook is needed, run ```/gitlab webhook add %s``` to create one now.",
 			fullPath,
@@ -494,9 +500,9 @@ func (p *Plugin) subscriptionsAddCommand(info *gitlab.GitlabUserInfo, config *co
 	return fmt.Sprintf("Successfully subscribed to %s.%s", fullPath, hookStatusMessage)
 }
 
-// subscribeCommand proccess the /gitlab subscribe command.
+// subscribeCommand process the /gitlab subscribe command.
 // It returns a message and handles all errors my including helpful information in the message
-func (p *Plugin) subscribeCommand(parameters []string, channelID string, config *configuration, info *gitlab.GitlabUserInfo) string {
+func (p *Plugin) subscribeCommand(parameters []string, channelID string, config *configuration, info *gitlab.UserInfo) string {
 	if len(parameters) == 0 {
 		return invalidSubscribeSubCommand
 	}
@@ -504,9 +510,9 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 	subcommand := parameters[0]
 
 	switch subcommand {
-	case "list":
+	case commandList:
 		return p.subscriptionsListCommand(channelID)
-	case "add":
+	case commandAdd:
 		features := "merges,issues,tag"
 		if len(parameters) > 2 {
 			features = strings.Join(parameters[2:], " ")
@@ -515,9 +521,9 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 		fullPath := normalizePath(parameters[1], config.GitlabURL)
 
 		return p.subscriptionsAddCommand(info, config, fullPath, channelID, features)
-	case "delete":
+	case commandDelete:
 		if len(parameters) < 2 {
-			return "Please specify a repository."
+			return specifyRepositoryMessage
 		}
 
 		message, err := p.subscriptionDelete(info, config, parameters[1], channelID)
@@ -528,7 +534,6 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 	default:
 		return invalidSubscribeSubCommand
 	}
-
 }
 
 func getAutocompleteData() *model.AutocompleteData {
@@ -545,15 +550,15 @@ func getAutocompleteData() *model.AutocompleteData {
 
 	subscriptions := model.NewAutocompleteData("subscriptions", "[command]", "Available commands: Add, List, Delete")
 
-	subscriptionsList := model.NewAutocompleteData("list", "", "List current channel subscriptions")
+	subscriptionsList := model.NewAutocompleteData(commandList, "", "List current channel subscriptions")
 	subscriptions.AddCommand(subscriptionsList)
 
-	subscriptionsAdd := model.NewAutocompleteData("add", "owner[/repo] [features]", "Subscribe the current channel to receive notifications from a project")
+	subscriptionsAdd := model.NewAutocompleteData(commandAdd, "owner[/repo] [features]", "Subscribe the current channel to receive notifications from a project")
 	subscriptionsAdd.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
 	subscriptionsAdd.AddTextArgument("Features: comma-delimited list of features to subscribe to", "[issues,][merges,][pushes,][issue_comments,][merge_request_comments,][pipeline,][tag,][pull_reviews,][label:<labelName>]", "")
 	subscriptions.AddCommand(subscriptionsAdd)
 
-	subscriptionsDelete := model.NewAutocompleteData("delete", "owner[/repo]", "Unsubscribe the current channel from a repository")
+	subscriptionsDelete := model.NewAutocompleteData(commandDelete, "owner[/repo]", "Unsubscribe the current channel from a repository")
 	subscriptionsDelete.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
 	subscriptions.AddCommand(subscriptionsDelete)
 
@@ -583,11 +588,11 @@ func getAutocompleteData() *model.AutocompleteData {
 	gitlabCommand.AddCommand(settings)
 
 	webhook := model.NewAutocompleteData("webhook", "[command]", "Available Commands: list, add")
-	webhookList := model.NewAutocompleteData("list", "owner/[repo]", "List existing project or group webhooks")
+	webhookList := model.NewAutocompleteData(commandList, "owner/[repo]", "List existing project or group webhooks")
 	webhookList.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
 	webhook.AddCommand(webhookList)
 
-	webhookAdd := model.NewAutocompleteData("add", "owner/[repo] [options] [url] [token]", "Add a project or group webhook")
+	webhookAdd := model.NewAutocompleteData(commandAdd, "owner/[repo] [options] [url] [token]", "Add a project or group webhook")
 	webhookAdd.AddTextArgument("Group or Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
 	webhookAdd.AddTextArgument("[Optional] options: comma-delimited list of actions to trigger a webhook, defaults to all with SSL verification", "[* or *noSSL] or [PushEvents,][TagPushEvents,][Comments,][ConfidentialComments,][IssuesEvents,][ConfidentialIssuesEvents,][MergeRequestsEvents,][JobEvents,][PipelineEvents,][WikiPageEvents,][SSLverification]", "")
 	webhookAdd.AddTextArgument("[Optional] url: URL to be triggered triggered. Defaults to this plugins URL", "[url]", "")

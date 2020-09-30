@@ -18,15 +18,15 @@ type dataUnsubscribeTestStruct struct {
 
 var dataUnsubscribeTest = []dataUnsubscribeTestStruct{
 	{
-		name:      "should delete existing subscripion",
+		name:      "should delete existing subscription",
 		channelID: "1",
 		repoName:  "owner/project",
 		initMock: func() *plugintest.API {
 			m := &plugintest.API{}
 			kvget := `{"Repositories":{"owner/project":[{"ChannelID":"1","CreatorID":"1","Features":"all","Repository":"owner/project"}]}}`
 			kvset := `{"Repositories":{}}`
-			m.On("KVGet", SUBSCRIPTIONS_KEY).Return([]byte(kvget), nil).Once()
-			m.On("KVSet", SUBSCRIPTIONS_KEY, []byte(kvset)).Return(nil).Once()
+			m.On("KVGet", SubscriptionsKey).Return([]byte(kvget), nil).Once()
+			m.On("KVSet", SubscriptionsKey, []byte(kvset)).Return(nil).Once()
 			return m
 		},
 		shouldDelete: true,
@@ -39,8 +39,8 @@ var dataUnsubscribeTest = []dataUnsubscribeTestStruct{
 			m := &plugintest.API{}
 			kvget := `{"Repositories":{"owner/project":[{"ChannelID":"1","CreatorID":"1","Features":"all","Repository":"owner/project"},{"ChannelID":"2","CreatorID":"1","Features":"all","Repository":"owner/project"}]}}`
 			kvset := `{"Repositories":{"owner/project":[{"ChannelID":"2","CreatorID":"1","Features":"all","Repository":"owner/project"}]}}`
-			m.On("KVGet", SUBSCRIPTIONS_KEY).Return([]byte(kvget), nil).Once()
-			m.On("KVSet", SUBSCRIPTIONS_KEY, []byte(kvset)).Return(nil).Once()
+			m.On("KVGet", SubscriptionsKey).Return([]byte(kvget), nil).Once()
+			m.On("KVSet", SubscriptionsKey, []byte(kvset)).Return(nil).Once()
 			return m
 		},
 		shouldDelete: true,
@@ -52,7 +52,7 @@ var dataUnsubscribeTest = []dataUnsubscribeTestStruct{
 		initMock: func() *plugintest.API {
 			m := &plugintest.API{}
 			kvget := `{"Repositories":{"owner/project":[{"ChannelID":"1","CreatorID":"1","Features":"all","Repository":"owner/project"}]}}`
-			m.On("KVGet", SUBSCRIPTIONS_KEY).Return([]byte(kvget), nil).Once()
+			m.On("KVGet", SubscriptionsKey).Return([]byte(kvget), nil).Once()
 			return m
 		},
 		shouldDelete: false,
@@ -67,15 +67,15 @@ var dataUnsubscribeTest = []dataUnsubscribeTestStruct{
 		shouldDelete: false,
 		shouldError:  true,
 	}, {
-		name:      "should delete organisation",
+		name:      "should delete organization",
 		channelID: "1",
 		repoName:  "owner",
 		initMock: func() *plugintest.API {
 			m := &plugintest.API{}
 			kvget := `{"Repositories":{"owner/":[{"ChannelID":"1","CreatorID":"1","Features":"all","Repository":"owner/"}]}}`
 			kvset := `{"Repositories":{}}`
-			m.On("KVGet", SUBSCRIPTIONS_KEY).Return([]byte(kvget), nil).Once()
-			m.On("KVSet", SUBSCRIPTIONS_KEY, []byte(kvset)).Return(nil).Once()
+			m.On("KVGet", SubscriptionsKey).Return([]byte(kvget), nil).Once()
+			m.On("KVSet", SubscriptionsKey, []byte(kvset)).Return(nil).Once()
 			return m
 		},
 		shouldDelete: true,

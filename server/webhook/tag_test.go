@@ -5,9 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 	"github.com/stretchr/testify/assert"
 	"github.com/xanzy/go-gitlab"
+
+	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
 
 type testDataTagStr struct {
@@ -25,7 +26,7 @@ var testDataTag = []testDataTagStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "tag", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) New tag [tag1](http://localhost:3000/manland/webhook/commit/c30217b62542c586fdbadc7b5ee762bfdca10663) by [manland](http://my.gitlab.com/manland): Really beatiful tag",
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) New tag [tag1](http://localhost:3000/manland/webhook/commit/c30217b62542c586fdbadc7b5ee762bfdca10663) by [manland](http://my.gitlab.com/manland): Really beautiful tag",
 			ToUsers:    []string{}, // No DM because user know he has created a tag
 			ToChannels: []string{"channel1"},
 			From:       "manland",
@@ -33,12 +34,12 @@ var testDataTag = []testDataTagStr{
 	},
 	{
 		testTitle: "manland create a tag (subgroup)",
-		fixture:   strings.Replace(SimpleTag, "manland/webhook", "manland/subgroup/webhook", -1),
+		fixture:   strings.ReplaceAll(SimpleTag, "manland/webhook", "manland/subgroup/webhook"),
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
 			{ChannelID: "channel1", CreatorID: "1", Features: "tag", Repository: "manland/subgroup/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[manland/subgroup/webhook](http://localhost:3000/manland/subgroup/webhook) New tag [tag1](http://localhost:3000/manland/subgroup/webhook/commit/c30217b62542c586fdbadc7b5ee762bfdca10663) by [manland](http://my.gitlab.com/manland): Really beatiful tag",
+			Message:    "[manland/subgroup/webhook](http://localhost:3000/manland/subgroup/webhook) New tag [tag1](http://localhost:3000/manland/subgroup/webhook/commit/c30217b62542c586fdbadc7b5ee762bfdca10663) by [manland](http://my.gitlab.com/manland): Really beautiful tag",
 			ToUsers:    []string{}, // No DM because user know he has created a tag
 			ToChannels: []string{"channel1"},
 			From:       "manland",
