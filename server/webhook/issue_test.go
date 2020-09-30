@@ -5,9 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 	"github.com/stretchr/testify/assert"
 	"github.com/xanzy/go-gitlab"
+
+	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
 
 type testDataIssueStr struct {
@@ -37,7 +38,7 @@ var testDataIssue = []testDataIssueStr{
 		}},
 	}, {
 		testTitle: "root open issue with manland assignee and display in channel1 (subgroup)",
-		fixture:   strings.Replace(NewIssue, "manland/webhook", "manland/subgroup/webhook", -1),
+		fixture:   strings.ReplaceAll(NewIssue, "manland/webhook", "manland/subgroup/webhook"),
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
 			{ChannelID: "channel1", CreatorID: "1", Features: "issues", Repository: "manland/subgroup/webhook"},
 		}),

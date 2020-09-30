@@ -5,9 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 	"github.com/stretchr/testify/assert"
 	"github.com/xanzy/go-gitlab"
+
+	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
 
 type testDataMergeRequestStr struct {
@@ -37,7 +38,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 		}},
 	}, {
 		testTitle: "root open merge request for manland and display in channel1 (subgroup)",
-		fixture:   strings.Replace(OpenMergeRequest, "manland/webhook", "manland/subgroup/webhook", -1),
+		fixture:   strings.ReplaceAll(OpenMergeRequest, "manland/webhook", "manland/subgroup/webhook"),
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
 			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/subgroup/webhook"},
 		}),
@@ -121,7 +122,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 		}),
 		res: []*HandleWebhook{{
 			Message:    "[root](http://my.gitlab.com/root) closed your merge request [manland/webhook!1](http://localhost:3000/manland/webhook/merge_requests/1)",
-			ToUsers:    []string{}, //no assignee
+			ToUsers:    []string{}, // no assignee
 			ToChannels: []string{},
 			From:       "root",
 		}, {

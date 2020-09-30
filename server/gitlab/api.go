@@ -11,8 +11,13 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const (
+	stateOpened = "opened"
+	scopeAll    = "all"
+)
+
 // NewGroupHook creates a webhook associated with a GitLab group
-func (g *gitlab) NewGroupHook(user *GitlabUserInfo, groupName string, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
+func (g *gitlab) NewGroupHook(user *UserInfo, groupName string, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -50,7 +55,7 @@ func (g *gitlab) NewGroupHook(user *GitlabUserInfo, groupName string, webhookOpt
 }
 
 // NewProjectHook creates a webhook associated with a GitLab project
-func (g *gitlab) NewProjectHook(user *GitlabUserInfo, projectID interface{}, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
+func (g *gitlab) NewProjectHook(user *UserInfo, projectID interface{}, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -83,7 +88,7 @@ func (g *gitlab) NewProjectHook(user *GitlabUserInfo, projectID interface{}, web
 }
 
 // GetGroupHooks gathers all the group level hooks for a GitLab group.
-func (g *gitlab) GetGroupHooks(user *GitlabUserInfo, owner string) ([]*WebhookInfo, error) {
+func (g *gitlab) GetGroupHooks(user *UserInfo, owner string) ([]*WebhookInfo, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -102,7 +107,7 @@ func (g *gitlab) GetGroupHooks(user *GitlabUserInfo, owner string) ([]*WebhookIn
 	return webhooks, nil
 }
 
-//String produces a multiline bulleted string for displaying webhook information.
+// String produces a multiline bulleted string for displaying webhook information.
 func (w *WebhookInfo) String() string {
 	var formatedTriggers string
 	if w.EnableSSLVerification {
@@ -187,7 +192,7 @@ func getGroupHookInfo(hook *internGitlab.GroupHook) *WebhookInfo {
 }
 
 // GetProjectHooks gathers all the project level hooks from a single GitLab project.
-func (g *gitlab) GetProjectHooks(user *GitlabUserInfo, owner string, repo string) ([]*WebhookInfo, error) {
+func (g *gitlab) GetProjectHooks(user *UserInfo, owner string, repo string) ([]*WebhookInfo, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -205,7 +210,7 @@ func (g *gitlab) GetProjectHooks(user *GitlabUserInfo, owner string, repo string
 	return webhooks, err
 }
 
-func (g *gitlab) GetProject(user *GitlabUserInfo, owner, repo string) (*internGitlab.Project, error) {
+func (g *gitlab) GetProject(user *UserInfo, owner, repo string) (*internGitlab.Project, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -215,27 +220,27 @@ func (g *gitlab) GetProject(user *GitlabUserInfo, owner, repo string) (*internGi
 	return result, err
 }
 
-func (g *gitlab) GetReviews(user *GitlabUserInfo) ([]*internGitlab.MergeRequest, error) {
+func (g *gitlab) GetReviews(user *UserInfo) ([]*internGitlab.MergeRequest, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
 	}
 
-	opened := "opened"
-	scope := "all"
+	opened := stateOpened
+	scope := scopeAll
 
 	var result []*internGitlab.MergeRequest
 	var errRequest error
 
 	if g.gitlabGroup == "" {
 		result, _, errRequest = client.MergeRequests.ListMergeRequests(&internGitlab.ListMergeRequestsOptions{
-			AssigneeID: &user.GitlabUserId,
+			AssigneeID: &user.GitlabUserID,
 			State:      &opened,
 			Scope:      &scope,
 		})
 	} else {
 		result, _, errRequest = client.MergeRequests.ListGroupMergeRequests(g.gitlabGroup, &internGitlab.ListGroupMergeRequestsOptions{
-			AssigneeID: &user.GitlabUserId,
+			AssigneeID: &user.GitlabUserID,
 			State:      &opened,
 			Scope:      &scope,
 		})
@@ -244,27 +249,27 @@ func (g *gitlab) GetReviews(user *GitlabUserInfo) ([]*internGitlab.MergeRequest,
 	return result, errRequest
 }
 
-func (g *gitlab) GetYourPrs(user *GitlabUserInfo) ([]*internGitlab.MergeRequest, error) {
+func (g *gitlab) GetYourPrs(user *UserInfo) ([]*internGitlab.MergeRequest, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
 	}
 
-	opened := "opened"
-	scope := "all"
+	opened := stateOpened
+	scope := scopeAll
 
 	var result []*internGitlab.MergeRequest
 	var errRequest error
 
 	if g.gitlabGroup == "" {
 		result, _, errRequest = client.MergeRequests.ListMergeRequests(&internGitlab.ListMergeRequestsOptions{
-			AuthorID: &user.GitlabUserId,
+			AuthorID: &user.GitlabUserID,
 			State:    &opened,
 			Scope:    &scope,
 		})
 	} else {
 		result, _, errRequest = client.MergeRequests.ListGroupMergeRequests(g.gitlabGroup, &internGitlab.ListGroupMergeRequestsOptions{
-			AuthorID: &user.GitlabUserId,
+			AuthorID: &user.GitlabUserID,
 			State:    &opened,
 			Scope:    &scope,
 		})
@@ -273,27 +278,27 @@ func (g *gitlab) GetYourPrs(user *GitlabUserInfo) ([]*internGitlab.MergeRequest,
 	return result, errRequest
 }
 
-func (g *gitlab) GetYourAssignments(user *GitlabUserInfo) ([]*internGitlab.Issue, error) {
+func (g *gitlab) GetYourAssignments(user *UserInfo) ([]*internGitlab.Issue, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
 	}
 
-	opened := "opened"
-	scope := "all"
+	opened := stateOpened
+	scope := scopeAll
 
 	var result []*internGitlab.Issue
 	var errRequest error
 
 	if g.gitlabGroup == "" {
 		result, _, errRequest = client.Issues.ListIssues(&internGitlab.ListIssuesOptions{
-			AssigneeID: &user.GitlabUserId,
+			AssigneeID: &user.GitlabUserID,
 			State:      &opened,
 			Scope:      &scope,
 		})
 	} else {
 		result, _, errRequest = client.Issues.ListGroupIssues(g.gitlabGroup, &internGitlab.ListGroupIssuesOptions{
-			AssigneeID: &user.GitlabUserId,
+			AssigneeID: &user.GitlabUserID,
 			State:      &opened,
 			Scope:      &scope,
 		})
@@ -302,7 +307,7 @@ func (g *gitlab) GetYourAssignments(user *GitlabUserInfo) ([]*internGitlab.Issue
 	return result, errRequest
 }
 
-func (g *gitlab) GetUnreads(user *GitlabUserInfo) ([]*internGitlab.Todo, error) {
+func (g *gitlab) GetUnreads(user *UserInfo) ([]*internGitlab.Todo, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -324,11 +329,10 @@ func (g *gitlab) GetUnreads(user *GitlabUserInfo) ([]*internGitlab.Todo, error) 
 }
 
 func (g *gitlab) ResolveNamespaceAndProject(
-	userInfo *GitlabUserInfo,
+	userInfo *UserInfo,
 	fullPath string,
 	allowPrivate bool,
 ) (owner string, repo string, err error) {
-
 	// Initialize client
 	client, err := g.gitlabConnect(*userInfo.Token)
 	if err != nil {
@@ -385,15 +389,19 @@ func (g *gitlab) ResolveNamespaceAndProject(
 	// Decide what to return
 	if user != nil {
 		return user.Username, "", nil
-	} else if group != nil {
-		if !allowPrivate && &group.Visibility != nil && group.Visibility != internGitlab.PublicVisibility {
+	}
+
+	if group != nil {
+		if !allowPrivate && group.Visibility != internGitlab.PublicVisibility {
 			return "", "", fmt.Errorf(
 				"you can't add a private group on this Mattermost instance: %w",
 				ErrPrivateResource,
 			)
 		}
 		return group.FullPath, "", nil
-	} else if project != nil {
+	}
+
+	if project != nil {
 		if !allowPrivate && project.Visibility != internGitlab.PublicVisibility {
 			return "", "", fmt.Errorf(
 				"you can't add a private project on this Mattermost instance: %w",

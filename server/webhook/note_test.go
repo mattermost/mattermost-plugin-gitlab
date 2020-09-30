@@ -41,7 +41,7 @@ var testDataNote = []testDataNoteStr{
 	}, {
 		testTitle: "manland comment issue of root (subgroup)",
 		kind:      "issue",
-		fixture:   strings.Replace(IssueComment, "manland/webhook", "manland/subgroup/webhook", -1),
+		fixture:   strings.ReplaceAll(IssueComment, "manland/webhook", "manland/subgroup/webhook"),
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
 			{ChannelID: "channel1", CreatorID: "1", Features: "issue_comments", Repository: "manland/subgroup/webhook"},
 		}),

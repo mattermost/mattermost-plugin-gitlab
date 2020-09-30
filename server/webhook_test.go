@@ -6,11 +6,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin/plugintest"
 	"github.com/stretchr/testify/assert"
 	gitlabLib "github.com/xanzy/go-gitlab"
+
+	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 )
 
 type fakeWebhookHandler struct{}
@@ -75,7 +76,7 @@ func TestHandleWebhookWithKnowAuthorButUnknowToUser(t *testing.T) {
 	mock := &plugintest.API{}
 	mock.On("KVGet", "test_gitlabusername").Return([]byte("1"), nil).Once()
 	mock.On("KVGet", "unknown_gitlabusername").Return(nil, nil).Once()
-	mock.On("PublishWebSocketEvent", WS_EVENT_REFRESH, map[string]interface{}(nil), &model.WebsocketBroadcast{UserId: "1"}).Return(nil).Once()
+	mock.On("PublishWebSocketEvent", WsEventRefresh, map[string]interface{}(nil), &model.WebsocketBroadcast{UserId: "1"}).Return(nil).Once()
 	mock.On("LogInfo", "new msg", "message", "hello", "from", "test").Return(nil)
 	mock.On("LogInfo", "userFrom", "from", "1").Return(nil)
 	p.SetAPI(mock)
@@ -92,7 +93,7 @@ func TestHandleWebhookWithKnowAuthorButUnknowToUser(t *testing.T) {
 	mock.AssertCalled(t, "KVGet", "test_gitlabusername")
 	mock.AssertCalled(t, "KVGet", "unknown_gitlabusername")
 	mock.AssertNumberOfCalls(t, "KVGet", 2)
-	mock.AssertCalled(t, "PublishWebSocketEvent", WS_EVENT_REFRESH, map[string]interface{}(nil), &model.WebsocketBroadcast{UserId: "1"})
+	mock.AssertCalled(t, "PublishWebSocketEvent", WsEventRefresh, map[string]interface{}(nil), &model.WebsocketBroadcast{UserId: "1"})
 	mock.AssertNumberOfCalls(t, "PublishWebSocketEvent", 1)
 }
 
@@ -101,7 +102,7 @@ func TestHandleWebhookToChannel(t *testing.T) {
 
 	mock := &plugintest.API{}
 	mock.On("KVGet", "test_gitlabusername").Return([]byte("1"), nil).Once()
-	mock.On("PublishWebSocketEvent", WS_EVENT_REFRESH, map[string]interface{}(nil), &model.WebsocketBroadcast{UserId: "1"}).Return(nil).Once()
+	mock.On("PublishWebSocketEvent", WsEventRefresh, map[string]interface{}(nil), &model.WebsocketBroadcast{UserId: "1"}).Return(nil).Once()
 	mock.On("LogInfo", "new msg", "message", "hello", "from", "test").Return(nil)
 	mock.On("LogInfo", "userFrom", "from", "1").Return(nil)
 	mock.On("CreatePost", &model.Post{Id: "", CreateAt: 0, UpdateAt: 0, EditAt: 0, DeleteAt: 0, IsPinned: false, UserId: "", ChannelId: "town-square", RootId: "", ParentId: "", OriginalId: "", Message: "hello", MessageSource: "", Type: "", Hashtags: "", Filenames: model.StringArray(nil), FileIds: model.StringArray(nil), PendingPostId: "", HasReactions: false, Metadata: (*model.PostMetadata)(nil)}).Return(nil, nil)
@@ -118,7 +119,7 @@ func TestHandleWebhookToChannel(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	mock.AssertCalled(t, "KVGet", "test_gitlabusername")
 	mock.AssertNumberOfCalls(t, "KVGet", 1)
-	mock.AssertCalled(t, "PublishWebSocketEvent", WS_EVENT_REFRESH, map[string]interface{}(nil), &model.WebsocketBroadcast{UserId: "1"})
+	mock.AssertCalled(t, "PublishWebSocketEvent", WsEventRefresh, map[string]interface{}(nil), &model.WebsocketBroadcast{UserId: "1"})
 	mock.AssertNumberOfCalls(t, "PublishWebSocketEvent", 1)
 	mock.AssertNumberOfCalls(t, "CreatePost", 1)
 }

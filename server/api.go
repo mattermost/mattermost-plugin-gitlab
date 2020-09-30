@@ -14,15 +14,13 @@ import (
 
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin"
+	"golang.org/x/oauth2"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
-
-	"golang.org/x/oauth2"
 )
 
 const (
-	API_ERROR_ID_NOT_CONNECTED = "not_connected"
-	GITLAB_USERNAME            = "GitLab Plugin"
+	APIErrorIDNotConnected = "not_connected"
 )
 
 type APIErrorResponse struct {
@@ -162,7 +160,7 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 
 	userInfo, err := p.GitlabClient.GetCurrentUser(userID, *tok)
 	if err != nil {
-		p.API.LogError("can't retreive user info from gitLab API", "err", err.Error())
+		p.API.LogError("can't retrieve user info from gitLab API", "err", err.Error())
 		http.Error(w, "Unable to connect user to GitLab", http.StatusInternalServerError)
 		return
 	}
@@ -195,14 +193,14 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 		"* The fifth will refresh the numbers.\n\n"+
 		"Click on them!\n\n"+
 		"##### Slash Commands\n"+
-		strings.Replace(commandHelp, "|", "`", -1), userInfo.GitlabUsername)
+		strings.ReplaceAll(commandHelp, "|", "`"), userInfo.GitlabUsername)
 
 	if err := p.CreateBotDMPost(userID, message, "custom_git_welcome"); err != nil {
 		p.API.LogError("can't send help message with bot dm", "err", err.Error())
 	}
 
 	p.API.PublishWebSocketEvent(
-		WS_EVENT_CONNECT,
+		WsEventConnect,
 		map[string]interface{}{
 			"connected":        true,
 			"gitlab_username":  userInfo.GitlabUsername,
@@ -291,7 +289,7 @@ func (p *Plugin) getGitlabUser(w http.ResponseWriter, r *http.Request) {
 
 	userInfo, apiErr := p.getGitlabUserInfoByMattermostID(req.UserID)
 	if apiErr != nil {
-		if apiErr.ID == API_ERROR_ID_NOT_CONNECTED {
+		if apiErr.ID == APIErrorIDNotConnected {
 			p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "User is not connected to a GitLab account.", StatusCode: http.StatusNotFound})
 		} else {
 			p.writeAPIError(w, apiErr)
