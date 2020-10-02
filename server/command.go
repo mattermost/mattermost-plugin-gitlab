@@ -254,13 +254,12 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo, enab
 		}
 
 		namespace := parameters[1]
-		group, project, namespaceErr := p.GitlabClient.ResolveNamespaceAndProject(info, namespace, enablePrivateRepo)
-		if namespaceErr != nil {
-			return namespaceErr.Error()
+		group, project, err := p.GitlabClient.ResolveNamespaceAndProject(info, namespace, enablePrivateRepo)
+		if err != nil {
+			return err.Error()
 		}
 
 		var webhookInfo []*gitlab.WebhookInfo
-		var err error
 		if project != "" {
 			webhookInfo, err = p.GitlabClient.GetProjectHooks(info, group, project)
 			if err != nil {
@@ -330,7 +329,7 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo, enab
 			}
 			return fmt.Sprintf("Webhook Created:\n%s", newWebhook.String())
 		}
-		//group scoped
+		// If webhook is group scoped
 		newWebhook, err := p.GitlabClient.NewGroupHook(info, group, hookOptions)
 		if err != nil {
 			return err.Error()
