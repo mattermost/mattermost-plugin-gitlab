@@ -286,7 +286,7 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo, enab
 		}
 		return formatedWebhooks
 
-	case "add":
+	case commandAdd:
 		if len(parameters) < 2 {
 			return unknownActionMessage
 		}
@@ -322,7 +322,10 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo, enab
 		}
 		//if project scope
 		if projectName != "" {
-			project, _ := p.GitlabClient.GetProject(info, group, projectName)
+			project, err := p.GitlabClient.GetProject(info, group, projectName)
+			if err != nil {
+				return err.Error()
+			}
 			newWebhook, err := p.GitlabClient.NewProjectHook(info, project.ID, hookOptions)
 			if err != nil {
 				return err.Error()
