@@ -5,9 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 	"github.com/stretchr/testify/assert"
 	"github.com/xanzy/go-gitlab"
+
+	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
 
 type testDataPushStr struct {
@@ -33,7 +34,7 @@ var testDataPush = []testDataPushStr{
 		}},
 	}, {
 		testTitle: "manland push 1 commit (subgroup)",
-		fixture:   strings.Replace(PushEvent, "manland/webhook", "manland/subgroup/webhook", -1),
+		fixture:   strings.ReplaceAll(PushEvent, "manland/webhook", "manland/subgroup/webhook"),
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
 			{ChannelID: "channel1", CreatorID: "1", Features: "pushes", Repository: "manland/subgroup/webhook"},
 		}),

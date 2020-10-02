@@ -10,14 +10,14 @@ import (
 )
 
 const (
-	SUBSCRIPTIONS_KEY = "subscriptions"
+	SubscriptionsKey = "subscriptions"
 )
 
 type Subscriptions struct {
 	Repositories map[string][]*subscription.Subscription
 }
 
-func (p *Plugin) Subscribe(info *gitlab.GitlabUserInfo, namespace, project, channelID, features string) error {
+func (p *Plugin) Subscribe(info *gitlab.UserInfo, namespace, project, channelID, features string) error {
 	if err := p.isNamespaceAllowed(namespace); err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func (p *Plugin) AddSubscription(fullPath string, sub *subscription.Subscription
 func (p *Plugin) GetSubscriptions() (*Subscriptions, error) {
 	var subscriptions *Subscriptions
 
-	value, err := p.API.KVGet(SUBSCRIPTIONS_KEY)
+	value, err := p.API.KVGet(SubscriptionsKey)
 	if err != nil {
 		p.API.LogError("can't get subscriptions from kvstore", "err", err.DetailedError)
 		return nil, err
@@ -92,10 +92,8 @@ func (p *Plugin) GetSubscriptions() (*Subscriptions, error) {
 
 	if value == nil {
 		subscriptions = &Subscriptions{Repositories: map[string][]*subscription.Subscription{}}
-	} else {
-		if err := json.NewDecoder(bytes.NewReader(value)).Decode(&subscriptions); err != nil {
-			return nil, err
-		}
+	} else if err := json.NewDecoder(bytes.NewReader(value)).Decode(&subscriptions); err != nil {
+		return nil, err
 	}
 
 	return subscriptions, nil
@@ -106,7 +104,7 @@ func (p *Plugin) StoreSubscriptions(s *Subscriptions) error {
 	if err != nil {
 		return err
 	}
-	if err := p.API.KVSet(SUBSCRIPTIONS_KEY, b); err != nil {
+	if err := p.API.KVSet(SubscriptionsKey, b); err != nil {
 		p.API.LogError("can't set subscriptions in kvstore", "err", err.DetailedError)
 	}
 	return nil
@@ -117,7 +115,6 @@ func (p *Plugin) GetSubscribedChannelsForProject(
 	project string,
 	isPublicVisibility bool,
 ) []*subscription.Subscription {
-
 	var subsForRepo []*subscription.Subscription
 
 	subs, err := p.GetSubscriptions()
@@ -169,7 +166,6 @@ func (p *Plugin) Unsubscribe(channelID string, fullPath string) (bool, error) {
 
 	// We don't know whether fullPath is a namespace or project, so we have to check both cases
 	for _, path := range []string{fullPath, fullPath + "/"} {
-
 		pathSubs := subs.Repositories[path]
 		if pathSubs == nil {
 			continue

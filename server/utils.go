@@ -44,7 +44,7 @@ func encrypt(key []byte, text string) (string, error) {
 	}
 
 	cfb := cipher.NewCFBEncrypter(block, iv)
-	cfb.XORKeyStream(ciphertext[aes.BlockSize:], []byte(msg))
+	cfb.XORKeyStream(ciphertext[aes.BlockSize:], msg)
 	finalMsg := base64.URLEncoding.EncodeToString(ciphertext)
 	return finalMsg, nil
 }
@@ -61,7 +61,7 @@ func decrypt(key []byte, text string) (string, error) {
 	}
 
 	if (len(decodedMsg) % aes.BlockSize) != 0 {
-		return "", errors.New("blocksize must be multipe of decoded message length")
+		return "", errors.New("blocksize must be multiple of decoded message length")
 	}
 
 	iv := decodedMsg[:aes.BlockSize]
@@ -83,7 +83,7 @@ func normalizePath(full, baseURL string) string {
 	if baseURL == "" {
 		baseURL = "https://gitlab.com/"
 	} else if !strings.HasSuffix(baseURL, "/") {
-		baseURL = baseURL + "/"
+		baseURL += "/"
 	}
 
 	return strings.TrimSuffix(strings.TrimSpace(strings.Replace(full, baseURL, "", 1)), "/")

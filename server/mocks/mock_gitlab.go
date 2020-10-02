@@ -5,11 +5,13 @@
 package mock_gitlab
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
-	gitlab "github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	gitlab0 "github.com/xanzy/go-gitlab"
 	oauth2 "golang.org/x/oauth2"
-	reflect "reflect"
+
+	gitlab "github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 )
 
 // MockGitlab is a mock of Gitlab interface
@@ -36,10 +38,10 @@ func (m *MockGitlab) EXPECT() *MockGitlabMockRecorder {
 }
 
 // GetCurrentUser mocks base method
-func (m *MockGitlab) GetCurrentUser(userID string, token oauth2.Token) (*gitlab.GitlabUserInfo, error) {
+func (m *MockGitlab) GetCurrentUser(userID string, token oauth2.Token) (*gitlab.UserInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCurrentUser", userID, token)
-	ret0, _ := ret[0].(*gitlab.GitlabUserInfo)
+	ret0, _ := ret[0].(*gitlab.UserInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -51,7 +53,7 @@ func (mr *MockGitlabMockRecorder) GetCurrentUser(userID, token interface{}) *gom
 }
 
 // GetUserDetails mocks base method
-func (m *MockGitlab) GetUserDetails(user *gitlab.GitlabUserInfo) (*gitlab0.User, error) {
+func (m *MockGitlab) GetUserDetails(user *gitlab.UserInfo) (*gitlab0.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUserDetails", user)
 	ret0, _ := ret[0].(*gitlab0.User)
@@ -66,7 +68,7 @@ func (mr *MockGitlabMockRecorder) GetUserDetails(user interface{}) *gomock.Call 
 }
 
 // GetProject mocks base method
-func (m *MockGitlab) GetProject(user *gitlab.GitlabUserInfo, owner, repo string) (*gitlab0.Project, error) {
+func (m *MockGitlab) GetProject(user *gitlab.UserInfo, owner, repo string) (*gitlab0.Project, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetProject", user, owner, repo)
 	ret0, _ := ret[0].(*gitlab0.Project)
@@ -81,7 +83,7 @@ func (mr *MockGitlabMockRecorder) GetProject(user, owner, repo interface{}) *gom
 }
 
 // GetReviews mocks base method
-func (m *MockGitlab) GetReviews(user *gitlab.GitlabUserInfo) ([]*gitlab0.MergeRequest, error) {
+func (m *MockGitlab) GetReviews(user *gitlab.UserInfo) ([]*gitlab0.MergeRequest, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetReviews", user)
 	ret0, _ := ret[0].([]*gitlab0.MergeRequest)
@@ -96,7 +98,7 @@ func (mr *MockGitlabMockRecorder) GetReviews(user interface{}) *gomock.Call {
 }
 
 // GetYourPrs mocks base method
-func (m *MockGitlab) GetYourPrs(user *gitlab.GitlabUserInfo) ([]*gitlab0.MergeRequest, error) {
+func (m *MockGitlab) GetYourPrs(user *gitlab.UserInfo) ([]*gitlab0.MergeRequest, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetYourPrs", user)
 	ret0, _ := ret[0].([]*gitlab0.MergeRequest)
@@ -111,7 +113,7 @@ func (mr *MockGitlabMockRecorder) GetYourPrs(user interface{}) *gomock.Call {
 }
 
 // GetYourAssignments mocks base method
-func (m *MockGitlab) GetYourAssignments(user *gitlab.GitlabUserInfo) ([]*gitlab0.Issue, error) {
+func (m *MockGitlab) GetYourAssignments(user *gitlab.UserInfo) ([]*gitlab0.Issue, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetYourAssignments", user)
 	ret0, _ := ret[0].([]*gitlab0.Issue)
@@ -126,7 +128,7 @@ func (mr *MockGitlabMockRecorder) GetYourAssignments(user interface{}) *gomock.C
 }
 
 // GetUnreads mocks base method
-func (m *MockGitlab) GetUnreads(user *gitlab.GitlabUserInfo) ([]*gitlab0.Todo, error) {
+func (m *MockGitlab) GetUnreads(user *gitlab.UserInfo) ([]*gitlab0.Todo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUnreads", user)
 	ret0, _ := ret[0].([]*gitlab0.Todo)
@@ -141,7 +143,7 @@ func (mr *MockGitlabMockRecorder) GetUnreads(user interface{}) *gomock.Call {
 }
 
 // GetProjectHooks mocks base method
-func (m *MockGitlab) GetProjectHooks(user *gitlab.GitlabUserInfo, owner, repo string) ([]*gitlab.WebhookInfo, error) {
+func (m *MockGitlab) GetProjectHooks(user *gitlab.UserInfo, owner, repo string) ([]*gitlab.WebhookInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetProjectHooks", user, owner, repo)
 	ret0, _ := ret[0].([]*gitlab.WebhookInfo)
@@ -156,7 +158,7 @@ func (mr *MockGitlabMockRecorder) GetProjectHooks(user, owner, repo interface{})
 }
 
 // GetGroupHooks mocks base method
-func (m *MockGitlab) GetGroupHooks(user *gitlab.GitlabUserInfo, owner string) ([]*gitlab.WebhookInfo, error) {
+func (m *MockGitlab) GetGroupHooks(user *gitlab.UserInfo, owner string) ([]*gitlab.WebhookInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetGroupHooks", user, owner)
 	ret0, _ := ret[0].([]*gitlab.WebhookInfo)
@@ -171,7 +173,7 @@ func (mr *MockGitlabMockRecorder) GetGroupHooks(user, owner interface{}) *gomock
 }
 
 // NewProjectHook mocks base method
-func (m *MockGitlab) NewProjectHook(user *gitlab.GitlabUserInfo, projectID interface{}, projectHookOptions *gitlab0.AddProjectHookOptions) (*gitlab0.ProjectHook, error) {
+func (m *MockGitlab) NewProjectHook(user *gitlab.UserInfo, projectID interface{}, projectHookOptions *gitlab0.AddProjectHookOptions) (*gitlab0.ProjectHook, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewProjectHook", user, projectID, projectHookOptions)
 	ret0, _ := ret[0].(*gitlab0.ProjectHook)
@@ -186,7 +188,7 @@ func (mr *MockGitlabMockRecorder) NewProjectHook(user, projectID, projectHookOpt
 }
 
 // ResolveNamespaceAndProject mocks base method
-func (m *MockGitlab) ResolveNamespaceAndProject(userInfo *gitlab.GitlabUserInfo, fullPath string, allowPrivate bool) (string, string, error) {
+func (m *MockGitlab) ResolveNamespaceAndProject(userInfo *gitlab.UserInfo, fullPath string, allowPrivate bool) (string, string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveNamespaceAndProject", userInfo, fullPath, allowPrivate)
 	ret0, _ := ret[0].(string)

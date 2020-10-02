@@ -5,18 +5,19 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
-	mocks "github.com/mattermost/mattermost-plugin-gitlab/server/gitlab/mocks"
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin/plugintest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	gitLabAPI "github.com/xanzy/go-gitlab"
+
+	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
+	mocks "github.com/mattermost/mattermost-plugin-gitlab/server/gitlab/mocks"
 )
 
 type subscribeCommandTest struct {
 	testName       string
-	paramaters     []string
+	parameters     []string
 	want           string
 	webhookInfo    []*gitlab.WebhookInfo
 	mattermostURL  string
@@ -29,12 +30,12 @@ const subscribeSuccessMessage = "Successfully subscribed to group/project.\nA We
 var subscribeCommandTests = []subscribeCommandTest{
 	{
 		testName:   "No Subscriptions",
-		paramaters: []string{"list"},
+		parameters: []string{"list"},
 		want:       "Currently there are no subscriptions in this channel",
 	},
 	{
 		testName:      "Hook Found",
-		paramaters:    []string{"add", "group/project"},
+		parameters:    []string{"add", "group/project"},
 		mockGitlab:    true,
 		want:          "Successfully subscribed to group/project.",
 		webhookInfo:   []*gitlab.WebhookInfo{{URL: "example.com/somewebhookURL"}},
@@ -42,7 +43,7 @@ var subscribeCommandTests = []subscribeCommandTest{
 	},
 	{
 		testName:      "No webhooks",
-		paramaters:    []string{"add", "group/project"},
+		parameters:    []string{"add", "group/project"},
 		mattermostURL: "example.com",
 		webhookInfo:   []*gitlab.WebhookInfo{{}},
 		mockGitlab:    true,
@@ -50,7 +51,7 @@ var subscribeCommandTests = []subscribeCommandTest{
 	},
 	{
 		testName:      "Multiple un-matching hooks",
-		paramaters:    []string{"add", "group/project"},
+		parameters:    []string{"add", "group/project"},
 		mattermostURL: "example.com",
 		mockGitlab:    true,
 		webhookInfo:   []*gitlab.WebhookInfo{{URL: "www.anotherhook.io/wrong"}, {URL: "www.213210948239324.edu/notgood"}},
@@ -58,49 +59,46 @@ var subscribeCommandTests = []subscribeCommandTest{
 	},
 	{
 		testName:       "Error getting webhooks",
-		paramaters:     []string{"add", "group"},
+		parameters:     []string{"add", "group"},
 		mattermostURL:  "example.com",
 		mockGitlab:     true,
 		webhookInfo:    []*gitlab.WebhookInfo{{}},
 		want:           "Unable to determine status of Webhook. See [setup instructions](https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook) to validate.",
-		projectHookErr: errors.New("Unable to get project hooks"), //true,
+		projectHookErr: errors.New("unable to get project hooks"),
 	},
 }
 
 func TestSubscribeCommand(t *testing.T) {
 	for _, test := range subscribeCommandTests {
 		t.Run(test.testName, func(t *testing.T) {
-
 			mockCtrl := gomock.NewController(t)
 			defer mockCtrl.Finish()
 
 			channelID := "12345"
-			userInfo := &gitlab.GitlabUserInfo{}
+			userInfo := &gitlab.UserInfo{}
 
 			p := getTestPlugin(t, mockCtrl, test.webhookInfo, test.mattermostURL, test.projectHookErr, test.mockGitlab)
-			subscribeMessage := p.subscribeCommand(test.paramaters, channelID, &configuration{}, userInfo)
+			subscribeMessage := p.subscribeCommand(test.parameters, channelID, &configuration{}, userInfo)
 
 			assert.Equal(t, test.want, subscribeMessage, "Subscribe command message should be the same.")
 		})
-
 	}
 }
 
 type webhookCommandTest struct {
 	testName    string
-	paramaters  []string
+	parameters  []string
 	scope       string
 	webhookInfo []*gitlab.WebhookInfo
 	want        string
 	siteURL     string
 	webhook     *gitlab.WebhookInfo
-	secretToken string
 }
 
 var listWebhookCommandTests = []webhookCommandTest{
 	{
 		testName:   "List Project hooks",
-		paramaters: []string{"list", "group/project"},
+		parameters: []string{"list", "group/project"},
 		scope:      "project",
 		webhookInfo: []*gitlab.WebhookInfo{
 			{
@@ -128,7 +126,7 @@ Triggers:
 	},
 	{
 		testName:   "List multiple project hooks",
-		paramaters: []string{"list", "group/project"},
+		parameters: []string{"list", "group/project"},
 		scope:      "project",
 		webhookInfo: []*gitlab.WebhookInfo{
 			{
@@ -150,7 +148,7 @@ Triggers:
 	},
 	{
 		testName:   "List Group hooks",
-		paramaters: []string{"list", "group"},
+		parameters: []string{"list", "group"},
 		scope:      "group",
 		webhookInfo: []*gitlab.WebhookInfo{
 			{
@@ -178,12 +176,12 @@ Triggers:
 	},
 	{
 		testName:   "Unrecognized sub command",
-		paramaters: []string{"invalid", "group"},
+		parameters: []string{"invalid", "group"},
 		want:       "Unknown webhook command: invalid",
 	},
 	{
 		testName:   "List missing namespace",
-		paramaters: []string{"list"},
+		parameters: []string{"list"},
 		want:       "Unknown action, please use `/gitlab help` to see all actions available.",
 	},
 }
@@ -207,7 +205,7 @@ func TestListWebhookCommand(t *testing.T) {
 				p.GitlabClient = mockedClient
 			}
 
-			got := p.webhookCommand(test.paramaters, &gitlab.GitlabUserInfo{}, true)
+			got := p.webhookCommand(test.parameters, &gitlab.UserInfo{}, true)
 			assert.Equal(t, test.want, got)
 		})
 	}
@@ -273,21 +271,21 @@ Triggers:
 var addWebhookCommandTests = []webhookCommandTest{
 	{
 		testName:   "Create project hook with defaults",
-		paramaters: []string{"add", "group/project"},
+		parameters: []string{"add", "group/project"},
 		want:       "Webhook Created:\n\n\n`https://example.com`" + allTriggersFormated,
 		siteURL:    "https://example.com",
 		webhook:    exampleWebhookWithAlltriggers,
 	},
 	{
 		testName:   "Create project hook with all trigers",
-		paramaters: []string{"add", "group/project", "*"},
+		parameters: []string{"add", "group/project", "*"},
 		want:       "Webhook Created:\n\n\n`https://example.com`" + allTriggersFormated,
 		siteURL:    "https://example.com",
 		webhook:    exampleWebhookWithAlltriggers,
 	},
 	{
 		testName:   "Create project hook with explicit trigers",
-		paramaters: []string{"add", "group/project", "PushEvents,MergeRequestEvents"},
+		parameters: []string{"add", "group/project", "PushEvents,MergeRequestEvents"},
 		want: "Webhook Created:\n\n\n`https://example.com`" + `
 Triggers:
 * Push Events
@@ -302,7 +300,7 @@ Triggers:
 	},
 	{
 		testName:   "Create project hook with explicit URL",
-		paramaters: []string{"add", "group/project", "*", "https://anothersite.com"},
+		parameters: []string{"add", "group/project", "*", "https://anothersite.com"},
 		want:       "Webhook Created:\n\n\n`https://anothersite.com`" + allTriggersFormated,
 		siteURL:    "https://example.com",
 		webhook: &gitlab.WebhookInfo{
@@ -322,14 +320,14 @@ Triggers:
 	},
 	{
 		testName:   "Create project hook with explicit token",
-		paramaters: []string{"add", "group/project", "*", "https://example.com", "1234abcd"},
+		parameters: []string{"add", "group/project", "*", "https://example.com", "1234abcd"},
 		want:       "Webhook Created:\n\n\n`https://example.com`" + allTriggersFormated,
 		siteURL:    "https://example.com",
 		webhook:    exampleWebhookWithAlltriggers,
 	},
 	{
 		testName:   "Create Group hook with defaults",
-		paramaters: []string{"add", "group"},
+		parameters: []string{"add", "group"},
 		want:       "Webhook Created:\n\n\n`https://example.com`" + allTriggersFormated,
 		siteURL:    "https://example.com",
 		scope:      "group",
@@ -363,7 +361,7 @@ func TestAddWebhookCommand(t *testing.T) {
 			api.On("GetConfig", mock.Anything).Return(conf)
 			p.SetAPI(api)
 
-			got := p.webhookCommand(test.paramaters, &gitlab.GitlabUserInfo{}, true)
+			got := p.webhookCommand(test.parameters, &gitlab.UserInfo{}, true)
 
 			assert.Equal(t, test.want, got)
 		})

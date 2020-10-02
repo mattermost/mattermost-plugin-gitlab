@@ -106,7 +106,7 @@ func applyManifest(manifest *model.Manifest) error {
 		if err := ioutil.WriteFile(
 			"server/manifest.go",
 			[]byte(fmt.Sprintf(pluginIDGoFileTemplate, manifest.Id, manifest.Version)),
-			0644,
+			0600,
 		); err != nil {
 			return errors.Wrap(err, "failed to write server/manifest.go")
 		}
@@ -116,7 +116,7 @@ func applyManifest(manifest *model.Manifest) error {
 		if err := ioutil.WriteFile(
 			"webapp/src/manifest.js",
 			[]byte(fmt.Sprintf(pluginIDJSFileTemplate, manifest.Id, manifest.Version)),
-			0644,
+			0600,
 		); err != nil {
 			return errors.Wrap(err, "failed to open webapp/src/manifest.js")
 		}

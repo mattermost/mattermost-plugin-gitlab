@@ -7,7 +7,7 @@ const SimpleTag = `{
 	"after":"48bb9a42241a84ec7c03850f0096ac671bb06641",
 	"ref":"refs/tags/tag1",
 	"checkout_sha":"c30217b62542c586fdbadc7b5ee762bfdca10663",
-	"message":"Really beatiful tag",
+	"message":"Really beautiful tag",
 	"user_id":50,
 	"user_name":"manland",
 	"user_username":"manland",

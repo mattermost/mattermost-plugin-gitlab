@@ -5,9 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 	"github.com/stretchr/testify/assert"
 	"github.com/xanzy/go-gitlab"
+
+	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
 
 type testDataPipelineStr struct {
@@ -24,7 +25,7 @@ var testDataPipeline = []testDataPipelineStr{
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
 			{ChannelID: "channel1", CreatorID: "1", Features: "pipeline", Repository: "manland/webhook"},
 		}),
-		res: []*HandleWebhook{}, //we don't care about pending pipeline
+		res: []*HandleWebhook{}, // we don't care about pending pipeline
 	}, {
 		testTitle: "root start a pipeline in running",
 		fixture:   PipelineRun,
@@ -39,7 +40,7 @@ var testDataPipeline = []testDataPipelineStr{
 		}},
 	}, {
 		testTitle: "root start a pipeline in running (subgroup)",
-		fixture:   strings.Replace(PipelineRun, "manland/webhook", "manland/subgroup/webhook", -1),
+		fixture:   strings.ReplaceAll(PipelineRun, "manland/webhook", "manland/subgroup/webhook"),
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
 			{ChannelID: "channel1", CreatorID: "1", Features: "pipeline", Repository: "manland/subgroup/webhook"},
 		}),
