@@ -14,8 +14,8 @@
 
 ### Step 2: Configure Plugin in Mattermost
 
-1. Go to **Plugins Marketplace &gt; GitLab** and click the **Configure** button or go to **System Console > Plugins > GitLab** and do the following:
-   1. Generate a new value for  `Webhook Secret` 
+1. Go to **Plugins Marketplace > GitLab** and click the **Configure** button or go to **System Console > Plugins > GitLab** and do the following:
+   1. Generate a new value for `Webhook Secret` 
    2. Generate a new value for **At Rest Encryption Key**
      3. (Optional) **GitLab Group**: Lock the plugin to a single GitLab group by setting this field to the name of your GitLab group.
      4. (Optional) **Enable Private Repositories**: Allow the plugin to receive notifications from private repositories by setting this value as `true`. When enabled, existing users must reconnect their accounts to gain access to a private project. Affected users will be notified by the plugin once private repositories are enabled.
@@ -24,19 +24,19 @@
 
 ### Step 3: Configure Webhooks in GitLab
 
-For each project you want to receive notifications for, or subscribe to, you must create a webhook.
+For each project you want to receive notifications for, or subscribe to, you must create a webhook. 
 
-1. In GitLab, go to the project you want to subscribe to, select **Settings** then **Integrations** in the sidebar.
+If you're using v1.2, use the `/gitlab webhook add` slash command. For other versions follow these steps:
+
+1. In GitLab, go to the project you want to subscribe to, select **Settings > Integrations** in the sidebar.
 2. Set the following values:
-   - **URL**: `https://your-mattermost-url.com/plugins/com.github.manland.mattermost-plugin-gitlab/webhook`, replacing `https://your-mattermost-url.com` with your Mattermost URL.
-   - **Secret Token**: the webhook secret you copied previously.
+   - **URL**: `https://your-mattermost-url.com/plugins/com.github.manland.mattermost-plugin-gitlab/webhook`, replacing `https://your-mattermost-url.com` with your Mattermost URL. Ensure that you add `/plugins/com.github.manland.mattermost-plugin-gitlab/webhook` to the URL or the webhook won't work.
+   - **Secret Token**: The webhook secret you copied previously.
 3. Select all the events in **Triggers**.
 4. Add the webhook.
 
 ### Step 4: Test it
 
 To test it, run the `/gitlab connect` slash command to connect your Mattermost account with GitLab.
-
-
 
 If you face issues installing the plugin, see our [Frequently Asked Questions]() for troubleshooting help, or open an issue in the [Mattermost Forum](http://forum.mattermost.org).
