@@ -6,4 +6,4 @@ This plugin supports a two-way integration between Mattermost and GitLab. For a 
 
 This plugin supports Software-as-a-Service (SaaS) or on-premises versions of GitLab.
 
-Originally developed by [Romain Maneschi](https://github.com/manland)
+Originally developed by [Romain Maneschi](https://github.com/manland).
