@@ -68,6 +68,10 @@ func (w *webhook) handleChannelIssueComment(event *gitlab.IssueCommentEvent) ([]
 			continue
 		}
 
+		if sub.Label() != "" && !containsLabel(event.Labels, sub.Label()) {
+			continue
+		}
+
 		toChannels = append(toChannels, sub.ChannelID)
 	}
 	if len(toChannels) > 0 {
