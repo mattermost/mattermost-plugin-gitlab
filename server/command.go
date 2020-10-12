@@ -176,7 +176,7 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 		p.disconnectGitlabAccount(args.UserId)
 		return p.getCommandResponse(args, "Disconnected your GitLab account."), nil
 	case "todo":
-		text, err := p.GetToDo(info)
+		_, text, err := p.GetToDo(info)
 		if err != nil {
 			p.API.LogError("can't get todo in command", "err", err.Error())
 			return p.getCommandResponse(args, "Encountered an error getting your to do items."), nil

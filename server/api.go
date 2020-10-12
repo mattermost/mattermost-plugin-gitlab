@@ -463,7 +463,7 @@ func (p *Plugin) postToDo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	text, errRequest := p.GetToDo(user)
+	_, text, errRequest := p.GetToDo(user)
 	if errRequest != nil {
 		p.API.LogError("can't get todo", "err", errRequest.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an error getting the to do items.", StatusCode: http.StatusUnauthorized})
