@@ -39,7 +39,7 @@ func (w *webhook) handleDMTag(event *gitlab.TagEvent) ([]*HandleWebhook, error) 
 }
 
 func (w *webhook) handleChannelTag(event *gitlab.TagEvent) ([]*HandleWebhook, error) {
-	senderGitlabUsername := event.UserName
+	senderGitlabUsername := w.gitlabRetreiver.GetUsernameByID(event.UserID)
 	repo := event.Project
 	tagNames := strings.Split(event.Ref, "/")
 	tagName := tagNames[len(tagNames)-1]

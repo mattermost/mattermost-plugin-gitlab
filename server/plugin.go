@@ -166,7 +166,11 @@ func (p *Plugin) storeGitlabToUserIDMapping(gitlabUsername, userID string) error
 	if err := p.API.KVSet(gitlabUsername+GitlabUsernameKey, []byte(userID)); err != nil {
 		return fmt.Errorf("encountered error saving GitLab username mapping")
 	}
-	if err := p.API.KVSet(userID+GitlabIDUsernameKey, []byte(gitlabUsername)); err != nil {
+	return nil
+}
+
+func (p *Plugin) storeGitlabIDToUserIDMapping(gitlabUsername string, gitlabID int) error {
+	if err := p.API.KVSet(fmt.Sprintf("%d", gitlabID)+GitlabIDUsernameKey, []byte(gitlabUsername)); err != nil {
 		return fmt.Errorf("encountered error saving GitLab id mapping")
 	}
 	return nil
