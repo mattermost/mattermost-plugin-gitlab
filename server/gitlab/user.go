@@ -24,6 +24,11 @@ type UserSettings struct {
 	Notifications  bool   `json:"notifications"`
 }
 
+type CommitDetails struct {
+	Repository interface{} `json:"repo_name_or_id"`
+	Branch     string      `json:"reference"`
+}
+
 func (g *gitlab) GetCurrentUser(userID string, token oauth2.Token) (*UserInfo, error) {
 	client, err := g.gitlabConnect(token)
 	if err != nil {

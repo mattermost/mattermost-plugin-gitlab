@@ -20,6 +20,7 @@ var (
 	ErrPrivateResource = errors.New("private resource")
 )
 
+//go:generate mockgen -source=gitlab.go -destination=mocks/mock_gitlab.go
 // Gitlab is a client to call GitLab api see New() to build one
 type Gitlab interface {
 	GetCurrentUser(userID string, token oauth2.Token) (*UserInfo, error)
@@ -43,6 +44,8 @@ type Gitlab interface {
 		fullPath string,
 		allowPrivate bool,
 	) (namespace string, project string, err error)
+
+	TriggerNewBuildPipeline(user *UserInfo, repo interface{}, reference *string) (*internGitlab.Pipeline, error)
 }
 
 type gitlab struct {

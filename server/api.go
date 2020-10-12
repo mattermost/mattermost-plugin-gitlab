@@ -84,6 +84,8 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 		p.updateSettings(w, r)
 	case "/api/v1/user":
 		p.getGitlabUser(w, r)
+	case "/api/v1/build":
+		p.triggerPipeline(w, r)
 	default:
 		http.NotFound(w, r)
 	}
@@ -505,4 +507,33 @@ func (p *Plugin) updateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	p.writeAPIResponse(w, info.Settings)
+}
+
+func (p *Plugin) triggerPipeline(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("Mattermost-User-ID")
+	if userID == "" {
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Not authorized.", StatusCode: http.StatusUnauthorized})
+		return
+	}
+
+	user, errGitlab := p.getGitlabUserInfoByMattermostID(userID)
+	if errGitlab != nil {
+		p.writeAPIError(w, errGitlab)
+		return
+	}
+
+	var commitInfo *gitlab.CommitDetails
+	err := json.NewDecoder(r.Body).Decode(&commitInfo)
+	if commitInfo == nil || err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	pipeline, err := p.GitlabClient.TriggerNewBuildPipeline(user, commitInfo.Repository, &commitInfo.Branch)
+	if err != nil {
+		p.API.LogError("can't trigger build pipeline", "err", err.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an error while triggering the build.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	p.writeAPIResponse(w, pipeline)
 }

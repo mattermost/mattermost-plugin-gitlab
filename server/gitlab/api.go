@@ -412,3 +412,35 @@ func (g *gitlab) ResolveNamespaceAndProject(
 	}
 	return "", "", ErrNotFound
 }
+
+func (g *gitlab) TriggerNewBuildPipeline(user *UserInfo, repo interface{}, refToCommit *string) (*internGitlab.Pipeline, error) {
+	var err error
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		pipeline       *internGitlab.Pipeline
+		ctx, ctxCancel = context.WithTimeout(context.Background(), DefaultRequestTimeout)
+	)
+
+	defer ctxCancel()
+	errGroup, _ := errgroup.WithContext(ctx)
+	errGroup.Go(func() error {
+		p, response, gitError := client.Pipelines.CreatePipeline(repo, &internGitlab.CreatePipelineOptions{
+			Ref: refToCommit,
+		}, internGitlab.WithContext(ctx))
+
+		if gitError != nil && response != nil && response.StatusCode != http.StatusNotFound {
+			return fmt.Errorf("failed to retrieve project by path: %w", gitError)
+		}
+		pipeline = p
+		return nil
+	})
+
+	if err = errGroup.Wait(); err != nil {
+		return nil, err
+	}
+	return pipeline, err
+}
