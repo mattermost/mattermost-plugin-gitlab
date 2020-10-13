@@ -354,7 +354,7 @@ func TestAddWebhookCommand(t *testing.T) {
 			api := &plugintest.API{}
 			conf := &model.Config{}
 			conf.ServiceSettings.SiteURL = &test.siteURL
-			api.On("build", mock.Anything, mock.Anything).Return(conf)
+			api.On("GetConfig", mock.Anything).Return(conf)
 			p.SetAPI(api)
 
 			got := p.webhookCommand(test.parameters, &gitlab.UserInfo{})
@@ -365,22 +365,41 @@ func TestAddWebhookCommand(t *testing.T) {
 }
 
 type buildCommandTest struct {
-	testName   string
-	scope      string
+	testName string
+	// scope      string
 	parameters []string
-	// webhookInfo []*gitlab.WebhookInfo
-	want    string
-	siteURL string
-	webhook *gitlab.WebhookInfo
+	pipeline   *gitLabAPI.Pipeline
+	want       string
+	// siteURL    string
+}
+
+var examplePipeline = &gitLabAPI.Pipeline{
+	ID:             1,
+	Status:         "Success",
+	Ref:            "master",
+	SHA:            "",
+	BeforeSHA:      "",
+	Tag:            false,
+	YamlErrors:     "",
+	User:           nil,
+	UpdatedAt:      nil,
+	CreatedAt:      nil,
+	StartedAt:      nil,
+	FinishedAt:     nil,
+	CommittedAt:    nil,
+	Duration:       0,
+	Coverage:       "",
+	WebURL:         "",
+	DetailedStatus: nil,
 }
 
 var buildCommandTests = []buildCommandTest{
 	{
 		testName:   "Create project hook with defaults",
 		parameters: []string{"build", "group/project", "master"},
-		want:       "Webhook Created:\n\n\n`https://example.com`" + allTriggersFormated,
-		siteURL:    "https://example.com",
-		webhook:    exampleWebhookWithAlltriggers,
+		want:       "gitlab.Pipeline{ID:1, Status:\"Success\", Ref:\"master\", SHA:\"\", BeforeSHA:\"\", Tag:false, YamlErrors:\"\", Duration:0, Coverage:\"\", WebURL:\"\"}",
+		// siteURL:    "https://example.com",
+		pipeline: examplePipeline,
 	},
 }
 
@@ -393,23 +412,16 @@ func TestGitlabBuildCommand(t *testing.T) {
 			defer mockCtrl.Finish()
 			mockedClient := mocks.NewMockGitlab(mockCtrl)
 
-			if test.scope == "group" {
-				mockedClient.EXPECT().NewGroupHook(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhook, nil)
-			} else {
-				project := &gitLabAPI.Project{ID: 4}
-				mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any()).Return(project, nil)
-				mockedClient.EXPECT().NewProjectHook(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhook, nil)
-			}
+			mockedClient.EXPECT().TriggerNewBuildPipeline(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.pipeline, nil)
 			p.GitlabClient = mockedClient
 
 			api := &plugintest.API{}
-			conf := &model.Config{}
-			conf.ServiceSettings.SiteURL = &test.siteURL
-			api.On("GetConfig", mock.Anything).Return(conf)
+			pipeline := &gitLabAPI.Pipeline{}
+
+			api.On("TriggerNewBuildPipeline", mock.Anything, mock.Anything, mock.Anything).Return(pipeline)
 			p.SetAPI(api)
 
 			got := p.webhookCommand(test.parameters, &gitlab.UserInfo{})
-
 			assert.Equal(t, test.want, got)
 		})
 	}

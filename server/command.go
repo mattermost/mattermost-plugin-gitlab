@@ -8,6 +8,7 @@ import (
 	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mattermost/mattermost-server/v5/plugin"
 	"github.com/pkg/errors"
+	internGitlab "github.com/xanzy/go-gitlab"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 )
@@ -360,6 +361,25 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo) stri
 			return fmt.Sprintf("Webhook Created:\n%s", newWebhook.String())
 		}
 		return fmt.Sprintf("Invalid command: %s", subCommand)
+
+	case commandBuild:
+		if len(parameters) != 3 {
+			return unknownActionMessage
+		}
+		project := parameters[1]
+		ref := parameters[2]
+
+		var pipeline *internGitlab.Pipeline
+		var err error
+		pipeline, err = p.GitlabClient.TriggerNewBuildPipeline(info, project, &ref)
+		if err != nil {
+			if strings.Contains(err.Error(), projectNotFoundError) {
+				return projectNotFoundMessage + project
+			}
+			return err.Error()
+		}
+
+		return pipeline.String()
 
 	default:
 		return fmt.Sprintf("Unknown webhook command: %s", subCommand)
