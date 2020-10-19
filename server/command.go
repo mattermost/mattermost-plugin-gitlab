@@ -215,7 +215,7 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 					p.API.LogError("can't store GitLab to GitLab id mapping", "err", err.Error())
 					return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 				}
-			} else if err := p.API.KVDelete(info.GitlabUsername + GitlabUsernameKey); err != nil {
+			} else if err := p.deleteGitlabToUserIDMapping(info.GitlabUsername); err != nil {
 				p.API.LogError("can't delete GitLab username in kvstore", "err", err.Error())
 				return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 			}
