@@ -232,7 +232,7 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 		return p.getCommandResponse(args, "Settings updated."), nil
 
 	case "webhook":
-		message := p.webhookCommand(parameters, info)
+		message := p.webhookCommand(parameters, info, config.EnablePrivateRepo)
 		response := p.getCommandResponse(args, message)
 		return response, nil
 
@@ -242,7 +242,7 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 }
 
 // webhookCommand processes the /gitlab webhook commands
-func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo) string {
+func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo, enablePrivateRepo bool) string {
 	if len(parameters) < 1 {
 		return unknownActionMessage
 	}
@@ -255,15 +255,14 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo) stri
 		}
 
 		namespace := parameters[1]
-		fullPath := strings.Split(namespace, "/")
+		group, project, err := p.GitlabClient.ResolveNamespaceAndProject(info, namespace, enablePrivateRepo)
+		if err != nil {
+			return err.Error()
+		}
 
 		var webhookInfo []*gitlab.WebhookInfo
-		var err error
-		if len(fullPath) == 2 {
-			owner := fullPath[0]
-			repo := fullPath[1]
-
-			webhookInfo, err = p.GitlabClient.GetProjectHooks(info, owner, repo)
+		if project != "" {
+			webhookInfo, err = p.GitlabClient.GetProjectHooks(info, group, project)
 			if err != nil {
 				if strings.Contains(err.Error(), projectNotFoundError) {
 					return projectNotFoundMessage + namespace
@@ -271,11 +270,10 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo) stri
 				return err.Error()
 			}
 		} else {
-			owner := fullPath[0]
-			webhookInfo, err = p.GitlabClient.GetGroupHooks(info, owner)
+			webhookInfo, err = p.GitlabClient.GetGroupHooks(info, group)
 			if err != nil {
 				if strings.Contains(err.Error(), groupNotFoundError) {
-					return groupNotFoundMessage + owner
+					return groupNotFoundMessage + group
 				}
 				return err.Error()
 			}
@@ -290,8 +288,9 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo) stri
 		return formatedWebhooks
 
 	case commandAdd:
-		namespace := parameters[1]
-		fullPath := strings.Split(namespace, "/")
+		if len(parameters) < 2 {
+			return unknownActionMessage
+		}
 
 		siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
 		if siteURL == "" {
@@ -317,12 +316,17 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo) stri
 			hookOptions.Token = p.getConfiguration().WebhookSecret
 		}
 
-		// if project scope
-		if len(fullPath) == 2 {
-			owner := fullPath[0]
-			repo := fullPath[1]
-
-			project, _ := p.GitlabClient.GetProject(info, owner, repo)
+		namespace := parameters[1]
+		group, projectName, namespaceErr := p.GitlabClient.ResolveNamespaceAndProject(info, namespace, enablePrivateRepo)
+		if namespaceErr != nil {
+			return namespaceErr.Error()
+		}
+		//if project scope
+		if projectName != "" {
+			project, err := p.GitlabClient.GetProject(info, group, projectName)
+			if err != nil {
+				return err.Error()
+			}
 			newWebhook, err := p.GitlabClient.NewProjectHook(info, project.ID, hookOptions)
 			if err != nil {
 				return err.Error()
@@ -330,16 +334,11 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo) stri
 			return fmt.Sprintf("Webhook Created:\n%s", newWebhook.String())
 		}
 		// If webhook is group scoped
-		if len(fullPath) == 1 {
-			groupName := fullPath[0]
-
-			newWebhook, err := p.GitlabClient.NewGroupHook(info, groupName, hookOptions)
-			if err != nil {
-				return err.Error()
-			}
-			return fmt.Sprintf("Webhook Created:\n%s", newWebhook.String())
+		newWebhook, err := p.GitlabClient.NewGroupHook(info, group, hookOptions)
+		if err != nil {
+			return err.Error()
 		}
-		return fmt.Sprintf("Invalid command: %s", subCommand)
+		return fmt.Sprintf("Webhook Created:\n%s", newWebhook.String())
 
 	default:
 		return fmt.Sprintf("Unknown webhook command: %s", subCommand)
