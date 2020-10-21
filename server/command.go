@@ -321,7 +321,7 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo, enab
 		if namespaceErr != nil {
 			return namespaceErr.Error()
 		}
-		//if project scope
+		// If project scope
 		if projectName != "" {
 			project, err := p.GitlabClient.GetProject(info, group, projectName)
 			if err != nil {
