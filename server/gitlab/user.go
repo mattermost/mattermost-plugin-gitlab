@@ -25,8 +25,8 @@ type UserSettings struct {
 }
 
 type CommitDetails struct {
-	Repository interface{} `json:"repo_name_or_id"`
-	Branch     string      `json:"reference"`
+	Repository string `json:"repo_name_or_id"`
+	Branch     string `json:"reference"`
 }
 
 func (g *gitlab) GetCurrentUser(userID string, token oauth2.Token) (*UserInfo, error) {

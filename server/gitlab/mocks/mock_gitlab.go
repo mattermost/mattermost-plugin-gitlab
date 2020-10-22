@@ -217,16 +217,16 @@ func (mr *MockGitlabMockRecorder) ResolveNamespaceAndProject(userInfo, fullPath,
 }
 
 // TriggerNewBuildPipeline mocks base method
-func (m *MockGitlab) TriggerNewBuildPipeline(user *gitlab.UserInfo, repo interface{}, refToCommit *string) (*gitlab0.Pipeline, error) {
+func (m *MockGitlab) TriggerNewBuildPipeline(user *gitlab.UserInfo, repo, reference string) (*gitlab0.Pipeline, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TriggerNewBuildPipeline", user, repo, refToCommit)
+	ret := m.ctrl.Call(m, "TriggerNewBuildPipeline", user, repo, reference)
 	ret0, _ := ret[0].(*gitlab0.Pipeline)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // TriggerNewBuildPipeline indicates an expected call of TriggerNewBuildPipeline
-func (mr *MockGitlabMockRecorder) TriggerNewBuildPipeline(user, repo, refToCommit interface{}) *gomock.Call {
+func (mr *MockGitlabMockRecorder) TriggerNewBuildPipeline(user, repo, reference interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TriggerNewBuildPipeline", reflect.TypeOf((*MockGitlab)(nil).TriggerNewBuildPipeline), user, repo, refToCommit)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TriggerNewBuildPipeline", reflect.TypeOf((*MockGitlab)(nil).TriggerNewBuildPipeline), user, repo, reference)
 }

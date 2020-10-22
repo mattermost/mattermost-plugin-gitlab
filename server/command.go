@@ -178,7 +178,7 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 		p.disconnectGitlabAccount(args.UserId)
 		return p.getCommandResponse(args, "Disconnected your GitLab account."), nil
 	case "todo":
-		_, text, err := p.GetToDo(info)
+		text, err := p.GetToDo(info)
 		if err != nil {
 			p.API.LogError("can't get todo in command", "err", err.Error())
 			return p.getCommandResponse(args, "Encountered an error getting your to do items."), nil
@@ -239,12 +239,8 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 
 		repo := parameters[0]
 		branch := parameters[1]
-		user, err := p.getGitlabUserInfoByMattermostID(p.BotUserID)
-		if err != nil {
-			return p.getCommandResponse(args, "Encountered an error getting your GitLab profile."), nil
-		}
 
-		_, errGitlab := p.GitlabClient.TriggerNewBuildPipeline(user, repo, &branch)
+		_, errGitlab := p.GitlabClient.TriggerNewBuildPipeline(info, repo, branch)
 		if errGitlab != nil {
 			p.API.LogError("unable to trigger pipeline", "err", errGitlab.Error())
 			return p.getCommandResponse(args, "Encountered an error triggering the build."), nil
@@ -371,7 +367,7 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo) stri
 
 		var pipeline *internGitlab.Pipeline
 		var err error
-		pipeline, err = p.GitlabClient.TriggerNewBuildPipeline(info, project, &ref)
+		pipeline, err = p.GitlabClient.TriggerNewBuildPipeline(info, project, ref)
 		if err != nil {
 			if strings.Contains(err.Error(), projectNotFoundError) {
 				return projectNotFoundMessage + project
@@ -641,11 +637,10 @@ func getAutocompleteData() *model.AutocompleteData {
 	webhook.AddCommand(webhookAdd)
 
 	webhookBuild := model.NewAutocompleteData(commandBuild, "owner/[repo] reference", "trigger the pipeline")
-	webhookAdd.AddTextArgument("Group or Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
-	webhookAdd.AddTextArgument("reference: reference/branch name for which the pipeline needs to be triggered", "reference", "")
-	webhook.AddCommand(webhookBuild)
+	webhookBuild.AddTextArgument("Group or Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
+	webhookBuild.AddTextArgument("reference: reference/branch name for which the pipeline needs to be triggered", "reference", "")
 
-	gitlabCommand.AddCommand(webhook)
+	gitlabCommand.AddCommand(webhookBuild)
 
 	help := model.NewAutocompleteData("help", "", "Display GiLab Plug Help.")
 	gitlabCommand.AddCommand(help)

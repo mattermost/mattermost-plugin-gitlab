@@ -245,12 +245,9 @@ func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppErr
 }
 
 func (p *Plugin) PostToDo(info *gitlab.UserInfo) {
-	hasTodo, text, err := p.GetToDo(info)
+	text, err := p.GetToDo(info)
 	if err != nil {
 		p.API.LogError("can't post todo", "err", err.Error())
-		return
-	}
-	if !hasTodo {
 		return
 	}
 
@@ -259,27 +256,25 @@ func (p *Plugin) PostToDo(info *gitlab.UserInfo) {
 	}
 }
 
-func (p *Plugin) GetToDo(user *gitlab.UserInfo) (bool, string, error) {
-	var hasTodo bool
-
+func (p *Plugin) GetToDo(user *gitlab.UserInfo) (string, error) {
 	unreads, err := p.GitlabClient.GetUnreads(user)
 	if err != nil {
-		return false, "", err
+		return "", err
 	}
 
 	yourAssignments, err := p.GitlabClient.GetYourAssignments(user)
 	if err != nil {
-		return false, "", err
+		return "", err
 	}
 
 	yourMergeRequests, err := p.GitlabClient.GetYourPrs(user)
 	if err != nil {
-		return false, "", err
+		return "", err
 	}
 
 	reviews, err := p.GitlabClient.GetReviews(user)
 	if err != nil {
-		return false, "", err
+		return "", err
 	}
 
 	text := "##### Unread Messages\n"
@@ -299,8 +294,6 @@ func (p *Plugin) GetToDo(user *gitlab.UserInfo) (bool, string, error) {
 	} else {
 		text += fmt.Sprintf("You have %v unread messages:\n", notificationCount)
 		text += notificationContent
-
-		hasTodo = true
 	}
 
 	text += "##### Review Requests\n"
@@ -313,8 +306,6 @@ func (p *Plugin) GetToDo(user *gitlab.UserInfo) (bool, string, error) {
 		for _, pr := range reviews {
 			text += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
 		}
-
-		hasTodo = true
 	}
 
 	text += "##### Assignments\n"
@@ -327,8 +318,6 @@ func (p *Plugin) GetToDo(user *gitlab.UserInfo) (bool, string, error) {
 		for _, pr := range yourAssignments {
 			text += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
 		}
-
-		hasTodo = true
 	}
 
 	text += "##### Your Open Merge Requests\n"
@@ -341,11 +330,9 @@ func (p *Plugin) GetToDo(user *gitlab.UserInfo) (bool, string, error) {
 		for _, pr := range yourMergeRequests {
 			text += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
 		}
-
-		hasTodo = true
 	}
 
-	return hasTodo, text, nil
+	return text, nil
 }
 
 func (p *Plugin) isNamespaceAllowed(namespace string) error {

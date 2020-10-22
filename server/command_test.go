@@ -365,12 +365,10 @@ func TestAddWebhookCommand(t *testing.T) {
 }
 
 type buildCommandTest struct {
-	testName string
-	// scope      string
+	testName   string
 	parameters []string
 	pipeline   *gitLabAPI.Pipeline
 	want       string
-	// siteURL    string
 }
 
 var examplePipeline = &gitLabAPI.Pipeline{
@@ -398,8 +396,7 @@ var buildCommandTests = []buildCommandTest{
 		testName:   "Create project hook with defaults",
 		parameters: []string{"build", "group/project", "master"},
 		want:       "gitlab.Pipeline{ID:1, Status:\"Success\", Ref:\"master\", SHA:\"\", BeforeSHA:\"\", Tag:false, YamlErrors:\"\", Duration:0, Coverage:\"\", WebURL:\"\"}",
-		// siteURL:    "https://example.com",
-		pipeline: examplePipeline,
+		pipeline:   examplePipeline,
 	},
 }
 
@@ -416,9 +413,13 @@ func TestGitlabBuildCommand(t *testing.T) {
 			p.GitlabClient = mockedClient
 
 			api := &plugintest.API{}
-			pipeline := &gitLabAPI.Pipeline{}
+			pipeline := &gitLabAPI.Pipeline{
+				ID:     test.pipeline.ID,
+				Ref:    test.pipeline.Ref,
+				Status: test.pipeline.Status,
+			}
 
-			api.On("TriggerNewBuildPipeline", mock.Anything, mock.Anything, mock.Anything).Return(pipeline)
+			api.On("TriggerNewBuildPipeline", test.parameters[0], test.parameters[1], test.parameters[2]).Return(pipeline)
 			p.SetAPI(api)
 
 			got := p.webhookCommand(test.parameters, &gitlab.UserInfo{})
