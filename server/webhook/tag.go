@@ -24,12 +24,13 @@ func (w *webhook) handleDMTag(event *gitlab.TagEvent) ([]*HandleWebhook, error) 
 	handlers := []*HandleWebhook{}
 	tagNames := strings.Split(event.Ref, "/")
 	tagName := tagNames[len(tagNames)-1]
+	URL := fmt.Sprintf("%s/-/tags/%s", event.Project.WebURL, tagName)
 
 	if mention := w.handleMention(mentionDetails{
 		senderUsername:    senderGitlabUsername,
 		pathWithNamespace: event.Project.PathWithNamespace,
 		IID:               tagName,
-		URL:               event.Commits[0].URL,
+		URL:               URL,
 		body:              event.Message,
 	}); mention != nil {
 		handlers = append(handlers, mention)
@@ -43,9 +44,10 @@ func (w *webhook) handleChannelTag(event *gitlab.TagEvent) ([]*HandleWebhook, er
 	repo := event.Project
 	tagNames := strings.Split(event.Ref, "/")
 	tagName := tagNames[len(tagNames)-1]
+	URL := fmt.Sprintf("%s/-/tags/%s", repo.WebURL, tagName)
 	res := []*HandleWebhook{}
 
-	message := fmt.Sprintf("[%s](%s) New tag [%s](%s) by [%s](%s): %s", repo.PathWithNamespace, repo.WebURL, tagName, event.Commits[0].URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Message)
+	message := fmt.Sprintf("[%s](%s) New tag [%s](%s) by [%s](%s): %s", repo.PathWithNamespace, repo.WebURL, tagName, URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Message)
 
 	toChannels := make([]string, 0)
 	namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
