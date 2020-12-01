@@ -426,7 +426,7 @@ func TestGitlabBuildCommand(t *testing.T) {
 			api.On("TriggerNewBuildPipeline", test.parameters[0], test.parameters[1], test.parameters[2]).Return(pipeline)
 			p.SetAPI(api)
 
-			got := p.webhookCommand(test.parameters, &gitlab.UserInfo{})
+			got := p.webhookCommand(test.parameters, &gitlab.UserInfo{}, true)
 			assert.Equal(t, test.want, got)
 		})
 	}
