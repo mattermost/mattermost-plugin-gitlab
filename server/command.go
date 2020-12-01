@@ -231,22 +231,6 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 		}
 
 		return p.getCommandResponse(args, "Settings updated."), nil
-	case "build":
-		if len(parameters) < 2 {
-			return p.getCommandResponse(args, "Please specify both a repo and reference. Use `/gitlab help` for more usage information."), nil
-		}
-
-		repo := parameters[0]
-		branch := parameters[1]
-
-		_, errGitlab := p.GitlabClient.TriggerNewBuildPipeline(info, repo, branch)
-		if errGitlab != nil {
-			p.API.LogError("unable to trigger pipeline", "err", errGitlab.Error())
-			return p.getCommandResponse(args, "Encountered an error triggering the build."), nil
-		}
-
-		return p.getCommandResponse(args, "Build started."), nil
-
 	case "webhook":
 		message := p.webhookCommand(parameters, info)
 		response := p.getCommandResponse(args, message)
@@ -638,6 +622,7 @@ func getAutocompleteData() *model.AutocompleteData {
 	webhookAdd.AddTextArgument("[Optional] url: URL to be triggered triggered. Defaults to this plugins URL", "[url]", "")
 	webhookAdd.AddTextArgument("[Optional] token: Secret for webhook. Defaults to token used in plugin's settings.", "[token]", "")
 	webhook.AddCommand(webhookAdd)
+	gitlabCommand.AddCommand(webhook)
 
 	help := model.NewAutocompleteData("help", "", "Display GiLab Plug Help.")
 	gitlabCommand.AddCommand(help)
