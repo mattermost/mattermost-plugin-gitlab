@@ -89,8 +89,8 @@ func (p *Plugin) OnActivate() error {
 		return errors.Wrap(err, "failed to set profile image")
 	}
 
-	siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
-	if siteURL == "" {
+	siteURL := p.API.GetConfig().ServiceSettings.SiteURL
+	if siteURL == nil || *siteURL == "" {
 		return errEmptySiteURL
 	}
 
