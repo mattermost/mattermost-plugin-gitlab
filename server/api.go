@@ -172,7 +172,11 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 	}
 
 	if err := p.storeGitlabToUserIDMapping(userInfo.GitlabUsername, userID); err != nil {
-		p.API.LogError("can't store user id mapping", "err", err.Error())
+		p.API.LogError("can't store GitLab to user id mapping", "err", err.Error())
+	}
+
+	if err := p.storeGitlabIDToUserIDMapping(userInfo.GitlabUsername, userInfo.GitlabUserID); err != nil {
+		p.API.LogError("can't store GitLab to GitLab id mapping", "err", err.Error())
 	}
 
 	// Post intro post

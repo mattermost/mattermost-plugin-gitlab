@@ -140,6 +140,13 @@ func (p *Plugin) storeGitlabUserInfo(info *gitlab.UserInfo) error {
 	return nil
 }
 
+func (p *Plugin) deleteGitlabUserInfo(userID string) error {
+	if err := p.API.KVDelete(userID + GitlabTokenKey); err != nil {
+		return fmt.Errorf("encountered error deleting GitLab user info: %w", err)
+	}
+	return nil
+}
+
 func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInfo, *APIErrorResponse) {
 	config := p.getConfiguration()
 
@@ -164,10 +171,28 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 
 func (p *Plugin) storeGitlabToUserIDMapping(gitlabUsername, userID string) error {
 	if err := p.API.KVSet(gitlabUsername+GitlabUsernameKey, []byte(userID)); err != nil {
-		return fmt.Errorf("encountered error saving GitLab username mapping")
+		return fmt.Errorf("encountered error saving GitLab username mapping: %w", err)
 	}
-	if err := p.API.KVSet(userID+GitlabIDUsernameKey, []byte(gitlabUsername)); err != nil {
-		return fmt.Errorf("encountered error saving GitLab id mapping")
+	return nil
+}
+
+func (p *Plugin) storeGitlabIDToUserIDMapping(gitlabUsername string, gitlabID int) error {
+	if err := p.API.KVSet(fmt.Sprintf("%d%s", gitlabID, GitlabIDUsernameKey), []byte(gitlabUsername)); err != nil {
+		return fmt.Errorf("encountered error saving GitLab id mapping: %w", err)
+	}
+	return nil
+}
+
+func (p *Plugin) deleteGitlabToUserIDMapping(gitlabUsername string) error {
+	if err := p.API.KVDelete(gitlabUsername + GitlabUsernameKey); err != nil {
+		return fmt.Errorf("encountered error deleting GitLab username mapping: %w", err)
+	}
+	return nil
+}
+
+func (p *Plugin) deleteGitlabIDToUserIDMapping(gitlabID int) error {
+	if err := p.API.KVDelete(fmt.Sprintf("%d%s", gitlabID, GitlabIDUsernameKey)); err != nil {
+		return fmt.Errorf("encountered error deleting GitLab id mapping: %w", err)
 	}
 	return nil
 }
@@ -198,14 +223,14 @@ func (p *Plugin) disconnectGitlabAccount(userID string) {
 		return
 	}
 
-	if err := p.API.KVDelete(userID + GitlabTokenKey); err != nil {
-		p.API.LogError("can't delete token in store", "err", err.DetailedError, "userId", userID)
+	if err := p.deleteGitlabUserInfo(userID); err != nil {
+		p.API.LogError("can't delete token in store", "err", err.Error, "userId", userID)
 	}
-	if err := p.API.KVDelete(userInfo.GitlabUsername + GitlabUsernameKey); err != nil {
-		p.API.LogError("can't delete username in store", "err", err.DetailedError, "username", userInfo.GitlabUsername)
+	if err := p.deleteGitlabToUserIDMapping(userInfo.GitlabUsername); err != nil {
+		p.API.LogError("can't delete username in store", "err", err.Error, "username", userInfo.GitlabUsername)
 	}
-	if err := p.API.KVDelete(fmt.Sprintf("%d%s", userInfo.GitlabUserID, GitlabIDUsernameKey)); err != nil {
-		p.API.LogError("can't delete user id in sotre", "err", err.DetailedError, "id", userInfo.GitlabUserID)
+	if err := p.deleteGitlabIDToUserIDMapping(userInfo.GitlabUserID); err != nil {
+		p.API.LogError("can't delete user id in store", "err", err.Error, "id", userInfo.GitlabUserID)
 	}
 
 	if user, err := p.API.GetUser(userID); err == nil && user.Props != nil && len(user.Props["git_user"]) > 0 {

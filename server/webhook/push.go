@@ -38,7 +38,7 @@ func (w *webhook) handleDMPush(event *gitlab.PushEvent) ([]*HandleWebhook, error
 }
 
 func (w *webhook) handleChannelPush(event *gitlab.PushEvent) ([]*HandleWebhook, error) {
-	senderGitlabUsername := event.UserName
+	senderGitlabUsername := event.UserUsername
 	repo := event.Project
 	res := []*HandleWebhook{}
 
