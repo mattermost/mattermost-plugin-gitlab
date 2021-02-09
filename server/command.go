@@ -237,6 +237,23 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 		response := p.getCommandResponse(args, message)
 		return response, nil
 
+	case commandBuild:
+		if len(parameters) != 2 {
+			return p.getCommandResponse(args, "Command arguments mismatched, please use `/gitlab help` to see action parameters. "), nil
+		}
+		project := parameters[0]
+		ref := parameters[1]
+
+		pipeline, err := p.GitlabClient.TriggerNewBuildPipeline(info, project, ref)
+		if err != nil {
+			if strings.Contains(err.Error(), projectNotFoundError) {
+				return p.getCommandResponse(args, projectNotFoundMessage+project), nil
+			}
+			return p.getCommandResponse(args, "Encountered an error while triggering your pipeline"), nil
+		}
+
+		return p.getCommandResponse(args, pipeline.String()), nil
+
 	default:
 		return p.getCommandResponse(args, unknownActionMessage), nil
 	}
@@ -340,23 +357,6 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo, enab
 			return err.Error()
 		}
 		return fmt.Sprintf("Webhook Created:\n%s", newWebhook.String())
-
-	case commandBuild:
-		if len(parameters) != 3 {
-			return unknownActionMessage
-		}
-		project := parameters[1]
-		ref := parameters[2]
-
-		pipeline, err := p.GitlabClient.TriggerNewBuildPipeline(info, project, ref)
-		if err != nil {
-			if strings.Contains(err.Error(), projectNotFoundError) {
-				return projectNotFoundMessage + project
-			}
-			return err.Error()
-		}
-
-		return pipeline.String()
 
 	default:
 		return fmt.Sprintf("Unknown webhook command: %s", subCommand)
