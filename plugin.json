@@ -4,69 +4,81 @@
     "description": "GitLab plugin for Mattermost.",
     "homepage_url": "https://github.com/mattermost/mattermost-plugin-gitlab",
     "support_url": "https://github.com/mattermost/mattermost-plugin-gitlab/issues",
-    "release_notes_url": "https://github.com/mattermost/mattermost-plugin-gitlab/releases/tag/v1.2.0",
+    "release_notes_url": "https://github.com/mattermost/mattermost-plugin-gitlab/releases/tag/v1.3.0",
     "icon_path": "assets/icon.svg",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "min_server_version": "5.10.0",
     "server": {
-      "executables": {
-          "linux-amd64": "server/dist/plugin-linux-amd64",
-          "darwin-amd64": "server/dist/plugin-darwin-amd64",
-          "windows-amd64": "server/dist/plugin-windows-amd64.exe"
-      }
+        "executables": {
+            "linux-amd64": "server/dist/plugin-linux-amd64",
+            "darwin-amd64": "server/dist/plugin-darwin-amd64",
+            "windows-amd64": "server/dist/plugin-windows-amd64.exe"
+        },
+        "executable": ""
     },
     "webapp": {
         "bundle_path": "webapp/dist/main.js"
     },
     "settings_schema": {
         "header": "To set up the GitLab plugin, you need to register a GitLab OAuth app here https://gitlab.com/profile/applications.",
+        "footer": "To report an issue, make a suggestion, or submit a contribution, [check the repository](https://github.com/mattermost/mattermost-plugin-gitlab).",
         "settings": [
             {
                 "key": "GitlabURL",
-                "display_name": "GitLab URL",
+                "display_name": "GitLab URL:",
                 "type": "text",
-                "default": "https://gitlab.com",
+                "help_text": "The base URL for using the plugin with a GitLab installation. Examples: https://gitlab.com or https://gitlab.example.com.",
                 "placeholder": "https://gitlab.com",
-                "help_text": "The base URL for using the plugin with a GitLab installation. Examples: https://gitlab.com or https://gitlab.example.com"
+                "default": "https://gitlab.com"
             },
             {
                 "key": "GitlabOAuthClientID",
-                "display_name": "GitLab OAuth Client ID",
+                "display_name": "GitLab OAuth Client ID:",
                 "type": "text",
-                "help_text": "The client ID for the OAuth app registered with GitLab."
+                "help_text": "The client ID for the OAuth app registered with GitLab.",
+                "placeholder": "",
+                "default": null
             },
             {
                 "key": "GitlabOAuthClientSecret",
-                "display_name": "GitLab OAuth Client Secret",
+                "display_name": "GitLab OAuth Client Secret:",
                 "type": "text",
-                "help_text": "The client secret for the OAuth app registered with GitLab."
+                "help_text": "The client secret for the OAuth app registered with GitLab.",
+                "placeholder": "",
+                "default": null
             },
             {
                 "key": "WebhookSecret",
-                "display_name": "Webhook Secret",
+                "display_name": "Webhook Secret:",
                 "type": "generated",
-                "help_text": "The webhook secret set in GitLab."
+                "help_text": "The webhook secret set in GitLab.",
+                "placeholder": "",
+                "default": null
             },
             {
                 "key": "EncryptionKey",
-                "display_name": "At Rest Encryption Key",
+                "display_name": "At Rest Encryption Key:",
                 "type": "generated",
-                "help_text": "The AES encryption key used to encrypt stored access tokens."
+                "help_text": "The AES encryption key used to encrypt stored access tokens.",
+                "placeholder": "",
+                "default": null
             },
             {
                 "key": "GitlabGroup",
-                "display_name": "GitLab Group",
+                "display_name": "GitLab Group:",
                 "type": "text",
+                "help_text": "(Optional) Set to lock the plugin to a single GitLab group.",
                 "placeholder": "groupName",
-                "help_text": "(Optional) Set to lock the plugin to a single GitLab group."
+                "default": null
             },
             {
                 "key": "EnablePrivateRepo",
-                "display_name": "Enable Private Repositories",
+                "display_name": "Enable Private Repositories:",
                 "type": "bool",
-                "help_text": "(Optional) Allow the plugin to work with private repositories."
+                "help_text": "(Optional) Allow the plugin to work with private repositories.",
+                "placeholder": "",
+                "default": null
             }
-        ],
-        "footer": "To report an issue, make a suggestion or a contribution, [check the repository](https://github.com/mattermost/mattermost-plugin-gitlab)."
+        ]
     }
 }
