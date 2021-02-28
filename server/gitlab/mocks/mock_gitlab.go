@@ -217,10 +217,10 @@ func (mr *MockGitlabMockRecorder) ResolveNamespaceAndProject(userInfo, fullPath,
 }
 
 // TriggerNewBuildPipeline mocks base method
-func (m *MockGitlab) TriggerNewBuildPipeline(user *gitlab.UserInfo, repo, reference string) (*gitlab0.Pipeline, error) {
+func (m *MockGitlab) TriggerNewBuildPipeline(user *gitlab.UserInfo, repo, reference string) (*gitlab.TriggerPipelineResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TriggerNewBuildPipeline", user, repo, reference)
-	ret0, _ := ret[0].(*gitlab0.Pipeline)
+	ret0, _ := ret[0].(*gitlab.TriggerPipelineResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
