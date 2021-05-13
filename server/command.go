@@ -73,6 +73,7 @@ const (
 
 const (
 	commandAdd    = "add"
+	commandBuild  = "build"
 	commandDelete = "delete"
 	commandList   = "list"
 )
@@ -86,7 +87,7 @@ func (p *Plugin) getCommand() (*model.Command, error) {
 	return &model.Command{
 		Trigger:              "gitlab",
 		AutoComplete:         true,
-		AutoCompleteDesc:     "Available commands: connect, disconnect, todo, me, settings, subscriptions, webhook, and help",
+		AutoCompleteDesc:     "Available commands: connect, disconnect, todo, me, settings, subscriptions, webhook, build and help",
 		AutoCompleteHint:     "[command]",
 		AutocompleteData:     getAutocompleteData(),
 		AutocompleteIconData: iconData,
@@ -237,6 +238,23 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 		message := p.webhookCommand(parameters, info, config.EnablePrivateRepo)
 		response := p.getCommandResponse(args, message)
 		return response, nil
+
+	case commandBuild:
+		if len(parameters) != 2 {
+			return p.getCommandResponse(args, "Command arguments mismatched, please use `/gitlab help` to see action parameters. "), nil
+		}
+		project := parameters[0]
+		ref := parameters[1]
+
+		pipeline, err := p.GitlabClient.TriggerNewBuildPipeline(info, project, ref)
+		if err != nil {
+			if strings.Contains(err.Error(), projectNotFoundError) {
+				return p.getCommandResponse(args, projectNotFoundMessage+project), nil
+			}
+			return p.getCommandResponse(args, "Encountered an error while triggering your pipeline"), nil
+		}
+
+		return p.getCommandResponse(args, pipeline.String()), nil
 
 	default:
 		return p.getCommandResponse(args, unknownActionMessage), nil
@@ -541,6 +559,12 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 func getAutocompleteData() *model.AutocompleteData {
 	gitlabCommand := model.NewAutocompleteData("gitlab", "[command]", "Available commands: connect, disconnect, todo, subscribe, unsubscribe, me, settings, webhook")
 
+	// trigger pipeline/build command
+	build := model.NewAutocompleteData(commandBuild, "owner/[repo] reference", "trigger the pipeline")
+	build.AddTextArgument("Group or Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
+	build.AddTextArgument("reference: reference/branch name for which the pipeline needs to be triggered", "reference", "")
+	gitlabCommand.AddCommand(build)
+
 	connect := model.NewAutocompleteData("connect", "", "Connect your GitLab account")
 	gitlabCommand.AddCommand(connect)
 
@@ -600,7 +624,6 @@ func getAutocompleteData() *model.AutocompleteData {
 	webhookAdd.AddTextArgument("[Optional] url: URL to be triggered triggered. Defaults to this plugins URL", "[url]", "")
 	webhookAdd.AddTextArgument("[Optional] token: Secret for webhook. Defaults to token used in plugin's settings.", "[token]", "")
 	webhook.AddCommand(webhookAdd)
-
 	gitlabCommand.AddCommand(webhook)
 
 	help := model.NewAutocompleteData("help", "", "Display GiLab Plug Help.")
