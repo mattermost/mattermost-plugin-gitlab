@@ -31,6 +31,8 @@ const (
 	SettingReminders     = "reminders"
 	SettingOn            = "on"
 	SettingOff           = "off"
+
+	chimeraGitLabAppIdentifier = "plugin-gitlab"
 )
 
 var errEmptySiteURL = errors.New("siteURL is not set. Please set it and restart the plugin")
@@ -48,11 +50,20 @@ type Plugin struct {
 	// configuration is the active plugin configuration. Consult getConfiguration and
 	// setConfiguration for usage.
 	configuration *configuration
+
+	chimeraURL string
 }
 
 func (p *Plugin) OnActivate() error {
-	if err := p.getConfiguration().IsValid(); err != nil {
+	config := p.getConfiguration()
+	if err := config.IsValid(); err != nil {
 		return err
+	}
+
+	p.registerChimeraURL()
+
+	if config.UsePreregisteredApplication && p.chimeraURL == "" {
+		return errors.New("cannot use pre-registered application if Chimera URL is not set or empty. Please set a MM_PLUGINSETTINGS_CHIMERAOAUTHPROXYURL environment variable or use a custom application")
 	}
 
 	command, err := p.getCommand()
@@ -100,6 +111,14 @@ func (p *Plugin) OnActivate() error {
 func (p *Plugin) getOAuthConfig() *oauth2.Config {
 	config := p.getConfiguration()
 
+	scopes := []string{"api", "read_user"}
+	redirectURL := fmt.Sprintf("%s/plugins/%s/oauth/complete", *p.API.GetConfig().ServiceSettings.SiteURL, manifest.ID)
+
+	if config.UsePreregisteredApplication {
+		p.API.LogDebug("Using Chimera Proxy OAuth configuration")
+		return p.getOAuthConfigForChimeraApp(scopes, redirectURL)
+	}
+
 	authURL, _ := url.Parse(config.GitlabURL)
 	tokenURL, _ := url.Parse(config.GitlabURL)
 
@@ -109,11 +128,32 @@ func (p *Plugin) getOAuthConfig() *oauth2.Config {
 	return &oauth2.Config{
 		ClientID:     config.GitlabOAuthClientID,
 		ClientSecret: config.GitlabOAuthClientSecret,
-		Scopes:       []string{"api", "read_user"},
-		RedirectURL:  fmt.Sprintf("%s/plugins/%s/oauth/complete", *p.API.GetConfig().ServiceSettings.SiteURL, manifest.ID),
+		Scopes:       scopes,
+		RedirectURL:  redirectURL,
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  authURL.String(),
 			TokenURL: tokenURL.String(),
+		},
+	}
+}
+
+func (p *Plugin) getOAuthConfigForChimeraApp(scopes []string, redirectURL string) *oauth2.Config {
+	baseURL := fmt.Sprintf("%s/v1/gitlab/%s", p.chimeraURL, chimeraGitLabAppIdentifier)
+	authURL, _ := url.Parse(baseURL)
+	tokenURL, _ := url.Parse(baseURL)
+
+	authURL.Path = path.Join(authURL.Path, "oauth", "authorize")
+	tokenURL.Path = path.Join(tokenURL.Path, "oauth", "token")
+
+	return &oauth2.Config{
+		ClientID:     "placeholder",
+		ClientSecret: "placeholder",
+		Scopes:       scopes,
+		RedirectURL:  redirectURL,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:   authURL.String(),
+			TokenURL:  tokenURL.String(),
+			AuthStyle: oauth2.AuthStyleInHeader,
 		},
 	}
 }
@@ -245,6 +285,14 @@ func (p *Plugin) disconnectGitlabAccount(userID string) {
 		nil,
 		&model.WebsocketBroadcast{UserId: userID},
 	)
+}
+
+// registerChimeraURL fetches the Chimera URL and sets it in the plugin object.
+func (p *Plugin) registerChimeraURL() {
+	chimeraURL := p.API.GetConfig().PluginSettings.ChimeraOAuthProxyUrl
+	if chimeraURL != nil {
+		p.chimeraURL = *chimeraURL
+	}
 }
 
 func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppError {
