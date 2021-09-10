@@ -33,7 +33,7 @@ var testDataPipeline = []testDataPipelineStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "pipeline", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) New pipeline by [root](http://my.gitlab.com/root) for Start gitlab-ci\n[View Commit](http://localhost:3000/manland/webhook/commit/ec0a1bcd4580bfec3495674e412f4834ee2c2550)",
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) New pipeline from merge_request_event by [root](http://my.gitlab.com/root) for Start gitlab-ci\n [View Pipeline](http://my.gitlab.com/manland/webhook/-/pipelines/62)",
 			ToUsers:    []string{}, // No DM because user know he has launch a pipeline
 			ToChannels: []string{"channel1"},
 			From:       "root",
@@ -45,7 +45,7 @@ var testDataPipeline = []testDataPipelineStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "pipeline", Repository: "manland/subgroup/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[manland/subgroup/webhook](http://localhost:3000/manland/subgroup/webhook) New pipeline by [root](http://my.gitlab.com/root) for Start gitlab-ci\n[View Commit](http://localhost:3000/manland/subgroup/webhook/commit/ec0a1bcd4580bfec3495674e412f4834ee2c2550)",
+			Message:    "[manland/subgroup/webhook](http://localhost:3000/manland/subgroup/webhook) New pipeline from merge_request_event by [root](http://my.gitlab.com/root) for Start gitlab-ci\n [View Pipeline](http://my.gitlab.com/manland/subgroup/webhook/-/pipelines/62)",
 			ToUsers:    []string{}, // No DM because user know he has launch a pipeline
 			ToChannels: []string{"channel1"},
 			From:       "root",
@@ -57,12 +57,12 @@ var testDataPipeline = []testDataPipelineStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "pipeline", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Your pipeline has failed for Start gitlab-ci\n[View Commit](http://localhost:3000/manland/webhook/commit/ec0a1bcd4580bfec3495674e412f4834ee2c2550)",
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Your pipeline has failed for Start gitlab-ci\n [View Pipeline](http://my.gitlab.com/manland/webhook/-/pipelines/62)",
 			ToUsers:    []string{"root"},
 			ToChannels: []string{},
 			From:       "",
 		}, {
-			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Pipeline by [root](http://my.gitlab.com/root) fail for Start gitlab-ci\n[View Commit](http://localhost:3000/manland/webhook/commit/ec0a1bcd4580bfec3495674e412f4834ee2c2550)",
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Pipeline by [root](http://my.gitlab.com/root) fail for Start gitlab-ci\n [View Pipeline](http://my.gitlab.com/manland/webhook/-/pipelines/62)",
 			ToUsers:    []string{},
 			ToChannels: []string{},
 			From:       "root",
@@ -74,7 +74,7 @@ var testDataPipeline = []testDataPipelineStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "pipeline", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Pipeline by [root](http://my.gitlab.com/root) success for Start gitlab-ci\n[View Commit](http://localhost:3000/manland/webhook/commit/ec0a1bcd4580bfec3495674e412f4834ee2c2550)",
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Pipeline by [root](http://my.gitlab.com/root) success for Start gitlab-ci\n [View Pipeline](http://my.gitlab.com/manland/webhook/-/pipelines/62)",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "root",

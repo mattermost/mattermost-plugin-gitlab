@@ -25,7 +25,7 @@ func (w *webhook) handleDMPipeline(event *gitlab.PipelineEvent) ([]*HandleWebhoo
 	handlers := []*HandleWebhook{}
 
 	if event.ObjectAttributes.Status == statusFailed {
-		message := fmt.Sprintf("[%s](%s) Your pipeline has failed for %s[View Commit](%s)", repo.PathWithNamespace, repo.WebURL, event.Commit.Message, event.Commit.URL)
+		message := fmt.Sprintf("[%s](%s) Your pipeline has failed for %s [%s](%s)", repo.PathWithNamespace, repo.WebURL, event.Commit.Message, "View Pipeline", w.gitlabRetreiver.GetPipelineURL(repo.PathWithNamespace, event.ObjectAttributes.ID))
 		handlers = append(handlers, &HandleWebhook{
 			Message:    message,
 			From:       "", // don't put senderGitlabUsername because we filter message where from == to
@@ -55,11 +55,11 @@ func (w *webhook) handleChannelPipeline(event *gitlab.PipelineEvent) ([]*HandleW
 
 	switch event.ObjectAttributes.Status {
 	case statusRunning:
-		message = fmt.Sprintf("[%s](%s) New pipeline by [%s](%s) for %s[%s](%s)", repo.PathWithNamespace, repo.WebURL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Commit.Message, "View Commit", event.Commit.URL)
+		message = fmt.Sprintf("[%s](%s) New pipeline from %s by [%s](%s) for %s [%s](%s)", repo.PathWithNamespace, repo.WebURL, event.ObjectAttributes.Source, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Commit.Message, "View Pipeline", w.gitlabRetreiver.GetPipelineURL(repo.PathWithNamespace, event.ObjectAttributes.ID))
 	case statusSuccess:
-		message = fmt.Sprintf("[%s](%s) Pipeline by [%s](%s) success for %s[%s](%s)", repo.PathWithNamespace, repo.WebURL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Commit.Message, "View Commit", event.Commit.URL)
+		message = fmt.Sprintf("[%s](%s) Pipeline by [%s](%s) success for %s [%s](%s)", repo.PathWithNamespace, repo.WebURL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Commit.Message, "View Pipeline", w.gitlabRetreiver.GetPipelineURL(repo.PathWithNamespace, event.ObjectAttributes.ID))
 	case statusFailed:
-		message = fmt.Sprintf("[%s](%s) Pipeline by [%s](%s) fail for %s[%s](%s)", repo.PathWithNamespace, repo.WebURL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Commit.Message, "View Commit", event.Commit.URL)
+		message = fmt.Sprintf("[%s](%s) Pipeline by [%s](%s) fail for %s [%s](%s)", repo.PathWithNamespace, repo.WebURL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Commit.Message, "View Pipeline", w.gitlabRetreiver.GetPipelineURL(repo.PathWithNamespace, event.ObjectAttributes.ID))
 	default:
 		return res, nil
 	}
