@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -63,7 +64,10 @@ func (p *Plugin) OnActivate() error {
 	p.registerChimeraURL()
 
 	if config.UsePreregisteredApplication && p.chimeraURL == "" {
-		return errors.New("cannot use pre-registered application if Chimera URL is not set or empty. Please set a MM_PLUGINSETTINGS_CHIMERAOAUTHPROXYURL environment variable or use a custom application")
+		return errors.New("cannot use pre-registered application if Chimera URL is not set or empty. " +
+			"For now using pre-registered application is intended for Cloud instances only. " +
+			"If you are running on-prem disable the setting and use a custom application, otherwise set PluginSettings.ChimeraOAuthProxyURL " +
+			"or MM_PLUGINSETTINGS_CHIMERAOAUTHPROXYURL environment variable")
 	}
 
 	command, err := p.getCommand()
@@ -287,12 +291,16 @@ func (p *Plugin) disconnectGitlabAccount(userID string) {
 	)
 }
 
-// registerChimeraURL fetches the Chimera URL and sets it in the plugin object.
+// registerChimeraURL fetches the Chimera URL from server settings or env var and sets it in the plugin object.
 func (p *Plugin) registerChimeraURL() {
-	chimeraURL := p.API.GetConfig().PluginSettings.ChimeraOAuthProxyUrl
-	if chimeraURL != nil {
-		p.chimeraURL = *chimeraURL
+	chimeraURLSetting := p.API.GetConfig().PluginSettings.ChimeraOAuthProxyUrl
+	if chimeraURLSetting != nil && *chimeraURLSetting != "" {
+		p.chimeraURL = *chimeraURLSetting
+		return
 	}
+	// Due to setting name change in v6 (ChimeraOAuthProxyUrl -> ChimeraOAuthProxyURL)
+	// fall back to env var to work with older servers.
+	p.chimeraURL = os.Getenv("MM_PLUGINSETTINGS_CHIMERAOAUTHPROXYURL")
 }
 
 func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppError {
