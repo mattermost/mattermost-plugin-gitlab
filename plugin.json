@@ -7,7 +7,7 @@
     "release_notes_url": "https://github.com/mattermost/mattermost-plugin-gitlab/releases/tag/v1.3.0",
     "icon_path": "assets/icon.svg",
     "version": "1.3.0",
-    "min_server_version": "5.10.0",
+    "min_server_version": "5.38.0",
     "server": {
         "executables": {
             "linux-amd64": "server/dist/plugin-linux-amd64",
@@ -23,6 +23,13 @@
         "header": "To set up the GitLab plugin, you need to register a GitLab OAuth app here https://gitlab.com/profile/applications.",
         "footer": "To report an issue, make a suggestion, or submit a contribution, [check the repository](https://github.com/mattermost/mattermost-plugin-gitlab).",
         "settings": [
+            {
+                "key": "UsePreregisteredApplication",
+                "display_name": "Use Preregistered OAuth Application:",
+                "type": "bool",
+                "help_text": "When true, instructs the plugin to use the preregistered GitLab OAuth application - application registration steps can be skipped. Requires [Chimera Proxy](https://github.com/mattermost/chimera) URL to be configured for the server. Can only be used with official gitlab.com. **This setting is intended to be used with Mattermost Cloud instances only.**",
+                "default": false
+            },
             {
                 "key": "GitlabURL",
                 "display_name": "GitLab URL:",
