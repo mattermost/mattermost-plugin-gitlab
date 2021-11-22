@@ -12,8 +12,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mattermost/mattermost-server/v5/model"
-	"github.com/mattermost/mattermost-server/v5/plugin"
+	pluginapi "github.com/mattermost/mattermost-plugin-api"
+	"github.com/mattermost/mattermost-server/v6/model"
+	"github.com/mattermost/mattermost-server/v6/plugin"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 
@@ -40,6 +41,7 @@ var errEmptySiteURL = errors.New("siteURL is not set. Please set it and restart 
 
 type Plugin struct {
 	plugin.MattermostPlugin
+	client *pluginapi.Client
 
 	BotUserID      string
 	WebhookHandler webhook.Webhook
@@ -56,6 +58,8 @@ type Plugin struct {
 }
 
 func (p *Plugin) OnActivate() error {
+	p.client = pluginapi.NewClient(p.API, p.Driver)
+
 	config := p.getConfiguration()
 	if err := config.IsValid(); err != nil {
 		return err
@@ -80,7 +84,7 @@ func (p *Plugin) OnActivate() error {
 		return errors.Wrap(err, "failed to register command")
 	}
 
-	botID, err := p.Helpers.EnsureBot(&model.Bot{
+	botID, err := p.client.Bot.EnsureBot(&model.Bot{
 		Username:    "gitlab",
 		DisplayName: "GitLab Plugin",
 		Description: "A bot account created by the plugin GitLab.",
@@ -293,7 +297,7 @@ func (p *Plugin) disconnectGitlabAccount(userID string) {
 
 // registerChimeraURL fetches the Chimera URL from server settings or env var and sets it in the plugin object.
 func (p *Plugin) registerChimeraURL() {
-	chimeraURLSetting := p.API.GetConfig().PluginSettings.ChimeraOAuthProxyUrl
+	chimeraURLSetting := p.API.GetConfig().PluginSettings.ChimeraOAuthProxyURL
 	if chimeraURLSetting != nil && *chimeraURLSetting != "" {
 		p.chimeraURL = *chimeraURLSetting
 		return
