@@ -11,6 +11,8 @@ import (
 
 // GitlabRetreiver return infos of current GitLab instance
 type GitlabRetreiver interface {
+	// GetPipelineURL return the url of this pipeline depending on the instance and project path
+	GetPipelineURL(pathWithNamespace string, pipelineID int) string
 	// GetUserURL return the url of this GitLab user depending on domain instance (e.g. https://gitlab.com/username)
 	GetUserURL(username string) string
 	// GetUsernameById return a username by GitLab id

@@ -19,6 +19,10 @@ func newFakeWebhook(subs []*subscription.Subscription) *fakeWebhook {
 	}
 }
 
+func (*fakeWebhook) GetPipelineURL(pathWithNamespace string, pipelineID int) string {
+	return fmt.Sprintf("http://my.gitlab.com/%s/-/pipelines/%d", pathWithNamespace, pipelineID)
+}
+
 func (*fakeWebhook) GetUserURL(username string) string {
 	return fmt.Sprintf("http://my.gitlab.com/%s", username)
 }

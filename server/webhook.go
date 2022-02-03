@@ -17,6 +17,11 @@ type gitlabRetreiver struct {
 	p *Plugin
 }
 
+func (g *gitlabRetreiver) GetPipelineURL(pathWithNamespace string, pipelineID int) string {
+	config := g.p.getConfiguration()
+	return fmt.Sprintf("%s/%s/-/pipelines/%d", config.GitlabURL, pathWithNamespace, pipelineID)
+}
+
 func (g *gitlabRetreiver) GetUserURL(username string) string {
 	config := g.p.getConfiguration()
 	return fmt.Sprintf("%s/%s", config.GitlabURL, username)
