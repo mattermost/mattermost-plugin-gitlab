@@ -35,7 +35,7 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 		message = fmt.Sprintf("[%s](%s) reopened your issue [%s#%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Project.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 	}
 
-	if len(message) > 0 {
+	if message != "" {
 		toUsers := make([]string, len(event.Assignees)+1)
 		for index, assignee := range event.Assignees {
 			toUsers[index] = assignee.Username

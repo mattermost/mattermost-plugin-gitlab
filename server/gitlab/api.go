@@ -23,7 +23,7 @@ func (g *gitlab) NewGroupHook(user *UserInfo, groupName string, webhookOptions *
 		return nil, err
 	}
 
-	group, _, err := client.Groups.GetGroup(groupName)
+	group, _, err := client.Groups.GetGroup(groupName, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +367,7 @@ func (g *gitlab) ResolveNamespaceAndProject(
 		})
 	}
 	errGroup.Go(func() error {
-		gr, response, err := client.Groups.GetGroup(fullPath)
+		gr, response, err := client.Groups.GetGroup(fullPath, nil)
 		if err != nil && response != nil && response.StatusCode != http.StatusNotFound {
 			return fmt.Errorf("failed to retrieve group by path: %w", err)
 		}

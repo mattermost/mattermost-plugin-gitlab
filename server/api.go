@@ -12,8 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mattermost/mattermost-plugin-api/experimental/flow"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin"
+	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
@@ -108,6 +110,35 @@ func (p *Plugin) connectUserToGitlab(w http.ResponseWriter, r *http.Request) {
 
 	url := conf.AuthCodeURL(state, oauth2.AccessTypeOffline)
 
+	ch := p.oauthBroker.SubscribeOAuthComplete(userID)
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+		defer cancel()
+
+		var errorMsg string
+		select {
+		case err := <-ch:
+			if err != nil {
+				errorMsg = err.Error()
+			}
+		case <-ctx.Done():
+			errorMsg = "Timed out waiting for OAuth connection. Please check if the SiteURL is correct."
+		}
+
+		if errorMsg != "" {
+			_, err := p.poster.DMWithAttachments(userID, &model.SlackAttachment{
+				Text:  fmt.Sprintf("There was an error connecting to your GitHub: `%s` Please double check your configuration.", errorMsg),
+				Color: string(flow.ColorDanger),
+			})
+			if err != nil {
+				p.API.LogError("Failed to DM with cancel information", "error", err)
+			}
+		}
+
+		p.oauthBroker.UnsubscribeOAuthComplete(userID, ch)
+	}()
+
 	http.Redirect(w, r, url, http.StatusFound)
 }
 
@@ -118,6 +149,11 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	var rErr error
+	defer func() {
+		p.oauthBroker.publishOAuthComplete(authedUserID, rErr, false)
+	}()
+
 	config := p.getConfiguration()
 
 	ctx := context.Background()
@@ -125,82 +161,113 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 
 	code := r.URL.Query().Get("code")
 	if len(code) == 0 {
-		http.Error(w, "missing authorization code", http.StatusBadRequest)
+		rErr = errors.New("missing authorization code")
+		http.Error(w, rErr.Error(), http.StatusBadRequest)
 		return
 	}
 
 	state := r.URL.Query().Get("state")
 
-	if storedState, err := p.API.KVGet(state); err != nil {
-		p.API.LogError("can't get state from store", "err", err.Error())
-		http.Error(w, "missing stored state", http.StatusBadRequest)
+	storedState, appErr := p.API.KVGet(state)
+	if appErr != nil {
+		p.API.LogWarn("can't get state from store", "err", appErr.Error())
+
+		rErr = errors.Wrap(appErr, "missing stored state")
+		http.Error(w, rErr.Error(), http.StatusBadRequest)
 		return
-	} else if string(storedState) != state {
-		http.Error(w, "invalid state", http.StatusBadRequest)
+	}
+
+	appErr = p.API.KVDelete(state)
+	if appErr != nil {
+		p.API.LogWarn("Failed to delete state token", "error", appErr.Error())
+
+		rErr = errors.Wrap(appErr, "error deleting stored state")
+		http.Error(w, rErr.Error(), http.StatusBadRequest)
+	}
+
+	if string(storedState) != state {
+		rErr = errors.New("invalid state token")
+		http.Error(w, rErr.Error(), http.StatusBadRequest)
 		return
 	}
 
 	userID := strings.Split(state, "_")[1]
 
-	if err := p.API.KVDelete(state); err != nil {
-		p.API.LogError("can't delete state in store", "err", err.DetailedError)
-	}
-
 	if userID != authedUserID {
-		http.Error(w, "Not authorized, incorrect user", http.StatusUnauthorized)
+		rErr = errors.New("not authorized, incorrect user")
+		http.Error(w, rErr.Error(), http.StatusUnauthorized)
 		return
 	}
 
 	tok, err := conf.Exchange(ctx, code)
 	if err != nil {
-		p.API.LogError("can't exchange state", "err", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		p.API.LogWarn("can't exchange state", "err", err.Error())
+
+		rErr = errors.Wrap(err, "Failed to exchange oauth code into token")
+		http.Error(w, rErr.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	userInfo, err := p.GitlabClient.GetCurrentUser(userID, *tok)
 	if err != nil {
-		p.API.LogError("can't retrieve user info from gitLab API", "err", err.Error())
+		p.API.LogWarn("can't retrieve user info from gitLab API", "err", err.Error())
+
+		rErr = errors.Wrap(err, "unable to connect user to GitLab")
+		http.Error(w, rErr.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err = p.storeGitlabUserInfo(userInfo); err != nil {
+		p.API.LogWarn("can't store user info", "err", err.Error())
 		http.Error(w, "Unable to connect user to GitLab", http.StatusInternalServerError)
 		return
 	}
 
-	if err := p.storeGitlabUserInfo(userInfo); err != nil {
-		p.API.LogError("can't store user info", "err", err.Error())
-		http.Error(w, "Unable to connect user to GitLab", http.StatusInternalServerError)
-		return
+	if err = p.storeGitlabToUserIDMapping(userInfo.GitlabUsername, userID); err != nil {
+		p.API.LogWarn("can't store GitLab to user id mapping", "err", err.Error())
 	}
 
-	if err := p.storeGitlabToUserIDMapping(userInfo.GitlabUsername, userID); err != nil {
-		p.API.LogError("can't store GitLab to user id mapping", "err", err.Error())
+	if err = p.storeGitlabIDToUserIDMapping(userInfo.GitlabUsername, userInfo.GitlabUserID); err != nil {
+		p.API.LogWarn("can't store GitLab to GitLab id mapping", "err", err.Error())
 	}
 
-	if err := p.storeGitlabIDToUserIDMapping(userInfo.GitlabUsername, userInfo.GitlabUserID); err != nil {
-		p.API.LogError("can't store GitLab to GitLab id mapping", "err", err.Error())
+	flow := p.flowManager.setupFlow.ForUser(authedUserID)
+
+	stepName, err := flow.GetCurrentStep()
+	if err != nil {
+		p.API.LogWarn("Failed to get current step", "error", err.Error())
 	}
 
-	// Post intro post
-	message := fmt.Sprintf("#### Welcome to the Mattermost GitLab Plugin!\n"+
-		"You've connected your Mattermost account to %s on GitLab. Read about the features of this plugin below:\n\n"+
-		"##### Daily Reminders\n"+
-		"The first time you log in each day, you will get a post right here letting you know what messages you need to read and what merge requests are awaiting your review.\n"+
-		"Turn off reminders with `/gitlab settings reminders off`.\n\n"+
-		"##### Notifications\n"+
-		"When someone mentions you, requests your review, comments on or modifies one of your merge requests/issues, or assigns you, you'll get a post here about it.\n"+
-		"Turn off notifications with `/gitlab settings notifications off`.\n\n"+
-		"##### Sidebar Buttons\n"+
-		"Check out the buttons in the left-hand sidebar of Mattermost.\n"+
-		"* The first button tells you how many merge requests you have submitted.\n"+
-		"* The second shows the number of merge requests that are awaiting your review.\n"+
-		"* The third shows the number of merge requests and issues you are assigned to.\n"+
-		"* The fourth tracks the number of unread messages you have.\n"+
-		"* The fifth will refresh the numbers.\n\n"+
-		"Click on them!\n\n"+
-		"##### Slash Commands\n"+
-		strings.ReplaceAll(commandHelp, "|", "`"), userInfo.GitlabUsername)
+	if stepName == stepOAuthConnect {
+		err = flow.Go(stepWebhookQuestion)
+		if err != nil {
+			p.API.LogWarn("Failed go to next step", "error", err.Error())
+		}
+	} else {
+		// Only post introduction message if no setup wizard is running
+		// Post intro post
+		message := fmt.Sprintf("#### Welcome to the Mattermost GitLab Plugin!\n"+
+			"You've connected your Mattermost account to %s on GitLab. Read about the features of this plugin below:\n\n"+
+			"##### Daily Reminders\n"+
+			"The first time you log in each day, you will get a post right here letting you know what messages you need to read and what merge requests are awaiting your review.\n"+
+			"Turn off reminders with `/gitlab settings reminders off`.\n\n"+
+			"##### Notifications\n"+
+			"When someone mentions you, requests your review, comments on or modifies one of your merge requests/issues, or assigns you, you'll get a post here about it.\n"+
+			"Turn off notifications with `/gitlab settings notifications off`.\n\n"+
+			"##### Sidebar Buttons\n"+
+			"Check out the buttons in the left-hand sidebar of Mattermost.\n"+
+			"* The first button tells you how many merge requests you have submitted.\n"+
+			"* The second shows the number of merge requests that are awaiting your review.\n"+
+			"* The third shows the number of merge requests and issues you are assigned to.\n"+
+			"* The fourth tracks the number of unread messages you have.\n"+
+			"* The fifth will refresh the numbers.\n\n"+
+			"Click on them!\n\n"+
+			"##### Slash Commands\n"+
+			strings.ReplaceAll(commandHelp, "|", "`"), userInfo.GitlabUsername)
 
-	if err := p.CreateBotDMPost(userID, message, "custom_git_welcome"); err != nil {
-		p.API.LogError("can't send help message with bot dm", "err", err.Error())
+		if err := p.CreateBotDMPost(userID, message, "custom_git_welcome"); err != nil {
+			p.API.LogWarn("can't send help message with bot dm", "err", err.Error())
+		}
 	}
 
 	p.API.PublishWebSocketEvent(
@@ -238,7 +305,7 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 func (p *Plugin) handleProfileImage(w http.ResponseWriter, r *http.Request) {
 	config := p.getConfiguration()
 
-	img, err := os.Open(filepath.Join(config.PluginsDirectory, manifest.ID, "assets", "profile.png"))
+	img, err := os.Open(filepath.Join(config.PluginsDirectory, manifest.Id, "assets", "profile.png"))
 	if err != nil {
 		http.NotFound(w, r)
 		p.API.LogError("Unable to read GitLab profile image", "err", err.Error())

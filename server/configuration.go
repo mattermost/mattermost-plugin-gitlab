@@ -1,11 +1,15 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"reflect"
 	"strings"
 
+	"github.com/mattermost/mattermost-plugin-api/experimental/telemetry"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/pkg/errors"
 
@@ -42,6 +46,71 @@ func (c *configuration) Clone() *configuration {
 	return &clone
 }
 
+func (c *configuration) ToMap() (map[string]interface{}, error) {
+	var out map[string]interface{}
+	data, err := json.Marshal(c)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(data, &out)
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func (c *configuration) setDefaults(isCloud bool) (bool, error) {
+	changed := false
+
+	if c.EncryptionKey == "" {
+		secret, err := generateSecret()
+		if err != nil {
+			return false, err
+		}
+
+		c.EncryptionKey = secret
+		changed = true
+	}
+
+	if c.WebhookSecret == "" {
+		secret, err := generateSecret()
+		if err != nil {
+			return false, err
+		}
+
+		c.WebhookSecret = secret
+		changed = true
+	}
+
+	if isCloud && !c.UsePreregisteredApplication && !c.IsOAuthConfigured() {
+		c.UsePreregisteredApplication = true
+		changed = true
+	}
+
+	return changed, nil
+}
+
+func (c *configuration) sanitize() {
+	// Ensure GitlabURL ends with a slash
+	c.GitlabURL = strings.TrimRight(c.GitlabURL, "/")
+
+	// Trim spaces around org and OAuth credentials
+	c.GitlabGroup = strings.TrimSpace(c.GitlabGroup)
+	c.GitlabOAuthClientID = strings.TrimSpace(c.GitlabOAuthClientID)
+	c.GitlabOAuthClientSecret = strings.TrimSpace(c.GitlabOAuthClientSecret)
+}
+
+func (c *configuration) IsOAuthConfigured() bool {
+	return (c.GitlabOAuthClientID != "" && c.GitlabOAuthClientSecret != "") ||
+		c.UsePreregisteredApplication
+}
+
+// IsSASS return if SASS gitlab at https://gitlab.com is used
+func (c *configuration) IsSASS() bool {
+	return c.GitlabURL == "https://gitlab.com"
+}
+
 // IsValid checks if all needed fields are set.
 func (c *configuration) IsValid() error {
 	if _, err := url.ParseRequestURI(c.GitlabURL); err != nil {
@@ -57,8 +126,7 @@ func (c *configuration) IsValid() error {
 		}
 	}
 
-	gitLabURL := strings.TrimSuffix(c.GitlabURL, "/")
-	if c.UsePreregisteredApplication && gitLabURL != "https://gitlab.com" {
+	if c.UsePreregisteredApplication && !c.IsSASS() {
 		return errors.New("pre-registered application can only be used with official public GitLab")
 	}
 
@@ -124,15 +192,45 @@ func (p *Plugin) OnConfigurationChange() error {
 		return errors.Wrap(err, "failed to load plugin configuration")
 	}
 
+	configuration.sanitize()
+
 	serverConfiguration := p.API.GetConfig()
 
 	p.setConfiguration(configuration, serverConfiguration)
 
-	if err := configuration.IsValid(); err != nil {
-		return err
+	command, err := p.getCommand(configuration)
+	if err != nil {
+		return errors.Wrap(err, "failed to get command")
 	}
+
+	err = p.API.RegisterCommand(command)
+	if err != nil {
+		return errors.Wrap(err, "failed to register command")
+	}
+
+	enableDiagnostics := false
+	if config := p.API.GetConfig(); config != nil {
+		if configValue := config.LogSettings.EnableDiagnostics; configValue != nil {
+			enableDiagnostics = *configValue
+		}
+	}
+
+	p.tracker = telemetry.NewTracker(p.telemetryClient, p.API.GetDiagnosticId(), p.API.GetServerVersion(), manifest.Id, manifest.Version, "github", enableDiagnostics)
 
 	p.GitlabClient = gitlab.New(configuration.GitlabURL, configuration.GitlabGroup, p.isNamespaceAllowed)
 
 	return nil
+}
+
+func generateSecret() (string, error) {
+	b := make([]byte, 256)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	s := base64.RawStdEncoding.EncodeToString(b)
+
+	s = s[:32]
+
+	return s, nil
 }

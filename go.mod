@@ -1,15 +1,19 @@
 module github.com/mattermost/mattermost-plugin-gitlab
 
-go 1.13
+go 1.16
 
 require (
 	github.com/golang/mock v1.6.0
-	github.com/mattermost/mattermost-plugin-api v0.0.21
-	github.com/mattermost/mattermost-server/v6 v6.0.3
-	github.com/mholt/archiver/v3 v3.5.0
+	github.com/mattermost/mattermost-plugin-api v0.0.25-0.20220207094610-8608867c3729
+	github.com/mattermost/mattermost-server/v6 v6.3.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.7.0
-	github.com/xanzy/go-gitlab v0.48.0
-	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
+	github.com/xanzy/go-gitlab v0.50.0
+	golang.org/x/oauth2 v0.0.0-20210805134026-6f1e6394065a
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )
+
+// Until github.com/mattermost/mattermost-server/v6 v6.5.0 is releated,
+// this replacement is needed to also import github.com/mattermost/mattermost-plugin-api,
+// which uses a different server version.
+replace github.com/mattermost/mattermost-server/v6 v6.3.0 => github.com/mattermost/mattermost-server/v6 v6.0.0-20220204112347-b6128201bb5d

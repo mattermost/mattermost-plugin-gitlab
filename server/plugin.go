@@ -13,11 +13,14 @@ import (
 	"sync"
 
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
+	"github.com/mattermost/mattermost-plugin-api/experimental/bot/poster"
+	"github.com/mattermost/mattermost-plugin-api/experimental/telemetry"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 
+	root "github.com/mattermost/mattermost-plugin-gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 )
@@ -37,7 +40,9 @@ const (
 	chimeraGitLabAppIdentifier = "plugin-gitlab"
 )
 
-var errEmptySiteURL = errors.New("siteURL is not set. Please set it and restart the plugin")
+var (
+	manifest model.Manifest = root.Manifest
+)
 
 type Plugin struct {
 	plugin.MattermostPlugin
@@ -46,6 +51,15 @@ type Plugin struct {
 	BotUserID      string
 	WebhookHandler webhook.Webhook
 	GitlabClient   gitlab.Gitlab
+
+	flowManager *FlowManager
+
+	poster poster.Poster
+
+	telemetryClient telemetry.Client
+	tracker         telemetry.Tracker
+
+	oauthBroker *OAuthBroker
 
 	// configurationLock synchronizes access to the configuration.
 	configurationLock sync.RWMutex
@@ -60,29 +74,31 @@ type Plugin struct {
 func (p *Plugin) OnActivate() error {
 	p.client = pluginapi.NewClient(p.API, p.Driver)
 
-	config := p.getConfiguration()
-	if err := config.IsValid(); err != nil {
-		return err
+	siteURL := p.API.GetConfig().ServiceSettings.SiteURL
+	if siteURL == nil || *siteURL == "" {
+		return errors.New("siteURL is not set. Please set it and restart the plugin")
 	}
 
 	p.registerChimeraURL()
 
-	if config.UsePreregisteredApplication && p.chimeraURL == "" {
+	if p.getConfiguration().UsePreregisteredApplication && p.chimeraURL == "" {
 		return errors.New("cannot use pre-registered application if Chimera URL is not set or empty. " +
 			"For now using pre-registered application is intended for Cloud instances only. " +
 			"If you are running on-prem disable the setting and use a custom application, otherwise set PluginSettings.ChimeraOAuthProxyURL " +
 			"or MM_PLUGINSETTINGS_CHIMERAOAUTHPROXYURL environment variable")
 	}
 
-	command, err := p.getCommand()
+	err := p.setDefaultConfiguration()
 	if err != nil {
-		return errors.Wrap(err, "failed to get command")
+		return errors.Wrap(err, "failed to set default configuration")
 	}
 
-	err = p.API.RegisterCommand(command)
+	p.telemetryClient, err = telemetry.NewRudderClient()
 	if err != nil {
-		return errors.Wrap(err, "failed to register command")
+		p.API.LogWarn("Telemetry client not started", "error", err.Error())
 	}
+
+	p.oauthBroker = NewOAuthBroker(p.sendOAuthCompleteEvent)
 
 	botID, err := p.client.Bot.EnsureBot(&model.Bot{
 		Username:    "gitlab",
@@ -93,8 +109,6 @@ func (p *Plugin) OnActivate() error {
 		return errors.Wrap(err, "can't ensure bot")
 	}
 	p.BotUserID = botID
-
-	p.WebhookHandler = webhook.NewWebhook(&gitlabRetreiver{p: p})
 
 	bundlePath, err := p.API.GetBundlePath()
 	if err != nil {
@@ -108,9 +122,55 @@ func (p *Plugin) OnActivate() error {
 		return errors.Wrap(err, "failed to set profile image")
 	}
 
-	siteURL := p.API.GetConfig().ServiceSettings.SiteURL
-	if siteURL == nil || *siteURL == "" {
-		return errEmptySiteURL
+	p.WebhookHandler = webhook.NewWebhook(&gitlabRetreiver{p: p})
+
+	p.poster = poster.NewPoster(&p.client.Post, p.BotUserID)
+	p.flowManager = p.NewFlowManager()
+
+	return nil
+}
+
+func (p *Plugin) OnDeactivate() error {
+	p.oauthBroker.Close()
+
+	return nil
+}
+
+func (p *Plugin) OnInstall(c *plugin.Context, event model.OnInstallEvent) error {
+	// Don't start wizard if OAuth is configured
+	if p.getConfiguration().IsOAuthConfigured() {
+		return nil
+	}
+
+	return p.flowManager.StartSetupWizard(event.UserId, "")
+}
+
+func (p *Plugin) OnSendDailyTelemetry() {
+	p.SendDailyTelemetry()
+}
+
+func (p *Plugin) OnPluginClusterEvent(c *plugin.Context, ev model.PluginClusterEvent) {
+	p.HandleClusterEvent(ev)
+}
+
+func (p *Plugin) setDefaultConfiguration() error {
+	config := p.getConfiguration()
+
+	changed, err := config.setDefaults(pluginapi.IsCloud(p.API.GetLicense()))
+	if err != nil {
+		return err
+	}
+
+	if changed {
+		configMap, err := config.ToMap()
+		if err != nil {
+			return err
+		}
+
+		appErr := p.API.SavePluginConfig(configMap)
+		if appErr != nil {
+			return appErr
+		}
 	}
 
 	return nil
@@ -120,7 +180,7 @@ func (p *Plugin) getOAuthConfig() *oauth2.Config {
 	config := p.getConfiguration()
 
 	scopes := []string{"api", "read_user"}
-	redirectURL := fmt.Sprintf("%s/plugins/%s/oauth/complete", *p.API.GetConfig().ServiceSettings.SiteURL, manifest.ID)
+	redirectURL := fmt.Sprintf("%s/plugins/%s/oauth/complete", *p.API.GetConfig().ServiceSettings.SiteURL, manifest.Id)
 
 	if config.UsePreregisteredApplication {
 		p.API.LogDebug("Using Chimera Proxy OAuth configuration")

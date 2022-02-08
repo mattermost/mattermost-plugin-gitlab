@@ -77,7 +77,7 @@ const (
 	commandList   = "list"
 )
 
-func (p *Plugin) getCommand() (*model.Command, error) {
+func (p *Plugin) getCommand(config *configuration) (*model.Command, error) {
 	iconData, err := command.GetIconData(p.API, "assets/icon.svg")
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get icon data")
@@ -88,7 +88,7 @@ func (p *Plugin) getCommand() (*model.Command, error) {
 		AutoComplete:         true,
 		AutoCompleteDesc:     "Available commands: connect, disconnect, todo, me, settings, subscriptions, webhook, and help",
 		AutoCompleteHint:     "[command]",
-		AutocompleteData:     getAutocompleteData(),
+		AutocompleteData:     getAutocompleteData(config),
 		AutocompleteIconData: iconData,
 	}, nil
 }
@@ -109,7 +109,7 @@ func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string) *model
 }
 
 // ExecuteCommand is the entrypoint for /gitlab commands. It returns a message to display to the user or an error.
-func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
 	var (
 		split      = strings.Fields(args.Command)
 		command    = split[0]
@@ -126,13 +126,40 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 		return &model.CommandResponse{}, nil
 	}
 
+	if action == "setup" {
+		message := p.handleSetup(c, args, parameters)
+		if message != "" {
+			p.postCommandResponse(args, message)
+		}
+		return &model.CommandResponse{}, nil
+	}
+
+	config := p.getConfiguration()
+
+	if err := config.IsValid(); err != nil {
+		isSysAdmin, err := p.isAuthorizedSysAdmin(args.UserId)
+		var text string
+		switch {
+		case err != nil:
+			text = "Error checking user's permissions"
+			p.API.LogWarn(text, "error", err.Error())
+		case isSysAdmin:
+			text = "Before using this plugin, you'll need to configure it by running `/github setup`"
+		default:
+			text = "Please contact your system administrator to configure the GitHub plugin."
+		}
+
+		p.postCommandResponse(args, text)
+		return &model.CommandResponse{}, nil
+	}
+
 	if action == "connect" {
 		config := p.API.GetConfig()
 		if config.ServiceSettings.SiteURL == nil {
 			return p.getCommandResponse(args, "Encountered an error connecting to GitLab."), nil
 		}
 
-		resp := p.getCommandResponse(args, fmt.Sprintf("[Click here to link your GitLab account.](%s/plugins/%s/oauth/connect)", *config.ServiceSettings.SiteURL, manifest.ID))
+		resp := p.getCommandResponse(args, fmt.Sprintf("[Click here to link your GitLab account.](%s/plugins/%s/oauth/connect)", *config.ServiceSettings.SiteURL, manifest.Id))
 		return resp, nil
 	}
 
@@ -149,8 +176,6 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 		}
 		return p.getCommandResponse(args, text), nil
 	}
-
-	config := p.getConfiguration()
 
 	switch action {
 	case "subscriptions", "subscription", "subscribe":
@@ -241,6 +266,43 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 	default:
 		return p.getCommandResponse(args, unknownActionMessage), nil
 	}
+}
+
+func (p *Plugin) handleSetup(c *plugin.Context, args *model.CommandArgs, parameters []string) string {
+	userID := args.UserId
+	isSysAdmin, err := p.isAuthorizedSysAdmin(userID)
+	if err != nil {
+		p.API.LogWarn("Failed to check if user is System Admin", "error", err.Error())
+
+		return "Error checking user's permissions"
+	}
+
+	if !isSysAdmin {
+		return "Only System Admins are allowed to set up the plugin."
+	}
+
+	if len(parameters) == 0 {
+		err = p.flowManager.StartSetupWizard(userID, "")
+	} else {
+		command := parameters[0]
+
+		switch {
+		case command == "oauth":
+			err = p.flowManager.StartOauthWizard(userID)
+		case command == "webhook":
+			err = p.flowManager.StartWebhookWizard(userID)
+		case command == "announcement":
+			err = p.flowManager.StartAnnouncementWizard(userID)
+		default:
+			return fmt.Sprintf("Unknown subcommand %v", command)
+		}
+	}
+
+	if err != nil {
+		return err.Error()
+	}
+
+	return ""
 }
 
 // webhookCommand processes the /gitlab webhook commands
@@ -538,7 +600,27 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 	}
 }
 
-func getAutocompleteData() *model.AutocompleteData {
+func (p *Plugin) isAuthorizedSysAdmin(userID string) (bool, error) {
+	user, appErr := p.API.GetUser(userID)
+	if appErr != nil {
+		return false, appErr
+	}
+	if !strings.Contains(user.Roles, "system_admin") {
+		return false, nil
+	}
+	return true, nil
+}
+
+func getAutocompleteData(config *configuration) *model.AutocompleteData {
+	if config.IsValid() != nil {
+		github := model.NewAutocompleteData("gitlab", "[command]", "Available commands: setup")
+
+		getStarted := model.NewAutocompleteData("setup", "", "Set up the GitLab plugin")
+		github.AddCommand(getStarted)
+
+		return github
+	}
+
 	gitlabCommand := model.NewAutocompleteData("gitlab", "[command]", "Available commands: connect, disconnect, todo, subscribe, unsubscribe, me, settings, webhook")
 
 	connect := model.NewAutocompleteData("connect", "", "Connect your GitLab account")
