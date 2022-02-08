@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 
@@ -141,7 +142,8 @@ func (p *Plugin) GetSubscribedChannelsForProject(
 
 	subsToReturn := make([]*subscription.Subscription, 0, len(subsForRepo))
 	for _, sub := range subsForRepo {
-		if !isPublicVisibility && !p.permissionToProject(sub.CreatorID, namespace, project) {
+		// TODO: Add context
+		if !isPublicVisibility && !p.permissionToProject(context.TODO(), sub.CreatorID, namespace, project) {
 			continue
 		}
 		subsToReturn = append(subsToReturn, sub)

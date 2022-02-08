@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -173,7 +174,7 @@ func (p *Plugin) sendRefreshIfNotAlreadySent(alreadySentRefresh map[string]bool,
 	return userMattermostID
 }
 
-func (p *Plugin) permissionToProject(userID, namespace, project string) bool {
+func (p *Plugin) permissionToProject(ctx context.Context, userID, namespace, project string) bool {
 	if userID == "" {
 		return false
 	}
@@ -187,7 +188,7 @@ func (p *Plugin) permissionToProject(userID, namespace, project string) bool {
 		return false
 	}
 
-	if result, err := p.GitlabClient.GetProject(info, namespace, project); result == nil || err != nil {
+	if result, err := p.GitlabClient.GetProject(ctx, info, namespace, project); result == nil || err != nil {
 		if err != nil {
 			p.API.LogError("can't get project in webhook", "err", err.Error(), "project", namespace+"/"+project)
 		}

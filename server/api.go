@@ -4,25 +4,185 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
-	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
+	"golang.org/x/oauth2"
+
+	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
 	"github.com/mattermost/mattermost-plugin-api/experimental/flow"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin"
-	"github.com/pkg/errors"
-	"golang.org/x/oauth2"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 )
 
 const (
 	APIErrorIDNotConnected = "not_connected"
+
+	requestTimeout = 5 * time.Second
+)
+
+func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	p.router.ServeHTTP(w, r)
+}
+
+func (p *Plugin) initializeAPI() {
+	p.router = mux.NewRouter()
+	p.router.Use(p.withRecovery)
+
+	oauthRouter := p.router.PathPrefix("/oauth").Subrouter()
+	apiRouter := p.router.PathPrefix("/api/v1").Subrouter()
+	apiRouter.Use(p.checkConfigured)
+
+	p.router.HandleFunc("/webhook", p.handleWebhook).Methods(http.MethodPost)
+
+	oauthRouter.HandleFunc("/connect", p.checkAuth(p.attachContext(p.connectUserToGitlab), ResponseTypePlain)).Methods(http.MethodGet)
+	oauthRouter.HandleFunc("/complete", p.checkAuth(p.attachContext(p.completeConnectUserToGitlab), ResponseTypePlain)).Methods(http.MethodGet)
+
+	apiRouter.HandleFunc("/connected", p.attachContext(p.getConnected)).Methods(http.MethodGet)
+
+	apiRouter.HandleFunc("/user", p.checkAuth(p.attachContext(p.getGitlabUser), ResponseTypeJSON)).Methods(http.MethodPost)
+	apiRouter.HandleFunc("/todo", p.checkAuth(p.attachUserContext(p.postToDo), ResponseTypeJSON)).Methods(http.MethodPost)
+	apiRouter.HandleFunc("/reviews", p.checkAuth(p.attachUserContext(p.getReviews), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/yourprs", p.checkAuth(p.attachUserContext(p.getYourPrs), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/yourassignments", p.checkAuth(p.attachUserContext(p.getYourAssignments), ResponseTypePlain)).Methods(http.MethodGet)
+
+	apiRouter.HandleFunc("/settings", p.checkAuth(p.attachUserContext(p.getUnreads), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/unreads", p.checkAuth(p.attachUserContext(p.updateSettings), ResponseTypePlain)).Methods(http.MethodPost)
+}
+
+type Context struct {
+	Ctx    context.Context
+	UserID string
+	Log    logger.Logger
+}
+
+func (p *Plugin) createContext(_ http.ResponseWriter, r *http.Request) (*Context, context.CancelFunc) {
+	userID := r.Header.Get("Mattermost-User-ID")
+
+	logger := logger.New(p.API).With(logger.LogContext{
+		"userid": userID,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+
+	context := &Context{
+		Ctx:    ctx,
+		UserID: userID,
+		Log:    logger,
+	}
+
+	return context, cancel
+}
+
+// HTTPHandlerFuncWithContext is http.HandleFunc but with a Context attached
+type HTTPHandlerFuncWithContext func(c *Context, w http.ResponseWriter, r *http.Request)
+
+func (p *Plugin) attachContext(handler HTTPHandlerFuncWithContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		context, cancel := p.createContext(w, r)
+		defer cancel()
+
+		handler(context, w, r)
+	}
+}
+
+type UserContext struct {
+	Context
+	GitlabInfo *gitlab.UserInfo
+}
+
+// HTTPHandlerFuncWithUserContext is http.HandleFunc but with a UserContext attached
+type HTTPHandlerFuncWithUserContext func(c *UserContext, w http.ResponseWriter, r *http.Request)
+
+func (p *Plugin) attachUserContext(handler HTTPHandlerFuncWithUserContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		context, cancel := p.createContext(w, r)
+		defer cancel()
+
+		info, apiErr := p.getGitlabUserInfoByMattermostID(context.UserID)
+		if apiErr != nil {
+			p.writeAPIError(w, apiErr)
+			return
+		}
+
+		context.Log = context.Log.With(logger.LogContext{
+			"gitlab username": info.GitlabUsername,
+			"gitlab userid":   info.GitlabUserID,
+		})
+
+		userContext := &UserContext{
+			Context:    *context,
+			GitlabInfo: info,
+		}
+
+		handler(userContext, w, r)
+	}
+}
+
+func (p *Plugin) withRecovery(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if x := recover(); x != nil {
+				p.API.LogError("Recovered from a panic",
+					"url", r.URL.String(),
+					"error", x,
+					"stack", string(debug.Stack()))
+			}
+		}()
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (p *Plugin) checkConfigured(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		config := p.getConfiguration()
+
+		if err := config.IsValid(); err != nil {
+			http.Error(w, "This plugin is not configured.", http.StatusNotImplemented)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (p *Plugin) checkAuth(handler http.HandlerFunc, responseType ResponseType) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := r.Header.Get("Mattermost-User-ID")
+		if userID == "" {
+			switch responseType {
+			case ResponseTypeJSON:
+				p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Not authorized.", StatusCode: http.StatusUnauthorized})
+			case ResponseTypePlain:
+				http.Error(w, "Not authorized", http.StatusUnauthorized)
+			default:
+				p.API.LogError("Unknown ResponseType detected")
+			}
+			return
+		}
+
+		handler(w, r)
+	}
+}
+
+// ResponseType indicates type of response returned by api
+type ResponseType string
+
+const (
+	// ResponseTypeJSON indicates that response type is json
+	ResponseTypeJSON ResponseType = "JSON_RESPONSE"
+	// ResponseTypePlain indicates that response type is text plain
+	ResponseTypePlain ResponseType = "TEXT_RESPONSE"
 )
 
 type APIErrorResponse struct {
@@ -51,47 +211,7 @@ func (p *Plugin) writeAPIResponse(w http.ResponseWriter, resp interface{}) {
 	}
 }
 
-func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
-	config := p.getConfiguration()
-
-	if err := config.IsValid(); err != nil {
-		http.Error(w, "This plugin is not configured.", http.StatusNotImplemented)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-
-	switch path := r.URL.Path; path {
-	case "/webhook":
-		p.handleWebhook(w, r)
-	case "/assets/profile.png":
-		p.handleProfileImage(w, r)
-	case "/oauth/connect":
-		p.connectUserToGitlab(w, r)
-	case "/oauth/complete":
-		p.completeConnectUserToGitlab(w, r)
-	case "/api/v1/connected":
-		p.getConnected(w, r)
-	case "/api/v1/todo":
-		p.postToDo(w, r)
-	case "/api/v1/reviews":
-		p.getReviews(w, r)
-	case "/api/v1/yourprs":
-		p.getYourPrs(w, r)
-	case "/api/v1/yourassignments":
-		p.getYourAssignments(w, r)
-	case "/api/v1/unreads":
-		p.getUnreads(w, r)
-	case "/api/v1/settings":
-		p.updateSettings(w, r)
-	case "/api/v1/user":
-		p.getGitlabUser(w, r)
-	default:
-		http.NotFound(w, r)
-	}
-}
-
-func (p *Plugin) connectUserToGitlab(w http.ResponseWriter, r *http.Request) {
+func (p *Plugin) connectUserToGitlab(c *Context, w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("Mattermost-User-ID")
 	if userID == "" {
 		http.Error(w, "Not authorized", http.StatusUnauthorized)
@@ -103,7 +223,7 @@ func (p *Plugin) connectUserToGitlab(w http.ResponseWriter, r *http.Request) {
 	state := fmt.Sprintf("%v_%v", model.NewId()[0:15], userID)
 
 	if err := p.API.KVSet(state, []byte(state)); err != nil {
-		p.API.LogError("can't store state oauth2", "err", err.DetailedError)
+		c.Log.WithError(err).Warnf("Can't store state oauth2")
 		http.Error(w, "can't store state oauth2", http.StatusInternalServerError)
 		return
 	}
@@ -128,11 +248,11 @@ func (p *Plugin) connectUserToGitlab(w http.ResponseWriter, r *http.Request) {
 
 		if errorMsg != "" {
 			_, err := p.poster.DMWithAttachments(userID, &model.SlackAttachment{
-				Text:  fmt.Sprintf("There was an error connecting to your GitHub: `%s` Please double check your configuration.", errorMsg),
+				Text:  fmt.Sprintf("There was an error connecting to your GitLab: `%s` Please double check your configuration.", errorMsg),
 				Color: string(flow.ColorDanger),
 			})
 			if err != nil {
-				p.API.LogError("Failed to DM with cancel information", "error", err)
+				c.Log.WithError(err).Warnf("Failed to DM with cancel information")
 			}
 		}
 
@@ -142,7 +262,7 @@ func (p *Plugin) connectUserToGitlab(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, http.StatusFound)
 }
 
-func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Request) {
+func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, r *http.Request) {
 	authedUserID := r.Header.Get("Mattermost-User-ID")
 	if authedUserID == "" {
 		http.Error(w, "Not authorized", http.StatusUnauthorized)
@@ -170,7 +290,7 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 
 	storedState, appErr := p.API.KVGet(state)
 	if appErr != nil {
-		p.API.LogWarn("can't get state from store", "err", appErr.Error())
+		c.Log.WithError(appErr).Warnf("Can't get state from store")
 
 		rErr = errors.Wrap(appErr, "missing stored state")
 		http.Error(w, rErr.Error(), http.StatusBadRequest)
@@ -179,7 +299,7 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 
 	appErr = p.API.KVDelete(state)
 	if appErr != nil {
-		p.API.LogWarn("Failed to delete state token", "error", appErr.Error())
+		c.Log.WithError(appErr).Warnf("Failed to delete state token")
 
 		rErr = errors.Wrap(appErr, "error deleting stored state")
 		http.Error(w, rErr.Error(), http.StatusBadRequest)
@@ -201,16 +321,16 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 
 	tok, err := conf.Exchange(ctx, code)
 	if err != nil {
-		p.API.LogWarn("can't exchange state", "err", err.Error())
+		c.Log.WithError(err).Warnf("Can't exchange state")
 
 		rErr = errors.Wrap(err, "Failed to exchange oauth code into token")
 		http.Error(w, rErr.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	userInfo, err := p.GitlabClient.GetCurrentUser(userID, *tok)
+	userInfo, err := p.GitlabClient.GetCurrentUser(c.Ctx, userID, *tok)
 	if err != nil {
-		p.API.LogWarn("can't retrieve user info from gitLab API", "err", err.Error())
+		c.Log.WithError(err).Warnf("Can't retrieve user info from gitLab API")
 
 		rErr = errors.Wrap(err, "unable to connect user to GitLab")
 		http.Error(w, rErr.Error(), http.StatusInternalServerError)
@@ -218,30 +338,32 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 	}
 
 	if err = p.storeGitlabUserInfo(userInfo); err != nil {
-		p.API.LogWarn("can't store user info", "err", err.Error())
-		http.Error(w, "Unable to connect user to GitLab", http.StatusInternalServerError)
+		c.Log.WithError(err).Warnf("Can't store user info")
+
+		rErr = errors.Wrap(err, "Unable to connect user to GitLab")
+		http.Error(w, rErr.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if err = p.storeGitlabToUserIDMapping(userInfo.GitlabUsername, userID); err != nil {
-		p.API.LogWarn("can't store GitLab to user id mapping", "err", err.Error())
+		c.Log.WithError(err).Warnf("Can't store GitLab to user id mapping")
 	}
 
 	if err = p.storeGitlabIDToUserIDMapping(userInfo.GitlabUsername, userInfo.GitlabUserID); err != nil {
-		p.API.LogWarn("can't store GitLab to GitLab id mapping", "err", err.Error())
+		c.Log.WithError(err).Warnf("Can't store GitLab to GitLab id mapping")
 	}
 
 	flow := p.flowManager.setupFlow.ForUser(authedUserID)
 
 	stepName, err := flow.GetCurrentStep()
 	if err != nil {
-		p.API.LogWarn("Failed to get current step", "error", err.Error())
+		c.Log.WithError(err).Warnf("Failed to get current step")
 	}
 
 	if stepName == stepOAuthConnect {
 		err = flow.Go(stepWebhookQuestion)
 		if err != nil {
-			p.API.LogWarn("Failed go to next step", "error", err.Error())
+			c.Log.WithError(err).Warnf("Failed go to next step")
 		}
 	} else {
 		// Only post introduction message if no setup wizard is running
@@ -266,7 +388,7 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 			strings.ReplaceAll(commandHelp, "|", "`"), userInfo.GitlabUsername)
 
 		if err := p.CreateBotDMPost(userID, message, "custom_git_welcome"); err != nil {
-			p.API.LogWarn("can't send help message with bot dm", "err", err.Error())
+			c.Log.WithError(err).Warnf("Can't send help message with bot dm")
 		}
 	}
 
@@ -302,28 +424,6 @@ func (p *Plugin) completeConnectUserToGitlab(w http.ResponseWriter, r *http.Requ
 	}
 }
 
-func (p *Plugin) handleProfileImage(w http.ResponseWriter, r *http.Request) {
-	config := p.getConfiguration()
-
-	img, err := os.Open(filepath.Join(config.PluginsDirectory, manifest.Id, "assets", "profile.png"))
-	if err != nil {
-		http.NotFound(w, r)
-		p.API.LogError("Unable to read GitLab profile image", "err", err.Error())
-		return
-	}
-	defer func() {
-		if err = img.Close(); err != nil {
-			p.API.LogError("can't close img", "err", err.Error())
-		}
-	}()
-
-	w.Header().Set("Content-Type", "image/png")
-	_, err = io.Copy(w, img)
-	if err != nil {
-		p.API.LogError("can't copy image profile to http response writer", "err", err.Error())
-	}
-}
-
 type ConnectedResponse struct {
 	Connected      bool                 `json:"connected"`
 	GitlabUsername string               `json:"gitlab_username"`
@@ -341,18 +441,12 @@ type GitlabUserResponse struct {
 	Username string `json:"username"`
 }
 
-func (p *Plugin) getGitlabUser(w http.ResponseWriter, r *http.Request) {
-	requestorID := r.Header.Get("Mattermost-User-ID")
-	if requestorID == "" {
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Not authorized.", StatusCode: http.StatusUnauthorized})
-		return
-	}
-
+func (p *Plugin) getGitlabUser(c *Context, w http.ResponseWriter, r *http.Request) {
 	req := &GitlabUserRequest{}
 	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(&req); err != nil || req.UserID == "" {
 		if err != nil {
-			p.API.LogError("Error decoding JSON body", "err", err.Error())
+			c.Log.WithError(err).Warnf("Error decoding JSON body")
 		}
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Please provide a JSON object with a non-blank user_id field.", StatusCode: http.StatusBadRequest})
 		return
@@ -376,14 +470,8 @@ func (p *Plugin) getGitlabUser(w http.ResponseWriter, r *http.Request) {
 	p.writeAPIResponse(w, &GitlabUserResponse{Username: userInfo.GitlabUsername})
 }
 
-func (p *Plugin) getConnected(w http.ResponseWriter, r *http.Request) {
+func (p *Plugin) getConnected(c *Context, w http.ResponseWriter, r *http.Request) {
 	config := p.getConfiguration()
-
-	userID := r.Header.Get("Mattermost-User-ID")
-	if userID == "" {
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Not authorized.", StatusCode: http.StatusUnauthorized})
-		return
-	}
 
 	resp := &ConnectedResponse{
 		Connected:    false,
@@ -391,7 +479,7 @@ func (p *Plugin) getConnected(w http.ResponseWriter, r *http.Request) {
 		Organization: config.GitlabGroup,
 	}
 
-	info, _ := p.getGitlabUserInfoByMattermostID(userID)
+	info, _ := p.getGitlabUserInfoByMattermostID(c.UserID)
 	if info != nil && info.Token != nil {
 		resp.Connected = true
 		resp.GitlabUsername = info.GitlabUsername
@@ -410,10 +498,10 @@ func (p *Plugin) getConnected(w http.ResponseWriter, r *http.Request) {
 			nt := time.Unix(now/1000, 0).In(timezone)
 			lt := time.Unix(lastPostAt/1000, 0).In(timezone)
 			if nt.Sub(lt).Hours() >= 1 && (nt.Day() != lt.Day() || nt.Month() != lt.Month() || nt.Year() != lt.Year()) {
-				p.PostToDo(info)
+				p.PostToDo(c.Ctx, info)
 				info.LastToDoPostAt = now
 				if err := p.storeGitlabUserInfo(info); err != nil {
-					p.API.LogError("can't store user info", "err", err.Error())
+					c.Log.WithError(err).Warnf("Can't store user info")
 				}
 			}
 		}
@@ -422,22 +510,10 @@ func (p *Plugin) getConnected(w http.ResponseWriter, r *http.Request) {
 	p.writeAPIResponse(w, resp)
 }
 
-func (p *Plugin) getUnreads(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("Mattermost-User-ID")
-	if userID == "" {
-		http.Error(w, "Not authorized", http.StatusUnauthorized)
-		return
-	}
-
-	user, err := p.getGitlabUserInfoByMattermostID(userID)
+func (p *Plugin) getUnreads(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	result, err := p.GitlabClient.GetUnreads(c.Ctx, c.GitlabInfo)
 	if err != nil {
-		p.writeAPIError(w, err)
-		return
-	}
-
-	result, errRequest := p.GitlabClient.GetUnreads(user)
-	if errRequest != nil {
-		p.API.LogError("unable to list unreads in GitLab API", "err", errRequest.Error())
+		c.Log.WithError(err).Warnf("Unable to list unreads in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list unreads in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
 	}
@@ -445,24 +521,10 @@ func (p *Plugin) getUnreads(w http.ResponseWriter, r *http.Request) {
 	p.writeAPIResponse(w, result)
 }
 
-func (p *Plugin) getReviews(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("Mattermost-User-ID")
-	if userID == "" {
-		http.Error(w, "Not authorized", http.StatusUnauthorized)
-		return
-	}
-
-	user, err := p.getGitlabUserInfoByMattermostID(userID)
-
+func (p *Plugin) getReviews(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	result, err := p.GitlabClient.GetReviews(c.Ctx, c.GitlabInfo)
 	if err != nil {
-		p.writeAPIError(w, err)
-		return
-	}
-
-	result, errRequest := p.GitlabClient.GetReviews(user)
-
-	if errRequest != nil {
-		p.API.LogError("unable to list merge-request where assignee in GitLab API", "err", errRequest.Error())
+		c.Log.WithError(err).Warnf("Unable to list merge-request where assignee in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
 	}
@@ -470,24 +532,10 @@ func (p *Plugin) getReviews(w http.ResponseWriter, r *http.Request) {
 	p.writeAPIResponse(w, result)
 }
 
-func (p *Plugin) getYourPrs(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("Mattermost-User-ID")
-	if userID == "" {
-		http.Error(w, "Not authorized", http.StatusUnauthorized)
-		return
-	}
-
-	user, err := p.getGitlabUserInfoByMattermostID(userID)
-
+func (p *Plugin) getYourPrs(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	result, err := p.GitlabClient.GetYourPrs(c.Ctx, c.GitlabInfo)
 	if err != nil {
-		p.writeAPIError(w, err)
-		return
-	}
-
-	result, errRequest := p.GitlabClient.GetYourPrs(user)
-
-	if errRequest != nil {
-		p.API.LogError("can't list merge-request where author in GitLab API", "err", errRequest.Error())
+		c.Log.WithError(err).Warnf("Can't list merge-request where author in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
 	}
@@ -495,24 +543,10 @@ func (p *Plugin) getYourPrs(w http.ResponseWriter, r *http.Request) {
 	p.writeAPIResponse(w, result)
 }
 
-func (p *Plugin) getYourAssignments(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("Mattermost-User-ID")
-	if userID == "" {
-		http.Error(w, "Not authorized", http.StatusUnauthorized)
-		return
-	}
-
-	user, err := p.getGitlabUserInfoByMattermostID(userID)
-
+func (p *Plugin) getYourAssignments(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	result, err := p.GitlabClient.GetYourAssignments(c.Ctx, c.GitlabInfo)
 	if err != nil {
-		p.writeAPIError(w, err)
-		return
-	}
-
-	result, errRequest := p.GitlabClient.GetYourAssignments(user)
-
-	if errRequest != nil {
-		p.API.LogError("unable to list issue where assignee in GitLab API", "err", errRequest.Error())
+		c.Log.WithError(err).Warnf("Unable to list issue where assignee in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list issue in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
 	}
@@ -520,41 +554,22 @@ func (p *Plugin) getYourAssignments(w http.ResponseWriter, r *http.Request) {
 	p.writeAPIResponse(w, result)
 }
 
-func (p *Plugin) postToDo(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("Mattermost-User-ID")
-	if userID == "" {
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Not authorized.", StatusCode: http.StatusUnauthorized})
-		return
-	}
-
-	user, err := p.getGitlabUserInfoByMattermostID(userID)
-
+func (p *Plugin) postToDo(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	_, text, err := p.GetToDo(c.Ctx, c.GitlabInfo)
 	if err != nil {
-		p.writeAPIError(w, err)
-		return
-	}
-
-	_, text, errRequest := p.GetToDo(user)
-	if errRequest != nil {
-		p.API.LogError("can't get todo", "err", errRequest.Error())
+		c.Log.WithError(err).Warnf("Can't get todo")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an error getting the to do items.", StatusCode: http.StatusUnauthorized})
 		return
 	}
 
-	if err := p.CreateBotDMPost(userID, text, "custom_git_todo"); err != nil {
+	if appErr := p.CreateBotDMPost(c.UserID, text, "custom_git_todo"); appErr != nil {
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an error posting the to do items.", StatusCode: http.StatusUnauthorized})
 	}
 
 	p.writeAPIResponse(w, struct{ status string }{status: "OK"})
 }
 
-func (p *Plugin) updateSettings(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("Mattermost-User-ID")
-	if userID == "" {
-		http.Error(w, "Not authorized", http.StatusUnauthorized)
-		return
-	}
-
+func (p *Plugin) updateSettings(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	var settings *gitlab.UserSettings
 	err := json.NewDecoder(r.Body).Decode(&settings)
 	if settings == nil || err != nil {
@@ -562,16 +577,16 @@ func (p *Plugin) updateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	info, errGitlab := p.getGitlabUserInfoByMattermostID(userID)
-	if errGitlab != nil {
-		p.writeAPIError(w, errGitlab)
+	info, apiErr := p.getGitlabUserInfoByMattermostID(c.UserID)
+	if apiErr != nil {
+		p.writeAPIError(w, apiErr)
 		return
 	}
 
 	info.Settings = settings
 
 	if err := p.storeGitlabUserInfo(info); err != nil {
-		p.API.LogError("can't store GitLab user info when update settings", "err", err.Error())
+		c.Log.WithError(err).Errorf("can't store GitLab user info when update settings")
 		http.Error(w, "Encountered error updating settings", http.StatusInternalServerError)
 	}
 

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/gorilla/mux"
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
 	"github.com/mattermost/mattermost-plugin-api/experimental/flow"
 	"github.com/mattermost/mattermost-plugin-api/experimental/telemetry"
@@ -13,10 +14,10 @@ import (
 )
 
 type FlowManager struct {
-	client    *pluginapi.Client
-	pluginURL string
-	botUserID string
-	//router           *mux.Router
+	client                          *pluginapi.Client
+	pluginURL                       string
+	botUserID                       string
+	router                          *mux.Router
 	getConfiguration                func() *configuration
 	getGitlabUserInfoByMattermostID func(userID string) (*gitlab.UserInfo, *APIErrorResponse)
 
@@ -30,10 +31,10 @@ type FlowManager struct {
 
 func (p *Plugin) NewFlowManager() *FlowManager {
 	fm := &FlowManager{
-		client:    p.client,
-		pluginURL: *p.client.Configuration.GetConfig().ServiceSettings.SiteURL + "/" + "plugins" + "/" + manifest.Id,
-		botUserID: p.BotUserID,
-		//router:           p.router,
+		client:                          p.client,
+		pluginURL:                       *p.client.Configuration.GetConfig().ServiceSettings.SiteURL + "/" + "plugins" + "/" + manifest.Id,
+		botUserID:                       p.BotUserID,
+		router:                          p.router,
 		getConfiguration:                p.getConfiguration,
 		getGitlabUserInfoByMattermostID: p.getGitlabUserInfoByMattermostID,
 
@@ -120,7 +121,7 @@ func (fm *FlowManager) newFlow(name flow.Name) *flow.Flow {
 		fm.botUserID,
 	)
 
-	//TODO: flow.InitHTTP(fm.router)
+	flow.InitHTTP(fm.router)
 
 	return flow
 }

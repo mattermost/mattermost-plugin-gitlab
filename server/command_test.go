@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -78,7 +79,7 @@ func TestSubscribeCommand(t *testing.T) {
 			userInfo := &gitlab.UserInfo{}
 
 			p := getTestPlugin(t, mockCtrl, test.webhookInfo, test.mattermostURL, test.projectHookErr, test.mockGitlab)
-			subscribeMessage := p.subscribeCommand(test.parameters, channelID, &configuration{}, userInfo)
+			subscribeMessage := p.subscribeCommand(context.Background(), test.parameters, channelID, &configuration{}, userInfo)
 
 			assert.Equal(t, test.want, subscribeMessage, "Subscribe command message should be the same.")
 		})
@@ -196,16 +197,16 @@ func TestListWebhookCommand(t *testing.T) {
 			mockedClient := mocks.NewMockGitlab(mockCtrl)
 
 			if test.scope == "project" {
-				mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, nil)
-				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), true).Return("group", "project", nil)
+				mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, nil)
+				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "project", nil)
 				p.GitlabClient = mockedClient
 			} else if test.scope == "group" {
-				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any()).Return(test.webhookInfo, nil)
-				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), true).Return("group", "", nil)
+				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, nil)
+				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "", nil)
 				p.GitlabClient = mockedClient
 			}
 
-			got := p.webhookCommand(test.parameters, &gitlab.UserInfo{}, true)
+			got := p.webhookCommand(context.Background(), test.parameters, &gitlab.UserInfo{}, true)
 			assert.Equal(t, test.want, got)
 		})
 	}
@@ -216,10 +217,10 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.We
 
 	mockedClient := mocks.NewMockGitlab(mockCtrl)
 	if mockGitlab {
-		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any()).Return("group", "project", nil)
-		mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
+		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("group", "project", nil)
+		mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
 		if projectHookErr == nil {
-			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
+			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
 		}
 	}
 
@@ -345,13 +346,13 @@ func TestAddWebhookCommand(t *testing.T) {
 			mockedClient := mocks.NewMockGitlab(mockCtrl)
 
 			if test.scope == "group" {
-				mockedClient.EXPECT().NewGroupHook(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhook, nil)
-				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), true).Return("group", "", nil)
+				mockedClient.EXPECT().NewGroupHook(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhook, nil)
+				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "", nil)
 			} else {
 				project := &gitLabAPI.Project{ID: 4}
-				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), true).Return("group", "project", nil)
-				mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any()).Return(project, nil)
-				mockedClient.EXPECT().NewProjectHook(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhook, nil)
+				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "project", nil)
+				mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(project, nil)
+				mockedClient.EXPECT().NewProjectHook(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhook, nil)
 			}
 			p.GitlabClient = mockedClient
 
@@ -361,7 +362,7 @@ func TestAddWebhookCommand(t *testing.T) {
 			api.On("GetConfig", mock.Anything).Return(conf)
 			p.SetAPI(api)
 
-			got := p.webhookCommand(test.parameters, &gitlab.UserInfo{}, true)
+			got := p.webhookCommand(context.Background(), test.parameters, &gitlab.UserInfo{}, true)
 
 			assert.Equal(t, test.want, got)
 		})

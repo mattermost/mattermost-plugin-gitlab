@@ -17,13 +17,13 @@ const (
 )
 
 // NewGroupHook creates a webhook associated with a GitLab group
-func (g *gitlab) NewGroupHook(user *UserInfo, groupName string, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
+func (g *gitlab) NewGroupHook(ctx context.Context, user *UserInfo, groupName string, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
 	}
 
-	group, _, err := client.Groups.GetGroup(groupName, nil)
+	group, _, err := client.Groups.GetGroup(groupName, nil, internGitlab.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func (g *gitlab) NewGroupHook(user *UserInfo, groupName string, webhookOptions *
 		Token:                    &webhookOptions.Token,
 	}
 
-	groupHook, _, err := client.Groups.AddGroupHook(group.ID, &groupHookOptions)
+	groupHook, _, err := client.Groups.AddGroupHook(group.ID, &groupHookOptions, internGitlab.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (g *gitlab) NewGroupHook(user *UserInfo, groupName string, webhookOptions *
 }
 
 // NewProjectHook creates a webhook associated with a GitLab project
-func (g *gitlab) NewProjectHook(user *UserInfo, projectID interface{}, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
+func (g *gitlab) NewProjectHook(ctx context.Context, user *UserInfo, projectID interface{}, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -77,7 +77,7 @@ func (g *gitlab) NewProjectHook(user *UserInfo, projectID interface{}, webhookOp
 		Token:                    &webhookOptions.Token,
 	}
 
-	projectHook, _, err := client.Projects.AddProjectHook(projectID, &projectHookOptions)
+	projectHook, _, err := client.Projects.AddProjectHook(projectID, &projectHookOptions, internGitlab.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -88,12 +88,13 @@ func (g *gitlab) NewProjectHook(user *UserInfo, projectID interface{}, webhookOp
 }
 
 // GetGroupHooks gathers all the group level hooks for a GitLab group.
-func (g *gitlab) GetGroupHooks(user *UserInfo, owner string) ([]*WebhookInfo, error) {
+func (g *gitlab) GetGroupHooks(_ context.Context, user *UserInfo, owner string) ([]*WebhookInfo, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
 	}
 
+	// TODO: Use context when the library supports it
 	hooks, _, err := client.Groups.ListGroupHooks(owner)
 	if err != nil {
 		return nil, err
@@ -192,7 +193,7 @@ func getGroupHookInfo(hook *internGitlab.GroupHook) *WebhookInfo {
 }
 
 // GetProjectHooks gathers all the project level hooks from a single GitLab project.
-func (g *gitlab) GetProjectHooks(user *UserInfo, owner string, repo string) ([]*WebhookInfo, error) {
+func (g *gitlab) GetProjectHooks(ctx context.Context, user *UserInfo, owner string, repo string) ([]*WebhookInfo, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -210,17 +211,20 @@ func (g *gitlab) GetProjectHooks(user *UserInfo, owner string, repo string) ([]*
 	return webhooks, err
 }
 
-func (g *gitlab) GetProject(user *UserInfo, owner, repo string) (*internGitlab.Project, error) {
+func (g *gitlab) GetProject(ctx context.Context, user *UserInfo, owner, repo string) (*internGitlab.Project, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
 	}
 
-	result, _, err := client.Projects.GetProject(fmt.Sprintf("%s/%s", owner, repo), &internGitlab.GetProjectOptions{})
+	result, _, err := client.Projects.GetProject(fmt.Sprintf("%s/%s", owner, repo),
+		&internGitlab.GetProjectOptions{},
+		internGitlab.WithContext(ctx),
+	)
 	return result, err
 }
 
-func (g *gitlab) GetReviews(user *UserInfo) ([]*internGitlab.MergeRequest, error) {
+func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo) ([]*internGitlab.MergeRequest, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -237,19 +241,23 @@ func (g *gitlab) GetReviews(user *UserInfo) ([]*internGitlab.MergeRequest, error
 			AssigneeID: &user.GitlabUserID,
 			State:      &opened,
 			Scope:      &scope,
-		})
+		},
+			internGitlab.WithContext(ctx),
+		)
 	} else {
 		result, _, errRequest = client.MergeRequests.ListGroupMergeRequests(g.gitlabGroup, &internGitlab.ListGroupMergeRequestsOptions{
 			AssigneeID: &user.GitlabUserID,
 			State:      &opened,
 			Scope:      &scope,
-		})
+		},
+			internGitlab.WithContext(ctx),
+		)
 	}
 
 	return result, errRequest
 }
 
-func (g *gitlab) GetYourPrs(user *UserInfo) ([]*internGitlab.MergeRequest, error) {
+func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo) ([]*internGitlab.MergeRequest, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -266,19 +274,23 @@ func (g *gitlab) GetYourPrs(user *UserInfo) ([]*internGitlab.MergeRequest, error
 			AuthorID: &user.GitlabUserID,
 			State:    &opened,
 			Scope:    &scope,
-		})
+		},
+			internGitlab.WithContext(ctx),
+		)
 	} else {
 		result, _, errRequest = client.MergeRequests.ListGroupMergeRequests(g.gitlabGroup, &internGitlab.ListGroupMergeRequestsOptions{
 			AuthorID: &user.GitlabUserID,
 			State:    &opened,
 			Scope:    &scope,
-		})
+		},
+			internGitlab.WithContext(ctx),
+		)
 	}
 
 	return result, errRequest
 }
 
-func (g *gitlab) GetYourAssignments(user *UserInfo) ([]*internGitlab.Issue, error) {
+func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo) ([]*internGitlab.Issue, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -295,25 +307,32 @@ func (g *gitlab) GetYourAssignments(user *UserInfo) ([]*internGitlab.Issue, erro
 			AssigneeID: &user.GitlabUserID,
 			State:      &opened,
 			Scope:      &scope,
-		})
+		},
+			internGitlab.WithContext(ctx),
+		)
 	} else {
 		result, _, errRequest = client.Issues.ListGroupIssues(g.gitlabGroup, &internGitlab.ListGroupIssuesOptions{
 			AssigneeID: &user.GitlabUserID,
 			State:      &opened,
 			Scope:      &scope,
-		})
+		},
+			internGitlab.WithContext(ctx),
+		)
 	}
 
 	return result, errRequest
 }
 
-func (g *gitlab) GetUnreads(user *UserInfo) ([]*internGitlab.Todo, error) {
+func (g *gitlab) GetUnreads(ctx context.Context, user *UserInfo) ([]*internGitlab.Todo, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
 	}
 
-	result, _, err := client.Todos.ListTodos(&internGitlab.ListTodosOptions{})
+	result, _, err := client.Todos.ListTodos(
+		&internGitlab.ListTodosOptions{},
+		internGitlab.WithContext(ctx),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "can't list todo in GitLab api")
 	}
@@ -329,6 +348,7 @@ func (g *gitlab) GetUnreads(user *UserInfo) ([]*internGitlab.Todo, error) {
 }
 
 func (g *gitlab) ResolveNamespaceAndProject(
+	ctx context.Context,
 	userInfo *UserInfo,
 	fullPath string,
 	allowPrivate bool,
@@ -345,12 +365,11 @@ func (g *gitlab) ResolveNamespaceAndProject(
 	// However, Namespaces endpoint will not return Group visibility, so we will have to make additional call anyway.
 	// Making this extra call here should reduce overall latency.
 	var (
-		user           *internGitlab.User
-		group          *internGitlab.Group
-		project        *internGitlab.Project
-		ctx, ctxCancel = context.WithTimeout(context.Background(), DefaultRequestTimeout)
+		user    *internGitlab.User
+		group   *internGitlab.Group
+		project *internGitlab.Project
 	)
-	defer ctxCancel()
+
 	errGroup, _ := errgroup.WithContext(ctx)
 	if strings.Count(fullPath, "/") == 0 { // This request only makes sense for single path component
 		errGroup.Go(func() error {

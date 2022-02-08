@@ -1,9 +1,9 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/gorilla/mux"
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
 	"github.com/mattermost/mattermost-plugin-api/experimental/bot/poster"
 	"github.com/mattermost/mattermost-plugin-api/experimental/telemetry"
@@ -48,19 +49,6 @@ type Plugin struct {
 	plugin.MattermostPlugin
 	client *pluginapi.Client
 
-	BotUserID      string
-	WebhookHandler webhook.Webhook
-	GitlabClient   gitlab.Gitlab
-
-	flowManager *FlowManager
-
-	poster poster.Poster
-
-	telemetryClient telemetry.Client
-	tracker         telemetry.Tracker
-
-	oauthBroker *OAuthBroker
-
 	// configurationLock synchronizes access to the configuration.
 	configurationLock sync.RWMutex
 
@@ -69,6 +57,20 @@ type Plugin struct {
 	configuration *configuration
 
 	chimeraURL string
+
+	router *mux.Router
+
+	telemetryClient telemetry.Client
+	tracker         telemetry.Tracker
+
+	BotUserID   string
+	poster      poster.Poster
+	flowManager *FlowManager
+
+	oauthBroker *OAuthBroker
+
+	WebhookHandler webhook.Webhook
+	GitlabClient   gitlab.Gitlab
 }
 
 func (p *Plugin) OnActivate() error {
@@ -77,6 +79,11 @@ func (p *Plugin) OnActivate() error {
 	siteURL := p.API.GetConfig().ServiceSettings.SiteURL
 	if siteURL == nil || *siteURL == "" {
 		return errors.New("siteURL is not set. Please set it and restart the plugin")
+	}
+
+	err := p.setDefaultConfiguration()
+	if err != nil {
+		return errors.Wrap(err, "failed to set default configuration")
 	}
 
 	p.registerChimeraURL()
@@ -88,10 +95,7 @@ func (p *Plugin) OnActivate() error {
 			"or MM_PLUGINSETTINGS_CHIMERAOAUTHPROXYURL environment variable")
 	}
 
-	err := p.setDefaultConfiguration()
-	if err != nil {
-		return errors.Wrap(err, "failed to set default configuration")
-	}
+	p.initializeAPI()
 
 	p.telemetryClient, err = telemetry.NewRudderClient()
 	if err != nil {
@@ -104,23 +108,11 @@ func (p *Plugin) OnActivate() error {
 		Username:    "gitlab",
 		DisplayName: "GitLab Plugin",
 		Description: "A bot account created by the plugin GitLab.",
-	})
+	}, pluginapi.ProfileImagePath(filepath.Join("assets", "profile.png")))
 	if err != nil {
 		return errors.Wrap(err, "can't ensure bot")
 	}
 	p.BotUserID = botID
-
-	bundlePath, err := p.API.GetBundlePath()
-	if err != nil {
-		return errors.Wrap(err, "can't retrieve bundle path")
-	}
-	profileImage, err := ioutil.ReadFile(filepath.Join(bundlePath, "assets", "profile.png"))
-	if err != nil {
-		return errors.Wrap(err, "failed to read profile image")
-	}
-	if appErr := p.API.SetProfileImage(botID, profileImage); appErr != nil {
-		return errors.Wrap(err, "failed to set profile image")
-	}
 
 	p.WebhookHandler = webhook.NewWebhook(&gitlabRetreiver{p: p})
 
@@ -389,8 +381,8 @@ func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppErr
 	return nil
 }
 
-func (p *Plugin) PostToDo(info *gitlab.UserInfo) {
-	hasTodo, text, err := p.GetToDo(info)
+func (p *Plugin) PostToDo(ctx context.Context, info *gitlab.UserInfo) {
+	hasTodo, text, err := p.GetToDo(ctx, info)
 	if err != nil {
 		p.API.LogError("can't post todo", "err", err.Error())
 		return
@@ -404,25 +396,25 @@ func (p *Plugin) PostToDo(info *gitlab.UserInfo) {
 	}
 }
 
-func (p *Plugin) GetToDo(user *gitlab.UserInfo) (bool, string, error) {
+func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, string, error) {
 	var hasTodo bool
 
-	unreads, err := p.GitlabClient.GetUnreads(user)
+	unreads, err := p.GitlabClient.GetUnreads(ctx, user)
 	if err != nil {
 		return false, "", err
 	}
 
-	yourAssignments, err := p.GitlabClient.GetYourAssignments(user)
+	yourAssignments, err := p.GitlabClient.GetYourAssignments(ctx, user)
 	if err != nil {
 		return false, "", err
 	}
 
-	yourMergeRequests, err := p.GitlabClient.GetYourPrs(user)
+	yourMergeRequests, err := p.GitlabClient.GetYourPrs(ctx, user)
 	if err != nil {
 		return false, "", err
 	}
 
-	reviews, err := p.GitlabClient.GetReviews(user)
+	reviews, err := p.GitlabClient.GetReviews(ctx, user)
 	if err != nil {
 		return false, "", err
 	}
@@ -512,14 +504,14 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 
 // HasProjectHook checks if the subscribed GitLab Project or its parrent Group has a webhook
 // with a URL that matches the Mattermost Site URL.
-func (p *Plugin) HasProjectHook(user *gitlab.UserInfo, namespace string, project string) (bool, error) {
-	hooks, err := p.GitlabClient.GetProjectHooks(user, namespace, project)
+func (p *Plugin) HasProjectHook(ctx context.Context, user *gitlab.UserInfo, namespace string, project string) (bool, error) {
+	hooks, err := p.GitlabClient.GetProjectHooks(ctx, user, namespace, project)
 	if err != nil {
 		return false, errors.New("unable to connect to GitLab")
 	}
 
 	// ignore error because many project won't be part of groups
-	hasGroupHook, _ := p.HasGroupHook(user, namespace)
+	hasGroupHook, _ := p.HasGroupHook(ctx, user, namespace)
 
 	if hasGroupHook {
 		return true, err
@@ -538,8 +530,8 @@ func (p *Plugin) HasProjectHook(user *gitlab.UserInfo, namespace string, project
 
 // HasGroupHook checks if the subscribed GitLab Group has a webhook
 // with a URL that matches the Mattermost Site URL.
-func (p *Plugin) HasGroupHook(user *gitlab.UserInfo, namespace string) (bool, error) {
-	hooks, err := p.GitlabClient.GetGroupHooks(user, namespace)
+func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namespace string) (bool, error) {
+	hooks, err := p.GitlabClient.GetGroupHooks(ctx, user, namespace)
 	if err != nil {
 		return false, errors.New("unable to connect to GitLab")
 	}

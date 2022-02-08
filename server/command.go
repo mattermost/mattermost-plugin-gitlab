@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/mattermost/mattermost-plugin-api/experimental/command"
 	"github.com/mattermost/mattermost-server/v6/model"
@@ -77,6 +79,10 @@ const (
 	commandList   = "list"
 )
 
+const (
+	commandTimeout = 4 * time.Second
+)
+
 func (p *Plugin) getCommand(config *configuration) (*model.Command, error) {
 	iconData, err := command.GetIconData(p.API, "assets/icon.svg")
 	if err != nil {
@@ -125,6 +131,9 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 	if command != "/gitlab" {
 		return &model.CommandResponse{}, nil
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	defer cancel()
 
 	if action == "setup" {
 		message := p.handleSetup(c, args, parameters)
@@ -179,7 +188,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 
 	switch action {
 	case "subscriptions", "subscription", "subscribe":
-		message := p.subscribeCommand(parameters, args.ChannelId, config, info)
+		message := p.subscribeCommand(ctx, parameters, args.ChannelId, config, info)
 		response := p.getCommandResponse(args, message)
 		return response, nil
 	case "unsubscribe":
@@ -201,14 +210,14 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		p.disconnectGitlabAccount(args.UserId)
 		return p.getCommandResponse(args, "Disconnected your GitLab account."), nil
 	case "todo":
-		_, text, err := p.GetToDo(info)
+		_, text, err := p.GetToDo(ctx, info)
 		if err != nil {
 			p.API.LogError("can't get todo in command", "err", err.Error())
 			return p.getCommandResponse(args, "Encountered an error getting your to do items."), nil
 		}
 		return p.getCommandResponse(args, text), nil
 	case "me":
-		gitUser, err := p.GitlabClient.GetUserDetails(info)
+		gitUser, err := p.GitlabClient.GetUserDetails(ctx, info)
 		if err != nil {
 			return p.getCommandResponse(args, "Encountered an error getting your GitLab profile."), nil
 		}
@@ -259,7 +268,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		return p.getCommandResponse(args, "Settings updated."), nil
 
 	case "webhook":
-		message := p.webhookCommand(parameters, info, config.EnablePrivateRepo)
+		message := p.webhookCommand(ctx, parameters, info, config.EnablePrivateRepo)
 		response := p.getCommandResponse(args, message)
 		return response, nil
 
@@ -306,7 +315,7 @@ func (p *Plugin) handleSetup(c *plugin.Context, args *model.CommandArgs, paramet
 }
 
 // webhookCommand processes the /gitlab webhook commands
-func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo, enablePrivateRepo bool) string {
+func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *gitlab.UserInfo, enablePrivateRepo bool) string {
 	if len(parameters) < 1 {
 		return unknownActionMessage
 	}
@@ -319,14 +328,14 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo, enab
 		}
 
 		namespace := parameters[1]
-		group, project, err := p.GitlabClient.ResolveNamespaceAndProject(info, namespace, enablePrivateRepo)
+		group, project, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, namespace, enablePrivateRepo)
 		if err != nil {
 			return err.Error()
 		}
 
 		var webhookInfo []*gitlab.WebhookInfo
 		if project != "" {
-			webhookInfo, err = p.GitlabClient.GetProjectHooks(info, group, project)
+			webhookInfo, err = p.GitlabClient.GetProjectHooks(ctx, info, group, project)
 			if err != nil {
 				if strings.Contains(err.Error(), projectNotFoundError) {
 					return projectNotFoundMessage + namespace
@@ -334,7 +343,7 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo, enab
 				return err.Error()
 			}
 		} else {
-			webhookInfo, err = p.GitlabClient.GetGroupHooks(info, group)
+			webhookInfo, err = p.GitlabClient.GetGroupHooks(ctx, info, group)
 			if err != nil {
 				if strings.Contains(err.Error(), groupNotFoundError) {
 					return groupNotFoundMessage + group
@@ -381,24 +390,24 @@ func (p *Plugin) webhookCommand(parameters []string, info *gitlab.UserInfo, enab
 		}
 
 		namespace := parameters[1]
-		group, projectName, namespaceErr := p.GitlabClient.ResolveNamespaceAndProject(info, namespace, enablePrivateRepo)
+		group, projectName, namespaceErr := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, namespace, enablePrivateRepo)
 		if namespaceErr != nil {
 			return namespaceErr.Error()
 		}
 		// If project scope
 		if projectName != "" {
-			project, err := p.GitlabClient.GetProject(info, group, projectName)
+			project, err := p.GitlabClient.GetProject(ctx, info, group, projectName)
 			if err != nil {
 				return err.Error()
 			}
-			newWebhook, err := p.GitlabClient.NewProjectHook(info, project.ID, hookOptions)
+			newWebhook, err := p.GitlabClient.NewProjectHook(ctx, info, project.ID, hookOptions)
 			if err != nil {
 				return err.Error()
 			}
 			return fmt.Sprintf("Webhook Created:\n%s", newWebhook.String())
 		}
 		// If webhook is group scoped
-		newWebhook, err := p.GitlabClient.NewGroupHook(info, group, hookOptions)
+		newWebhook, err := p.GitlabClient.NewGroupHook(ctx, info, group, hookOptions)
 		if err != nil {
 			return err.Error()
 		}
@@ -508,10 +517,10 @@ func (p *Plugin) subscriptionsListCommand(channelID string) string {
 }
 
 // subscriptionsAddCommand subscripes to A GitLab Project
-func (p *Plugin) subscriptionsAddCommand(info *gitlab.UserInfo, config *configuration, fullPath, channelID, features string) string {
+func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserInfo, config *configuration, fullPath, channelID, features string) string {
 	var err error
-	namespace, project, err := p.GitlabClient.
-		ResolveNamespaceAndProject(info, fullPath, config.EnablePrivateRepo)
+	namespace, project, err := p.GitlabClient.ResolveNamespaceAndProject(
+		ctx, info, fullPath, config.EnablePrivateRepo)
 
 	if err != nil {
 		if errors.Is(err, gitlab.ErrNotFound) {
@@ -537,7 +546,7 @@ func (p *Plugin) subscriptionsAddCommand(info *gitlab.UserInfo, config *configur
 	}
 	var hasHook bool
 	if project != "" {
-		hasHook, err = p.HasProjectHook(info, namespace, project)
+		hasHook, err = p.HasProjectHook(ctx, info, namespace, project)
 		if err != nil {
 			return fmt.Sprintf(
 				"Unable to determine status of Webhook. See [setup instructions](%s) to validate.",
@@ -545,7 +554,7 @@ func (p *Plugin) subscriptionsAddCommand(info *gitlab.UserInfo, config *configur
 			)
 		}
 	} else {
-		hasHook, err = p.HasGroupHook(info, namespace)
+		hasHook, err = p.HasGroupHook(ctx, info, namespace)
 		if err != nil {
 			return fmt.Sprintf(
 				"Unable to determine status of Webhook. See [setup instructions](%s) to validate.",
@@ -566,7 +575,7 @@ func (p *Plugin) subscriptionsAddCommand(info *gitlab.UserInfo, config *configur
 
 // subscribeCommand process the /gitlab subscribe command.
 // It returns a message and handles all errors my including helpful information in the message
-func (p *Plugin) subscribeCommand(parameters []string, channelID string, config *configuration, info *gitlab.UserInfo) string {
+func (p *Plugin) subscribeCommand(ctx context.Context, parameters []string, channelID string, config *configuration, info *gitlab.UserInfo) string {
 	if len(parameters) == 0 {
 		return invalidSubscribeSubCommand
 	}
@@ -584,7 +593,7 @@ func (p *Plugin) subscribeCommand(parameters []string, channelID string, config 
 		// Resolve namespace and project name
 		fullPath := normalizePath(parameters[1], config.GitlabURL)
 
-		return p.subscriptionsAddCommand(info, config, fullPath, channelID, features)
+		return p.subscriptionsAddCommand(ctx, info, config, fullPath, channelID, features)
 	case commandDelete:
 		if len(parameters) < 2 {
 			return specifyRepositoryMessage
