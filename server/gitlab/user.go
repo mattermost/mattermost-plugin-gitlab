@@ -32,7 +32,10 @@ func (g *gitlab) GetCurrentUser(ctx context.Context, userID string, token oauth2
 		return nil, err
 	}
 
-	gitUser, _, err := client.Users.CurrentUser(internGitlab.WithContext(ctx))
+	gitUser, resp, err := client.Users.CurrentUser(internGitlab.WithContext(ctx))
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -57,6 +60,13 @@ func (g *gitlab) GetUserDetails(ctx context.Context, user *UserInfo) (*internGit
 		return nil, err
 	}
 
-	gitUser, _, err := client.Users.CurrentUser(internGitlab.WithContext(ctx))
-	return gitUser, err
+	gitUser, resp, err := client.Users.CurrentUser(internGitlab.WithContext(ctx))
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return gitUser, nil
 }

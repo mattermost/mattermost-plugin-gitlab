@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin/plugintest"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	gitLabAPI "github.com/xanzy/go-gitlab"
@@ -73,7 +73,6 @@ func TestSubscribeCommand(t *testing.T) {
 	for _, test := range subscribeCommandTests {
 		t.Run(test.testName, func(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
-			defer mockCtrl.Finish()
 
 			channelID := "12345"
 			userInfo := &gitlab.UserInfo{}
@@ -193,7 +192,6 @@ func TestListWebhookCommand(t *testing.T) {
 			p := new(Plugin)
 
 			mockCtrl := gomock.NewController(t)
-			defer mockCtrl.Finish()
 			mockedClient := mocks.NewMockGitlab(mockCtrl)
 
 			if test.scope == "project" {
@@ -342,7 +340,6 @@ func TestAddWebhookCommand(t *testing.T) {
 			p := new(Plugin)
 
 			mockCtrl := gomock.NewController(t)
-			defer mockCtrl.Finish()
 			mockedClient := mocks.NewMockGitlab(mockCtrl)
 
 			if test.scope == "group" {

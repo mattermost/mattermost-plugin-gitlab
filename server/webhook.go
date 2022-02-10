@@ -8,6 +8,7 @@ import (
 
 	gitlabLib "github.com/xanzy/go-gitlab"
 
+	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 
@@ -195,4 +196,27 @@ func (p *Plugin) permissionToProject(ctx context.Context, userID, namespace, pro
 		return false
 	}
 	return true
+}
+
+func CreateHook(ctx context.Context, gitlabClient gitlab.Gitlab, info *gitlab.UserInfo, group, project string, hookOptions *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error) {
+	// If project scope
+	if project != "" {
+		project, err := gitlabClient.GetProject(ctx, info, group, project)
+		if err != nil {
+			return nil, err
+		}
+		newWebhook, err := gitlabClient.NewProjectHook(ctx, info, project.ID, hookOptions)
+		if err != nil {
+			return nil, err
+		}
+		return newWebhook, nil
+	}
+
+	// If webhook is group scoped
+	newWebhook, err := gitlabClient.NewGroupHook(ctx, info, group, hookOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	return newWebhook, nil
 }

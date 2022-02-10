@@ -80,7 +80,7 @@ const (
 )
 
 const (
-	commandTimeout = 4 * time.Second
+	commandTimeout = 6 * time.Second
 )
 
 func (p *Plugin) getCommand(config *configuration) (*model.Command, error) {
@@ -222,7 +222,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 			return p.getCommandResponse(args, "Encountered an error getting your GitLab profile."), nil
 		}
 
-		text := fmt.Sprintf("You are connected to GitLab as:\n# [![image](%s =40x40)](%s) [%s](%s)", gitUser.AvatarURL, gitUser.WebsiteURL, gitUser.Username, gitUser.WebsiteURL)
+		text := fmt.Sprintf("You are connected to GitLab as:\n# [![image](%s =40x40)](%s) [%s](%s)", gitUser.AvatarURL, gitUser.WebURL, gitUser.Username, gitUser.WebsiteURL)
 		return p.getCommandResponse(args, text), nil
 	case "settings":
 		if len(parameters) < 2 {
@@ -390,24 +390,12 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		}
 
 		namespace := parameters[1]
-		group, projectName, namespaceErr := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, namespace, enablePrivateRepo)
+		group, project, namespaceErr := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, namespace, enablePrivateRepo)
 		if namespaceErr != nil {
 			return namespaceErr.Error()
 		}
-		// If project scope
-		if projectName != "" {
-			project, err := p.GitlabClient.GetProject(ctx, info, group, projectName)
-			if err != nil {
-				return err.Error()
-			}
-			newWebhook, err := p.GitlabClient.NewProjectHook(ctx, info, project.ID, hookOptions)
-			if err != nil {
-				return err.Error()
-			}
-			return fmt.Sprintf("Webhook Created:\n%s", newWebhook.String())
-		}
-		// If webhook is group scoped
-		newWebhook, err := p.GitlabClient.NewGroupHook(ctx, info, group, hookOptions)
+
+		newWebhook, err := CreateHook(ctx, p.GitlabClient, info, group, project, hookOptions)
 		if err != nil {
 			return err.Error()
 		}
@@ -621,25 +609,25 @@ func (p *Plugin) isAuthorizedSysAdmin(userID string) (bool, error) {
 }
 
 func getAutocompleteData(config *configuration) *model.AutocompleteData {
-	if config.IsValid() != nil {
-		github := model.NewAutocompleteData("gitlab", "[command]", "Available commands: setup")
+	if !config.IsOAuthConfigured() {
+		gitlab := model.NewAutocompleteData("gitlab", "[command]", "Available commands: setup")
 
-		getStarted := model.NewAutocompleteData("setup", "", "Set up the GitLab plugin")
-		github.AddCommand(getStarted)
+		setup := model.NewAutocompleteData("setup", "", "Set up the GitLab plugin")
+		gitlab.AddCommand(setup)
 
-		return github
+		return gitlab
 	}
 
-	gitlabCommand := model.NewAutocompleteData("gitlab", "[command]", "Available commands: connect, disconnect, todo, subscribe, unsubscribe, me, settings, webhook")
+	gitlab := model.NewAutocompleteData("gitlab", "[command]", "Available commands: connect, disconnect, todo, subscribe, unsubscribe, me, settings, webhook, setup")
 
 	connect := model.NewAutocompleteData("connect", "", "Connect your GitLab account")
-	gitlabCommand.AddCommand(connect)
+	gitlab.AddCommand(connect)
 
 	disconnect := model.NewAutocompleteData("disconnect", "", "disconnect your GitLab account")
-	gitlabCommand.AddCommand(disconnect)
+	gitlab.AddCommand(disconnect)
 
 	todo := model.NewAutocompleteData("todo", "", "Get a list of unread messages and merge requests awaiting your review")
-	gitlabCommand.AddCommand(todo)
+	gitlab.AddCommand(todo)
 
 	subscriptions := model.NewAutocompleteData("subscriptions", "[command]", "Available commands: Add, List, Delete")
 
@@ -655,10 +643,10 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 	subscriptionsDelete.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
 	subscriptions.AddCommand(subscriptionsDelete)
 
-	gitlabCommand.AddCommand(subscriptions)
+	gitlab.AddCommand(subscriptions)
 
 	me := model.NewAutocompleteData("me", "", "Displays the connected GitLab account")
-	gitlabCommand.AddCommand(me)
+	gitlab.AddCommand(me)
 
 	settings := model.NewAutocompleteData("settings", "[setting]", "Update your user settings")
 	settingOptions := []model.AutocompleteListItem{{
@@ -678,7 +666,7 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 		Item:     "off",
 	}}
 	settings.AddStaticListArgument("New value", true, value)
-	gitlabCommand.AddCommand(settings)
+	gitlab.AddCommand(settings)
 
 	webhook := model.NewAutocompleteData("webhook", "[command]", "Available Commands: list, add")
 	webhookList := model.NewAutocompleteData(commandList, "owner/[repo]", "List existing project or group webhooks")
@@ -692,10 +680,17 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 	webhookAdd.AddTextArgument("[Optional] token: Secret for webhook. Defaults to token used in plugin's settings.", "[token]", "")
 	webhook.AddCommand(webhookAdd)
 
-	gitlabCommand.AddCommand(webhook)
+	gitlab.AddCommand(webhook)
 
 	help := model.NewAutocompleteData("help", "", "Display GiLab Plug Help.")
-	gitlabCommand.AddCommand(help)
+	gitlab.AddCommand(help)
 
-	return gitlabCommand
+	setup := model.NewAutocompleteData("setup", "[command]", "Available commands: oauth, webhook, announcement")
+	setup.RoleID = model.SystemAdminRoleId
+	setup.AddCommand(model.NewAutocompleteData("oauth", "", "Set up the OAuth2 Application in GitLab"))
+	setup.AddCommand(model.NewAutocompleteData("webhook", "", "Create a webhook from GitLab to Mattermost"))
+	setup.AddCommand(model.NewAutocompleteData("announcement", "", "Announce to your team that they can use GitLab integration"))
+	gitlab.AddCommand(setup)
+
+	return gitlab
 }

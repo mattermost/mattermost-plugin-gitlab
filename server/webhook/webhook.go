@@ -119,6 +119,15 @@ func sameLabels(a []gitlab.Label, b []gitlab.Label) bool {
 	return true
 }
 
+func containsLabelPointer(a []*gitlab.Label, labelName string) bool {
+	for _, l := range a {
+		if l != nil && l.Name == labelName {
+			return true
+		}
+	}
+	return false
+}
+
 func containsLabel(a []gitlab.Label, labelName string) bool {
 	for _, l := range a {
 		if l.Name == labelName {

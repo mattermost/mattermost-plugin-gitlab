@@ -20,6 +20,7 @@ import (
 	"github.com/mattermost/mattermost-server/v6/plugin"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
+	"golang.org/x/sync/errgroup"
 
 	root "github.com/mattermost/mattermost-plugin-gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
@@ -168,6 +169,10 @@ func (p *Plugin) setDefaultConfiguration() error {
 	return nil
 }
 
+func (p *Plugin) getGitlabClient() gitlab.Gitlab {
+	return p.GitlabClient
+}
+
 func (p *Plugin) getOAuthConfig() *oauth2.Config {
 	config := p.getConfiguration()
 
@@ -242,7 +247,7 @@ func (p *Plugin) storeGitlabUserInfo(info *gitlab.UserInfo) error {
 
 func (p *Plugin) deleteGitlabUserInfo(userID string) error {
 	if err := p.API.KVDelete(userID + GitlabTokenKey); err != nil {
-		return fmt.Errorf("encountered error deleting GitLab user info: %w", err)
+		return errors.Wrap(err, "encountered error deleting GitLab user info")
 	}
 	return nil
 }
@@ -271,28 +276,28 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 
 func (p *Plugin) storeGitlabToUserIDMapping(gitlabUsername, userID string) error {
 	if err := p.API.KVSet(gitlabUsername+GitlabUsernameKey, []byte(userID)); err != nil {
-		return fmt.Errorf("encountered error saving GitLab username mapping: %w", err)
+		return errors.Wrap(err, "encountered error saving GitLab username mapping")
 	}
 	return nil
 }
 
 func (p *Plugin) storeGitlabIDToUserIDMapping(gitlabUsername string, gitlabID int) error {
 	if err := p.API.KVSet(fmt.Sprintf("%d%s", gitlabID, GitlabIDUsernameKey), []byte(gitlabUsername)); err != nil {
-		return fmt.Errorf("encountered error saving GitLab id mapping: %w", err)
+		return errors.Wrap(err, "encountered error saving GitLab id mapping")
 	}
 	return nil
 }
 
 func (p *Plugin) deleteGitlabToUserIDMapping(gitlabUsername string) error {
 	if err := p.API.KVDelete(gitlabUsername + GitlabUsernameKey); err != nil {
-		return fmt.Errorf("encountered error deleting GitLab username mapping: %w", err)
+		return errors.Wrap(err, "encountered error deleting GitLab username mapping")
 	}
 	return nil
 }
 
 func (p *Plugin) deleteGitlabIDToUserIDMapping(gitlabID int) error {
 	if err := p.API.KVDelete(fmt.Sprintf("%d%s", gitlabID, GitlabIDUsernameKey)); err != nil {
-		return fmt.Errorf("encountered error deleting GitLab id mapping: %w", err)
+		return errors.Wrap(err, "encountered error deleting GitLab id mapping")
 	}
 	return nil
 }
@@ -397,90 +402,121 @@ func (p *Plugin) PostToDo(ctx context.Context, info *gitlab.UserInfo) {
 }
 
 func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, string, error) {
-	var hasTodo bool
+	hasTodo := false
 
-	unreads, err := p.GitlabClient.GetUnreads(ctx, user)
-	if err != nil {
-		return false, "", err
-	}
+	g, ctx := errgroup.WithContext(ctx)
 
-	yourAssignments, err := p.GitlabClient.GetYourAssignments(ctx, user)
-	if err != nil {
-		return false, "", err
-	}
+	notificationText := ""
+	g.Go(func() error {
+		unreads, err := p.GitlabClient.GetUnreads(ctx, user)
+		if err != nil {
+			return err
+		}
 
-	yourMergeRequests, err := p.GitlabClient.GetYourPrs(ctx, user)
-	if err != nil {
-		return false, "", err
-	}
+		notificationCount := 0
+		notificationContent := ""
 
-	reviews, err := p.GitlabClient.GetReviews(ctx, user)
-	if err != nil {
+		for _, n := range unreads {
+			if p.isNamespaceAllowed(n.Project.NameWithNamespace) != nil {
+				continue
+			}
+			notificationCount++
+			notificationContent += fmt.Sprintf("* %v : [%v](%v)\n", n.ActionName, n.Target.Title, n.TargetURL)
+		}
+
+		if notificationCount == 0 {
+			notificationText += "You don't have any unread messages.\n"
+		} else {
+			notificationText += fmt.Sprintf("You have %v unread messages:\n", notificationCount)
+			notificationText += notificationContent
+
+			hasTodo = true
+		}
+
+		return nil
+	})
+
+	reviewText := ""
+	g.Go(func() error {
+		reviews, err := p.GitlabClient.GetReviews(ctx, user)
+		if err != nil {
+			return err
+		}
+
+		if len(reviews) == 0 {
+			reviewText += "You don't have any merge requests awaiting your review.\n"
+		} else {
+			reviewText += fmt.Sprintf("You have %v merge requests awaiting your review:\n", len(reviews))
+
+			for _, pr := range reviews {
+				reviewText += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
+			}
+
+			hasTodo = true
+		}
+
+		return nil
+	})
+
+	assignmentText := ""
+	g.Go(func() error {
+		yourAssignments, err := p.GitlabClient.GetYourAssignments(ctx, user)
+		if err != nil {
+			return err
+		}
+
+		if len(yourAssignments) == 0 {
+			assignmentText += "You don't have any issues awaiting your dev.\n"
+		} else {
+			assignmentText += fmt.Sprintf("You have %v issues awaiting dev:\n", len(yourAssignments))
+
+			for _, pr := range yourAssignments {
+				assignmentText += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
+			}
+
+			hasTodo = true
+		}
+
+		return nil
+	})
+
+	mergeRequestText := ""
+	g.Go(func() error {
+		mergeRequests, err := p.GitlabClient.GetYourPrs(ctx, user)
+		if err != nil {
+			return err
+		}
+
+		if len(mergeRequests) == 0 {
+			mergeRequestText += "You don't have any open merge requests.\n"
+		} else {
+			mergeRequestText += fmt.Sprintf("You have %v open merge requests:\n", len(mergeRequests))
+
+			for _, pr := range mergeRequests {
+				mergeRequestText += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
+			}
+
+			hasTodo = true
+		}
+
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
 		return false, "", err
 	}
 
 	text := "##### Unread Messages\n"
-
-	notificationCount := 0
-	notificationContent := ""
-	for _, n := range unreads {
-		if p.isNamespaceAllowed(n.Project.NameWithNamespace) != nil {
-			continue
-		}
-		notificationCount++
-		notificationContent += fmt.Sprintf("* %v : [%v](%v)\n", n.ActionName, n.Target.Title, n.TargetURL)
-	}
-
-	if notificationCount == 0 {
-		text += "You don't have any unread messages.\n"
-	} else {
-		text += fmt.Sprintf("You have %v unread messages:\n", notificationCount)
-		text += notificationContent
-
-		hasTodo = true
-	}
+	text += notificationText
 
 	text += "##### Review Requests\n"
-
-	if len(reviews) == 0 {
-		text += "You don't have any merge requests awaiting your review.\n"
-	} else {
-		text += fmt.Sprintf("You have %v merge requests awaiting your review:\n", len(reviews))
-
-		for _, pr := range reviews {
-			text += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
-		}
-
-		hasTodo = true
-	}
+	text += reviewText
 
 	text += "##### Assignments\n"
-
-	if len(yourAssignments) == 0 {
-		text += "You don't have any issues awaiting your dev.\n"
-	} else {
-		text += fmt.Sprintf("You have %v issues awaiting dev:\n", len(yourAssignments))
-
-		for _, pr := range yourAssignments {
-			text += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
-		}
-
-		hasTodo = true
-	}
+	text += assignmentText
 
 	text += "##### Your Open Merge Requests\n"
-
-	if len(yourMergeRequests) == 0 {
-		text += "You don't have any open merge requests.\n"
-	} else {
-		text += fmt.Sprintf("You have %v open merge requests:\n", len(yourMergeRequests))
-
-		for _, pr := range yourMergeRequests {
-			text += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
-		}
-
-		hasTodo = true
-	}
+	text += mergeRequestText
 
 	return hasTodo, text, nil
 }
@@ -488,7 +524,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 func (p *Plugin) isNamespaceAllowed(namespace string) error {
 	allowedNamespace := strings.TrimSpace(p.getConfiguration().GitlabGroup)
 	if allowedNamespace != "" && allowedNamespace != namespace && !strings.HasPrefix(namespace, allowedNamespace) {
-		return fmt.Errorf("only repositories in the %s namespace are allowed", allowedNamespace)
+		return errors.Errorf("only repositories in the %s namespace are allowed", allowedNamespace)
 	}
 
 	return nil

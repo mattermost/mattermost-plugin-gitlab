@@ -54,9 +54,9 @@ func (p *Plugin) initializeAPI() {
 	apiRouter.HandleFunc("/reviews", p.checkAuth(p.attachUserContext(p.getReviews), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/yourprs", p.checkAuth(p.attachUserContext(p.getYourPrs), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/yourassignments", p.checkAuth(p.attachUserContext(p.getYourAssignments), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/unreads", p.checkAuth(p.attachUserContext(p.getUnreads), ResponseTypePlain)).Methods(http.MethodGet)
 
-	apiRouter.HandleFunc("/settings", p.checkAuth(p.attachUserContext(p.getUnreads), ResponseTypePlain)).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/unreads", p.checkAuth(p.attachUserContext(p.updateSettings), ResponseTypePlain)).Methods(http.MethodPost)
+	apiRouter.HandleFunc("/settings", p.checkAuth(p.attachUserContext(p.updateSettings), ResponseTypePlain)).Methods(http.MethodPost)
 }
 
 type Context struct {
@@ -191,6 +191,10 @@ type APIErrorResponse struct {
 	StatusCode int    `json:"status_code"`
 }
 
+func (e *APIErrorResponse) Error() string {
+	return e.Message
+}
+
 func (p *Plugin) writeAPIError(w http.ResponseWriter, err *APIErrorResponse) {
 	b, _ := json.Marshal(err)
 	w.WriteHeader(err.StatusCode)
@@ -276,7 +280,6 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 
 	config := p.getConfiguration()
 
-	ctx := context.Background()
 	conf := p.getOAuthConfig()
 
 	code := r.URL.Query().Get("code")
@@ -319,7 +322,7 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		return
 	}
 
-	tok, err := conf.Exchange(ctx, code)
+	tok, err := conf.Exchange(c.Ctx, code)
 	if err != nil {
 		c.Log.WithError(err).Warnf("Can't exchange state")
 

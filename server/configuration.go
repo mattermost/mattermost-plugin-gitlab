@@ -4,8 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
-	"net/url"
 	"reflect"
 	"strings"
 
@@ -28,15 +26,15 @@ import (
 // If you add non-reference types to your configuration struct, be sure to rewrite Clone as a deep
 // copy appropriate for your types.
 type configuration struct {
-	GitlabURL                   string
-	GitlabOAuthClientID         string
-	GitlabOAuthClientSecret     string
-	WebhookSecret               string
-	EncryptionKey               string
-	GitlabGroup                 string
-	EnablePrivateRepo           bool
-	PluginsDirectory            string
-	UsePreregisteredApplication bool
+	GitlabURL                   string `json:"gitlaburl"`
+	GitlabOAuthClientID         string `json:"gitlaboauthclientid"`
+	GitlabOAuthClientSecret     string `json:"gitlaboauthclientsecret"`
+	WebhookSecret               string `json:"webhooksecret"`
+	EncryptionKey               string `json:"encryptionkey"`
+	GitlabGroup                 string `json:"gitlabgroup"`
+	EnablePrivateRepo           bool   `json:"enableprivaterepo"`
+	PluginsDirectory            string `json:"githuborg"`
+	UsePreregisteredApplication bool   `json:"usepreregisteredapplication"`
 }
 
 // Clone shallow copies the configuration. Your implementation may require a deep copy if
@@ -113,16 +111,16 @@ func (c *configuration) IsSASS() bool {
 
 // IsValid checks if all needed fields are set.
 func (c *configuration) IsValid() error {
-	if _, err := url.ParseRequestURI(c.GitlabURL); err != nil {
+	if err := isValidURL(c.GitlabURL); err != nil {
 		return errors.New("must have a valid GitLab URL")
 	}
 
 	if !c.UsePreregisteredApplication {
 		if c.GitlabOAuthClientID == "" {
-			return fmt.Errorf("must have a GitLab oauth client id")
+			return errors.New("must have a GitLab oauth client id")
 		}
 		if c.GitlabOAuthClientSecret == "" {
-			return fmt.Errorf("must have a GitLab oauth client secret")
+			return errors.New("must have a GitLab oauth client secret")
 		}
 	}
 
@@ -131,7 +129,7 @@ func (c *configuration) IsValid() error {
 	}
 
 	if c.EncryptionKey == "" {
-		return fmt.Errorf("must have an encryption key")
+		return errors.New("must have an encryption key")
 	}
 
 	return nil

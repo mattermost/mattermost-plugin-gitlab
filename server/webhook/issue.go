@@ -26,7 +26,7 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 
 	switch event.ObjectAttributes.Action {
 	case actionOpen:
-		if len(event.Assignees) > 0 {
+		if event.Assignees != nil && len(*event.Assignees) > 0 {
 			message = fmt.Sprintf("[%s](%s) assigned you to issue [%s#%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Project.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 		}
 	case actionClose:
@@ -36,11 +36,13 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 	}
 
 	if message != "" {
-		toUsers := make([]string, len(event.Assignees)+1)
-		for index, assignee := range event.Assignees {
-			toUsers[index] = assignee.Username
+		toUsers := []string{}
+		if event.Assignees != nil {
+			for _, assignee := range *event.Assignees {
+				toUsers = append(toUsers, assignee.Username)
+			}
 		}
-		toUsers[len(toUsers)-1] = authorGitlabUsername
+		toUsers = append(toUsers, authorGitlabUsername)
 
 		handlers := []*HandleWebhook{{
 			Message: message,
@@ -79,7 +81,7 @@ func (w *webhook) handleChannelIssue(event *gitlab.IssueEvent) ([]*HandleWebhook
 		message = fmt.Sprintf("[%s] Issue [%s](%s) reopened by [%s](%s)", repo.PathWithNamespace, issue.Title, issue.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
 	case actionUpdate:
 		if len(event.Changes.Labels.Current) > 0 && !sameLabels(event.Changes.Labels.Current, event.Changes.Labels.Previous) {
-			message = fmt.Sprintf("#### %s\n##### [%s#%v](%s)\n###### issue labeled `%s` by [%s](%s) on [%s](%s)\n\n%s", issue.Title, repo.PathWithNamespace, issue.IID, issue.URL, labelToString(event.Changes.Labels.Current), event.User.Username, event.User.WebsiteURL, issue.UpdatedAt, issue.URL, issue.Description)
+			message = fmt.Sprintf("#### %s\n##### [%s#%v](%s)\n###### issue labeled `%s` by [%s](%s) on [%s](%s)\n\n%s", issue.Title, repo.PathWithNamespace, issue.IID, issue.URL, labelToString(event.Changes.Labels.Current), event.User.Username, w.gitlabRetreiver.GetUserURL(event.User.Username), issue.UpdatedAt, issue.URL, issue.Description)
 		}
 	}
 

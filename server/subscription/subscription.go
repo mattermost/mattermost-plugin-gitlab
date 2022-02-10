@@ -1,9 +1,9 @@
 package subscription
 
 import (
-	"errors"
-	"fmt"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 var allFeatures = map[string]bool{
@@ -40,7 +40,7 @@ func New(channelID, creatorID, features, repository string) (*Subscription, erro
 		}
 	}
 	if len(badFeatures) > 0 {
-		return nil, fmt.Errorf("unknown features %s", strings.Join(badFeatures, ","))
+		return nil, errors.Errorf("unknown features %s", strings.Join(badFeatures, ","))
 	}
 	return &Subscription{
 		ChannelID:  channelID,
