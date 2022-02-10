@@ -212,7 +212,7 @@ func (g *gitlab) GetProjectHooks(ctx context.Context, user *UserInfo, owner stri
 	}
 
 	projectPath := fmt.Sprintf("%s/%s", owner, repo)
-	projectHooks, resp, err := client.Projects.ListProjectHooks(projectPath, nil)
+	projectHooks, resp, err := client.Projects.ListProjectHooks(projectPath, nil, internGitlab.WithContext(ctx))
 	if respErr := checkResponse(resp); respErr != nil {
 		return nil, respErr
 	}
@@ -409,12 +409,14 @@ func (g *gitlab) ResolveNamespaceAndProject(
 		project *internGitlab.Project
 	)
 
-	errGroup, _ := errgroup.WithContext(ctx)
+	errGroup, ctx := errgroup.WithContext(ctx)
 	if strings.Count(fullPath, "/") == 0 { // This request only makes sense for single path component
 		errGroup.Go(func() error {
 			users, resp, err := client.Users.ListUsers(&internGitlab.ListUsersOptions{
 				Username: &fullPath,
-			})
+			},
+				internGitlab.WithContext(ctx),
+			)
 			if respErr := checkResponse(resp); respErr != nil {
 				return respErr
 			}
@@ -428,7 +430,7 @@ func (g *gitlab) ResolveNamespaceAndProject(
 		})
 	}
 	errGroup.Go(func() error {
-		gr, resp, err := client.Groups.GetGroup(fullPath, nil)
+		gr, resp, err := client.Groups.GetGroup(fullPath, nil, internGitlab.WithContext(ctx))
 		if err != nil && resp != nil && resp.StatusCode != http.StatusNotFound {
 			return errors.Wrap(err, "failed to retrieve group by path")
 		}
@@ -436,7 +438,7 @@ func (g *gitlab) ResolveNamespaceAndProject(
 		return nil
 	})
 	errGroup.Go(func() error {
-		p, resp, err := client.Projects.GetProject(fullPath, nil, nil)
+		p, resp, err := client.Projects.GetProject(fullPath, nil, internGitlab.WithContext(ctx))
 		if err != nil && resp != nil && resp.StatusCode != http.StatusNotFound {
 			return errors.Wrap(err, "failed to retrieve project by path")
 		}
