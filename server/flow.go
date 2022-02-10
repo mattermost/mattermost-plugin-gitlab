@@ -437,8 +437,9 @@ You must first register the Mattermost GitLab Plugin as an authorized OAuth app.
 		"2. Set the following values:\n"+
 		"	- Name: `Mattermost GitLab Plugin - <your company name>`\n"+
 		"	- Redirect URI: `%s/oauth/complete`\n"+
-		"3. Select `api` and `read_user` in Scopes.\n"+
-		"4. Select **Save application**\n",
+		"3. Unselect **Expire access tokens**.\n"+
+		"4. Select `api` and `read_user` in Scopes.\n"+
+		"5. Select **Save application**\n",
 		fm.pluginURL,
 	)
 
