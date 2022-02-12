@@ -157,6 +157,7 @@ const (
 	stepCancel  flow.Name = "cancel"
 
 	keyDelegatedFrom               = "DelegatedFrom"
+	keyDelegatedTo                 = "DelgatedTo"
 	keyGitlabURL                   = "GitlabURL"
 	keyUsePreregisteredApplication = "UsePreregisteredApplication"
 	keyIsOAuthConfigured           = "IsOAuthConfigured"
@@ -328,15 +329,15 @@ func (fm *FlowManager) submitDelegateSelection(f *flow.Flow, submitted map[strin
 	}
 
 	return stepDelegateConfirmation, flow.State{
-		"Delegated": delegate.GetDisplayName(model.ShowNicknameFullName),
+		keyDelegatedTo: delegate.Username,
 	}, nil, nil
 }
 
 func (fm *FlowManager) stepDelegateConfirmation() flow.Step {
 	return flow.NewStep(stepDelegateConfirmation).
-		WithText("GitLab integration setup details have been sent to @{{.Delegated}}").
+		WithText("GitLab integration setup details have been sent to @{{ .DelgatedTo }}").
 		WithButton(flow.Button{
-			Name:     "Waiting for @{{ .Delegated }}...",
+			Name:     "Waiting for @{{ .DelgatedTo }}...",
 			Color:    flow.ColorDefault,
 			Disabled: true,
 		}).
@@ -345,7 +346,7 @@ func (fm *FlowManager) stepDelegateConfirmation() flow.Step {
 
 func (fm *FlowManager) stepDelegateComplete() flow.Step {
 	return flow.NewStep(stepDelegateComplete).
-		WithText("~{{.Delegated}} completed configuring the integration.").
+		WithText("@{{ .DelgatedTo }} completed configuring the integration.").
 		Next(stepDone)
 }
 
