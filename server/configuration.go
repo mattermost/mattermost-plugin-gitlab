@@ -33,7 +33,6 @@ type configuration struct {
 	EncryptionKey               string `json:"encryptionkey"`
 	GitlabGroup                 string `json:"gitlabgroup"`
 	EnablePrivateRepo           bool   `json:"enableprivaterepo"`
-	PluginsDirectory            string `json:"githuborg"`
 	UsePreregisteredApplication bool   `json:"usepreregisteredapplication"`
 }
 
@@ -173,11 +172,6 @@ func (p *Plugin) setConfiguration(configuration *configuration, serverConfigurat
 		panic("setConfiguration called with the existing configuration")
 	}
 
-	// PluginDirectory should be set based on server configuration and not the plugin configuration
-	if serverConfiguration.PluginSettings.Directory != nil {
-		configuration.PluginsDirectory = *serverConfiguration.PluginSettings.Directory
-	}
-
 	p.configuration = configuration
 }
 
@@ -213,7 +207,7 @@ func (p *Plugin) OnConfigurationChange() error {
 		}
 	}
 
-	p.tracker = telemetry.NewTracker(p.telemetryClient, p.API.GetDiagnosticId(), p.API.GetServerVersion(), manifest.Id, manifest.Version, "github", enableDiagnostics)
+	p.tracker = telemetry.NewTracker(p.telemetryClient, p.API.GetDiagnosticId(), p.API.GetServerVersion(), manifest.Id, manifest.Version, "gitlab", enableDiagnostics)
 
 	p.GitlabClient = gitlab.New(configuration.GitlabURL, configuration.GitlabGroup, p.isNamespaceAllowed)
 
