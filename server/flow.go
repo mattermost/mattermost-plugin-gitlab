@@ -351,11 +351,11 @@ func (fm *FlowManager) stepDelegateComplete() flow.Step {
 }
 
 func (fm *FlowManager) stepInstanceURL() flow.Step {
-	enterpriseText := "Do you you gitlab.com or a self managed instance?"
+	enterpriseText := "Are you using `gitlab.com`?"
 	return flow.NewStep(stepGitlabURL).
 		WithText(enterpriseText).
 		WithButton(flow.Button{
-			Name:  "gitlab.com",
+			Name:  "Yes",
 			Color: flow.ColorDefault,
 			OnClick: func(f *flow.Flow) (flow.Name, flow.State, error) {
 				err := fm.setGitlabURL(gitlab.Gitlabdotcom)
@@ -367,7 +367,7 @@ func (fm *FlowManager) stepInstanceURL() flow.Step {
 			},
 		}).
 		WithButton(flow.Button{
-			Name:  "Self managed",
+			Name:  "No",
 			Color: flow.ColorPrimary,
 			Dialog: &model.Dialog{
 				Title:            "GitLab URL",
