@@ -1,17 +1,18 @@
 package webhook
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/xanzy/go-gitlab"
 )
 
-func (w *webhook) HandleIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, error) {
+func (w *webhook) HandleIssue(ctx context.Context, event *gitlab.IssueEvent) ([]*HandleWebhook, error) {
 	handlers, err := w.handleDMIssue(event)
 	if err != nil {
 		return nil, err
 	}
-	handlers2, err := w.handleChannelIssue(event)
+	handlers2, err := w.handleChannelIssue(ctx, event)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +65,7 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 	return []*HandleWebhook{}, nil
 }
 
-func (w *webhook) handleChannelIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, error) {
+func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEvent) ([]*HandleWebhook, error) {
 	issue := event.ObjectAttributes
 	senderGitlabUsername := event.User.Username
 	repo := event.Project
@@ -89,7 +90,7 @@ func (w *webhook) handleChannelIssue(event *gitlab.IssueEvent) ([]*HandleWebhook
 		toChannels := make([]string, 0)
 		namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
 		subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
-			namespace, project,
+			ctx, namespace, project,
 			repo.Visibility == gitlab.PublicVisibility,
 		)
 		for _, sub := range subs {

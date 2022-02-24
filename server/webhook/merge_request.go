@@ -1,17 +1,18 @@
 package webhook
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/xanzy/go-gitlab"
 )
 
-func (w *webhook) HandleMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebhook, error) {
+func (w *webhook) HandleMergeRequest(ctx context.Context, event *gitlab.MergeEvent) ([]*HandleWebhook, error) {
 	handlers, err := w.handleDMMergeRequest(event)
 	if err != nil {
 		return nil, err
 	}
-	handlers2, err := w.handleChannelMergeRequest(event)
+	handlers2, err := w.handleChannelMergeRequest(ctx, event)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +66,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 	return []*HandleWebhook{{From: senderGitlabUsername}}, nil
 }
 
-func (w *webhook) handleChannelMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebhook, error) {
+func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.MergeEvent) ([]*HandleWebhook, error) {
 	senderGitlabUsername := event.User.Username
 	pr := event.ObjectAttributes
 	repo := event.Project
@@ -88,7 +89,7 @@ func (w *webhook) handleChannelMergeRequest(event *gitlab.MergeEvent) ([]*Handle
 		toChannels := make([]string, 0)
 		namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
 		subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
-			namespace, project,
+			ctx, namespace, project,
 			repo.Visibility == gitlab.PublicVisibility,
 		)
 		for _, sub := range subs {

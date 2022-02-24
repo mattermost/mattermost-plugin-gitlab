@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	gitlabLib "github.com/xanzy/go-gitlab"
 
@@ -13,6 +14,10 @@ import (
 	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 
 	"github.com/mattermost/mattermost-server/v6/model"
+)
+
+const (
+	webhookTimeout = 10 * time.Second
 )
 
 type gitlabRetreiver struct {
@@ -38,11 +43,12 @@ func (g *gitlabRetreiver) ParseGitlabUsernamesFromText(text string) []string {
 }
 
 func (g *gitlabRetreiver) GetSubscribedChannelsForProject(
+	ctx context.Context,
 	namespace string,
 	project string,
 	isPublicVisibility bool,
 ) []*subscription.Subscription {
-	return g.p.GetSubscribedChannelsForProject(namespace, project, isPublicVisibility)
+	return g.p.GetSubscribedChannelsForProject(ctx, namespace, project, isPublicVisibility)
 }
 
 func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
@@ -68,6 +74,9 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), webhookTimeout)
+	defer cancel()
+
 	var repoPrivate bool
 	var pathWithNamespace string
 	var handlers []*webhook.HandleWebhook
@@ -79,37 +88,37 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
-		handlers, errHandler = p.WebhookHandler.HandleMergeRequest(event)
+		handlers, errHandler = p.WebhookHandler.HandleMergeRequest(ctx, event)
 	case *gitlabLib.IssueEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
-		handlers, errHandler = p.WebhookHandler.HandleIssue(event)
+		handlers, errHandler = p.WebhookHandler.HandleIssue(ctx, event)
 	case *gitlabLib.IssueCommentEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
-		handlers, errHandler = p.WebhookHandler.HandleIssueComment(event)
+		handlers, errHandler = p.WebhookHandler.HandleIssueComment(ctx, event)
 	case *gitlabLib.MergeCommentEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
-		handlers, errHandler = p.WebhookHandler.HandleMergeRequestComment(event)
+		handlers, errHandler = p.WebhookHandler.HandleMergeRequestComment(ctx, event)
 	case *gitlabLib.PushEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.UserName
-		handlers, errHandler = p.WebhookHandler.HandlePush(event)
+		handlers, errHandler = p.WebhookHandler.HandlePush(ctx, event)
 	case *gitlabLib.PipelineEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
-		handlers, errHandler = p.WebhookHandler.HandlePipeline(event)
+		handlers, errHandler = p.WebhookHandler.HandlePipeline(ctx, event)
 	case *gitlabLib.TagEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.UserName
-		handlers, errHandler = p.WebhookHandler.HandleTag(event)
+		handlers, errHandler = p.WebhookHandler.HandleTag(ctx, event)
 	default:
 		p.API.LogWarn("event type not implemented", "type", string(gitlabLib.WebhookEventType(r)))
 		return
