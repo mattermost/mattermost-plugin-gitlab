@@ -165,7 +165,7 @@ const (
 
 func cancelButton() flow.Button {
 	return flow.Button{
-		Name:    "Cancel",
+		Name:    "Cancel setup",
 		Color:   flow.ColorDanger,
 		OnClick: flow.Goto(stepCancel),
 	}
