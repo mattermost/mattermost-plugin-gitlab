@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -56,7 +56,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	signature := r.Header.Get("X-Gitlab-Token")
 
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Bad request body", http.StatusBadRequest)
 		return
@@ -69,7 +69,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	event, err := gitlabLib.ParseWebhook(gitlabLib.WebhookEventType(r), body)
 	if err != nil {
-		p.API.LogError("can't parse webhook", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"), "event", string(body))
+		p.API.LogDebug("Can't parse webhook", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"), "event", string(body))
 		http.Error(w, "Unable to handle request", http.StatusBadRequest)
 		return
 	}
@@ -128,12 +128,12 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if errCheckGroup := p.isNamespaceAllowed(pathWithNamespace); errCheckGroup != nil {
+	if err = p.isNamespaceAllowed(pathWithNamespace); err != nil {
 		return
 	}
 
 	if errHandler != nil {
-		p.API.LogError("error handler when building webhook notif", "err", err)
+		p.API.LogDebug("Error when handling webhook event", "err", err)
 		return
 	}
 

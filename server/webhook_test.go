@@ -60,7 +60,7 @@ func TestHandleWebhookBadSecret(t *testing.T) {
 func TestHandleWebhookBadBody(t *testing.T) {
 	p := &Plugin{configuration: &configuration{WebhookSecret: "secret"}, WebhookHandler: fakeWebhookHandler{}}
 	mock := &plugintest.API{}
-	mock.On("LogError", "can't parse webhook", "err", "unexpected event type: ", "header", "", "event", "{}").Return(nil)
+	mock.On("LogDebug", "Can't parse webhook", "err", "unexpected event type: ", "header", "", "event", "{}").Return(nil)
 	p.SetAPI(mock)
 	req := httptest.NewRequest("POST", "/", bytes.NewBufferString(`{}`))
 	req.Header.Add("X-Gitlab-Token", "secret")
@@ -68,7 +68,7 @@ func TestHandleWebhookBadBody(t *testing.T) {
 	p.handleWebhook(w, req)
 	resp := w.Result()
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-	mock.AssertCalled(t, "LogError", "can't parse webhook", "err", "unexpected event type: ", "header", "", "event", "{}")
+	mock.AssertCalled(t, "LogDebug", "Can't parse webhook", "err", "unexpected event type: ", "header", "", "event", "{}")
 }
 
 func TestHandleWebhookWithKnowAuthorButUnknowToUser(t *testing.T) {
