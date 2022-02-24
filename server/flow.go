@@ -447,8 +447,7 @@ You must first register the Mattermost GitLab Plugin as an authorized OAuth app.
 	return flow.NewStep(stepOAuthInfo).
 		WithPretext(oauthPretext).
 		WithText(oauthMessage).
-		//TODO: Add image
-		// WithImage(fm.pluginURL, "public/new-oauth-application.png").
+		WithImage(fm.pluginURL, "public/new-oauth-application.png").
 		WithButton(continueButton("")).
 		WithButton(cancelButton())
 }
