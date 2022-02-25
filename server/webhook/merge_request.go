@@ -118,7 +118,7 @@ func (w *webhook) handleChannelMergeRequest(event *gitlab.MergeEvent) ([]*Handle
 	return res, nil
 }
 
-func (wh *webhook) sanitizeDescription(description string) string {
+func (w *webhook) sanitizeDescription(description string) string {
 	var policy = bluemonday.StrictPolicy()
 	policy.SkipElementsContent("details")
 	return strings.TrimSpace(policy.Sanitize(description))
