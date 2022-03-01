@@ -153,7 +153,7 @@ func normalizeNamespacedProject(pathWithNamespace string) (namespace string, pro
 	return strings.Join(splits[:len(splits)-1], "/"), splits[len(splits)-1]
 }
 
-func SanitizeDescription(description string) string {
+func sanitizeDescription(description string) string {
 	var policy = bluemonday.StrictPolicy()
 	policy.SkipElementsContent("details")
 	return strings.TrimSpace(policy.Sanitize(description))
