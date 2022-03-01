@@ -53,7 +53,7 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 			pathWithNamespace: event.Project.PathWithNamespace,
 			IID:               fmt.Sprintf("%d", event.ObjectAttributes.IID),
 			URL:               event.ObjectAttributes.URL,
-			body:              w.sanitizeDescription(event.ObjectAttributes.Description),
+			body:              SanitizeDescription(event.ObjectAttributes.Description),
 		}); mention != nil {
 			handlers = append(handlers, mention)
 		}
@@ -72,14 +72,14 @@ func (w *webhook) handleChannelIssue(event *gitlab.IssueEvent) ([]*HandleWebhook
 
 	switch issue.Action {
 	case actionOpen:
-		message = fmt.Sprintf("#### %s\n##### [%s#%v](%s)\n###### new issue by [%s](%s) on [%s](%s)\n\n%s", issue.Title, repo.PathWithNamespace, issue.IID, issue.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), issue.CreatedAt, issue.URL, w.sanitizeDescription(issue.Description))
+		message = fmt.Sprintf("#### %s\n##### [%s#%v](%s)\n###### new issue by [%s](%s) on [%s](%s)\n\n%s", issue.Title, repo.PathWithNamespace, issue.IID, issue.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), issue.CreatedAt, issue.URL, SanitizeDescription(issue.Description))
 	case actionClose:
 		message = fmt.Sprintf("[%s] Issue [%s](%s) closed by [%s](%s)", repo.PathWithNamespace, issue.Title, issue.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
 	case actionReopen:
 		message = fmt.Sprintf("[%s] Issue [%s](%s) reopened by [%s](%s)", repo.PathWithNamespace, issue.Title, issue.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
 	case actionUpdate:
 		if len(event.Changes.Labels.Current) > 0 && !sameLabels(event.Changes.Labels.Current, event.Changes.Labels.Previous) {
-			message = fmt.Sprintf("#### %s\n##### [%s#%v](%s)\n###### issue labeled `%s` by [%s](%s) on [%s](%s)\n\n%s", issue.Title, repo.PathWithNamespace, issue.IID, issue.URL, labelToString(event.Changes.Labels.Current), event.User.Username, event.User.WebsiteURL, issue.UpdatedAt, issue.URL, w.sanitizeDescription(issue.Description))
+			message = fmt.Sprintf("#### %s\n##### [%s#%v](%s)\n###### issue labeled `%s` by [%s](%s) on [%s](%s)\n\n%s", issue.Title, repo.PathWithNamespace, issue.IID, issue.URL, labelToString(event.Changes.Labels.Current), event.User.Username, event.User.WebsiteURL, issue.UpdatedAt, issue.URL, SanitizeDescription(issue.Description))
 		}
 	}
 

@@ -2,9 +2,7 @@ package webhook
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/microcosm-cc/bluemonday"
 	"github.com/xanzy/go-gitlab"
 )
 
@@ -58,7 +56,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 			pathWithNamespace: event.Project.PathWithNamespace,
 			IID:               fmt.Sprintf("%d", event.ObjectAttributes.IID),
 			URL:               event.ObjectAttributes.URL,
-			body:              w.sanitizeDescription(event.ObjectAttributes.Description),
+			body:              SanitizeDescription(event.ObjectAttributes.Description),
 		}); mention != nil {
 			handlers = append(handlers, mention)
 		}
@@ -77,7 +75,7 @@ func (w *webhook) handleChannelMergeRequest(event *gitlab.MergeEvent) ([]*Handle
 
 	switch pr.Action {
 	case actionOpen:
-		message = fmt.Sprintf("#### %s\n##### [%s!%v](%s) new merge-request by [%s](%s) on [%s](%s)\n\n%s", pr.Title, repo.PathWithNamespace, pr.IID, pr.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), pr.CreatedAt, pr.URL, w.sanitizeDescription(pr.Description))
+		message = fmt.Sprintf("#### %s\n##### [%s!%v](%s) new merge-request by [%s](%s) on [%s](%s)\n\n%s", pr.Title, repo.PathWithNamespace, pr.IID, pr.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), pr.CreatedAt, pr.URL, SanitizeDescription(pr.Description))
 	case actionMerge:
 		message = fmt.Sprintf("[%s] Merge request [!%v %s](%s) was merged by [%s](%s)", repo.PathWithNamespace, pr.IID, pr.Title, pr.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
 	case actionClose:
@@ -116,10 +114,4 @@ func (w *webhook) handleChannelMergeRequest(event *gitlab.MergeEvent) ([]*Handle
 	}
 
 	return res, nil
-}
-
-func (w *webhook) sanitizeDescription(description string) string {
-	var policy = bluemonday.StrictPolicy()
-	policy.SkipElementsContent("details")
-	return strings.TrimSpace(policy.Sanitize(description))
 }
