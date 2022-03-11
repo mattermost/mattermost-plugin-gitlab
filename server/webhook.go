@@ -55,15 +55,14 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	config := p.getConfiguration()
 
 	signature := r.Header.Get("X-Gitlab-Token")
+	if config.WebhookSecret != signature {
+		http.Error(w, "Not authorized", http.StatusUnauthorized)
+		return
+	}
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Bad request body", http.StatusBadRequest)
-		return
-	}
-
-	if config.WebhookSecret != signature {
-		http.Error(w, "Not authorized", http.StatusUnauthorized)
 		return
 	}
 
