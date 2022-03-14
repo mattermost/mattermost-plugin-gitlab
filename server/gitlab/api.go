@@ -427,7 +427,7 @@ func (g *gitlab) TriggerNewBuildPipeline(user *UserInfo, repo string, refToCommi
 	}, internGitlab.WithContext(ctx))
 
 	if err != nil && response != nil && response.StatusCode != http.StatusNotFound {
-		return nil, fmt.Errorf("failed to retrieve project by path: %w", gitError)
+		return nil, fmt.Errorf("failed to retrieve project by path: %w", err)
 	}
 
 	return newTriggerPipelineResponse(pipeline), err
