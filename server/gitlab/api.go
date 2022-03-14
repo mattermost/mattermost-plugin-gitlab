@@ -422,11 +422,11 @@ func (g *gitlab) TriggerNewBuildPipeline(user *UserInfo, repo string, refToCommi
 	ctx, ctxCancel := context.WithTimeout(context.Background(), DefaultRequestTimeout)
 	defer ctxCancel()
 
-	pipeline, response, gitError := client.Pipelines.CreatePipeline(repo, &internGitlab.CreatePipelineOptions{
+	pipeline, response, err := client.Pipelines.CreatePipeline(repo, &internGitlab.CreatePipelineOptions{
 		Ref: &refToCommit,
 	}, internGitlab.WithContext(ctx))
 
-	if gitError != nil && response != nil && response.StatusCode != http.StatusNotFound {
+	if err != nil && response != nil && response.StatusCode != http.StatusNotFound {
 		return nil, fmt.Errorf("failed to retrieve project by path: %w", gitError)
 	}
 
