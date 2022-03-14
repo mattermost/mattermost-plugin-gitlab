@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
+	"strings"
 
-	"github.com/mattermost/mattermost-server/v5/model"
+	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/pkg/errors"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
@@ -23,14 +24,15 @@ import (
 // If you add non-reference types to your configuration struct, be sure to rewrite Clone as a deep
 // copy appropriate for your types.
 type configuration struct {
-	GitlabURL               string
-	GitlabOAuthClientID     string
-	GitlabOAuthClientSecret string
-	WebhookSecret           string
-	EncryptionKey           string
-	GitlabGroup             string
-	EnablePrivateRepo       bool
-	PluginsDirectory        string
+	GitlabURL                   string
+	GitlabOAuthClientID         string
+	GitlabOAuthClientSecret     string
+	WebhookSecret               string
+	EncryptionKey               string
+	GitlabGroup                 string
+	EnablePrivateRepo           bool
+	PluginsDirectory            string
+	UsePreregisteredApplication bool
 }
 
 // Clone shallow copies the configuration. Your implementation may require a deep copy if
@@ -45,12 +47,19 @@ func (c *configuration) IsValid() error {
 	if _, err := url.ParseRequestURI(c.GitlabURL); err != nil {
 		return errors.New("must have a valid GitLab URL")
 	}
-	if c.GitlabOAuthClientID == "" {
-		return fmt.Errorf("must have a GitLab oauth client id")
+
+	if !c.UsePreregisteredApplication {
+		if c.GitlabOAuthClientID == "" {
+			return fmt.Errorf("must have a GitLab oauth client id")
+		}
+		if c.GitlabOAuthClientSecret == "" {
+			return fmt.Errorf("must have a GitLab oauth client secret")
+		}
 	}
 
-	if c.GitlabOAuthClientSecret == "" {
-		return fmt.Errorf("must have a GitLab oauth client secret")
+	gitLabURL := strings.TrimSuffix(c.GitlabURL, "/")
+	if c.UsePreregisteredApplication && gitLabURL != "https://gitlab.com" {
+		return errors.New("pre-registered application can only be used with official public GitLab")
 	}
 
 	if c.EncryptionKey == "" {

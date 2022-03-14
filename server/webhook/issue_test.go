@@ -83,7 +83,7 @@ var testDataIssue = []testDataIssueStr{
 			From:       "manland",
 		}},
 	}, {
-		testTitle: "manland reopen issue of root and channel is not notified",
+		testTitle: "manland reopen issue of root and display in channel",
 		fixture:   ReopenIssue,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
 			{ChannelID: "channel1", CreatorID: "1", Features: "issues", Repository: "manland/webhook"},
@@ -92,7 +92,12 @@ var testDataIssue = []testDataIssueStr{
 			Message: "[manland](http://my.gitlab.com/manland) reopened your issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
 			ToUsers: []string{"root"},
 			From:    "manland",
-		}}, // no channel message because not listen to reopen action
+		}, {
+			Message:    "[manland/webhook] Issue [test new issue](http://localhost:3000/manland/webhook/issues/1) reopened by [manland](http://my.gitlab.com/manland)",
+			ToUsers:    []string{},
+			ToChannels: []string{"channel1"},
+			From:       "manland",
+		}},
 	},
 }
 

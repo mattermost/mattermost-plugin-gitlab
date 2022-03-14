@@ -10,11 +10,16 @@ import (
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 
-	"github.com/mattermost/mattermost-server/v5/model"
+	"github.com/mattermost/mattermost-server/v6/model"
 )
 
 type gitlabRetreiver struct {
 	p *Plugin
+}
+
+func (g *gitlabRetreiver) GetPipelineURL(pathWithNamespace string, pipelineID int) string {
+	config := g.p.getConfiguration()
+	return fmt.Sprintf("%s/%s/-/pipelines/%d", config.GitlabURL, pathWithNamespace, pipelineID)
 }
 
 func (g *gitlabRetreiver) GetUserURL(username string) string {

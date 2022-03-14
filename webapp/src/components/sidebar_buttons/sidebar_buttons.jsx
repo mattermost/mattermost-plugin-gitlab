@@ -147,7 +147,7 @@ export default class SidebarButtons extends React.PureComponent {
                     overlay={<Tooltip id='reviewTooltip'>Merge requests needing review</Tooltip>}
                 >
                     <a
-                        href={baseURL + orgQuery + '/merge_requests?assignee_username=' + this.props.username}
+                        href={baseURL + orgQuery + '/merge_requests?reviewer_username=' + this.props.username}
                         target='_blank'
                         rel='noopener noreferrer'
                         style={button}

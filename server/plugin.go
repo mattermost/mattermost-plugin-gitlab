@@ -6,13 +6,15 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"sync"
 
-	"github.com/mattermost/mattermost-server/v5/model"
-	"github.com/mattermost/mattermost-server/v5/plugin"
+	pluginapi "github.com/mattermost/mattermost-plugin-api"
+	"github.com/mattermost/mattermost-server/v6/model"
+	"github.com/mattermost/mattermost-server/v6/plugin"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 
@@ -31,12 +33,15 @@ const (
 	SettingReminders     = "reminders"
 	SettingOn            = "on"
 	SettingOff           = "off"
+
+	chimeraGitLabAppIdentifier = "plugin-gitlab"
 )
 
 var errEmptySiteURL = errors.New("siteURL is not set. Please set it and restart the plugin")
 
 type Plugin struct {
 	plugin.MattermostPlugin
+	client *pluginapi.Client
 
 	BotUserID      string
 	WebhookHandler webhook.Webhook
@@ -48,11 +53,25 @@ type Plugin struct {
 	// configuration is the active plugin configuration. Consult getConfiguration and
 	// setConfiguration for usage.
 	configuration *configuration
+
+	chimeraURL string
 }
 
 func (p *Plugin) OnActivate() error {
-	if err := p.getConfiguration().IsValid(); err != nil {
+	p.client = pluginapi.NewClient(p.API, p.Driver)
+
+	config := p.getConfiguration()
+	if err := config.IsValid(); err != nil {
 		return err
+	}
+
+	p.registerChimeraURL()
+
+	if config.UsePreregisteredApplication && p.chimeraURL == "" {
+		return errors.New("cannot use pre-registered application if Chimera URL is not set or empty. " +
+			"For now using pre-registered application is intended for Cloud instances only. " +
+			"If you are running on-prem disable the setting and use a custom application, otherwise set PluginSettings.ChimeraOAuthProxyURL " +
+			"or MM_PLUGINSETTINGS_CHIMERAOAUTHPROXYURL environment variable")
 	}
 
 	command, err := p.getCommand()
@@ -65,7 +84,7 @@ func (p *Plugin) OnActivate() error {
 		return errors.Wrap(err, "failed to register command")
 	}
 
-	botID, err := p.Helpers.EnsureBot(&model.Bot{
+	botID, err := p.client.Bot.EnsureBot(&model.Bot{
 		Username:    "gitlab",
 		DisplayName: "GitLab Plugin",
 		Description: "A bot account created by the plugin GitLab.",
@@ -100,6 +119,14 @@ func (p *Plugin) OnActivate() error {
 func (p *Plugin) getOAuthConfig() *oauth2.Config {
 	config := p.getConfiguration()
 
+	scopes := []string{"api", "read_user"}
+	redirectURL := fmt.Sprintf("%s/plugins/%s/oauth/complete", *p.API.GetConfig().ServiceSettings.SiteURL, manifest.ID)
+
+	if config.UsePreregisteredApplication {
+		p.API.LogDebug("Using Chimera Proxy OAuth configuration")
+		return p.getOAuthConfigForChimeraApp(scopes, redirectURL)
+	}
+
 	authURL, _ := url.Parse(config.GitlabURL)
 	tokenURL, _ := url.Parse(config.GitlabURL)
 
@@ -109,11 +136,32 @@ func (p *Plugin) getOAuthConfig() *oauth2.Config {
 	return &oauth2.Config{
 		ClientID:     config.GitlabOAuthClientID,
 		ClientSecret: config.GitlabOAuthClientSecret,
-		Scopes:       []string{"api", "read_user"},
-		RedirectURL:  fmt.Sprintf("%s/plugins/%s/oauth/complete", *p.API.GetConfig().ServiceSettings.SiteURL, manifest.ID),
+		Scopes:       scopes,
+		RedirectURL:  redirectURL,
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  authURL.String(),
 			TokenURL: tokenURL.String(),
+		},
+	}
+}
+
+func (p *Plugin) getOAuthConfigForChimeraApp(scopes []string, redirectURL string) *oauth2.Config {
+	baseURL := fmt.Sprintf("%s/v1/gitlab/%s", p.chimeraURL, chimeraGitLabAppIdentifier)
+	authURL, _ := url.Parse(baseURL)
+	tokenURL, _ := url.Parse(baseURL)
+
+	authURL.Path = path.Join(authURL.Path, "oauth", "authorize")
+	tokenURL.Path = path.Join(tokenURL.Path, "oauth", "token")
+
+	return &oauth2.Config{
+		ClientID:     "placeholder",
+		ClientSecret: "placeholder",
+		Scopes:       scopes,
+		RedirectURL:  redirectURL,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:   authURL.String(),
+			TokenURL:  tokenURL.String(),
+			AuthStyle: oauth2.AuthStyleInHeader,
 		},
 	}
 }
@@ -247,6 +295,18 @@ func (p *Plugin) disconnectGitlabAccount(userID string) {
 	)
 }
 
+// registerChimeraURL fetches the Chimera URL from server settings or env var and sets it in the plugin object.
+func (p *Plugin) registerChimeraURL() {
+	chimeraURLSetting := p.API.GetConfig().PluginSettings.ChimeraOAuthProxyURL
+	if chimeraURLSetting != nil && *chimeraURLSetting != "" {
+		p.chimeraURL = *chimeraURLSetting
+		return
+	}
+	// Due to setting name change in v6 (ChimeraOAuthProxyUrl -> ChimeraOAuthProxyURL)
+	// fall back to env var to work with older servers.
+	p.chimeraURL = os.Getenv("MM_PLUGINSETTINGS_CHIMERAOAUTHPROXYURL")
+}
+
 func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppError {
 	channel, err := p.API.GetDirectChannel(userID, p.BotUserID)
 	if err != nil {
@@ -375,7 +435,7 @@ func (p *Plugin) GetToDo(user *gitlab.UserInfo) (bool, string, error) {
 
 func (p *Plugin) isNamespaceAllowed(namespace string) error {
 	allowedNamespace := strings.TrimSpace(p.getConfiguration().GitlabGroup)
-	if allowedNamespace != "" && allowedNamespace != namespace {
+	if allowedNamespace != "" && allowedNamespace != namespace && !strings.HasPrefix(namespace, allowedNamespace) {
 		return fmt.Errorf("only repositories in the %s namespace are allowed", allowedNamespace)
 	}
 
