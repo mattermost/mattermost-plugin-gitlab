@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -496,6 +497,8 @@ func (fm *FlowManager) submitOAuthConfig(f *flow.Flow, submitted map[string]inte
 		return "", nil, nil, errors.New("client_id is not a string")
 	}
 
+	clientID = strings.TrimSpace(clientID)
+
 	if len(clientID) != 64 {
 		errorList["client_id"] = "Client ID should be 64 characters long"
 	}
@@ -508,6 +511,8 @@ func (fm *FlowManager) submitOAuthConfig(f *flow.Flow, submitted map[string]inte
 	if !ok {
 		return "", nil, nil, errors.New("client_secret is not a string")
 	}
+
+	clientSecret = strings.TrimSpace(clientSecret)
 
 	if len(clientSecret) != 64 {
 		errorList["client_secret"] = "Client Secret should be 64 characters long"
