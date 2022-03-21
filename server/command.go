@@ -240,11 +240,16 @@ func (p *Plugin) ExecuteCommand(_ *plugin.Context, args *model.CommandArgs) (*mo
 		return response, nil
 
 	case commandBuild:
-		if len(parameters) != 2 {
+		lenParams := len(parameters)
+		if lenParams < 1 {
 			return p.getCommandResponse(args, "Command arguments mismatched, please use `/gitlab help` to see action parameters. "), nil
 		}
 		project := parameters[0]
-		ref := parameters[1]
+
+		ref := "main"
+		if lenParams == 2 {
+			ref = parameters[1]
+		}
 
 		pipeline, err := p.GitlabClient.TriggerNewBuildPipeline(info, project, ref)
 		if err != nil {
