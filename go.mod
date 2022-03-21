@@ -5,8 +5,7 @@ go 1.13
 require (
 	github.com/golang/mock v1.6.0
 	github.com/mattermost/mattermost-plugin-api v0.0.12-0.20200908143138-66edf222f7ea
-	github.com/mattermost/mattermost-server/v5 v5.25.1 // indirect
-	github.com/mattermost/mattermost-server/v6 v6.4.2
+	github.com/mattermost/mattermost-server/v5 v5.25.1
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.7.0

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mattermost/mattermost-server/v6/model"
-	"github.com/mattermost/mattermost-server/v6/plugin"
+	"github.com/mattermost/mattermost-server/v5/model"
+	"github.com/mattermost/mattermost-server/v5/plugin"
 	"golang.org/x/oauth2"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"

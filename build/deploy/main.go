@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mattermost/mattermost-server/v6/model"
+	"github.com/mattermost/mattermost-server/v5/model"
 	"github.com/mholt/archiver/v3"
 	"github.com/pkg/errors"
 )
