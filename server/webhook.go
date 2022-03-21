@@ -10,7 +10,7 @@ import (
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 
-	"github.com/mattermost/mattermost-server/v5/model"
+	"github.com/mattermost/mattermost-server/v6/model"
 )
 
 type gitlabRetreiver struct {
