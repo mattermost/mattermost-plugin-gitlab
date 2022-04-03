@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/xanzy/go-gitlab"
 	internGitlab "github.com/xanzy/go-gitlab"
 	"golang.org/x/sync/errgroup"
 )
@@ -198,10 +199,24 @@ func (g *gitlab) GetProjectHooks(user *UserInfo, owner string, repo string) ([]*
 		return nil, err
 	}
 
-	projectPath := fmt.Sprintf("%s/%s", owner, repo)
-	projectHooks, _, err := client.Projects.ListProjectHooks(projectPath, nil)
-	if err != nil {
-		return nil, err
+	opt := &gitlab.ListProjectHooksOptions{
+		PerPage: 10,
+		Page:    1,
+	}
+
+	var projectHooks []*gitlab.ProjectHook
+	for {
+
+		projectPath := fmt.Sprintf("%s/%s", owner, repo)
+		hooks, resp, err := client.Projects.ListProjectHooks(projectPath, opt)
+		if err != nil {
+			return nil, err
+		}
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.Page = resp.NextPage
+		projectHooks = append(projectHooks, hooks)
 	}
 	var webhooks []*WebhookInfo
 	for _, hook := range projectHooks {
@@ -229,24 +244,49 @@ func (g *gitlab) GetReviews(user *UserInfo) ([]*internGitlab.MergeRequest, error
 	opened := stateOpened
 	scope := scopeAll
 
-	var result []*internGitlab.MergeRequest
+	var reviews []*internGitlab.MergeRequest
 	var errRequest error
 
 	if g.gitlabGroup == "" {
-		result, _, errRequest = client.MergeRequests.ListMergeRequests(&internGitlab.ListMergeRequestsOptions{
-			AssigneeID: &user.GitlabUserID,
-			State:      &opened,
-			Scope:      &scope,
-		})
+		opt := &internGitlab.ListMergeRequestsOptions{
+			AssigneeID:  &user.GitlabUserID,
+			State:       &opened,
+			Scope:       &scope,
+			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: 10},
+		}
+		for {
+			result, resp, errRequest := client.MergeRequests.ListMergeRequests(opt)
+			if errRequest != nil {
+				return result, errRequest
+			}
+			if resp.NextPage == 0 {
+				break
+			}
+			opt.Page = resp.NextPage
+			reviews = append(reviews, result)
+		}
 	} else {
-		result, _, errRequest = client.MergeRequests.ListGroupMergeRequests(g.gitlabGroup, &internGitlab.ListGroupMergeRequestsOptions{
-			AssigneeID: &user.GitlabUserID,
-			State:      &opened,
-			Scope:      &scope,
-		})
+		opt := &internGitlab.ListGroupMergeRequestsOptions{
+			AssigneeID:  &user.GitlabUserID,
+			State:       &opened,
+			Scope:       &scope,
+			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: 10},
+		}
+		for {
+			result, resp, errRequest := client.MergeRequests.ListGroupMergeRequests(g.gitlabGroup, opt)
+			if errRequest != nil {
+				return result, errRequest
+			}
+			if resp.NextPage == 0 {
+				break
+			}
+			opt.Page = resp.NextPage
+			reviews = append(reviews, result)
+		}
+
 	}
 
-	return result, errRequest
+	return reviews, errRequest
 }
 
 func (g *gitlab) GetYourPrs(user *UserInfo) ([]*internGitlab.MergeRequest, error) {
@@ -258,24 +298,48 @@ func (g *gitlab) GetYourPrs(user *UserInfo) ([]*internGitlab.MergeRequest, error
 	opened := stateOpened
 	scope := scopeAll
 
-	var result []*internGitlab.MergeRequest
+	var prList []*internGitlab.MergeRequest
 	var errRequest error
 
 	if g.gitlabGroup == "" {
-		result, _, errRequest = client.MergeRequests.ListMergeRequests(&internGitlab.ListMergeRequestsOptions{
-			AuthorID: &user.GitlabUserID,
-			State:    &opened,
-			Scope:    &scope,
-		})
+		opt := &internGitlab.ListMergeRequestsOptions{
+			AuthorID:    &user.GitlabUserID,
+			State:       &opened,
+			Scope:       &scope,
+			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: 10},
+		}
+		for {
+			result, resp, errRequest := client.MergeRequests.ListMergeRequests(opt)
+			if errRequest != nil {
+				return result, errRequest
+			}
+			if resp.NextPage == 0 {
+				break
+			}
+			opt.Page = resp.NextPage
+			prList = append(prList, result)
+		}
 	} else {
-		result, _, errRequest = client.MergeRequests.ListGroupMergeRequests(g.gitlabGroup, &internGitlab.ListGroupMergeRequestsOptions{
-			AuthorID: &user.GitlabUserID,
-			State:    &opened,
-			Scope:    &scope,
-		})
+		opt := &internGitlab.ListGroupMergeRequestsOptions{
+			AuthorID:    &user.GitlabUserID,
+			State:       &opened,
+			Scope:       &scope,
+			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: 10},
+		}
+		for {
+			result, resp, errRequest := client.MergeRequests.ListGroupMergeRequests(g.gitlabGroup, opt)
+			if errRequest != nil {
+				return result, errRequest
+			}
+			if resp.NextPage == 0 {
+				break
+			}
+			opt.Page = resp.NextPage
+			prList = append(prList, result)
+		}
 	}
 
-	return result, errRequest
+	return prList, errRequest
 }
 
 func (g *gitlab) GetYourAssignments(user *UserInfo) ([]*internGitlab.Issue, error) {
@@ -287,24 +351,48 @@ func (g *gitlab) GetYourAssignments(user *UserInfo) ([]*internGitlab.Issue, erro
 	opened := stateOpened
 	scope := scopeAll
 
-	var result []*internGitlab.Issue
+	var issues []*internGitlab.Issue
 	var errRequest error
 
 	if g.gitlabGroup == "" {
-		result, _, errRequest = client.Issues.ListIssues(&internGitlab.ListIssuesOptions{
-			AssigneeID: &user.GitlabUserID,
-			State:      &opened,
-			Scope:      &scope,
-		})
+		opt := &internGitlab.ListIssuesOptions{
+			AssigneeID:  &user.GitlabUserID,
+			State:       &opened,
+			Scope:       &scope,
+			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: 10},
+		}
+		for {
+			result, resp, errRequest := client.Issues.ListIssues(opt)
+			if errRequest != nil {
+				return result, errRequest
+			}
+			if resp.NextPage == 0 {
+				break
+			}
+			opt.Page = resp.NextPage
+			issues = append(issues, result)
+		}
 	} else {
-		result, _, errRequest = client.Issues.ListGroupIssues(g.gitlabGroup, &internGitlab.ListGroupIssuesOptions{
-			AssigneeID: &user.GitlabUserID,
-			State:      &opened,
-			Scope:      &scope,
-		})
+		opt := &internGitlab.ListGroupIssuesOptions{
+			AssigneeID:  &user.GitlabUserID,
+			State:       &opened,
+			Scope:       &scope,
+			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: 10},
+		}
+		for {
+			result, resp, errRequest := client.Issues.ListGroupIssues(g.gitlabGroup, opt)
+			if errRequest != nil {
+				return result, errRequest
+			}
+			if resp.NextPage == 0 {
+				break
+			}
+			opt.Page = resp.NextPage
+			issues = append(issues, result)
+		}
 	}
 
-	return result, errRequest
+	return issues, errRequest
 }
 
 func (g *gitlab) GetUnreads(user *UserInfo) ([]*internGitlab.Todo, error) {
@@ -313,12 +401,23 @@ func (g *gitlab) GetUnreads(user *UserInfo) ([]*internGitlab.Todo, error) {
 		return nil, err
 	}
 
-	result, _, err := client.Todos.ListTodos(&internGitlab.ListTodosOptions{})
-	if err != nil {
-		return nil, errors.Wrap(err, "can't list todo in GitLab api")
+	var results []*internGitlab.Todo
+	opt := &internGitlab.ListTodosOptions{
+		ListOptions: internGitlab.ListOptions{Page: 1, PerPage: 1},
 	}
-	notifications := make([]*internGitlab.Todo, 0, len(result))
-	for _, todo := range result {
+	for {
+		result, resp, err := client.Todos.ListTodos(opt)
+		if err != nil {
+			return nil, errors.Wrap(err, "can't list todo in GitLab api")
+		}
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.Page = resp.NextPage
+		results = append(results, result)
+	}
+	notifications := make([]*internGitlab.Todo, 0, len(results))
+	for _, todo := range results {
 		if g.checkGroup(strings.TrimSuffix(todo.Project.PathWithNamespace, "/"+todo.Project.Path)) != nil {
 			continue
 		}
