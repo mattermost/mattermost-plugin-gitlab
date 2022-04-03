@@ -204,9 +204,11 @@ func (g *gitlab) GetProjectHooks(user *UserInfo, owner string, repo string) ([]*
 	}
 
 	var projectHooks []*internGitlab.ProjectHook
+	var hooks []*internGitlab.ProjectHook
+	var resp *internGitlab.Response
 	for {
 		projectPath := fmt.Sprintf("%s/%s", owner, repo)
-		hooks, resp, err := client.Projects.ListProjectHooks(projectPath, opt)
+		hooks, resp, err = client.Projects.ListProjectHooks(projectPath, opt)
 		if err != nil {
 			return nil, err
 		}
