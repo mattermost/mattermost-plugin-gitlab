@@ -77,7 +77,7 @@ var testDataIssue = []testDataIssueStr{
 			ToChannels: []string{},
 			From:       "manland",
 		}, {
-			Message:    "[manland/webhook] Issue [test new issue](http://localhost:3000/manland/webhook/issues/1) closed by [manland](http://my.gitlab.com/manland)",
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook.git) Issue [test new issue](http://localhost:3000/manland/webhook/issues/1) closed by [manland](http://my.gitlab.com/manland)",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "manland",
@@ -93,7 +93,7 @@ var testDataIssue = []testDataIssueStr{
 			ToUsers: []string{"root"},
 			From:    "manland",
 		}, {
-			Message:    "[manland/webhook] Issue [test new issue](http://localhost:3000/manland/webhook/issues/1) reopened by [manland](http://my.gitlab.com/manland)",
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook.git) Issue [test new issue](http://localhost:3000/manland/webhook/issues/1) reopened by [manland](http://my.gitlab.com/manland)",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "manland",
