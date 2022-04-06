@@ -475,7 +475,7 @@ func (fm *FlowManager) stepOAuthInput() flow.Step {
 						DisplayName: "GitLab OAuth Secret",
 						Name:        "client_secret",
 						Type:        "text",
-						SubType:     "password",
+						SubType:     "text",
 						Placeholder: "Enter GitLab OAuth Secret",
 					},
 				},
