@@ -23,7 +23,7 @@ func (g *gitlab) NewGroupHook(user *UserInfo, groupName string, webhookOptions *
 		return nil, err
 	}
 
-	group, _, err := client.Groups.GetGroup(groupName, &internGitlab.GetGroupOptions{})
+	group, _, err := client.Groups.GetGroup(groupName)
 	if err != nil {
 		return nil, err
 	}
@@ -234,13 +234,13 @@ func (g *gitlab) GetReviews(user *UserInfo) ([]*internGitlab.MergeRequest, error
 
 	if g.gitlabGroup == "" {
 		result, _, errRequest = client.MergeRequests.ListMergeRequests(&internGitlab.ListMergeRequestsOptions{
-			AssigneeID: internGitlab.AssigneeID(user.GitlabUserID),
+			AssigneeID: &user.GitlabUserID,
 			State:      &opened,
 			Scope:      &scope,
 		})
 	} else {
 		result, _, errRequest = client.MergeRequests.ListGroupMergeRequests(g.gitlabGroup, &internGitlab.ListGroupMergeRequestsOptions{
-			AssigneeID: internGitlab.AssigneeID(user.GitlabUserID),
+			AssigneeID: &user.GitlabUserID,
 			State:      &opened,
 			Scope:      &scope,
 		})
@@ -292,13 +292,13 @@ func (g *gitlab) GetYourAssignments(user *UserInfo) ([]*internGitlab.Issue, erro
 
 	if g.gitlabGroup == "" {
 		result, _, errRequest = client.Issues.ListIssues(&internGitlab.ListIssuesOptions{
-			AssigneeID: internGitlab.AssigneeID(user.GitlabUserID),
+			AssigneeID: &user.GitlabUserID,
 			State:      &opened,
 			Scope:      &scope,
 		})
 	} else {
 		result, _, errRequest = client.Issues.ListGroupIssues(g.gitlabGroup, &internGitlab.ListGroupIssuesOptions{
-			AssigneeID: internGitlab.AssigneeID(user.GitlabUserID),
+			AssigneeID: &user.GitlabUserID,
 			State:      &opened,
 			Scope:      &scope,
 		})
@@ -367,7 +367,7 @@ func (g *gitlab) ResolveNamespaceAndProject(
 		})
 	}
 	errGroup.Go(func() error {
-		gr, response, err := client.Groups.GetGroup(fullPath, &internGitlab.GetGroupOptions{})
+		gr, response, err := client.Groups.GetGroup(fullPath)
 		if err != nil && response != nil && response.StatusCode != http.StatusNotFound {
 			return fmt.Errorf("failed to retrieve group by path: %w", err)
 		}
