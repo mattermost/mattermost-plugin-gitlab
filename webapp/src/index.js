@@ -5,7 +5,7 @@ import SidebarHeader from './components/sidebar_header';
 import TeamSidebar from './components/team_sidebar';
 import UserAttribute from './components/user_attribute';
 import Reducer from './reducers';
-import {getConnected} from './actions';
+import {getConnected, getSettings} from './actions';
 import {
     handleConnect,
     handleDisconnect,
@@ -27,10 +27,13 @@ class PluginClass {
         // This needs to be called before any API calls below
         Client.setServerRoute(getPluginServerRoute(store.getState()));
 
+        const {data: settings} = await getSettings(store.getState);
         await getConnected(true)(store.dispatch, store.getState);
 
-        registry.registerLeftSidebarHeaderComponent(SidebarHeader);
-        registry.registerBottomTeamSidebarComponent(TeamSidebar);
+        if (settings && settings.left_sidebar_enabled) {
+            registry.registerLeftSidebarHeaderComponent(SidebarHeader);
+            registry.registerBottomTeamSidebarComponent(TeamSidebar);
+        }
         registry.registerPopoverUserAttributesComponent(UserAttribute);
 
         registry.registerWebSocketEventHandler(

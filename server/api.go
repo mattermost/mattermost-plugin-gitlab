@@ -29,6 +29,10 @@ type APIErrorResponse struct {
 	StatusCode int    `json:"status_code"`
 }
 
+type Settings struct {
+	LeftSidebarEnabled bool `json:"left_sidebar_enabled"`
+}
+
 func (p *Plugin) writeAPIError(w http.ResponseWriter, err *APIErrorResponse) {
 	b, _ := json.Marshal(err)
 	w.WriteHeader(err.StatusCode)
@@ -70,6 +74,8 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 		p.completeConnectUserToGitlab(w, r)
 	case "/api/v1/connected":
 		p.getConnected(w, r)
+	case "/api/v1/getsettings":
+		p.getSettings(w, r)
 	case "/api/v1/todo":
 		p.postToDo(w, r)
 	case "/api/v1/reviews":
@@ -509,4 +515,12 @@ func (p *Plugin) updateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	p.writeAPIResponse(w, info.Settings)
+}
+
+func (p *Plugin) getSettings(w http.ResponseWriter, r *http.Request) {
+	resp := Settings{
+		LeftSidebarEnabled: p.getConfiguration().EnableLeftSidebar,
+	}
+
+	p.writeAPIResponse(w, resp)
 }

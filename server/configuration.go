@@ -31,6 +31,7 @@ type configuration struct {
 	EncryptionKey               string
 	GitlabGroup                 string
 	EnablePrivateRepo           bool
+	EnableLeftSidebar           bool
 	PluginsDirectory            string
 	UsePreregisteredApplication bool
 }

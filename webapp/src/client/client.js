@@ -34,6 +34,10 @@ export default class Client {
         return this.doPost(`${this.url}/user`, {user_id: userID});
     };
 
+    getSettings = async () => {
+        return this.doGet(`${this.url}/getsettings`);
+    }
+
     doGet = async (url, body, headers = {}) => {
         headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
 
