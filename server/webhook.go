@@ -119,7 +119,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		fromUser = event.UserName
 		handlers, errHandler = p.WebhookHandler.HandleTag(ctx, event)
 	default:
-		p.API.LogWarn("event type not implemented", "type", string(gitlabLib.WebhookEventType(r)))
+		p.API.LogDebug("Event type not implemented", "type", string(gitlabLib.WebhookEventType(r)))
 		return
 	}
 
