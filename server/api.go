@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -76,6 +77,8 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 		p.getReviews(w, r)
 	case "/api/v1/yourprs":
 		p.getYourPrs(w, r)
+	case "/api/v1/createissuenotes":
+		p.createIssueNote(w, r)
 	case "/api/v1/yourassignments":
 		p.getYourAssignments(w, r)
 	case "/api/v1/unreads":
@@ -422,6 +425,64 @@ func (p *Plugin) getYourPrs(w http.ResponseWriter, r *http.Request) {
 	if errRequest != nil {
 		p.API.LogError("can't list merge-request where author in GitLab API", "err", errRequest.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	p.writeAPIResponse(w, result)
+}
+
+func (p *Plugin) createIssueNote(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("Mattermost-User-ID")
+	if userID == "" {
+		http.Error(w, "Not authorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := p.getGitlabUserInfoByMattermostID(userID)
+	if err != nil {
+		p.writeAPIError(w, err)
+		return
+	}
+
+	idproject := r.Header.Get("projectid")
+	if idproject == "" {
+		p.API.LogError("Request is invalid, ProjectID is missing")
+		http.Error(w, "Invalid Request", http.StatusBadRequest)
+		return
+	}
+
+	projectID, err1 := strconv.Atoi(idproject)
+	if err1 != nil {
+		p.API.LogError("Request is invalid, ProjectID must be number", "err", err1.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to create issue notes in GitLab API.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	idissue := r.Header.Get("issueid")
+	if idproject == "" {
+		p.API.LogError("Request is invalid, IssueID is missing")
+		http.Error(w, "Invalid Request", http.StatusBadRequest)
+		return
+	}
+
+	issueID, err1 := strconv.Atoi(idissue)
+	if err1 != nil {
+		p.API.LogError("Request is invalid, IssueID must be number", "err", err1.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to create issue notes in GitLab API.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	body, err1 := ioutil.ReadAll(r.Body)
+	if err1 != nil {
+		p.API.LogError("Invalid request body", "err", err1.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to create issue notes in GitLab API.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	result, errRequest := p.GitlabClient.CreateIssueNote(user, projectID, issueID, string(body))
+	if errRequest != nil {
+		p.API.LogError("Unable to create issue notes in GitLab API", "err", errRequest.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to create issue notes in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 
