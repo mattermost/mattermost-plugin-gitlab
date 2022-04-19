@@ -90,6 +90,71 @@ export function getYourPrs() {
     };
 }
 
+export function attachCommentToIssue(payload) {
+    return async (dispatch) => {
+        let data;
+        try {
+            data = await Client.attachCommentToIssue(payload);
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await dispatch(checkAndHandleNotConnected(data));
+        if (!connected) {
+            return {error: data};
+        }
+
+        dispatch({
+            type: ActionTypes.RECEIVED_ATTACH_COMMENT_RESULT,
+            data,
+        });
+
+        return {data};
+    };
+}
+
+
+export function openAttachNotesToIssueModal(postId) {
+    return {
+        type: ActionTypes.OPEN_ATTACH_NOTES_TO_ISSUE_MODAL,
+        data: {
+            postId,
+        },
+    };
+}
+
+export function closeAttachNotesToIssueModal() {
+    return {
+        type: ActionTypes.CLOSE_ATTACH_NOTES_TO_ISSUE_MODAL,
+    };
+}
+
+export function createIssueNotes() {
+    return async (dispatch, getState) => {
+        let data;
+        try {
+            data = await Client.createIssueNotes(payload);
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await checkAndHandleNotConnected(data)(
+            dispatch,
+            getState
+        );
+        if (!connected) {
+            return {error: data};
+        }
+
+        dispatch({
+            type: ActionTypes.RECEIVED_ATTACH_NOTES_RESULT,
+            data,
+        });
+
+        return {data};
+    };
+}
+
 export function getYourAssignments() {
     return async (dispatch, getState) => {
         let data;

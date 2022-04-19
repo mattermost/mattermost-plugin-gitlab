@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,6 +27,12 @@ type APIErrorResponse struct {
 	ID         string `json:"id"`
 	Message    string `json:"message"`
 	StatusCode int    `json:"status_code"`
+}
+
+type CreateIssueNotes struct {
+	ProjectID string `json:"projectid"`
+	IssueID   string `json:"issueid"`
+	Message   string `json:"message"`
 }
 
 func (p *Plugin) writeAPIError(w http.ResponseWriter, err *APIErrorResponse) {
@@ -78,7 +83,7 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 	case "/api/v1/yourprs":
 		p.getYourPrs(w, r)
 	case "/api/v1/createissuenotes":
-		p.createIssueNote(w, r)
+		p.createIssueNotes(w, r)
 	case "/api/v1/yourassignments":
 		p.getYourAssignments(w, r)
 	case "/api/v1/unreads":
@@ -431,7 +436,7 @@ func (p *Plugin) getYourPrs(w http.ResponseWriter, r *http.Request) {
 	p.writeAPIResponse(w, result)
 }
 
-func (p *Plugin) createIssueNote(w http.ResponseWriter, r *http.Request) {
+func (p *Plugin) createIssueNotes(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("Mattermost-User-ID")
 	if userID == "" {
 		http.Error(w, "Not authorized", http.StatusUnauthorized)
@@ -444,42 +449,33 @@ func (p *Plugin) createIssueNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idproject := r.Header.Get("projectid")
-	if idproject == "" {
-		p.API.LogError("Request is invalid, ProjectID is missing")
-		http.Error(w, "Invalid Request", http.StatusBadRequest)
+	var req *CreateIssueNotes
+	err1 := json.NewDecoder(r.Body).Decode(&req)
+	if req == nil || err1 != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	projectID, err1 := strconv.Atoi(idproject)
+	projectID, err1 := strconv.Atoi(req.ProjectID)
 	if err1 != nil {
 		p.API.LogError("Request is invalid, ProjectID must be number", "err", err1.Error())
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to create issue notes in GitLab API.", StatusCode: http.StatusInternalServerError})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Request is invalid, ProjectID must be number.", StatusCode: http.StatusBadRequest})
 		return
 	}
 
-	idissue := r.Header.Get("issueid")
-	if idproject == "" {
-		p.API.LogError("Request is invalid, IssueID is missing")
-		http.Error(w, "Invalid Request", http.StatusBadRequest)
-		return
-	}
-
-	issueID, err1 := strconv.Atoi(idissue)
+	issueID, err1 := strconv.Atoi(req.IssueID)
 	if err1 != nil {
 		p.API.LogError("Request is invalid, IssueID must be number", "err", err1.Error())
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to create issue notes in GitLab API.", StatusCode: http.StatusInternalServerError})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Request is invalid, IssueID must be number.", StatusCode: http.StatusBadRequest})
 		return
 	}
 
-	body, err1 := ioutil.ReadAll(r.Body)
-	if err1 != nil {
-		p.API.LogError("Invalid request body", "err", err1.Error())
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to create issue notes in GitLab API.", StatusCode: http.StatusInternalServerError})
-		return
+	if req.Message == "" {
+		p.API.LogError("Message must be not empty")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Message must be not empty.", StatusCode: http.StatusBadRequest})
 	}
 
-	result, errRequest := p.GitlabClient.CreateIssueNote(user, projectID, issueID, string(body))
+	result, errRequest := p.GitlabClient.CreateIssueNote(user, projectID, issueID, string(req.Message))
 	if errRequest != nil {
 		p.API.LogError("Unable to create issue notes in GitLab API", "err", errRequest.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to create issue notes in GitLab API.", StatusCode: http.StatusInternalServerError})

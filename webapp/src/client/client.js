@@ -22,6 +22,10 @@ export default class Client {
         return this.doGet(`${this.url}/yourassignments`);
     };
 
+    createIssueNotes = async (payload) => {
+        return this.doPost(`${this.url}/createissuenotes`, payload, headers);
+    };
+
     getMentions = async () => {
         return this.doGet(`${this.url}/mentions`);
     };
