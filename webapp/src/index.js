@@ -15,6 +15,8 @@ import {
 import {id} from './manifest';
 import Client from './client';
 import {getPluginServerRoute} from './selectors';
+import AttachNotesToIssuePostMenuAction from './components/post_menu_actions/attach_notes_to_issue';
+import AttachNotesToIssueModal from './components/modals/attach_notes_to_issue';
 
 let activityFunc;
 let lastActivityTime = Number.MAX_SAFE_INTEGER;
@@ -32,6 +34,9 @@ class PluginClass {
         registry.registerLeftSidebarHeaderComponent(SidebarHeader);
         registry.registerBottomTeamSidebarComponent(TeamSidebar);
         registry.registerPopoverUserAttributesComponent(UserAttribute);
+        
+        registry.registerRootComponent(AttachNotesToIssueModal);
+        registry.registerPostDropdownMenuComponent(AttachNotesToIssuePostMenuAction);
 
         registry.registerWebSocketEventHandler(
             `custom_${id}_gitlab_connect`,

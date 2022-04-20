@@ -297,6 +297,22 @@ func (g *gitlab) CreateIssueNote(user *UserInfo, id, iid int, message string) (*
 	return result, errRequest
 }
 
+func (g *gitlab) SearchIssues(user *UserInfo, query string) ([]*internGitlab.Issue, error) {
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+
+	opt := &internGitlab.SearchOptions{
+		Page:    100,
+		PerPage: 25,
+	}
+
+	result, _, errRequest := client.Search.Issues(query, opt)
+
+	return result, errRequest
+}
+
 func (g *gitlab) GetYourAssignments(user *UserInfo) ([]*internGitlab.Issue, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {

@@ -2,4 +2,4 @@
 // Code generated .* DO NOT EDIT.
 
 export const id = 'com.github.manland.mattermost-plugin-gitlab';
-export const version = '1.4.0';
+export const version = '1.4.1';

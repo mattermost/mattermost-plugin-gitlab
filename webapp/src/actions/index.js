@@ -90,11 +90,11 @@ export function getYourPrs() {
     };
 }
 
-export function attachCommentToIssue(payload) {
+export function attachNotesToIssue(payload) {
     return async (dispatch) => {
         let data;
         try {
-            data = await Client.attachCommentToIssue(payload);
+            data = await Client.createIssueNotes(payload);
         } catch (error) {
             return {error};
         }

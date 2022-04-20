@@ -32,8 +32,10 @@ export default class GitlabIssueSelector extends PureComponent {
     }
 
     handleIssueSearchTermChange = (inputValue) => {
-        return this.debouncedhhIssues(inputValue);
+        return this.debouncedSearchIssues(inputValue);
     };
+
+    debouncedSearchIssues = debounce(this.searchIssues, searchDebounceDelay);
 
     searchIssues = (text) => {
         const textEncoded = encodeURIComponent(text.trim().replace(/"/g, '\\"'));
@@ -44,8 +46,6 @@ export default class GitlabIssueSelector extends PureComponent {
             this.setState({error: e});
         });
     };
-
-    debouncedSearchIssues = debounce(this.searchIssues, searchDebounceDelay);
 
     onChange = (e) => {
         const value = e ? e.value : '';

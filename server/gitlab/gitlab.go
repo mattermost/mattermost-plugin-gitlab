@@ -28,6 +28,7 @@ type Gitlab interface {
 	GetReviews(user *UserInfo) ([]*internGitlab.MergeRequest, error)
 	GetYourPrs(user *UserInfo) ([]*internGitlab.MergeRequest, error)
 	CreateIssueNote(user *UserInfo, id, iid int, message string) (*internGitlab.Note, error)
+	SearchIssues(user *UserInfo, query string) ([]*internGitlab.Issue, error)
 	GetYourAssignments(user *UserInfo) ([]*internGitlab.Issue, error)
 	GetUnreads(user *UserInfo) ([]*internGitlab.Todo, error)
 	GetProjectHooks(user *UserInfo, owner string, repo string) ([]*WebhookInfo, error)
