@@ -10,6 +10,7 @@
     },
     "dependencies": {
         "core-js": "3.1.4",
+        "debounce-promise": "3.1.2",
         "mattermost-redux": "github:mattermost/mattermost-redux#b56e7e3a6f7f5de281fd3541eefec9345a8bbc89",
         "prop-types": "15.7.2",
         "react": "16.8.6",
