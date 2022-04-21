@@ -119,7 +119,7 @@ func (p *Plugin) OnActivate() error {
 func (p *Plugin) getOAuthConfig() *oauth2.Config {
 	config := p.getConfiguration()
 
-	scopes := []string{"api", "read_user"}
+	scopes := []string{}
 	redirectURL := fmt.Sprintf("%s/plugins/%s/oauth/complete", *p.API.GetConfig().ServiceSettings.SiteURL, manifest.ID)
 
 	if config.UsePreregisteredApplication {
