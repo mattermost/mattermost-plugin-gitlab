@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	internGitlab "github.com/xanzy/go-gitlab"
@@ -274,6 +275,40 @@ func (g *gitlab) GetYourPrs(user *UserInfo) ([]*internGitlab.MergeRequest, error
 			Scope:    &scope,
 		})
 	}
+
+	return result, errRequest
+}
+
+func (g *gitlab) CreateIssueNote(user *UserInfo, id, iid int, message string) (*internGitlab.Note, error) {
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+
+	createdTime := time.Now()
+
+	opt := &internGitlab.CreateIssueNoteOptions{
+		CreatedAt: &createdTime,
+		Body:      &message,
+	}
+
+	result, _, errRequest := client.Notes.CreateIssueNote(id, iid, opt)
+
+	return result, errRequest
+}
+
+func (g *gitlab) SearchIssues(user *UserInfo, query string) ([]*internGitlab.Issue, error) {
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+
+	opt := &internGitlab.SearchOptions{
+		Page:    100,
+		PerPage: 25,
+	}
+
+	result, _, errRequest := client.Search.Issues(query, opt)
 
 	return result, errRequest
 }

@@ -76,6 +76,10 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 		p.getReviews(w, r)
 	case "/api/v1/yourprs":
 		p.getYourPrs(w, r)
+	case "/api/v1/searchissues":
+		p.searchIssues(w, r)
+	case "/api/v1/createissuenotes":
+		p.createIssueNotes(w, r)
 	case "/api/v1/yourassignments":
 		p.getYourAssignments(w, r)
 	case "/api/v1/unreads":
@@ -422,6 +426,87 @@ func (p *Plugin) getYourPrs(w http.ResponseWriter, r *http.Request) {
 	if errRequest != nil {
 		p.API.LogError("can't list merge-request where author in GitLab API", "err", errRequest.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	p.writeAPIResponse(w, result)
+}
+
+func (p *Plugin) createIssueNotes(w http.ResponseWriter, r *http.Request) {
+
+	type CreateIssueNotes struct {
+		ProjectID string `json:"projectid"`
+		IssueID   string `json:"issueid"`
+		Message   string `json:"message"`
+	}
+
+	userID := r.Header.Get("Mattermost-User-ID")
+	if userID == "" {
+		http.Error(w, "Not authorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := p.getGitlabUserInfoByMattermostID(userID)
+	if err != nil {
+		p.writeAPIError(w, err)
+		return
+	}
+
+	var req *CreateIssueNotes
+	err1 := json.NewDecoder(r.Body).Decode(&req)
+	if req == nil || err1 != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	projectID, err1 := strconv.Atoi(req.ProjectID)
+	if err1 != nil {
+		p.API.LogError("Request is invalid, ProjectID must be number", "err", err1.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Request is invalid, ProjectID must be number.", StatusCode: http.StatusBadRequest})
+		return
+	}
+
+	issueID, err1 := strconv.Atoi(req.IssueID)
+	if err1 != nil {
+		p.API.LogError("Request is invalid, IssueID must be number", "err", err1.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Request is invalid, IssueID must be number.", StatusCode: http.StatusBadRequest})
+		return
+	}
+
+	if req.Message == "" {
+		p.API.LogError("Message must be not empty")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Message must be not empty.", StatusCode: http.StatusBadRequest})
+	}
+
+	result, errRequest := p.GitlabClient.CreateIssueNote(user, projectID, issueID, string(req.Message))
+	if errRequest != nil {
+		p.API.LogError("Unable to create issue notes in GitLab API", "err", errRequest.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to create issue notes in GitLab API.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	p.writeAPIResponse(w, result)
+}
+
+func (p *Plugin) searchIssues(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("Mattermost-User-ID")
+	if userID == "" {
+		http.Error(w, "Not authorized", http.StatusUnauthorized)
+		return
+	}
+
+	user, err := p.getGitlabUserInfoByMattermostID(userID)
+	if err != nil {
+		p.writeAPIError(w, err)
+		return
+	}
+
+	query := r.Header.Get("search")
+
+	result, errRequest := p.GitlabClient.SearchIssues(user, query)
+	if errRequest != nil {
+		p.API.LogError("Unable to search issue in GitLab API", "err", errRequest.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to search issue in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 

@@ -112,6 +112,24 @@ func (mr *MockGitlabMockRecorder) GetYourPrs(user interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetYourPrs", reflect.TypeOf((*MockGitlab)(nil).GetYourPrs), user)
 }
 
+// CreateIssueNote mocks base method
+func (m *MockGitlab) CreateIssueNote(user *gitlab.UserInfo, id, iid int, message string) (*gitlab0.Note, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateIssueNote", user, id, iid, message)
+	ret0, _ := ret[0].(*gitlab0.Note)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SearchIssues mocks base method
+func (m *MockGitlab) SearchIssues(user *gitlab.UserInfo, query string) ([]*gitlab0.Issue, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SearchIssues", user, query)
+	ret0, _ := ret[0].([]*gitlab0.Issue)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
 // GetYourAssignments mocks base method
 func (m *MockGitlab) GetYourAssignments(user *gitlab.UserInfo) ([]*gitlab0.Issue, error) {
 	m.ctrl.T.Helper()
