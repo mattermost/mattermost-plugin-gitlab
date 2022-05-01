@@ -65,7 +65,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			ToChannels: []string{},
 			From:       "manland",
 		}, {
-			Message:    "[manland/webhook](http://localhost:3000/manland/webhook.git) Merge request [!4 Master](http://localhost:3000/manland/webhook/merge_requests/4) was closed by [manland](http://my.gitlab.com/manland)",
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Merge request [!4 Master](http://localhost:3000/manland/webhook/merge_requests/4) was closed by [manland](http://my.gitlab.com/manland)",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "manland",
