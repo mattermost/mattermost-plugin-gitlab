@@ -4,7 +4,6 @@ go 1.13
 
 require (
 	github.com/golang/mock v1.6.0
-	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/go-hclog v1.2.0 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.0 // indirect
 	github.com/klauspost/compress v1.15.1 // indirect
