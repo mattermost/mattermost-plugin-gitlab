@@ -82,7 +82,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			ToChannels: []string{},
 			From:       "manland",
 		}, {
-			Message:    "[manland/webhook](http://localhost:3000/manland/webhook.git) Merge request [!1 Update README.md](http://localhost:3000/manland/webhook/merge_requests/1) was reopened by [manland](http://my.gitlab.com/manland)",
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Merge request [!1 Update README.md](http://localhost:3000/manland/webhook/merge_requests/1) was reopened by [manland](http://my.gitlab.com/manland)",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "manland",
@@ -109,7 +109,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			ToChannels: []string{},
 			From:       "manland",
 		}, {
-			Message:    "[manland/webhook](http://localhost:3000/manland/webhook.git) Merge request [!4 Master](http://localhost:3000/manland/webhook/merge_requests/4) was merged by [manland](http://my.gitlab.com/manland)",
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Merge request [!4 Master](http://localhost:3000/manland/webhook/merge_requests/4) was merged by [manland](http://my.gitlab.com/manland)",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "manland",
@@ -126,7 +126,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			ToChannels: []string{},
 			From:       "root",
 		}, {
-			Message:    "[manland/webhook](http://localhost:3000/manland/webhook.git) Merge request [!1 Update README.md](http://localhost:3000/manland/webhook/merge_requests/1) was closed by [root](http://my.gitlab.com/root)",
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Merge request [!1 Update README.md](http://localhost:3000/manland/webhook/merge_requests/1) was closed by [root](http://my.gitlab.com/root)",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "root",
