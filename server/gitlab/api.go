@@ -248,7 +248,6 @@ func (g *gitlab) GetReviews(user *UserInfo) ([]*internGitlab.MergeRequest, error
 	opened := stateOpened
 	scope := scopeAll
 
-	var errRequest error
 	var result []*internGitlab.MergeRequest
 	if g.gitlabGroup == "" {
 		opt := &internGitlab.ListMergeRequestsOptions{
@@ -288,7 +287,7 @@ func (g *gitlab) GetReviews(user *UserInfo) ([]*internGitlab.MergeRequest, error
 		}
 	}
 
-	return result, errRequest
+	return result, nil
 }
 
 func (g *gitlab) GetYourPrs(user *UserInfo) ([]*internGitlab.MergeRequest, error) {
@@ -301,7 +300,6 @@ func (g *gitlab) GetYourPrs(user *UserInfo) ([]*internGitlab.MergeRequest, error
 	scope := scopeAll
 
 	var result []*internGitlab.MergeRequest
-	var errRequest error
 
 	if g.gitlabGroup == "" {
 		opt := &internGitlab.ListMergeRequestsOptions{
@@ -341,7 +339,7 @@ func (g *gitlab) GetYourPrs(user *UserInfo) ([]*internGitlab.MergeRequest, error
 		}
 	}
 
-	return result, errRequest
+	return result, nil
 }
 
 func (g *gitlab) GetYourAssignments(user *UserInfo) ([]*internGitlab.Issue, error) {
@@ -354,7 +352,6 @@ func (g *gitlab) GetYourAssignments(user *UserInfo) ([]*internGitlab.Issue, erro
 	scope := scopeAll
 
 	var result []*internGitlab.Issue
-	var errRequest error
 
 	if g.gitlabGroup == "" {
 		opt := &internGitlab.ListIssuesOptions{
@@ -394,7 +391,7 @@ func (g *gitlab) GetYourAssignments(user *UserInfo) ([]*internGitlab.Issue, erro
 		}
 	}
 
-	return result, errRequest
+	return result, nil
 }
 
 func (g *gitlab) GetUnreads(user *UserInfo) ([]*internGitlab.Todo, error) {
@@ -408,9 +405,9 @@ func (g *gitlab) GetUnreads(user *UserInfo) ([]*internGitlab.Todo, error) {
 		ListOptions: internGitlab.ListOptions{Page: 1, PerPage: perPage},
 	}
 	for {
-		current, resp, err := client.Todos.ListTodos(opt)
-		if err != nil {
-			return nil, errors.Wrap(err, "can't list todo in GitLab api")
+		current, resp, errRequest := client.Todos.ListTodos(opt)
+		if errRequest != nil {
+			return nil, errors.Wrap(errRequest, "can't list todo in GitLab api")
 		}
 		result = append(result, current...)
 		if resp.NextPage == 0 {
@@ -426,7 +423,7 @@ func (g *gitlab) GetUnreads(user *UserInfo) ([]*internGitlab.Todo, error) {
 		notifications = append(notifications, todo)
 	}
 
-	return notifications, err
+	return notifications, nil
 }
 
 func (g *gitlab) ResolveNamespaceAndProject(
