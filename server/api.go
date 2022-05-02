@@ -58,7 +58,6 @@ func (p *Plugin) initializeAPI() {
 
 	apiRouter.HandleFunc("/settings", p.checkAuth(p.attachUserContext(p.updateSettings), ResponseTypePlain)).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/getsettings", p.checkAuth(p.attachUserContext(p.getSettings), ResponseTypePlain)).Methods(http.MethodGet)
-
 }
 
 type Context struct {
