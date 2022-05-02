@@ -2,8 +2,10 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
-	"errors"
+
+	"github.com/pkg/errors"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
@@ -111,6 +113,7 @@ func (p *Plugin) StoreSubscriptions(s *Subscriptions) error {
 }
 
 func (p *Plugin) GetSubscribedChannelsForProject(
+	ctx context.Context,
 	namespace string,
 	project string,
 	isPublicVisibility bool,
@@ -141,7 +144,7 @@ func (p *Plugin) GetSubscribedChannelsForProject(
 
 	subsToReturn := make([]*subscription.Subscription, 0, len(subsForRepo))
 	for _, sub := range subsForRepo {
-		if !isPublicVisibility && !p.permissionToProject(sub.CreatorID, namespace, project) {
+		if !isPublicVisibility && !p.permissionToProject(ctx, sub.CreatorID, namespace, project) {
 			continue
 		}
 		subsToReturn = append(subsToReturn, sub)

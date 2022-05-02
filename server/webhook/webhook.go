@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -21,7 +22,7 @@ type GitlabRetreiver interface {
 	// ParseGitlabUsernamesFromText from a text return an array of username
 	ParseGitlabUsernamesFromText(text string) []string
 	// GetSubscribedChannelsForProject returns all subscriptions for given project.
-	GetSubscribedChannelsForProject(namespace, project string, isPublicVisibility bool) []*subscription.Subscription
+	GetSubscribedChannelsForProject(ctx context.Context, namespace, project string, isPublicVisibility bool) []*subscription.Subscription
 }
 
 type HandleWebhook struct {
@@ -32,13 +33,13 @@ type HandleWebhook struct {
 }
 
 type Webhook interface {
-	HandleIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, error)
-	HandleMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebhook, error)
-	HandleIssueComment(event *gitlab.IssueCommentEvent) ([]*HandleWebhook, error)
-	HandleMergeRequestComment(event *gitlab.MergeCommentEvent) ([]*HandleWebhook, error)
-	HandlePipeline(event *gitlab.PipelineEvent) ([]*HandleWebhook, error)
-	HandleTag(event *gitlab.TagEvent) ([]*HandleWebhook, error)
-	HandlePush(event *gitlab.PushEvent) ([]*HandleWebhook, error)
+	HandleIssue(ctx context.Context, event *gitlab.IssueEvent) ([]*HandleWebhook, error)
+	HandleMergeRequest(ctx context.Context, event *gitlab.MergeEvent) ([]*HandleWebhook, error)
+	HandleIssueComment(ctx context.Context, event *gitlab.IssueCommentEvent) ([]*HandleWebhook, error)
+	HandleMergeRequestComment(ctx context.Context, event *gitlab.MergeCommentEvent) ([]*HandleWebhook, error)
+	HandlePipeline(ctx context.Context, event *gitlab.PipelineEvent) ([]*HandleWebhook, error)
+	HandleTag(ctx context.Context, event *gitlab.TagEvent) ([]*HandleWebhook, error)
+	HandlePush(ctx context.Context, event *gitlab.PushEvent) ([]*HandleWebhook, error)
 }
 
 type webhook struct {
@@ -118,6 +119,15 @@ func sameLabels(a []gitlab.Label, b []gitlab.Label) bool {
 		}
 	}
 	return true
+}
+
+func containsLabelPointer(a []*gitlab.Label, labelName string) bool {
+	for _, l := range a {
+		if l != nil && l.Name == labelName {
+			return true
+		}
+	}
+	return false
 }
 
 func containsLabel(a []gitlab.Label, labelName string) bool {

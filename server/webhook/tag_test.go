@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -56,7 +57,7 @@ func TestTagWebhook(t *testing.T) {
 			if err := json.Unmarshal([]byte(test.fixture), tagEvent); err != nil {
 				assert.Fail(t, "can't unmarshal fixture")
 			}
-			res, err := w.HandleTag(tagEvent)
+			res, err := w.HandleTag(context.Background(), tagEvent)
 			assert.Empty(t, err)
 			assert.Equal(t, len(test.res), len(res))
 			for index := range res {

@@ -1,17 +1,18 @@
 package webhook
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/xanzy/go-gitlab"
 )
 
-func (w *webhook) HandlePush(event *gitlab.PushEvent) ([]*HandleWebhook, error) {
+func (w *webhook) HandlePush(ctx context.Context, event *gitlab.PushEvent) ([]*HandleWebhook, error) {
 	handlers, err := w.handleDMPush(event)
 	if err != nil {
 		return nil, err
 	}
-	handlers2, err := w.handleChannelPush(event)
+	handlers2, err := w.handleChannelPush(ctx, event)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +38,7 @@ func (w *webhook) handleDMPush(event *gitlab.PushEvent) ([]*HandleWebhook, error
 	return handlers, nil
 }
 
-func (w *webhook) handleChannelPush(event *gitlab.PushEvent) ([]*HandleWebhook, error) {
+func (w *webhook) handleChannelPush(ctx context.Context, event *gitlab.PushEvent) ([]*HandleWebhook, error) {
 	senderGitlabUsername := event.UserUsername
 	repo := event.Project
 	res := []*HandleWebhook{}
@@ -46,13 +47,13 @@ func (w *webhook) handleChannelPush(event *gitlab.PushEvent) ([]*HandleWebhook, 
 		return nil, nil
 	}
 
-	var plural string = "commits"
+	plural := "commits"
 
 	if event.TotalCommitsCount == 1 {
 		plural = "commit"
 	}
 
-	var message string = fmt.Sprintf("[%s](%s) has pushed %d %s to [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.TotalCommitsCount, plural, event.Project.PathWithNamespace, event.Project.WebURL)
+	message := fmt.Sprintf("[%s](%s) has pushed %d %s to [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.TotalCommitsCount, plural, event.Project.PathWithNamespace, event.Project.WebURL)
 
 	for _, commit := range event.Commits {
 		message += fmt.Sprintf("\n%s [%s](%s)", commit.Message, "View Commit", commit.URL)
@@ -61,7 +62,7 @@ func (w *webhook) handleChannelPush(event *gitlab.PushEvent) ([]*HandleWebhook, 
 	toChannels := make([]string, 0)
 	namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
-		namespace, project,
+		ctx, namespace, project,
 		repo.Visibility == gitlab.PublicVisibility,
 	)
 	for _, sub := range subs {
