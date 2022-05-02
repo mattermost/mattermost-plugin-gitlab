@@ -1,17 +1,18 @@
 package webhook
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/xanzy/go-gitlab"
 )
 
-func (w *webhook) HandleIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, error) {
+func (w *webhook) HandleIssue(ctx context.Context, event *gitlab.IssueEvent) ([]*HandleWebhook, error) {
 	handlers, err := w.handleDMIssue(event)
 	if err != nil {
 		return nil, err
 	}
-	handlers2, err := w.handleChannelIssue(event)
+	handlers2, err := w.handleChannelIssue(ctx, event)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +27,7 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 
 	switch event.ObjectAttributes.Action {
 	case actionOpen:
-		if len(event.Assignees) > 0 {
+		if event.Assignees != nil && len(*event.Assignees) > 0 {
 			message = fmt.Sprintf("[%s](%s) assigned you to issue [%s#%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Project.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 		}
 	case actionClose:
@@ -35,12 +36,14 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 		message = fmt.Sprintf("[%s](%s) reopened your issue [%s#%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Project.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 	}
 
-	if len(message) > 0 {
-		toUsers := make([]string, len(event.Assignees)+1)
-		for index, assignee := range event.Assignees {
-			toUsers[index] = assignee.Username
+	if message != "" {
+		toUsers := []string{}
+		if event.Assignees != nil {
+			for _, assignee := range *event.Assignees {
+				toUsers = append(toUsers, assignee.Username)
+			}
 		}
-		toUsers[len(toUsers)-1] = authorGitlabUsername
+		toUsers = append(toUsers, authorGitlabUsername)
 
 		handlers := []*HandleWebhook{{
 			Message: message,
@@ -62,7 +65,7 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 	return []*HandleWebhook{}, nil
 }
 
-func (w *webhook) handleChannelIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, error) {
+func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEvent) ([]*HandleWebhook, error) {
 	issue := event.ObjectAttributes
 	senderGitlabUsername := event.User.Username
 	repo := event.Project
@@ -79,7 +82,7 @@ func (w *webhook) handleChannelIssue(event *gitlab.IssueEvent) ([]*HandleWebhook
 		message = fmt.Sprintf("[%s] Issue [%s](%s) reopened by [%s](%s)", repo.PathWithNamespace, issue.Title, issue.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
 	case actionUpdate:
 		if len(event.Changes.Labels.Current) > 0 && !sameLabels(event.Changes.Labels.Current, event.Changes.Labels.Previous) {
-			message = fmt.Sprintf("#### %s\n##### [%s#%v](%s)\n###### issue labeled `%s` by [%s](%s) on [%s](%s)\n\n%s", issue.Title, repo.PathWithNamespace, issue.IID, issue.URL, labelToString(event.Changes.Labels.Current), event.User.Username, event.User.WebsiteURL, issue.UpdatedAt, issue.URL, issue.Description)
+			message = fmt.Sprintf("#### %s\n##### [%s#%v](%s)\n###### issue labeled `%s` by [%s](%s) on [%s](%s)\n\n%s", issue.Title, repo.PathWithNamespace, issue.IID, issue.URL, labelToString(event.Changes.Labels.Current), event.User.Username, w.gitlabRetreiver.GetUserURL(event.User.Username), issue.UpdatedAt, issue.URL, issue.Description)
 		}
 	}
 
@@ -87,7 +90,7 @@ func (w *webhook) handleChannelIssue(event *gitlab.IssueEvent) ([]*HandleWebhook
 		toChannels := make([]string, 0)
 		namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
 		subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
-			namespace, project,
+			ctx, namespace, project,
 			repo.Visibility == gitlab.PublicVisibility,
 		)
 		for _, sub := range subs {

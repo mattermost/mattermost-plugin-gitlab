@@ -1,16 +1,23 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"time"
 
 	gitlabLib "github.com/xanzy/go-gitlab"
 
+	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 
 	"github.com/mattermost/mattermost-server/v6/model"
+)
+
+const (
+	webhookTimeout = 10 * time.Second
 )
 
 type gitlabRetreiver struct {
@@ -36,35 +43,38 @@ func (g *gitlabRetreiver) ParseGitlabUsernamesFromText(text string) []string {
 }
 
 func (g *gitlabRetreiver) GetSubscribedChannelsForProject(
+	ctx context.Context,
 	namespace string,
 	project string,
 	isPublicVisibility bool,
 ) []*subscription.Subscription {
-	return g.p.GetSubscribedChannelsForProject(namespace, project, isPublicVisibility)
+	return g.p.GetSubscribedChannelsForProject(ctx, namespace, project, isPublicVisibility)
 }
 
 func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	config := p.getConfiguration()
 
 	signature := r.Header.Get("X-Gitlab-Token")
-
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		http.Error(w, "Bad request body", http.StatusBadRequest)
-		return
-	}
-
 	if config.WebhookSecret != signature {
 		http.Error(w, "Not authorized", http.StatusUnauthorized)
 		return
 	}
 
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Bad request body", http.StatusBadRequest)
+		return
+	}
+
 	event, err := gitlabLib.ParseWebhook(gitlabLib.WebhookEventType(r), body)
 	if err != nil {
-		p.API.LogError("can't parse webhook", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"), "event", string(body))
+		p.API.LogDebug("Can't parse webhook", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"), "event", string(body))
 		http.Error(w, "Unable to handle request", http.StatusBadRequest)
 		return
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), webhookTimeout)
+	defer cancel()
 
 	var repoPrivate bool
 	var pathWithNamespace string
@@ -77,39 +87,39 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
-		handlers, errHandler = p.WebhookHandler.HandleMergeRequest(event)
+		handlers, errHandler = p.WebhookHandler.HandleMergeRequest(ctx, event)
 	case *gitlabLib.IssueEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
-		handlers, errHandler = p.WebhookHandler.HandleIssue(event)
+		handlers, errHandler = p.WebhookHandler.HandleIssue(ctx, event)
 	case *gitlabLib.IssueCommentEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
-		handlers, errHandler = p.WebhookHandler.HandleIssueComment(event)
+		handlers, errHandler = p.WebhookHandler.HandleIssueComment(ctx, event)
 	case *gitlabLib.MergeCommentEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
-		handlers, errHandler = p.WebhookHandler.HandleMergeRequestComment(event)
+		handlers, errHandler = p.WebhookHandler.HandleMergeRequestComment(ctx, event)
 	case *gitlabLib.PushEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.UserName
-		handlers, errHandler = p.WebhookHandler.HandlePush(event)
+		handlers, errHandler = p.WebhookHandler.HandlePush(ctx, event)
 	case *gitlabLib.PipelineEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
-		handlers, errHandler = p.WebhookHandler.HandlePipeline(event)
+		handlers, errHandler = p.WebhookHandler.HandlePipeline(ctx, event)
 	case *gitlabLib.TagEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.UserName
-		handlers, errHandler = p.WebhookHandler.HandleTag(event)
+		handlers, errHandler = p.WebhookHandler.HandleTag(ctx, event)
 	default:
-		p.API.LogWarn("event type not implemented", "type", string(gitlabLib.WebhookEventType(r)))
+		p.API.LogDebug("Event type not implemented", "type", string(gitlabLib.WebhookEventType(r)))
 		return
 	}
 
@@ -117,12 +127,12 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if errCheckGroup := p.isNamespaceAllowed(pathWithNamespace); errCheckGroup != nil {
+	if err = p.isNamespaceAllowed(pathWithNamespace); err != nil {
 		return
 	}
 
 	if errHandler != nil {
-		p.API.LogError("error handler when building webhook notif", "err", err)
+		p.API.LogDebug("Error when handling webhook event", "err", err)
 		return
 	}
 
@@ -173,7 +183,7 @@ func (p *Plugin) sendRefreshIfNotAlreadySent(alreadySentRefresh map[string]bool,
 	return userMattermostID
 }
 
-func (p *Plugin) permissionToProject(userID, namespace, project string) bool {
+func (p *Plugin) permissionToProject(ctx context.Context, userID, namespace, project string) bool {
 	if userID == "" {
 		return false
 	}
@@ -187,11 +197,34 @@ func (p *Plugin) permissionToProject(userID, namespace, project string) bool {
 		return false
 	}
 
-	if result, err := p.GitlabClient.GetProject(info, namespace, project); result == nil || err != nil {
+	if result, err := p.GitlabClient.GetProject(ctx, info, namespace, project); result == nil || err != nil {
 		if err != nil {
 			p.API.LogError("can't get project in webhook", "err", err.Error(), "project", namespace+"/"+project)
 		}
 		return false
 	}
 	return true
+}
+
+func CreateHook(ctx context.Context, gitlabClient gitlab.Gitlab, info *gitlab.UserInfo, group, project string, hookOptions *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error) {
+	// If project scope
+	if project != "" {
+		project, err := gitlabClient.GetProject(ctx, info, group, project)
+		if err != nil {
+			return nil, err
+		}
+		newWebhook, err := gitlabClient.NewProjectHook(ctx, info, project.ID, hookOptions)
+		if err != nil {
+			return nil, err
+		}
+		return newWebhook, nil
+	}
+
+	// If webhook is group scoped
+	newWebhook, err := gitlabClient.NewGroupHook(ctx, info, group, hookOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	return newWebhook, nil
 }
