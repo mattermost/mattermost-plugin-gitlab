@@ -2,7 +2,7 @@
 
 ### Step 1: Register an OAuth Application in GitLab
 
-1. Go to https://gitlab.com/profile/applications or https://gitlab.yourdomain.com/profile/applications to register an OAuth app.
+1. Go to https://gitlab.com/-/profile/applications or https://gitlab.yourdomain.com/-/profile/applications to register an OAuth app.
 1. Set the following values:
    - **Name**: `Mattermost GitLab Plugin - <your company name>`
    - **Redirect URI**: `https://your-mattermost-url.com/plugins/com.github.manland.mattermost-plugin-gitlab/oauth/complete`, replacing `https://your-mattermost-url.com` with your Mattermost URL

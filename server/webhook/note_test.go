@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -89,13 +90,13 @@ func TestNoteWebhook(t *testing.T) {
 				if err = json.Unmarshal([]byte(test.fixture), issueCommentEvent); err != nil {
 					assert.Fail(t, "can't unmarshal fixture")
 				}
-				res, err = w.HandleIssueComment(issueCommentEvent)
+				res, err = w.HandleIssueComment(context.Background(), issueCommentEvent)
 			} else {
 				mergeCommentEvent := &gitlab.MergeCommentEvent{}
 				if err = json.Unmarshal([]byte(test.fixture), mergeCommentEvent); err != nil {
 					assert.Fail(t, "can't unmarshal fixture")
 				}
-				res, err = w.HandleMergeRequestComment(mergeCommentEvent)
+				res, err = w.HandleMergeRequestComment(context.Background(), mergeCommentEvent)
 			}
 			assert.Empty(t, err)
 			assert.Equal(t, len(test.res), len(res))

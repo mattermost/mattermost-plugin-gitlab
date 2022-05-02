@@ -3,9 +3,6 @@ run:
   modules-download-mode: readonly
 
 linters-settings:
-  goconst:
-    min-len: 2
-    min-occurrences: 2
   gofmt:
     simplify: true
   goimports:
@@ -15,6 +12,8 @@ linters-settings:
   govet:
     check-shadowing: true
     enable-all: true
+    disable:
+      - fieldalignment
   misspell:
     locale: US
     ignore-words:
@@ -26,7 +25,6 @@ linters:
     - bodyclose
     - deadcode
     - errcheck
-    - goconst
     - gocritic
     - gofmt
     - goimports
@@ -35,7 +33,6 @@ linters:
     - gosimple
     - govet
     - ineffassign
-    - interfacer
     - misspell
     - nakedret
     - staticcheck
@@ -49,11 +46,6 @@ linters:
 
 issues:
   exclude-rules:
-    - path: server/manifest.go
-      linters:
-        - deadcode
-        - unused
-        - varcheck
     - path: server/configuration.go
       linters:
         - unused

@@ -1,6 +1,8 @@
 package gitlab
 
-import "time"
+import (
+	"time"
+)
 
 // WebhookInfo Provides information about group or project hooks.
 type WebhookInfo struct {
