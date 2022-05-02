@@ -43,11 +43,11 @@ Interact with the GitLab plugin using the `/gitlab` slash command.
 
 ### Subscribe To/Unsubscribe From a Repository
 
-Use `/gitlab subscribe owner[/repo] [features]` to subscribe a Mattermost channel to receive posts for new merge requests and/or issues, or other features (as listed above), from a GitLab repository. Ensure that the webhook is configured, otherwise this will not work properly.
+Use `/gitlab subscriptions add owner[/repo] [features]` to subscribe a Mattermost channel to receive posts for new merge requests and/or issues, or other features (as listed above), from a GitLab repository. Ensure that the webhook is configured, otherwise this will not work properly.
 
-Use `/gitlab unsubscribe owner/repo` to unsubscribe from it.  
+Use `/gitlab subscriptions delete owner/repo` to unsubscribe from it.  
 
-`/gitlab subscribe list` lists what you have subscribed to.
+`/gitlab subscriptions list` lists what you have subscribed to.
 
 ### Connect To/Disconnect From GitLab
 
