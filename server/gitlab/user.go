@@ -1,6 +1,8 @@
 package gitlab
 
 import (
+	"context"
+
 	"github.com/mattermost/mattermost-server/v6/model"
 	internGitlab "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
@@ -24,13 +26,16 @@ type UserSettings struct {
 	Notifications  bool   `json:"notifications"`
 }
 
-func (g *gitlab) GetCurrentUser(userID string, token oauth2.Token) (*UserInfo, error) {
+func (g *gitlab) GetCurrentUser(ctx context.Context, userID string, token oauth2.Token) (*UserInfo, error) {
 	client, err := g.gitlabConnect(token)
 	if err != nil {
 		return nil, err
 	}
 
-	gitUser, _, err := client.Users.CurrentUser()
+	gitUser, resp, err := client.Users.CurrentUser(internGitlab.WithContext(ctx))
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -49,12 +54,19 @@ func (g *gitlab) GetCurrentUser(userID string, token oauth2.Token) (*UserInfo, e
 	}, nil
 }
 
-func (g *gitlab) GetUserDetails(user *UserInfo) (*internGitlab.User, error) {
+func (g *gitlab) GetUserDetails(ctx context.Context, user *UserInfo) (*internGitlab.User, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
 	}
 
-	gitUser, _, err := client.Users.CurrentUser()
-	return gitUser, err
+	gitUser, resp, err := client.Users.CurrentUser(internGitlab.WithContext(ctx))
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return gitUser, nil
 }

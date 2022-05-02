@@ -1,9 +1,9 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -12,12 +12,17 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/gorilla/mux"
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
+	"github.com/mattermost/mattermost-plugin-api/experimental/bot/poster"
+	"github.com/mattermost/mattermost-plugin-api/experimental/telemetry"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
+	"golang.org/x/sync/errgroup"
 
+	root "github.com/mattermost/mattermost-plugin-gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 )
@@ -37,15 +42,13 @@ const (
 	chimeraGitLabAppIdentifier = "plugin-gitlab"
 )
 
-var errEmptySiteURL = errors.New("siteURL is not set. Please set it and restart the plugin")
+var (
+	manifest model.Manifest = root.Manifest
+)
 
 type Plugin struct {
 	plugin.MattermostPlugin
 	client *pluginapi.Client
-
-	BotUserID      string
-	WebhookHandler webhook.Webhook
-	GitlabClient   gitlab.Gitlab
 
 	// configurationLock synchronizes access to the configuration.
 	configurationLock sync.RWMutex
@@ -55,40 +58,58 @@ type Plugin struct {
 	configuration *configuration
 
 	chimeraURL string
+
+	router *mux.Router
+
+	telemetryClient telemetry.Client
+	tracker         telemetry.Tracker
+
+	BotUserID   string
+	poster      poster.Poster
+	flowManager *FlowManager
+
+	oauthBroker *OAuthBroker
+
+	WebhookHandler webhook.Webhook
+	GitlabClient   gitlab.Gitlab
 }
 
 func (p *Plugin) OnActivate() error {
 	p.client = pluginapi.NewClient(p.API, p.Driver)
 
-	config := p.getConfiguration()
-	if err := config.IsValid(); err != nil {
-		return err
+	siteURL := p.API.GetConfig().ServiceSettings.SiteURL
+	if siteURL == nil || *siteURL == "" {
+		return errors.New("siteURL is not set. Please set it and restart the plugin")
+	}
+
+	err := p.setDefaultConfiguration()
+	if err != nil {
+		return errors.Wrap(err, "failed to set default configuration")
 	}
 
 	p.registerChimeraURL()
 
-	if config.UsePreregisteredApplication && p.chimeraURL == "" {
+	if p.getConfiguration().UsePreregisteredApplication && p.chimeraURL == "" {
 		return errors.New("cannot use pre-registered application if Chimera URL is not set or empty. " +
 			"For now using pre-registered application is intended for Cloud instances only. " +
 			"If you are running on-prem disable the setting and use a custom application, otherwise set PluginSettings.ChimeraOAuthProxyURL " +
 			"or MM_PLUGINSETTINGS_CHIMERAOAUTHPROXYURL environment variable")
 	}
 
-	command, err := p.getCommand()
+	p.initializeAPI()
+
+	p.telemetryClient, err = telemetry.NewRudderClient()
 	if err != nil {
-		return errors.Wrap(err, "failed to get command")
+		p.API.LogWarn("Telemetry client not started", "error", err.Error())
 	}
 
-	err = p.API.RegisterCommand(command)
-	if err != nil {
-		return errors.Wrap(err, "failed to register command")
-	}
+	p.oauthBroker = NewOAuthBroker(p.sendOAuthCompleteEvent)
 
 	botID, err := p.client.Bot.EnsureBot(&model.Bot{
 		Username:    "gitlab",
 		DisplayName: "GitLab Plugin",
 		Description: "A bot account created by the plugin GitLab.",
-	})
+	}, pluginapi.ProfileImagePath(filepath.Join("assets", "profile.png")))
 	if err != nil {
 		return errors.Wrap(err, "can't ensure bot")
 	}
@@ -96,31 +117,67 @@ func (p *Plugin) OnActivate() error {
 
 	p.WebhookHandler = webhook.NewWebhook(&gitlabRetreiver{p: p})
 
-	bundlePath, err := p.API.GetBundlePath()
-	if err != nil {
-		return errors.Wrap(err, "can't retrieve bundle path")
-	}
-	profileImage, err := ioutil.ReadFile(filepath.Join(bundlePath, "assets", "profile.png"))
-	if err != nil {
-		return errors.Wrap(err, "failed to read profile image")
-	}
-	if appErr := p.API.SetProfileImage(botID, profileImage); appErr != nil {
-		return errors.Wrap(err, "failed to set profile image")
+	p.poster = poster.NewPoster(&p.client.Post, p.BotUserID)
+	p.flowManager = p.NewFlowManager()
+
+	return nil
+}
+
+func (p *Plugin) OnDeactivate() error {
+	p.oauthBroker.Close()
+
+	return nil
+}
+
+func (p *Plugin) OnInstall(c *plugin.Context, event model.OnInstallEvent) error {
+	// Don't start wizard if OAuth is configured
+	if p.getConfiguration().IsOAuthConfigured() {
+		return nil
 	}
 
-	siteURL := p.API.GetConfig().ServiceSettings.SiteURL
-	if siteURL == nil || *siteURL == "" {
-		return errEmptySiteURL
+	return p.flowManager.StartSetupWizard(event.UserId, "")
+}
+
+func (p *Plugin) OnSendDailyTelemetry() {
+	p.SendDailyTelemetry()
+}
+
+func (p *Plugin) OnPluginClusterEvent(c *plugin.Context, ev model.PluginClusterEvent) {
+	p.HandleClusterEvent(ev)
+}
+
+func (p *Plugin) setDefaultConfiguration() error {
+	config := p.getConfiguration()
+
+	changed, err := config.setDefaults(pluginapi.IsCloud(p.API.GetLicense()))
+	if err != nil {
+		return err
+	}
+
+	if changed {
+		configMap, err := config.ToMap()
+		if err != nil {
+			return err
+		}
+
+		appErr := p.API.SavePluginConfig(configMap)
+		if appErr != nil {
+			return appErr
+		}
 	}
 
 	return nil
+}
+
+func (p *Plugin) getGitlabClient() gitlab.Gitlab {
+	return p.GitlabClient
 }
 
 func (p *Plugin) getOAuthConfig() *oauth2.Config {
 	config := p.getConfiguration()
 
 	scopes := []string{"api", "read_user"}
-	redirectURL := fmt.Sprintf("%s/plugins/%s/oauth/complete", *p.API.GetConfig().ServiceSettings.SiteURL, manifest.ID)
+	redirectURL := fmt.Sprintf("%s/plugins/%s/oauth/complete", *p.API.GetConfig().ServiceSettings.SiteURL, manifest.Id)
 
 	if config.UsePreregisteredApplication {
 		p.API.LogDebug("Using Chimera Proxy OAuth configuration")
@@ -190,7 +247,7 @@ func (p *Plugin) storeGitlabUserInfo(info *gitlab.UserInfo) error {
 
 func (p *Plugin) deleteGitlabUserInfo(userID string) error {
 	if err := p.API.KVDelete(userID + GitlabTokenKey); err != nil {
-		return fmt.Errorf("encountered error deleting GitLab user info: %w", err)
+		return errors.Wrap(err, "encountered error deleting GitLab user info")
 	}
 	return nil
 }
@@ -219,28 +276,28 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 
 func (p *Plugin) storeGitlabToUserIDMapping(gitlabUsername, userID string) error {
 	if err := p.API.KVSet(gitlabUsername+GitlabUsernameKey, []byte(userID)); err != nil {
-		return fmt.Errorf("encountered error saving GitLab username mapping: %w", err)
+		return errors.Wrap(err, "encountered error saving GitLab username mapping")
 	}
 	return nil
 }
 
 func (p *Plugin) storeGitlabIDToUserIDMapping(gitlabUsername string, gitlabID int) error {
 	if err := p.API.KVSet(fmt.Sprintf("%d%s", gitlabID, GitlabIDUsernameKey), []byte(gitlabUsername)); err != nil {
-		return fmt.Errorf("encountered error saving GitLab id mapping: %w", err)
+		return errors.Wrap(err, "encountered error saving GitLab id mapping")
 	}
 	return nil
 }
 
 func (p *Plugin) deleteGitlabToUserIDMapping(gitlabUsername string) error {
 	if err := p.API.KVDelete(gitlabUsername + GitlabUsernameKey); err != nil {
-		return fmt.Errorf("encountered error deleting GitLab username mapping: %w", err)
+		return errors.Wrap(err, "encountered error deleting GitLab username mapping")
 	}
 	return nil
 }
 
 func (p *Plugin) deleteGitlabIDToUserIDMapping(gitlabID int) error {
 	if err := p.API.KVDelete(fmt.Sprintf("%d%s", gitlabID, GitlabIDUsernameKey)); err != nil {
-		return fmt.Errorf("encountered error deleting GitLab id mapping: %w", err)
+		return errors.Wrap(err, "encountered error deleting GitLab id mapping")
 	}
 	return nil
 }
@@ -329,8 +386,8 @@ func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppErr
 	return nil
 }
 
-func (p *Plugin) PostToDo(info *gitlab.UserInfo) {
-	hasTodo, text, err := p.GetToDo(info)
+func (p *Plugin) PostToDo(ctx context.Context, info *gitlab.UserInfo) {
+	hasTodo, text, err := p.GetToDo(ctx, info)
 	if err != nil {
 		p.API.LogError("can't post todo", "err", err.Error())
 		return
@@ -344,91 +401,122 @@ func (p *Plugin) PostToDo(info *gitlab.UserInfo) {
 	}
 }
 
-func (p *Plugin) GetToDo(user *gitlab.UserInfo) (bool, string, error) {
-	var hasTodo bool
+func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, string, error) {
+	hasTodo := false
 
-	unreads, err := p.GitlabClient.GetUnreads(user)
-	if err != nil {
-		return false, "", err
-	}
+	g, ctx := errgroup.WithContext(ctx)
 
-	yourAssignments, err := p.GitlabClient.GetYourAssignments(user)
-	if err != nil {
-		return false, "", err
-	}
+	notificationText := ""
+	g.Go(func() error {
+		unreads, err := p.GitlabClient.GetUnreads(ctx, user)
+		if err != nil {
+			return err
+		}
 
-	yourMergeRequests, err := p.GitlabClient.GetYourPrs(user)
-	if err != nil {
-		return false, "", err
-	}
+		notificationCount := 0
+		notificationContent := ""
 
-	reviews, err := p.GitlabClient.GetReviews(user)
-	if err != nil {
+		for _, n := range unreads {
+			if p.isNamespaceAllowed(n.Project.NameWithNamespace) != nil {
+				continue
+			}
+			notificationCount++
+			notificationContent += fmt.Sprintf("* %v : [%v](%v)\n", n.ActionName, n.Target.Title, n.TargetURL)
+		}
+
+		if notificationCount == 0 {
+			notificationText += "You don't have any unread messages.\n"
+		} else {
+			notificationText += fmt.Sprintf("You have %v unread messages:\n", notificationCount)
+			notificationText += notificationContent
+
+			hasTodo = true
+		}
+
+		return nil
+	})
+
+	reviewText := ""
+	g.Go(func() error {
+		reviews, err := p.GitlabClient.GetReviews(ctx, user)
+		if err != nil {
+			return err
+		}
+
+		if len(reviews) == 0 {
+			reviewText += "You don't have any merge requests awaiting your review.\n"
+		} else {
+			reviewText += fmt.Sprintf("You have %v merge requests awaiting your review:\n", len(reviews))
+
+			for _, pr := range reviews {
+				reviewText += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
+			}
+
+			hasTodo = true
+		}
+
+		return nil
+	})
+
+	assignmentText := ""
+	g.Go(func() error {
+		yourAssignments, err := p.GitlabClient.GetYourAssignments(ctx, user)
+		if err != nil {
+			return err
+		}
+
+		if len(yourAssignments) == 0 {
+			assignmentText += "You don't have any issues awaiting your dev.\n"
+		} else {
+			assignmentText += fmt.Sprintf("You have %v issues awaiting dev:\n", len(yourAssignments))
+
+			for _, pr := range yourAssignments {
+				assignmentText += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
+			}
+
+			hasTodo = true
+		}
+
+		return nil
+	})
+
+	mergeRequestText := ""
+	g.Go(func() error {
+		mergeRequests, err := p.GitlabClient.GetYourPrs(ctx, user)
+		if err != nil {
+			return err
+		}
+
+		if len(mergeRequests) == 0 {
+			mergeRequestText += "You don't have any open merge requests.\n"
+		} else {
+			mergeRequestText += fmt.Sprintf("You have %v open merge requests:\n", len(mergeRequests))
+
+			for _, pr := range mergeRequests {
+				mergeRequestText += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
+			}
+
+			hasTodo = true
+		}
+
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
 		return false, "", err
 	}
 
 	text := "##### Unread Messages\n"
-
-	notificationCount := 0
-	notificationContent := ""
-	for _, n := range unreads {
-		if p.isNamespaceAllowed(n.Project.NameWithNamespace) != nil {
-			continue
-		}
-		notificationCount++
-		notificationContent += fmt.Sprintf("* %v : [%v](%v)\n", n.ActionName, n.Target.Title, n.TargetURL)
-	}
-
-	if notificationCount == 0 {
-		text += "You don't have any unread messages.\n"
-	} else {
-		text += fmt.Sprintf("You have %v unread messages:\n", notificationCount)
-		text += notificationContent
-
-		hasTodo = true
-	}
+	text += notificationText
 
 	text += "##### Review Requests\n"
-
-	if len(reviews) == 0 {
-		text += "You don't have any merge requests awaiting your review.\n"
-	} else {
-		text += fmt.Sprintf("You have %v merge requests awaiting your review:\n", len(reviews))
-
-		for _, pr := range reviews {
-			text += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
-		}
-
-		hasTodo = true
-	}
+	text += reviewText
 
 	text += "##### Assignments\n"
-
-	if len(yourAssignments) == 0 {
-		text += "You don't have any issues awaiting your dev.\n"
-	} else {
-		text += fmt.Sprintf("You have %v issues awaiting dev:\n", len(yourAssignments))
-
-		for _, pr := range yourAssignments {
-			text += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
-		}
-
-		hasTodo = true
-	}
+	text += assignmentText
 
 	text += "##### Your Open Merge Requests\n"
-
-	if len(yourMergeRequests) == 0 {
-		text += "You don't have any open merge requests.\n"
-	} else {
-		text += fmt.Sprintf("You have %v open merge requests:\n", len(yourMergeRequests))
-
-		for _, pr := range yourMergeRequests {
-			text += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
-		}
-
-		hasTodo = true
-	}
+	text += mergeRequestText
 
 	return hasTodo, text, nil
 }
@@ -436,7 +524,7 @@ func (p *Plugin) GetToDo(user *gitlab.UserInfo) (bool, string, error) {
 func (p *Plugin) isNamespaceAllowed(namespace string) error {
 	allowedNamespace := strings.TrimSpace(p.getConfiguration().GitlabGroup)
 	if allowedNamespace != "" && allowedNamespace != namespace && !strings.HasPrefix(namespace, allowedNamespace) {
-		return fmt.Errorf("only repositories in the %s namespace are allowed", allowedNamespace)
+		return errors.Errorf("only repositories in the %s namespace are allowed", allowedNamespace)
 	}
 
 	return nil
@@ -452,14 +540,14 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 
 // HasProjectHook checks if the subscribed GitLab Project or its parrent Group has a webhook
 // with a URL that matches the Mattermost Site URL.
-func (p *Plugin) HasProjectHook(user *gitlab.UserInfo, namespace string, project string) (bool, error) {
-	hooks, err := p.GitlabClient.GetProjectHooks(user, namespace, project)
+func (p *Plugin) HasProjectHook(ctx context.Context, user *gitlab.UserInfo, namespace string, project string) (bool, error) {
+	hooks, err := p.GitlabClient.GetProjectHooks(ctx, user, namespace, project)
 	if err != nil {
 		return false, errors.New("unable to connect to GitLab")
 	}
 
 	// ignore error because many project won't be part of groups
-	hasGroupHook, _ := p.HasGroupHook(user, namespace)
+	hasGroupHook, _ := p.HasGroupHook(ctx, user, namespace)
 
 	if hasGroupHook {
 		return true, err
@@ -478,8 +566,8 @@ func (p *Plugin) HasProjectHook(user *gitlab.UserInfo, namespace string, project
 
 // HasGroupHook checks if the subscribed GitLab Group has a webhook
 // with a URL that matches the Mattermost Site URL.
-func (p *Plugin) HasGroupHook(user *gitlab.UserInfo, namespace string) (bool, error) {
-	hooks, err := p.GitlabClient.GetGroupHooks(user, namespace)
+func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namespace string) (bool, error) {
+	hooks, err := p.GitlabClient.GetGroupHooks(ctx, user, namespace)
 	if err != nil {
 		return false, errors.New("unable to connect to GitLab")
 	}

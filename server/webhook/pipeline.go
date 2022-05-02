@@ -1,17 +1,18 @@
 package webhook
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/xanzy/go-gitlab"
 )
 
-func (w *webhook) HandlePipeline(event *gitlab.PipelineEvent) ([]*HandleWebhook, error) {
+func (w *webhook) HandlePipeline(ctx context.Context, event *gitlab.PipelineEvent) ([]*HandleWebhook, error) {
 	handlers, err := w.handleDMPipeline(event)
 	if err != nil {
 		return nil, err
 	}
-	handlers2, err := w.handleChannelPipeline(event)
+	handlers2, err := w.handleChannelPipeline(ctx, event)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +48,7 @@ func (w *webhook) handleDMPipeline(event *gitlab.PipelineEvent) ([]*HandleWebhoo
 	return handlers, nil
 }
 
-func (w *webhook) handleChannelPipeline(event *gitlab.PipelineEvent) ([]*HandleWebhook, error) {
+func (w *webhook) handleChannelPipeline(ctx context.Context, event *gitlab.PipelineEvent) ([]*HandleWebhook, error) {
 	senderGitlabUsername := event.User.Username
 	repo := event.Project
 	res := []*HandleWebhook{}
@@ -67,7 +68,7 @@ func (w *webhook) handleChannelPipeline(event *gitlab.PipelineEvent) ([]*HandleW
 	toChannels := make([]string, 0)
 	namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
-		namespace, project,
+		ctx, namespace, project,
 		repo.Visibility == gitlab.PublicVisibility,
 	)
 	for _, sub := range subs {

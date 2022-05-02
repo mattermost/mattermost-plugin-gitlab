@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -91,7 +92,7 @@ func TestPipelineWebhook(t *testing.T) {
 			if err := json.Unmarshal([]byte(test.fixture), pipelineEvent); err != nil {
 				assert.Fail(t, "can't unmarshal fixture")
 			}
-			res, err := w.HandlePipeline(pipelineEvent)
+			res, err := w.HandlePipeline(context.Background(), pipelineEvent)
 			assert.Empty(t, err)
 			assert.Equal(t, len(test.res), len(res))
 			for index := range res {

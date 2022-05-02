@@ -1,11 +1,13 @@
 package main
 
 import (
-	"fmt"
-	"net/url"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
 	"reflect"
 	"strings"
 
+	"github.com/mattermost/mattermost-plugin-api/experimental/telemetry"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/pkg/errors"
 
@@ -24,15 +26,14 @@ import (
 // If you add non-reference types to your configuration struct, be sure to rewrite Clone as a deep
 // copy appropriate for your types.
 type configuration struct {
-	GitlabURL                   string
-	GitlabOAuthClientID         string
-	GitlabOAuthClientSecret     string
-	WebhookSecret               string
-	EncryptionKey               string
-	GitlabGroup                 string
-	EnablePrivateRepo           bool
-	PluginsDirectory            string
-	UsePreregisteredApplication bool
+	GitlabURL                   string `json:"gitlaburl"`
+	GitlabOAuthClientID         string `json:"gitlaboauthclientid"`
+	GitlabOAuthClientSecret     string `json:"gitlaboauthclientsecret"`
+	WebhookSecret               string `json:"webhooksecret"`
+	EncryptionKey               string `json:"encryptionkey"`
+	GitlabGroup                 string `json:"gitlabgroup"`
+	EnablePrivateRepo           bool   `json:"enableprivaterepo"`
+	UsePreregisteredApplication bool   `json:"usepreregisteredapplication"`
 }
 
 // Clone shallow copies the configuration. Your implementation may require a deep copy if
@@ -42,28 +43,92 @@ func (c *configuration) Clone() *configuration {
 	return &clone
 }
 
+func (c *configuration) ToMap() (map[string]interface{}, error) {
+	var out map[string]interface{}
+	data, err := json.Marshal(c)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(data, &out)
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+func (c *configuration) setDefaults(isCloud bool) (bool, error) {
+	changed := false
+
+	if c.EncryptionKey == "" {
+		secret, err := generateSecret()
+		if err != nil {
+			return false, err
+		}
+
+		c.EncryptionKey = secret
+		changed = true
+	}
+
+	if c.WebhookSecret == "" {
+		secret, err := generateSecret()
+		if err != nil {
+			return false, err
+		}
+
+		c.WebhookSecret = secret
+		changed = true
+	}
+
+	if isCloud && !c.UsePreregisteredApplication && !c.IsOAuthConfigured() {
+		c.UsePreregisteredApplication = true
+		changed = true
+	}
+
+	return changed, nil
+}
+
+func (c *configuration) sanitize() {
+	// Ensure GitlabURL ends with a slash
+	c.GitlabURL = strings.TrimRight(c.GitlabURL, "/")
+
+	// Trim spaces around org and OAuth credentials
+	c.GitlabGroup = strings.TrimSpace(c.GitlabGroup)
+	c.GitlabOAuthClientID = strings.TrimSpace(c.GitlabOAuthClientID)
+	c.GitlabOAuthClientSecret = strings.TrimSpace(c.GitlabOAuthClientSecret)
+}
+
+func (c *configuration) IsOAuthConfigured() bool {
+	return (c.GitlabOAuthClientID != "" && c.GitlabOAuthClientSecret != "") ||
+		c.UsePreregisteredApplication
+}
+
+// IsSASS return if SASS gitlab at https://gitlab.com is used
+func (c *configuration) IsSASS() bool {
+	return c.GitlabURL == "https://gitlab.com"
+}
+
 // IsValid checks if all needed fields are set.
 func (c *configuration) IsValid() error {
-	if _, err := url.ParseRequestURI(c.GitlabURL); err != nil {
+	if err := isValidURL(c.GitlabURL); err != nil {
 		return errors.New("must have a valid GitLab URL")
 	}
 
 	if !c.UsePreregisteredApplication {
 		if c.GitlabOAuthClientID == "" {
-			return fmt.Errorf("must have a GitLab oauth client id")
+			return errors.New("must have a GitLab oauth client id")
 		}
 		if c.GitlabOAuthClientSecret == "" {
-			return fmt.Errorf("must have a GitLab oauth client secret")
+			return errors.New("must have a GitLab oauth client secret")
 		}
 	}
 
-	gitLabURL := strings.TrimSuffix(c.GitlabURL, "/")
-	if c.UsePreregisteredApplication && gitLabURL != "https://gitlab.com" {
+	if c.UsePreregisteredApplication && !c.IsSASS() {
 		return errors.New("pre-registered application can only be used with official public GitLab")
 	}
 
 	if c.EncryptionKey == "" {
-		return fmt.Errorf("must have an encryption key")
+		return errors.New("must have an encryption key")
 	}
 
 	return nil
@@ -107,11 +172,6 @@ func (p *Plugin) setConfiguration(configuration *configuration, serverConfigurat
 		panic("setConfiguration called with the existing configuration")
 	}
 
-	// PluginDirectory should be set based on server configuration and not the plugin configuration
-	if serverConfiguration.PluginSettings.Directory != nil {
-		configuration.PluginsDirectory = *serverConfiguration.PluginSettings.Directory
-	}
-
 	p.configuration = configuration
 }
 
@@ -124,15 +184,45 @@ func (p *Plugin) OnConfigurationChange() error {
 		return errors.Wrap(err, "failed to load plugin configuration")
 	}
 
+	configuration.sanitize()
+
 	serverConfiguration := p.API.GetConfig()
 
 	p.setConfiguration(configuration, serverConfiguration)
 
-	if err := configuration.IsValid(); err != nil {
-		return err
+	command, err := p.getCommand(configuration)
+	if err != nil {
+		return errors.Wrap(err, "failed to get command")
 	}
+
+	err = p.API.RegisterCommand(command)
+	if err != nil {
+		return errors.Wrap(err, "failed to register command")
+	}
+
+	enableDiagnostics := false
+	if config := p.API.GetConfig(); config != nil {
+		if configValue := config.LogSettings.EnableDiagnostics; configValue != nil {
+			enableDiagnostics = *configValue
+		}
+	}
+
+	p.tracker = telemetry.NewTracker(p.telemetryClient, p.API.GetDiagnosticId(), p.API.GetServerVersion(), manifest.Id, manifest.Version, "gitlab", enableDiagnostics)
 
 	p.GitlabClient = gitlab.New(configuration.GitlabURL, configuration.GitlabGroup, p.isNamespaceAllowed)
 
 	return nil
+}
+
+func generateSecret() (string, error) {
+	b := make([]byte, 256)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	s := base64.RawStdEncoding.EncodeToString(b)
+
+	s = s[:32]
+
+	return s, nil
 }

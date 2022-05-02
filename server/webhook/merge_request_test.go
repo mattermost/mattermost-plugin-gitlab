@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -155,7 +156,7 @@ func TestMergeRequestWebhook(t *testing.T) {
 			if err := json.Unmarshal([]byte(test.fixture), mergeEvent); err != nil {
 				assert.Fail(t, "can't unmarshal fixture")
 			}
-			res, err := w.HandleMergeRequest(mergeEvent)
+			res, err := w.HandleMergeRequest(context.Background(), mergeEvent)
 			assert.Empty(t, err)
 			assert.Equal(t, len(test.res), len(res))
 			for index := range res {

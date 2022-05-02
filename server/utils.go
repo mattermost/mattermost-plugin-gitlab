@@ -6,11 +6,13 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 	"unicode"
+
+	"github.com/pkg/errors"
 )
 
 func pad(src []byte) []byte {
@@ -120,4 +122,22 @@ func parseGitlabUsernamesFromText(text string) []string {
 
 func fullPathFromNamespaceAndProject(namespace, project string) string {
 	return fmt.Sprintf("%s/%s", namespace, project)
+}
+
+// isValidURL checks if a given URL is a valid URL with a host and a http or http scheme.
+func isValidURL(rawURL string) error {
+	u, err := url.ParseRequestURI(rawURL)
+	if err != nil {
+		return err
+	}
+
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return errors.Errorf("URL schema must either be %q or %q", "http", "https")
+	}
+
+	if u.Host == "" {
+		return errors.New("URL must contain a host")
+	}
+
+	return nil
 }
