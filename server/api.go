@@ -595,4 +595,3 @@ func (p *Plugin) updateSettings(c *UserContext, w http.ResponseWriter, r *http.R
 
 	p.writeAPIResponse(w, info.Settings)
 }
-s
