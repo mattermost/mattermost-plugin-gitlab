@@ -296,7 +296,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 			if strings.Contains(err.Error(), projectNotFoundError) {
 				return p.getCommandResponse(args, projectNotFoundMessage+project), nil
 			}
-			return p.getCommandResponse(args, "Encountered an error while triggering your pipeline"), nil
+			return p.getCommandResponse(args, "Encountered an error while triggering your pipeline : "+err.Error()), nil
 		}
 
 		return p.getCommandResponse(args, pipeline.String()), nil
