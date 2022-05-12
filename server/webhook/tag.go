@@ -1,18 +1,19 @@
 package webhook
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/xanzy/go-gitlab"
 )
 
-func (w *webhook) HandleTag(event *gitlab.TagEvent) ([]*HandleWebhook, error) {
+func (w *webhook) HandleTag(ctx context.Context, event *gitlab.TagEvent) ([]*HandleWebhook, error) {
 	handlers, err := w.handleDMTag(event)
 	if err != nil {
 		return nil, err
 	}
-	handlers2, err := w.handleChannelTag(event)
+	handlers2, err := w.handleChannelTag(ctx, event)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +40,7 @@ func (w *webhook) handleDMTag(event *gitlab.TagEvent) ([]*HandleWebhook, error) 
 	return handlers, nil
 }
 
-func (w *webhook) handleChannelTag(event *gitlab.TagEvent) ([]*HandleWebhook, error) {
+func (w *webhook) handleChannelTag(ctx context.Context, event *gitlab.TagEvent) ([]*HandleWebhook, error) {
 	senderGitlabUsername := w.gitlabRetreiver.GetUsernameByID(event.UserID)
 	repo := event.Project
 	tagNames := strings.Split(event.Ref, "/")
@@ -52,7 +53,7 @@ func (w *webhook) handleChannelTag(event *gitlab.TagEvent) ([]*HandleWebhook, er
 	toChannels := make([]string, 0)
 	namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
-		namespace, project,
+		ctx, namespace, project,
 		repo.Visibility == gitlab.PublicVisibility,
 	)
 	for _, sub := range subs {

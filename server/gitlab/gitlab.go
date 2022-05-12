@@ -1,45 +1,45 @@
 package gitlab
 
 import (
-	"errors"
+	"context"
+	"net/http"
 	"strings"
-	"time"
 
+	"github.com/pkg/errors"
 	internGitlab "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
 )
 
-// DefaultRequestTimeout specifies default value for request timeouts.
-const DefaultRequestTimeout = 5 * time.Second
-
-const gitlabdotcom = "https://gitlab.com"
+const Gitlabdotcom = "https://gitlab.com"
 
 // Errors returned by this package.
 var (
 	ErrNotFound        = errors.New("not found")
+	ErrForbidden       = errors.New("access forbidden")
 	ErrPrivateResource = errors.New("private resource")
 )
 
 //go:generate mockgen -source=gitlab.go -destination=mocks/mock_gitlab.go
 // Gitlab is a client to call GitLab api see New() to build one
 type Gitlab interface {
-	GetCurrentUser(userID string, token oauth2.Token) (*UserInfo, error)
-	GetUserDetails(user *UserInfo) (*internGitlab.User, error)
-	GetProject(user *UserInfo, owner, repo string) (*internGitlab.Project, error)
-	GetReviews(user *UserInfo) ([]*internGitlab.MergeRequest, error)
-	GetYourPrs(user *UserInfo) ([]*internGitlab.MergeRequest, error)
-	GetYourAssignments(user *UserInfo) ([]*internGitlab.Issue, error)
-	GetUnreads(user *UserInfo) ([]*internGitlab.Todo, error)
-	GetProjectHooks(user *UserInfo, owner string, repo string) ([]*WebhookInfo, error)
-	GetGroupHooks(user *UserInfo, owner string) ([]*WebhookInfo, error)
-	NewProjectHook(user *UserInfo, projectID interface{}, projectHookOptions *AddWebhookOptions) (*WebhookInfo, error)
-	NewGroupHook(user *UserInfo, groupName string, groupHookOptions *AddWebhookOptions) (*WebhookInfo, error)
+	GetCurrentUser(ctx context.Context, userID string, token oauth2.Token) (*UserInfo, error)
+	GetUserDetails(ctx context.Context, user *UserInfo) (*internGitlab.User, error)
+	GetProject(ctx context.Context, user *UserInfo, owner, repo string) (*internGitlab.Project, error)
+	GetReviews(ctx context.Context, user *UserInfo) ([]*internGitlab.MergeRequest, error)
+	GetYourPrs(ctx context.Context, user *UserInfo) ([]*internGitlab.MergeRequest, error)
+	GetYourAssignments(ctx context.Context, user *UserInfo) ([]*internGitlab.Issue, error)
+	GetUnreads(ctx context.Context, user *UserInfo) ([]*internGitlab.Todo, error)
+	GetProjectHooks(ctx context.Context, user *UserInfo, owner string, repo string) ([]*WebhookInfo, error)
+	GetGroupHooks(ctx context.Context, user *UserInfo, owner string) ([]*WebhookInfo, error)
+	NewProjectHook(ctx context.Context, user *UserInfo, projectID interface{}, projectHookOptions *AddWebhookOptions) (*WebhookInfo, error)
+	NewGroupHook(ctx context.Context, user *UserInfo, groupName string, groupHookOptions *AddWebhookOptions) (*WebhookInfo, error)
 	// ResolveNamespaceAndProject accepts full path to User, Group or namespaced Project and returns corresponding
 	// namespace and project name.
 	//
 	// ErrNotFound will be returned if no resource can be found.
 	// If allowPrivate is set to false, and resolved group/project is private, ErrPrivateResource will be returned.
 	ResolveNamespaceAndProject(
+		ctx context.Context,
 		userInfo *UserInfo,
 		fullPath string,
 		allowPrivate bool,
@@ -49,9 +49,9 @@ type Gitlab interface {
 }
 
 type gitlab struct {
-	enterpriseBaseURL string
-	gitlabGroup       string
-	checkGroup        func(projectNameWithGroup string) error
+	gitlabURL   string
+	gitlabGroup string
+	checkGroup  func(projectNameWithGroup string) error
 }
 
 // Scope identifies the scope of a webhook
@@ -69,14 +69,43 @@ func (s Scope) String() string {
 }
 
 // New return a client to call GitLab API
-func New(enterpriseBaseURL string, gitlabGroup string, checkGroup func(projectNameWithGroup string) error) Gitlab {
-	return &gitlab{enterpriseBaseURL: enterpriseBaseURL, gitlabGroup: gitlabGroup, checkGroup: checkGroup}
+func New(gitlabURL string, gitlabGroup string, checkGroup func(projectNameWithGroup string) error) Gitlab {
+	if gitlabURL == "" {
+		gitlabURL = Gitlabdotcom
+	}
+	return &gitlab{gitlabURL: gitlabURL, gitlabGroup: gitlabGroup, checkGroup: checkGroup}
 }
 
 func (g *gitlab) gitlabConnect(token oauth2.Token) (*internGitlab.Client, error) {
-	if len(g.enterpriseBaseURL) == 0 || strings.EqualFold(g.enterpriseBaseURL, gitlabdotcom) {
+	if g.gitlabURL == "" || strings.EqualFold(g.gitlabURL, Gitlabdotcom) {
 		return internGitlab.NewOAuthClient(token.AccessToken)
 	}
 
-	return internGitlab.NewOAuthClient(token.AccessToken, internGitlab.WithBaseURL(g.enterpriseBaseURL))
+	return internGitlab.NewOAuthClient(token.AccessToken, internGitlab.WithBaseURL(g.gitlabURL))
+}
+
+// checkResponse returns known errors based on the http status code.
+func checkResponse(resp *internGitlab.Response) error {
+	if resp == nil {
+		return nil
+	}
+
+	switch resp.StatusCode {
+	case http.StatusForbidden:
+		return ErrForbidden
+	case http.StatusNotFound:
+		return ErrNotFound
+	default:
+		return nil
+	}
+}
+
+// PrettyError returns an err in a better readable way.
+func PrettyError(err error) error {
+	var errResp *internGitlab.ErrorResponse
+	if errors.As(err, &errResp) {
+		return errors.New(errResp.Message)
+	}
+
+	return err
 }
