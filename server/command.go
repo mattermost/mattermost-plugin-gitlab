@@ -275,9 +275,15 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 
 	case commandBuild:
 		lenParams := len(parameters)
+
 		if lenParams < 1 {
 			return p.getCommandResponse(args, "Command arguments mismatched, please use `/gitlab help` to see action parameters. "), nil
 		}
+
+		if lenParams > 2 {
+			return p.getCommandResponse(args, "Too many parameters (only need 2), please use `/gitlab help` to see action parameters. "), nil
+		}
+
 		project := parameters[0]
 
 		ref := "main"
