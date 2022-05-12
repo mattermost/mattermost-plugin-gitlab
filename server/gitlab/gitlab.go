@@ -45,7 +45,7 @@ type Gitlab interface {
 		allowPrivate bool,
 	) (namespace string, project string, err error)
 
-	TriggerNewBuildPipeline(user *UserInfo, repo string, reference string) (*TriggerPipelineResponse, error)
+	TriggerNewBuildPipeline(user *UserInfo, repo string, reference string) (*internGitlab.Pipeline, error)
 }
 
 type gitlab struct {

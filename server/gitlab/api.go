@@ -413,7 +413,7 @@ func (g *gitlab) ResolveNamespaceAndProject(
 	return "", "", ErrNotFound
 }
 
-func (g *gitlab) TriggerNewBuildPipeline(user *UserInfo, repo string, refToCommit string) (*TriggerPipelineResponse, error) {
+func (g *gitlab) TriggerNewBuildPipeline(user *UserInfo, repo string, refToCommit string) (*internGitlab.Pipeline, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -430,5 +430,5 @@ func (g *gitlab) TriggerNewBuildPipeline(user *UserInfo, repo string, refToCommi
 		return nil, fmt.Errorf("failed to retrieve project by path: %w", err)
 	}
 
-	return newTriggerPipelineResponse(pipeline), err
+	return pipeline, err
 }
