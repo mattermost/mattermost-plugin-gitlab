@@ -4,11 +4,15 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	internGitlab "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
 )
+
+// DefaultRequestTimeout specifies default value for request timeouts.
+const DefaultRequestTimeout = 5 * time.Second
 
 const Gitlabdotcom = "https://gitlab.com"
 
