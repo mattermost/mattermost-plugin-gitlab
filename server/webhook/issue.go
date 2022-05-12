@@ -26,7 +26,7 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 
 	switch event.ObjectAttributes.Action {
 	case actionOpen:
-		if event.Assignees != nil && len(event.Assignees) > 0 {
+		if len(event.Assignees) > 0 {
 			message = fmt.Sprintf("[%s](%s) assigned you to issue [%s#%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Project.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 		}
 	case actionClose:
