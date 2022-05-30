@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -72,6 +73,15 @@ type Plugin struct {
 
 	WebhookHandler webhook.Webhook
 	GitlabClient   gitlab.Gitlab
+	// gitlabPermalinkRegex is used to parse gitlab permalinks in post messages.
+	gitlabPermalinkRegex *regexp.Regexp
+}
+
+// NewPlugin returns an instance of a Plugin.
+func NewPlugin() *Plugin {
+	return &Plugin{
+		gitlabPermalinkRegex: regexp.MustCompile(`https?://(?P<haswww>www\.)?gitlab\.com/(?P<user>[\w/.?-]+)/(?P<repo>[\w-]+)/-/blob/(?P<commit>\w+)/(?P<path>[\w-/.]+)#(?P<line>[\w-]+)?`),
+	}
 }
 
 func (p *Plugin) OnActivate() error {
@@ -144,6 +154,33 @@ func (p *Plugin) OnSendDailyTelemetry() {
 
 func (p *Plugin) OnPluginClusterEvent(c *plugin.Context, ev model.PluginClusterEvent) {
 	p.HandleClusterEvent(ev)
+}
+
+func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*model.Post, string) {
+	// If not enabled in config, ignore.
+	if !p.getConfiguration().EnableCodePreview {
+		return nil, ""
+	}
+
+	if post.UserId == "" {
+		return nil, ""
+	}
+
+	msg := post.Message
+	info, err := p.getGitlabUserInfoByMattermostID(post.UserId)
+	if err != nil {
+		p.API.LogError("error in getting user info", "error", err.Message)
+		return nil, ""
+	}
+	// TODO: make this part of the Plugin struct and reuse it.
+	glClient, cErr := p.GitlabClient.GitlabConnect(*info.Token)
+	if cErr != nil {
+		p.API.LogError("error in getting gitlab client", "error", cErr.Error())
+		return nil, ""
+	}
+	replacements := p.getReplacements(msg)
+	post.Message = p.makeReplacements(msg, replacements, glClient)
+	return post, ""
 }
 
 func (p *Plugin) setDefaultConfiguration() error {
