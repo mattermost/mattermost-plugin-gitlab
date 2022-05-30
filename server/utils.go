@@ -161,7 +161,7 @@ func filterLines(s string, start, end int) (string, error) {
 }
 
 // getLineNumbers return the start and end lines from an anchor tag
-// of a github permalink.
+// of a gitlab permalink.
 func getLineNumbers(s string) (start, end int) {
 	// split till -
 	parts := strings.Split(s, "-")
