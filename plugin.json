@@ -93,7 +93,7 @@
                 "key": "EnableCodePreview",
                 "display_name": "Enable Code Previews",
                 "type": "bool",
-                "help_text": "(Optional) Allow the plugin to expand permalinks to gitlab files with an actual preview of the linked file."
+                "help_text": "(Optional) Allow the plugin to expand permalinks to GitLab files with an actual preview of the linked file."
             }
         ]
     }

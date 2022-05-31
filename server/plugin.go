@@ -175,7 +175,7 @@ func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*mode
 	// TODO: make this part of the Plugin struct and reuse it.
 	glClient, cErr := p.GitlabClient.GitlabConnect(*info.Token)
 	if cErr != nil {
-		p.API.LogError("error in getting gitlab client", "error", cErr.Error())
+		p.API.LogError("error in getting GitLab client", "error", cErr.Error())
 		return nil, ""
 	}
 	replacements := p.getReplacements(msg)

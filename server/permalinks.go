@@ -25,7 +25,7 @@ const maxPreviewLines = 10
 // if the link points to a single line.
 const permalinkLineContext = 3
 
-// replacement holds necessary info to replace gitlab permalinks
+// replacement holds necessary info to replace GitLab permalinks
 // in messages with a code preview block.
 type replacement struct {
 	index         int      // index of the permalink in the string
@@ -40,7 +40,7 @@ type replacement struct {
 	}
 }
 
-// getReplacements returns the permalink replacements that needs to be performed
+// getReplacements returns the permalink replacements that need to be performed
 // on a message. The returned slice is sorted by the index in ascending order.
 func (p *Plugin) getReplacements(msg string) []replacement {
 	// find the permalinks from the msg using a regex
@@ -87,7 +87,7 @@ func (p *Plugin) getReplacements(msg string) []replacement {
 	return replacements
 }
 
-// makeReplacements perform the given replacements on the msg and returns
+// makeReplacements performs the given replacements on the msg and returns
 // the new msg. The replacements slice needs to be sorted by the index in ascending order.
 func (p *Plugin) makeReplacements(msg string, replacements []replacement, glClient *gitlab.Client) string {
 	// iterating the slice in reverse to preserve the replacement indices.
@@ -112,7 +112,7 @@ func (p *Plugin) makeReplacements(msg string, replacements []replacement, glClie
 			p.API.LogError("error while fetching file contents", "error", err.Error(), "path", r.permalinkInfo.path)
 			continue
 		}
-		// this is not a file, ignore.
+		// if this is not a file, ignore.
 		if file == nil {
 			p.API.LogWarn("permalink is not a file", "file", r.permalinkInfo.path)
 			continue
