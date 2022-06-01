@@ -172,7 +172,6 @@ func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*mode
 		p.API.LogError("error in getting user info", "error", err.Message)
 		return nil, ""
 	}
-	// TODO: make this part of the Plugin struct and reuse it.
 	glClient, cErr := p.GitlabClient.GitlabConnect(*info.Token)
 	if cErr != nil {
 		p.API.LogError("error in getting GitLab client", "error", cErr.Error())
