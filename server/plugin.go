@@ -53,7 +53,6 @@ type Plugin struct {
 
 	// configurationLock synchronizes access to the configuration.
 	configurationLock sync.RWMutex
-	tokenLock         sync.Mutex
 
 	// configuration is the active plugin configuration. Consult getConfiguration and
 	// setConfiguration for usage.
@@ -259,8 +258,6 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 
 	var userInfo gitlab.UserInfo
 
-	p.tokenLock.Lock()
-	defer p.tokenLock.Unlock()
 	if infoBytes, err := p.API.KVGet(userID + GitlabTokenKey); err != nil || infoBytes == nil {
 		return nil, &APIErrorResponse{ID: APIErrorIDNotConnected, Message: "Must connect user account to GitLab first.", StatusCode: http.StatusBadRequest}
 	} else if err := json.Unmarshal(infoBytes, &userInfo); err != nil {
