@@ -88,6 +88,12 @@
                 "help_text": "(Optional) Allow the plugin to work with private repositories.",
                 "placeholder": "",
                 "default": null
+            },
+            {
+                "key": "EnableCodePreview",
+                "display_name": "Enable Code Previews",
+                "type": "bool",
+                "help_text": "(Optional) Allow the plugin to expand permalinks to GitLab files with an actual preview of the linked file."
             }
         ]
     }
