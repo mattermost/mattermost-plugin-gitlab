@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	stateOpened = "opened"
-	scopeAll    = "all"
+	stateOpened      = "opened"
+	scopeAll         = "all"
+	withLabelDetails = true
 )
 
 // NewGroupHook creates a webhook associated with a GitLab group
@@ -254,22 +255,25 @@ func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo) ([]*internGitla
 
 	opened := stateOpened
 	scope := scopeAll
+	labels := withLabelDetails
 
 	var result []*internGitlab.MergeRequest
 
 	if g.gitlabGroup == "" {
 		result, _, err = client.MergeRequests.ListMergeRequests(&internGitlab.ListMergeRequestsOptions{
-			AssigneeID: internGitlab.AssigneeID(user.GitlabUserID),
-			State:      &opened,
-			Scope:      &scope,
+			AssigneeID:        internGitlab.AssigneeID(user.GitlabUserID),
+			State:             &opened,
+			Scope:             &scope,
+			WithLabelsDetails: &labels,
 		},
 			internGitlab.WithContext(ctx),
 		)
 	} else {
 		result, _, err = client.MergeRequests.ListGroupMergeRequests(g.gitlabGroup, &internGitlab.ListGroupMergeRequestsOptions{
-			AssigneeID: internGitlab.AssigneeID(user.GitlabUserID),
-			State:      &opened,
-			Scope:      &scope,
+			AssigneeID:        internGitlab.AssigneeID(user.GitlabUserID),
+			State:             &opened,
+			Scope:             &scope,
+			WithLabelsDetails: &labels,
 		},
 			internGitlab.WithContext(ctx),
 		)
@@ -286,23 +290,26 @@ func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo) ([]*internGitla
 
 	opened := stateOpened
 	scope := scopeAll
+	labels := withLabelDetails
 
 	var result []*internGitlab.MergeRequest
 	var resp *internGitlab.Response
 
 	if g.gitlabGroup == "" {
 		result, resp, err = client.MergeRequests.ListMergeRequests(&internGitlab.ListMergeRequestsOptions{
-			AuthorID: &user.GitlabUserID,
-			State:    &opened,
-			Scope:    &scope,
+			AuthorID:          &user.GitlabUserID,
+			State:             &opened,
+			Scope:             &scope,
+			WithLabelsDetails: &labels,
 		},
 			internGitlab.WithContext(ctx),
 		)
 	} else {
 		result, resp, err = client.MergeRequests.ListGroupMergeRequests(g.gitlabGroup, &internGitlab.ListGroupMergeRequestsOptions{
-			AuthorID: &user.GitlabUserID,
-			State:    &opened,
-			Scope:    &scope,
+			AuthorID:          &user.GitlabUserID,
+			State:             &opened,
+			Scope:             &scope,
+			WithLabelsDetails: &labels,
 		},
 			internGitlab.WithContext(ctx),
 		)
@@ -325,23 +332,26 @@ func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo) ([]*int
 
 	opened := stateOpened
 	scope := scopeAll
+	labels := withLabelDetails
 
 	var result []*internGitlab.Issue
 	var resp *internGitlab.Response
 
 	if g.gitlabGroup == "" {
 		result, resp, err = client.Issues.ListIssues(&internGitlab.ListIssuesOptions{
-			AssigneeID: &user.GitlabUserID,
-			State:      &opened,
-			Scope:      &scope,
+			AssigneeID:       &user.GitlabUserID,
+			State:            &opened,
+			Scope:            &scope,
+			WithLabelDetails: &labels,
 		},
 			internGitlab.WithContext(ctx),
 		)
 	} else {
 		result, resp, err = client.Issues.ListGroupIssues(g.gitlabGroup, &internGitlab.ListGroupIssuesOptions{
-			AssigneeID: &user.GitlabUserID,
-			State:      &opened,
-			Scope:      &scope,
+			AssigneeID:       &user.GitlabUserID,
+			State:            &opened,
+			Scope:            &scope,
+			WithLabelDetails: &labels,
 		},
 			internGitlab.WithContext(ctx),
 		)

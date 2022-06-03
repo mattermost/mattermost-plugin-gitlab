@@ -18,7 +18,6 @@ export default class SidebarHeader extends React.PureComponent {
             <SidebarButtons
                 theme={this.props.theme}
                 isTeamSidebar={false}
-            />
-        );
+            />);
     }
 }

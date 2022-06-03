@@ -49,7 +49,7 @@ export function getReviews() {
 
         const connected = await checkAndHandleNotConnected(data)(
             dispatch,
-            getState
+            getState,
         );
         if (!connected) {
             return {error: data};
@@ -75,7 +75,7 @@ export function getYourPrs() {
 
         const connected = await checkAndHandleNotConnected(data)(
             dispatch,
-            getState
+            getState,
         );
         if (!connected) {
             return {error: data};
@@ -101,7 +101,7 @@ export function getYourAssignments() {
 
         const connected = await checkAndHandleNotConnected(data)(
             dispatch,
-            getState
+            getState,
         );
         if (!connected) {
             return {error: data};
@@ -127,7 +127,7 @@ export function getMentions() {
 
         const connected = await checkAndHandleNotConnected(data)(
             dispatch,
-            getState
+            getState,
         );
         if (!connected) {
             return {error: data};
@@ -153,7 +153,7 @@ export function getUnreads() {
 
         const connected = await checkAndHandleNotConnected(data)(
             dispatch,
-            getState
+            getState,
         );
         if (!connected) {
             return {error: data};
@@ -168,6 +168,24 @@ export function getUnreads() {
     };
 }
 
+/**
+ * Stores "showRHSPlugin" action returned by
+ * "registerRightHandSidebarComponent" in plugin initialization.
+ */
+export function setShowRHSAction(showRHSPluginAction) {
+    return {
+        type: ActionTypes.RECEIVED_SHOW_RHS_ACTION,
+        showRHSPluginAction,
+    };
+}
+
+export function updateRhsState(rhsState) {
+    return {
+        type: ActionTypes.UPDATE_RHS_STATE,
+        state: rhsState,
+    };
+}
+
 const GITLAB_USER_GET_TIMEOUT_MILLISECONDS = 1000 * 60 * 60; // 1 hour
 
 export function getGitlabUser(userID) {
@@ -179,8 +197,8 @@ export function getGitlabUser(userID) {
         const user = getState()[`plugins-${id}`].gitlabUsers[userID];
         if (
             user &&
-      user.last_try &&
-      Date.now() - user.last_try < GITLAB_USER_GET_TIMEOUT_MILLISECONDS
+            user.last_try &&
+            Date.now() - user.last_try < GITLAB_USER_GET_TIMEOUT_MILLISECONDS
         ) {
             return {};
         }

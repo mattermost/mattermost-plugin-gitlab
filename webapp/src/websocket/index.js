@@ -46,7 +46,7 @@ export function handleReconnect(store, reminder = false) {
     return async () => {
         const {data} = await getConnected(reminder)(
             store.dispatch,
-            store.getState
+            store.getState,
         );
         if (data && data.connected) {
             getReviews()(store.dispatch, store.getState);

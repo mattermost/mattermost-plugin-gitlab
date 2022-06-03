@@ -8,4 +8,6 @@ export default {
     RECEIVED_UNREADS: `${id}_received_unreads`,
     RECEIVED_CONNECTED: `${id}_received_connected`,
     RECEIVED_GITLAB_USER: `${id}_received_gitlab_user`,
+    RECEIVED_SHOW_RHS_ACTION: `${id}_received_rhs_action`,
+    UPDATE_RHS_STATE: `${id}_update_rhs_state`,
 };
