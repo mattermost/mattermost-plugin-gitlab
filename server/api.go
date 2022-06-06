@@ -55,6 +55,8 @@ func (p *Plugin) initializeAPI() {
 	apiRouter.HandleFunc("/yourprs", p.checkAuth(p.attachUserContext(p.getYourPrs), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/yourassignments", p.checkAuth(p.attachUserContext(p.getYourAssignments), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/unreads", p.checkAuth(p.attachUserContext(p.getUnreads), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/issue", p.checkAuth(p.attachUserContext(p.getIssueByNumber), ResponseTypeJSON)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/mergerequest", p.checkAuth(p.attachUserContext(p.getMergeRequestByNumber), ResponseTypeJSON)).Methods(http.MethodGet)
 
 	apiRouter.HandleFunc("/settings", p.checkAuth(p.attachUserContext(p.updateSettings), ResponseTypePlain)).Methods(http.MethodPost)
 }
@@ -594,4 +596,44 @@ func (p *Plugin) updateSettings(c *UserContext, w http.ResponseWriter, r *http.R
 	}
 
 	p.writeAPIResponse(w, info.Settings)
+}
+
+func (p *Plugin) getIssueByNumber(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	owner := r.FormValue("owner")
+	repo := r.FormValue("repo")
+	issueID, err := strconv.Atoi(r.FormValue("number"))
+	if err != nil {
+		c.Log.WithError(err).Warnf("Unable to convert issueID into int")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to convert issueID into int.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	issue, err := p.GitlabClient.GetIssueByID(c.Ctx, c.GitlabInfo, owner, repo, issueID)
+	if err != nil {
+		c.Log.WithError(err).Warnf("Unable to get issue in GitLab API")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get issue in GitLab API.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	p.writeAPIResponse(w, issue)
+}
+
+func (p *Plugin) getMergeRequestByNumber(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	owner := r.FormValue("owner")
+	repo := r.FormValue("repo")
+	mergeRequestID, err := strconv.Atoi(r.FormValue("number"))
+	if err != nil {
+		c.Log.WithError(err).Warnf("Unable to convert mergeRequestID into int")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to convert mergeRequestID into int.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	mergeRequst, err := p.GitlabClient.GetMergeRequestByID(c.Ctx, c.GitlabInfo, owner, repo, mergeRequestID)
+	if err != nil {
+		c.Log.WithError(err).Warnf("Unable to get merge request in GitLab API")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get merge request in GitLab API.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	p.writeAPIResponse(w, mergeRequst)
 }
