@@ -39,7 +39,7 @@ export default class Client {
     }
 
     getPullRequest = async (owner, repo, prNumber) => {
-        return this.doGet(`${this.url}/pr?owner=${owner}&repo=${repo}&number=${prNumber}`);
+        return this.doGet(`${this.url}/mergerequest?owner=${owner}&repo=${repo}&number=${prNumber}`);
     }
 
     doGet = async (url, body, headers = {}) => {

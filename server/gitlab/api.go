@@ -512,13 +512,13 @@ func (g *gitlab) GetIssueByID(ctx context.Context, user *UserInfo, owner, repo s
 	return gitlabIssue, nil
 }
 
-func (g *gitlab) GetMergeRequestByID(ctx context.Context, user *UserInfo, owner, repo string, prID int) (*GitlabMergeRequest, error) {
+func (g *gitlab) GetMergeRequestByID(ctx context.Context, user *UserInfo, owner, repo string, mergeRequestID int) (*GitlabMergeRequest, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
 	}
 	projectPath := fmt.Sprintf("%s/%s", owner, repo)
-	mergeRequest, resp, err := client.MergeRequests.GetMergeRequest(projectPath, prID, nil)
+	mergeRequest, resp, err := client.MergeRequests.GetMergeRequest(projectPath, mergeRequestID, nil)
 	if respErr := checkResponse(resp); respErr != nil {
 		return nil, respErr
 	}

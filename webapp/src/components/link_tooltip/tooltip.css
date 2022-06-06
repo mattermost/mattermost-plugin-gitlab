@@ -48,12 +48,14 @@
     display: flex;
     flex-direction: column;
 }
+
 .gitlab-tooltip .tooltip-info > a, .gitlab-tooltip .tooltip-info > a:hover {
     display: block;
     text-decoration: none;
     color: var(--dark-gray);
 }
-.gitlab-tooltip .tooltip-info > a span {
+
+.mr-number {
     color: var(--light-gray);
 }
 
@@ -90,7 +92,7 @@
 
 .gitlab-tooltip .label {
     height: 20px;
-    padding: .15em 4px;
+    padding: 2.4px 4px;
     font-size: 12px;
     font-weight: 600;
     line-height: 15px;
