@@ -16,12 +16,12 @@ const (
 	scopeAll    = "all"
 )
 
-type GitlabIssue struct {
+type Issue struct {
 	*internGitlab.Issue
 	LabelsWithDetails []*internGitlab.Label `json:"labels_with_details,omitempty"`
 }
 
-type GitlabMergeRequest struct {
+type MergeRequest struct {
 	*internGitlab.MergeRequest
 	LabelsWithDetails []*internGitlab.Label `json:"labels_with_details,omitempty"`
 }
@@ -484,7 +484,7 @@ func (g *gitlab) ResolveNamespaceAndProject(
 	return "", "", ErrNotFound
 }
 
-func (g *gitlab) GetIssueByID(ctx context.Context, user *UserInfo, owner, repo string, issueID int) (*GitlabIssue, error) {
+func (g *gitlab) GetIssueByID(ctx context.Context, user *UserInfo, owner, repo string, issueID int) (*Issue, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -498,7 +498,7 @@ func (g *gitlab) GetIssueByID(ctx context.Context, user *UserInfo, owner, repo s
 		return nil, errors.Wrap(err, "can't get issue in GitLab api")
 	}
 
-	gitlabIssue := &GitlabIssue{
+	gitlabIssue := &Issue{
 		Issue: issue,
 	}
 	if issue.Labels != nil {
@@ -512,7 +512,7 @@ func (g *gitlab) GetIssueByID(ctx context.Context, user *UserInfo, owner, repo s
 	return gitlabIssue, nil
 }
 
-func (g *gitlab) GetMergeRequestByID(ctx context.Context, user *UserInfo, owner, repo string, mergeRequestID int) (*GitlabMergeRequest, error) {
+func (g *gitlab) GetMergeRequestByID(ctx context.Context, user *UserInfo, owner, repo string, mergeRequestID int) (*MergeRequest, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
@@ -526,7 +526,7 @@ func (g *gitlab) GetMergeRequestByID(ctx context.Context, user *UserInfo, owner,
 		return nil, errors.Wrap(err, "can't get merge request in GitLab api")
 	}
 
-	gitlabMergeRequest := &GitlabMergeRequest{
+	gitlabMergeRequest := &MergeRequest{
 		MergeRequest: mergeRequest,
 	}
 	if mergeRequest.Labels != nil {
@@ -540,8 +540,8 @@ func (g *gitlab) GetMergeRequestByID(ctx context.Context, user *UserInfo, owner,
 	return gitlabMergeRequest, nil
 }
 
-func (g *gitlab) GetLabelDetails(client *internGitlab.Client, projectPath string, labels  internGitlab.Labels) ([]*internGitlab.Label, error) {
-	var labelsWithDetails []*internGitlab.Label 
+func (g *gitlab) GetLabelDetails(client *internGitlab.Client, projectPath string, labels internGitlab.Labels) ([]*internGitlab.Label, error) {
+	var labelsWithDetails []*internGitlab.Label
 	for _, label := range labels {
 		labelWithDetails, resp, err := client.Labels.GetLabel(projectPath, label)
 		if respErr := checkResponse(resp); respErr != nil {

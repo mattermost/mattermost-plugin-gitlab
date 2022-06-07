@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useState} from 'react';
 import PropTypes from 'prop-types';
 import ReactMarkdown from 'react-markdown';
-import Octicon, { GitMerge, GitPullRequest, IssueClosed, IssueOpened } from '@primer/octicons-react';
+import Octicon, {GitMerge, GitPullRequest, IssueClosed, IssueOpened} from '@primer/octicons-react';
 
 import Client from '../../client';
 import './tooltip.css';
@@ -12,23 +12,23 @@ const STATE_COLOR_MAP = {
     MERGED_COLOR: '#6f42c1',
 };
 
-export const LinkTooltip = ({ href, connected }) => {
+export const LinkTooltip = ({href, connected}) => {
     const [data, setData] = useState(null);
     useEffect(() => {
         const init = async () => {
             if (href.includes('gitlab.com/')) {
-                const [owner, repo, dash, type, number] = href.split('gitlab.com/')[1].split('/');
+                const [owner, repo, , type, number] = href.split('gitlab.com/')[1].split('/');
                 let res;
                 switch (type) {
-                    case 'issues':
-                        res = await Client.getIssue(owner, repo, number);
-                        break;
-                    case 'merge_requests':
-                        res = await Client.getPullRequest(owner, repo, number);
-                        break;
+                case 'issues':
+                    res = await Client.getIssue(owner, repo, number);
+                    break;
+                case 'merge_requests':
+                    res = await Client.getPullRequest(owner, repo, number);
+                    break;
                 }
                 if (res) {
-                    res = { ...res, owner, repo, type }
+                    res = {...res, owner, repo, type};
                 }
                 setData(res);
             }
@@ -44,27 +44,27 @@ export const LinkTooltip = ({ href, connected }) => {
     const getIconElement = () => {
         let color;
         let iconType;
-        const { OPENED_COLOR, CLOSED_COLOR, MERGED_COLOR } = STATE_COLOR_MAP;
+        const {OPENED_COLOR, CLOSED_COLOR, MERGED_COLOR} = STATE_COLOR_MAP;
         switch (data.type) {
-            case 'merge_requests':
-                color = OPENED_COLOR;
-                iconType = GitPullRequest;
-                if (data.state === 'closed') {
-                    if (data.merged) {
-                        color = MERGED_COLOR;
-                        iconType = GitMerge;
-                    } else {
-                        color = CLOSED_COLOR;
-                    }
+        case 'merge_requests':
+            color = OPENED_COLOR;
+            iconType = GitPullRequest;
+            if (data.state === 'closed') {
+                if (data.merged) {
+                    color = MERGED_COLOR;
+                    iconType = GitMerge;
+                } else {
+                    color = CLOSED_COLOR;
                 }
-                break;
-            case 'issues':
-                color = data.state === 'opened' ? OPENED_COLOR : CLOSED_COLOR;
-                iconType = data.state === 'opened' ? IssueOpened : IssueClosed;
-                break;
+            }
+            break;
+        case 'issues':
+            color = data.state === 'opened' ? OPENED_COLOR : CLOSED_COLOR;
+            iconType = data.state === 'opened' ? IssueOpened : IssueClosed;
+            break;
         }
         const icon = (
-            <span style={{ color }}>
+            <span style={{color}}>
                 <Octicon
                     icon={iconType}
                     size='small'
@@ -100,7 +100,7 @@ export const LinkTooltip = ({ href, connected }) => {
                         <div className='tooltip-info mt-1'>
                             <a href={href}>
                                 <h5 className='mr-1'>{data.title}</h5>
-                                <span class='mr-number'>#{data.iid}</span>
+                                <span className='mr-number'>#{data.iid}</span>
                             </a>
                             <div className='markdown-text mt-1 mb-1'>
                                 <ReactMarkdown
@@ -116,7 +116,7 @@ export const LinkTooltip = ({ href, connected }) => {
                                     <span
                                         title={data.target_branch}
                                         className='commit-ref'
-                                        style={{ maxWidth: '140px' }}
+                                        style={{maxWidth: '140px'}}
                                     >
                                         {data.target_branch}
                                     </span>
@@ -148,9 +148,9 @@ export const LinkTooltip = ({ href, connected }) => {
                                             key={index}
                                             className='label mr-1'
                                             title={label.description}
-                                            style={{ backgroundColor: label.color }}
+                                            style={{backgroundColor: label.color}}
                                         >
-                                            <span style={{ color: label.text_color }}>{label.name}</span>
+                                            <span style={{color: label.text_color}}>{label.name}</span>
                                         </span>
                                     );
                                 })}

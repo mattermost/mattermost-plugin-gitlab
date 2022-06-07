@@ -68,10 +68,10 @@ func (mr *MockGitlabMockRecorder) GetGroupHooks(arg0, arg1, arg2 interface{}) *g
 }
 
 // GetIssueByID mocks base method.
-func (m *MockGitlab) GetIssueByID(arg0 context.Context, arg1 *gitlab.UserInfo, arg2, arg3 string, arg4 int) (*gitlab.GitlabIssue, error) {
+func (m *MockGitlab) GetIssueByID(arg0 context.Context, arg1 *gitlab.UserInfo, arg2, arg3 string, arg4 int) (*gitlab.Issue, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetIssueByID", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(*gitlab.GitlabIssue)
+	ret0, _ := ret[0].(*gitlab.Issue)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -83,10 +83,10 @@ func (mr *MockGitlabMockRecorder) GetIssueByID(arg0, arg1, arg2, arg3, arg4 inte
 }
 
 // GetMergeRequestByID mocks base method.
-func (m *MockGitlab) GetMergeRequestByID(arg0 context.Context, arg1 *gitlab.UserInfo, arg2, arg3 string, arg4 int) (*gitlab.GitlabMergeRequest, error) {
+func (m *MockGitlab) GetMergeRequestByID(arg0 context.Context, arg1 *gitlab.UserInfo, arg2, arg3 string, arg4 int) (*gitlab.MergeRequest, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetMergeRequestByID", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(*gitlab.GitlabMergeRequest)
+	ret0, _ := ret[0].(*gitlab.MergeRequest)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
