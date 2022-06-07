@@ -396,8 +396,7 @@ const (
 func getClient() (*gitlab.Client, func()) {
 	apiHandler := http.NewServeMux()
 	apiHandler.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		switch req.URL.Path {
-		case "/api/v4/projects/mattermost/mattermost-server/repository/files/app/authentication.go":
+		if req.URL.Path == "/api/v4/projects/mattermost/mattermost-server/repository/files/app/authentication.go" {
 			fmt.Fprintln(w, `{
 				"file_name": "authentication.go",
 				"file_path": "app/authentication.go",
@@ -416,6 +415,6 @@ func getClient() (*gitlab.Client, func()) {
 	// configured to use test server.
 	url, _ := url.Parse(server.URL + baseURLPath + "/")
 	client, _ := gitlab.NewOAuthClient("", gitlab.WithBaseURL(url.String()))
-	
+
 	return client, server.Close
 }

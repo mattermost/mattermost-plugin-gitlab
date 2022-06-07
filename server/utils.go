@@ -208,7 +208,7 @@ func getLine(s string) int {
 	return line
 }
 
-// isInsideLink reports whether the given index in a string is preceeded
+// isInsideLink reports whether the given index in a string is preceded
 // by zero or more space, then (, then ].
 //
 // It is a poor man's version of checking markdown hyperlinks without
