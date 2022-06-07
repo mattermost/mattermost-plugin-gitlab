@@ -10,6 +10,7 @@ import (
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin/plugintest"
 	"github.com/stretchr/testify/assert"
+	"github.com/xanzy/go-gitlab"
 	gitlabLib "github.com/xanzy/go-gitlab"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
@@ -44,6 +45,10 @@ func (fakeWebhookHandler) HandleTag(_ context.Context, _ *gitlabLib.TagEvent) ([
 	return nil, nil
 }
 func (fakeWebhookHandler) HandlePush(_ context.Context, _ *gitlabLib.PushEvent) ([]*webhook.HandleWebhook, error) {
+	return nil, nil
+}
+
+func (fakeWebhookHandler) HandleJobs(_ context.Context, _ *gitlab.JobEvent) ([]*webhook.HandleWebhook, error) {
 	return nil, nil
 }
 
