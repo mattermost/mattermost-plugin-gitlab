@@ -299,7 +299,8 @@ func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo) ([]*MergeReques
 	var mergeRequests []*MergeRequest
 	for _, res := range result {
 		if res.Labels != nil {
-			labelsWithDetails, err := g.GetLabelDetails(client, res.ProjectID, res.Labels)
+			var labelsWithDetails []*internGitlab.Label
+			labelsWithDetails, err = g.GetLabelDetails(client, res.ProjectID, res.Labels)
 			if err != nil {
 				return nil, err
 			}
@@ -353,7 +354,8 @@ func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo) ([]*MergeReques
 	var mergeRequests []*MergeRequest
 	for _, res := range result {
 		if res.Labels != nil {
-			labelsWithDetails, err := g.GetLabelDetails(client, res.ProjectID, res.Labels)
+			var labelsWithDetails []*internGitlab.Label
+			labelsWithDetails, err = g.GetLabelDetails(client, res.ProjectID, res.Labels)
 			if err != nil {
 				return nil, err
 			}
@@ -489,7 +491,8 @@ func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo) ([]*Iss
 	var issues []*Issue
 	for _, res := range result {
 		if res.Labels != nil {
-			labelsWithDetails, err := g.GetLabelDetails(client, res.ProjectID, res.Labels)
+			var labelsWithDetails []*internGitlab.Label
+			labelsWithDetails, err = g.GetLabelDetails(client, res.ProjectID, res.Labels)
 			if err != nil {
 				return nil, err
 			}
