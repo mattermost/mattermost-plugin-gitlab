@@ -83,7 +83,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
         </span>
     ) : null;
 
-    let labels: JSX.Element[] | null = item.labels ? getGitlabLabels(item.labels) : null;
+    let labels: JSX.Element[] | null = item.labels_with_details ? getGitlabLabels(item.labels_with_details) : null;
 
     return (
         <div key={item.id} style={style.container}>
