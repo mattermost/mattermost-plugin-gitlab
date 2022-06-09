@@ -20,7 +20,7 @@ export default class AttachCommentToIssuePostMenuAction extends PureComponent {
     handleClick = (e) => {
         const {open, postId} = this.props;
         e.preventDefault();
-        // open(postId);
+        open(postId);
     };
 
     render() {

@@ -255,6 +255,21 @@ export function createIssue(payload) {
     };
 }
 
+export function openAttachCommentToIssueModal(postId) {
+    return {
+        type: ActionTypes.OPEN_ATTACH_COMMENT_TO_ISSUE_MODAL,
+        data: {
+            postId,
+        },
+    };
+}
+
+export function closeAttachCommentToIssueModal() {
+    return {
+        type: ActionTypes.CLOSE_ATTACH_COMMENT_TO_ISSUE_MODAL,
+    };
+}
+
 export function getProjects() {
     return async (dispatch, getState) => {
         let data;

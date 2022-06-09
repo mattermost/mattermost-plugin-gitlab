@@ -9,6 +9,7 @@ import AttachCommentToIssuePostMenuAction from './components/attach_comment_to_i
 import CreateIssueModal from './components/modals/create_issue';
 import Reducer from './reducers';
 import {getConnected} from './actions';
+import AttachCommentToIssueModal from './components/modals/attach_comment_to_issue';
 import {
     handleConnect,
     handleDisconnect,
@@ -38,6 +39,7 @@ class PluginClass {
         registry.registerPopoverUserAttributesComponent(UserAttribute);
         registry.registerRootComponent(CreateIssueModal);
         registry.registerPostDropdownMenuComponent(CreateIssuePostMenuAction);
+        registry.registerRootComponent(AttachCommentToIssueModal);
         registry.registerPostDropdownMenuComponent(AttachCommentToIssuePostMenuAction);
 
         registry.registerWebSocketEventHandler(

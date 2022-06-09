@@ -504,6 +504,26 @@ func (g *gitlab) CreateIssue(ctx context.Context, user *UserInfo, issue *IssueRe
 	return result, nil
 }
 
+func (g *gitlab) SearchIssues(ctx context.Context, user *UserInfo, search string) ([]*internGitlab.Issue, error) {
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+
+	result, resp, err := client.Search.Issues(
+		search,
+		&internGitlab.SearchOptions{},
+		internGitlab.WithContext(ctx),
+	)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "can't search issues in GitLab api")
+	}
+	return result, nil
+}
+
 func (g *gitlab) ResolveNamespaceAndProject(
 	ctx context.Context,
 	userInfo *UserInfo,

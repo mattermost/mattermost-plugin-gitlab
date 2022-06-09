@@ -291,3 +291,18 @@ func (mr *MockGitlabMockRecorder) ResolveNamespaceAndProject(arg0, arg1, arg2, a
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveNamespaceAndProject", reflect.TypeOf((*MockGitlab)(nil).ResolveNamespaceAndProject), arg0, arg1, arg2, arg3)
 }
+
+// SearchIssues mocks base method
+func (m *MockGitlab) SearchIssues(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 string) ([]*go_gitlab.Issue, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SearchIssues", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]*go_gitlab.Issue)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SearchIssues indicates an expected call of SearchIssues
+func (mr *MockGitlabMockRecorder) SearchIssues(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchIssues", reflect.TypeOf((*MockGitlab)(nil).SearchIssues), arg0, arg1, arg2)
+}
