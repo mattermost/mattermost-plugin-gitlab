@@ -70,11 +70,7 @@ export default class SidebarButtons extends React.PureComponent {
 
     openConnectWindow = (e) => {
         e.preventDefault();
-        window.open(
-            `${this.props.pluginServerRoute}/oauth/connect`,
-            'Connect Mattermost to GitLab',
-            'height=570,width=520',
-        );
+        window.open(`${this.props.pluginServerRoute}/oauth/connect`, 'Connect Mattermost to GitLab', 'height=570,width=520');
     };
 
     openRHS = (rhsState) => {
@@ -101,9 +97,7 @@ export default class SidebarButtons extends React.PureComponent {
                     <OverlayTrigger
                         key='gitlabConnectLink'
                         placement={placement}
-                        overlay={
-                            <Tooltip id='reviewTooltip'>{'Connect to your GitLab'}</Tooltip>
-                        }
+                        overlay={<Tooltip id='reviewTooltip'>{'Connect to your GitLab'}</Tooltip>}
                     >
                         <a
                             href={`${this.props.pluginServerRoute}/oauth/connect`}
@@ -139,9 +133,7 @@ export default class SidebarButtons extends React.PureComponent {
                 <OverlayTrigger
                     key='gitlabYourPrsLink'
                     placement={placement}
-                    overlay={
-                        <Tooltip id='yourPrsTooltip'>{'Your open merge requests'}</Tooltip>
-                    }
+                    overlay={<Tooltip id='yourPrsTooltip'>{'Your open merge requests'}</Tooltip>}
                 >
                     <a
                         onClick={() => this.openRHS(RHSStates.PRS)}
@@ -154,9 +146,7 @@ export default class SidebarButtons extends React.PureComponent {
                 <OverlayTrigger
                     key='gitlabReviewsLink'
                     placement={placement}
-                    overlay={
-                        <Tooltip id='reviewTooltip'>{'Merge requests needing review'}</Tooltip>
-                    }
+                    overlay={<Tooltip id='reviewTooltip'>{'Merge requests needing review'}</Tooltip>}
                 >
                     <a
                         onClick={() => this.openRHS(RHSStates.REVIEWS)}

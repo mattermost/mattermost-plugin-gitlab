@@ -28,8 +28,11 @@ export interface Target {
 export interface Item {
     url: string;
     iid: number;
+    project_id: number;
+    sha: string;
     has_conflicts: boolean;
     id: number;
+    status: string;
     title: string;
     created_at: string;
     updated_at: string;
@@ -51,6 +54,8 @@ export interface Item {
     };
     labels_with_details?: Label[];
     target: Target;
+    approvers: number;
+    total_reviewers: number;
 }
 
 export interface GitlabItemsProps {

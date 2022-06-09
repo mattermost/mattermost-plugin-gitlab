@@ -64,6 +64,29 @@ export function getReviews() {
     };
 }
 
+export function getReviewDetails(prList) {
+    return async (dispatch, getState) => {
+        let data;
+        try {
+            data = await Client.getPrsDetails(prList);
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        if (!connected) {
+            return {error: data};
+        }
+
+        dispatch({
+            type: ActionTypes.RECEIVED_REVIEW_DETAILS,
+            data,
+        });
+
+        return {data};
+    };
+}
+
 export function getYourPrs() {
     return async (dispatch, getState) => {
         let data;
@@ -83,6 +106,28 @@ export function getYourPrs() {
 
         dispatch({
             type: ActionTypes.RECEIVED_YOUR_PRS,
+            data,
+        });
+
+        return {data};
+    };
+}
+
+export function getYourPrDetails(prList) {
+    return async (dispatch, getState) => {
+        let data;
+        try {
+            data = await Client.getPrsDetails(prList);
+        } catch (error) {
+            return {error};
+        }
+        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        if (!connected) {
+            return {error: data};
+        }
+
+        dispatch({
+            type: ActionTypes.RECEIVED_YOUR_PR_DETAILS,
             data,
         });
 
