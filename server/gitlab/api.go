@@ -292,11 +292,11 @@ func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo) ([]*MergeReques
 			if err != nil {
 				return nil, err
 			}
-			MRWithLabelDetails := &MergeRequest{
+			mergeRequest := &MergeRequest{
 				MergeRequest:      res,
 				LabelsWithDetails: labelsWithDetails,
 			}
-			mergeRequests = append(mergeRequests, MRWithLabelDetails)
+			mergeRequests = append(mergeRequests, mergeRequest)
 		}
 	}
 
@@ -339,7 +339,7 @@ func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo) ([]*MergeReques
 		return nil, err
 	}
 
-	var resultWithLabelDetails []*MergeRequest
+	var mergeRequests []*MergeRequest
 	for _, res := range result {
 		if res.Labels != nil {
 			labelsWithDetails, err := g.GetLabelDetails(client, res.ProjectID, res.Labels)
@@ -350,17 +350,16 @@ func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo) ([]*MergeReques
 				MergeRequest:      res,
 				LabelsWithDetails: labelsWithDetails,
 			}
-			resultWithLabelDetails = append(resultWithLabelDetails, mergeRequest)
+			mergeRequests = append(mergeRequests, mergeRequest)
 		}
 	}
-	return resultWithLabelDetails, nil
+	return mergeRequests, nil
 }
 
 func (g *gitlab) GetLabelDetails(client *internGitlab.Client, pid int, labels internGitlab.Labels) ([]*internGitlab.Label, error) {
 	var labelsWithDetails []*internGitlab.Label
-	var projectID interface{} = pid
 	for _, label := range labels {
-		labelWithDetails, resp, err := client.Labels.GetLabel(projectID, label)
+		labelWithDetails, resp, err := client.Labels.GetLabel(pid, label)
 		if respErr := checkResponse(resp); respErr != nil {
 			return nil, respErr
 		}
