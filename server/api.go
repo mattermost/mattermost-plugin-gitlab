@@ -53,6 +53,8 @@ func (p *Plugin) initializeAPI() {
 	apiRouter.HandleFunc("/todo", p.checkAuth(p.attachUserContext(p.postToDo), ResponseTypeJSON)).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/reviews", p.checkAuth(p.attachUserContext(p.getReviews), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/yourprs", p.checkAuth(p.attachUserContext(p.getYourPrs), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/createissue", p.checkAuth(p.attachUserContext(p.createIssue), ResponseTypePlain)).Methods(http.MethodPost)
+	apiRouter.HandleFunc("/attachcommenttoissue", p.checkAuth(p.attachUserContext(p.attachCommentToIssue), ResponseTypePlain)).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/yourassignments", p.checkAuth(p.attachUserContext(p.getYourAssignments), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/unreads", p.checkAuth(p.attachUserContext(p.getUnreads), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/projects", p.checkAuth(p.attachUserContext(p.getYourProjects), ResponseTypePlain)).Methods(http.MethodGet)
@@ -620,6 +622,25 @@ func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Requ
 	if appErr != nil {
 		c.Log.WithError(appErr).Warnf("failed to create notification post")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to create notification post, postID: %s, channelID: %s", issue.PostID, channelID), StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	p.writeAPIResponse(w, result)
+}
+
+func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	var issue *gitlab.IssueRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&issue); err != nil {
+		c.Log.WithError(err).Warnf("Error decoding attach comment to issue JSON body")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Error decoding attach comment to issue JSON body. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
+		return
+	}
+
+	result, err := p.GitlabClient.AttachCommentToIssue(c.Ctx, c.GitlabInfo, issue)
+	if err != nil {
+		c.Log.WithError(err).Warnf("Can't add comment to issue in GitLab API")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Cant't add comment to issue in GitLab API. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
 		return
 	}
 

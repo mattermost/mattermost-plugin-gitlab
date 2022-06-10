@@ -36,6 +36,21 @@ func (m *MockGitlab) EXPECT() *MockGitlabMockRecorder {
 	return m.recorder
 }
 
+// AttachCommentToIssue mocks base method
+func (m *MockGitlab) AttachCommentToIssue(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *gitlab.IssueRequest) (*go_gitlab.Note, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AttachCommentToIssue", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*go_gitlab.Note)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AttachCommentToIssue indicates an expected call of AttachCommentToIssue
+func (mr *MockGitlabMockRecorder) AttachCommentToIssue(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AttachCommentToIssue", reflect.TypeOf((*MockGitlab)(nil).AttachCommentToIssue), arg0, arg1, arg2)
+}
+
 // CreateIssue mocks base method
 func (m *MockGitlab) CreateIssue(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *gitlab.IssueRequest) (*go_gitlab.Issue, error) {
 	m.ctrl.T.Helper()
