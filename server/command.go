@@ -607,7 +607,7 @@ func (p *Plugin) subscribeCommand(ctx context.Context, parameters []string, chan
 }
 func (p *Plugin) pipelinesCommand(ctx context.Context, parameters []string, channelID string, info *gitlab.UserInfo) string {
 	if len(parameters) == 0 {
-		return unknownActionMessage
+		return invalidPipelinesSubCommand
 	}
 	subcommand := parameters[0]
 	switch subcommand {
