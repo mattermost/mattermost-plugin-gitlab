@@ -28,6 +28,7 @@ type IssueRequest struct {
 	PostID      string              `json:"post_id"`
 	ChannelID   string              `json:"channel_id"`
 	Comment     string              `json:"comment"`
+	WebURL      string              `json:"web_url"`
 }
 
 // NewGroupHook creates a webhook associated with a GitLab group
@@ -506,11 +507,17 @@ func (g *gitlab) CreateIssue(ctx context.Context, user *UserInfo, issue *IssueRe
 	return result, nil
 }
 
-func (g *gitlab) AttachCommentToIssue(ctx context.Context, user *UserInfo, issue *IssueRequest) (*internGitlab.Note, error) {
+func (g *gitlab) AttachCommentToIssue(ctx context.Context, user *UserInfo, issue *IssueRequest, permalink string, commentUsername string) (*internGitlab.Note, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
 	}
+
+	currentUsername := user.GitlabUsername
+
+	permalinkMessage := fmt.Sprintf("*@%s attached a* [message](%s) *from @%s*\n\n", currentUsername, permalink, commentUsername)
+
+	issue.Comment = permalinkMessage + issue.Comment
 
 	result, resp, err := client.Notes.CreateIssueNote(
 		issue.ProjectID,

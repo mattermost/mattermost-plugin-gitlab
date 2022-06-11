@@ -6,7 +6,7 @@ import {bindActionCreators} from 'redux';
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
 
 import {id as pluginId} from 'manifest';
-import {closeAttachCommentToIssueModal} from 'actions';
+import {closeAttachCommentToIssueModal, attachCommentToIssue} from 'actions';
 
 import AttachCommentToIssueModal from './attach_comment_to_issue';
 
@@ -22,7 +22,7 @@ const mapStateToProps = (state) => {
 
 const mapDispatchToProps = (dispatch) => bindActionCreators({
     close: closeAttachCommentToIssueModal,
-    // create: attachCommentToIssue,
+    create: attachCommentToIssue,
 }, dispatch);
 
 export default connect(mapStateToProps, mapDispatchToProps)(AttachCommentToIssueModal);

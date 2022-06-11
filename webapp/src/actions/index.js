@@ -270,6 +270,23 @@ export function closeAttachCommentToIssueModal() {
     };
 }
 
+export function attachCommentToIssue(payload) {
+    return async (dispatch) => {
+        let data;
+        try {
+            data = await Client.attachCommentToIssue(payload);
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await dispatch(checkAndHandleNotConnected(data));
+        if (!connected) {
+            return {error: data};
+        }
+        return {data};
+    };
+}
+
 export function getProjects() {
     return async (dispatch, getState) => {
         let data;

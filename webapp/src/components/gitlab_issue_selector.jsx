@@ -14,17 +14,32 @@ const searchDebounceDelay = 400;
 
 export default class GitlabIssueSelector extends PureComponent {
     static propTypes = {
+        name: PropTypes.string,
         required: PropTypes.bool,
         theme: PropTypes.object.isRequired,
         onChange: PropTypes.func.isRequired,
         error: PropTypes.string,
         value: PropTypes.object,
+        addValidate: PropTypes.func.isRequired,
+        removeValidate: PropTypes.func.isRequired,
     };
 
     constructor(props) {
         super(props);
 
         this.state = {invalid: false};
+    }
+
+    componentDidMount() {
+        if (this.props.addValidate && this.props.name) {
+            this.props.addValidate(this.props.name, this.isValid);
+        }
+    }
+
+    componentWillUnmount() {
+        if (this.props.removeValidate && this.props.name) {
+            this.props.removeValidate(this.props.name);
+        }
     }
 
     componentDidUpdate(prevProps, prevState) {
@@ -38,10 +53,10 @@ export default class GitlabIssueSelector extends PureComponent {
     };
 
     searchIssues = async (text) => {
-        // const textEncoded = encodeURIComponent(text.trim().replace(/"/g, '\\"'));
+        const textEncoded = encodeURIComponent(text.trim().replace(/"/g, '\\"'));
 
-        let issues = await Client.searchIssues(text)
-    
+        const issues = await Client.searchIssues(textEncoded);
+
         if (!Array.isArray(issues)) {
             return [];
         }
@@ -59,7 +74,7 @@ export default class GitlabIssueSelector extends PureComponent {
     debouncedSearchIssues = debounce(this.searchIssues, searchDebounceDelay);
 
     onChange = (e) => {
-        const value = e ? e.value : '';
+        const value = e?.value ?? '';
         this.props.onChange(value);
     }
 
@@ -68,13 +83,12 @@ export default class GitlabIssueSelector extends PureComponent {
             return true;
         }
 
-        const valid = this.props.value && this.props.value.toString().length !== 0;
+        const valid = Boolean(this.props.value);
         this.setState({invalid: !valid});
         return valid;
     };
 
     render() {
-        const {error} = this.props;
         const requiredStar = (
             <span
                 className={'error-text'}
@@ -85,24 +99,10 @@ export default class GitlabIssueSelector extends PureComponent {
         );
 
         let issueError = null;
-        if (error) {
+        if (this.props.error) {
             issueError = (
                 <p className='help-text error-text'>
                     <span>{error}</span>
-                </p>
-            );
-        }
-
-        const serverError = this.state.error;
-        let errComponent;
-        if (this.state.error) {
-            errComponent = (
-                <p className='alert alert-danger'>
-                    <i
-                        className='fa fa-warning'
-                        title='Warning Icon'
-                    />
-                    <span>{serverError.toString()}</span>
                 </p>
             );
         }
@@ -119,7 +119,7 @@ export default class GitlabIssueSelector extends PureComponent {
 
         return (
             <div className={'form-group margin-bottom x3'}>
-                {errComponent}
+                {/* {errComponent} */}
                 <label
                     className={'control-label'}
                     htmlFor={'issue'}

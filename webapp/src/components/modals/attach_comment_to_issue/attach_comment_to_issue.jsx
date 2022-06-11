@@ -7,21 +7,21 @@ import {Modal} from 'react-bootstrap';
 
 import FormButton from 'components/form_button';
 import Input from 'components/input';
+import Validator from 'components/validator';
 
 import GitlabIssueSelector from 'components/gitlab_issue_selector';
-// import {getErrorMessage} from 'utils/user_utils';
+import {getErrorMessage} from 'utils/user_utils';
 
 const initialState = {
     submitting: false,
     issueValue: null,
-    textSearchTerms: '',
     error: null,
 };
 
 export default class AttachCommentToIssueModal extends PureComponent {
     static propTypes = {
         close: PropTypes.func.isRequired,
-        // create: PropTypes.func.isRequired,
+        create: PropTypes.func.isRequired,
         post: PropTypes.object,
         theme: PropTypes.object.isRequired,
         visible: PropTypes.bool.isRequired,
@@ -30,43 +30,38 @@ export default class AttachCommentToIssueModal extends PureComponent {
     constructor(props) {
         super(props);
         this.state = initialState;
+        this.validator = new Validator();
     }
 
-    handleCreate = (e) => {
-        console.log("created");
-        // if (e && e.preventDefault) {
-        //     e.preventDefault();
-        // }
+    handleCreate = async (e) => {
+        console.log(this.props.post);
+        e.preventDefault();
 
-        // if (!this.state.issueValue) {
-        //     return;
-        // }
+        if (!this.validator.validate()) {
+            return;
+        }
 
-        // const number = this.state.issueValue.number;
-        // const repoUrl = this.state.issueValue.repository_url;
-        // const repoUrlParts = repoUrl.split('/');
-        // const repo = repoUrlParts.pop();
-        // const owner = repoUrlParts.pop();
+        const issue = {
+            // project_id: this.state.issueValue.project_id,
+            project_id: 36353273,
+            // iid: this.state.issueValue.iid,
+            iid: 31,
+            comment: this.props.post.message,
+            post_id: this.props.post.id,
+            // web_url: this.state.issueValue.web_url,
+            web_url: "https://gitlab.com/raghavaggarwal2308/Calculator/-/issues/31",
+        };
 
-        // const issue = {
-        //     owner,
-        //     repo,
-        //     number,
-        //     comment: this.props.post.message,
-        //     post_id: this.props.post.id,
-        // };
+        this.setState({submitting: true});
 
-        // this.setState({submitting: true});
+        const created = await this.props.create(issue);
+        if (created.error) {
+            const errMessage = getErrorMessage(created.error.message);
+            this.setState({error: errMessage, submitting: false});
+            return;
+        }
 
-        // this.props.create(issue).then((created) => {
-        //     if (created.error) {
-        //         const errMessage = getErrorMessage(created.error.message);
-        //         this.setState({error: errMessage, submitting: false});
-        //         return;
-        //     }
-
-        //     this.handleClose(e);
-        // });
+        this.handleClose(e);
     };
 
     handleClose = (e) => {
@@ -93,12 +88,15 @@ export default class AttachCommentToIssueModal extends PureComponent {
         const component = (
             <div>
                 <GitlabIssueSelector
+                    name={'issue'}
                     id={'issue'}
                     onChange={this.handleIssueValueChange}
                     required={true}
                     theme={theme}
                     error={error}
                     value={this.state.issueValue}
+                    addValidate={this.validator.addComponent}
+                    removeValidate={this.validator.removeComponent}
                 />
                 <Input
                     label='Message Attached to GitLab Issue'

@@ -205,4 +205,6 @@ export default combineReducers({
     createIssueModal,
     attachCommentToIssueModalForPostId,
     attachCommentToIssueModalVisible,
+    attachCommentToIssueModalForPostId,
+    attachCommentToIssueModalVisible,
 });
