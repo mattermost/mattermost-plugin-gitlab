@@ -2,15 +2,16 @@
 // See LICENSE.txt for license information.
 
 import React, {PureComponent} from 'react';
-import PropTypes from 'prop-types';
 import {Modal} from 'react-bootstrap';
+import {Theme} from 'mattermost-redux/types/preferences';
 
-import FormButton from 'components/form_button';
-import Input from 'components/input';
-import Validator from 'components/validator';
+import FormButton from '../../form_button';
+import Input from '../../input';
+import Validator from '../../validator';
 
-import GitlabIssueSelector from 'components/gitlab_issue_selector';
-import {getErrorMessage} from 'utils/user_utils';
+import GitlabIssueSelector from '../../gitlab_issue_selector';
+import {getErrorMessage} from '../../../utils/user_utils';
+import { Post } from 'mattermost-redux/types/posts';
 
 const initialState = {
     submitting: false,
@@ -18,22 +19,30 @@ const initialState = {
     error: null,
 };
 
-export default class AttachCommentToIssueModal extends PureComponent {
-    static propTypes = {
-        close: PropTypes.func.isRequired,
-        create: PropTypes.func.isRequired,
-        post: PropTypes.object,
-        theme: PropTypes.object.isRequired,
-        visible: PropTypes.bool.isRequired,
-    };
+interface PropTypes {
+    close: any,
+    create: any,
+    post: Post,
+    theme: Theme,
+    visible: boolean,
+}
 
-    constructor(props) {
+interface StateTypes {
+    submitting: boolean,
+    issueValue: any,
+    error: null | string,
+}
+
+export default class AttachCommentToIssueModal extends PureComponent<PropTypes, StateTypes> {
+    validator: Validator;
+
+    constructor(props: PropTypes) {
         super(props);
         this.state = initialState;
         this.validator = new Validator();
     }
 
-    handleCreate = async (e) => {
+    handleCreate = async (e: any) => {
         e.preventDefault();
 
         if (!this.validator.validate()) {
@@ -60,13 +69,12 @@ export default class AttachCommentToIssueModal extends PureComponent {
         this.handleClose(e);
     };
 
-    handleClose = (e) => {
+    handleClose = (e: any) => {
         e.preventDefault();
-        const {close} = this.props;
-        this.setState(initialState, close);
+        this.setState(initialState, this.props.close);
     };
 
-    handleIssueValueChange = (newValue) => {
+    handleIssueValueChange = (newValue: any) => {
         this.setState({
             issueValue: newValue,
         });
@@ -125,7 +133,6 @@ export default class AttachCommentToIssueModal extends PureComponent {
                 >
                     <Modal.Body
                         style={style.modal}
-                        ref='modalBody'
                     >
                         {component}
                     </Modal.Body>
@@ -152,7 +159,7 @@ export default class AttachCommentToIssueModal extends PureComponent {
     }
 }
 
-const getStyle = (theme) => ({
+const getStyle = (theme: Theme) => ({
     modal: {
         padding: '2em 2em 3em',
         color: theme.centerChannelColor,
