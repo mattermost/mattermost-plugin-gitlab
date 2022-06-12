@@ -27,7 +27,10 @@ export default class GitlabIssueSelector extends PureComponent {
     constructor(props) {
         super(props);
 
-        this.state = {invalid: false};
+        this.state = {
+            invalid: false,
+            error: null,
+        };
     }
 
     componentDidMount() {
@@ -54,21 +57,25 @@ export default class GitlabIssueSelector extends PureComponent {
 
     searchIssues = async (text) => {
         const textEncoded = encodeURIComponent(text.trim().replace(/"/g, '\\"'));
+        try {
+            const issues = await Client.searchIssues(textEncoded);
 
-        const issues = await Client.searchIssues(textEncoded);
+            if (!Array.isArray(issues)) {
+                return [];
+            }
 
-        if (!Array.isArray(issues)) {
+            return issues.map((issue) => {
+                const projectParts = issue.web_url.split('/');
+                let prefix = '';
+                if (projectParts.length >= 5) {
+                    prefix = `${projectParts[projectParts.length - 5]}/${projectParts[projectParts.length - 4]}`;
+                }
+                return ({value: issue, label: `${prefix}, #${issue.iid}: ${issue.title}`});
+            });
+        } catch (e) {
+            this.setState({error: e.message});
             return [];
         }
-
-        return issues.map((issue) => {
-            const projectParts = issue.web_url.split('/');
-            let prefix = '';
-            if (projectParts.length >= 5) {
-                prefix = `${projectParts[projectParts.length - 5]}/${projectParts[projectParts.length - 4]}`;
-            }
-            return ({value: issue, label: `${prefix}, #${issue.iid}: ${issue.title}`});
-        });
     };
 
     debouncedSearchIssues = debounce(this.searchIssues, searchDebounceDelay);
@@ -102,7 +109,20 @@ export default class GitlabIssueSelector extends PureComponent {
         if (this.props.error) {
             issueError = (
                 <p className='help-text error-text'>
-                    <span>{error}</span>
+                    <span>{this.props.error}</span>
+                </p>
+            );
+        }
+
+        let serverError;
+        if (this.state.error) {
+            serverError = (
+                <p className='alert alert-danger'>
+                    <i
+                        className='fa fa-warning'
+                        title='Warning Icon'
+                    />
+                    <span>{this.state.error}</span>
                 </p>
             );
         }
@@ -119,7 +139,7 @@ export default class GitlabIssueSelector extends PureComponent {
 
         return (
             <div className={'form-group margin-bottom x3'}>
-                {/* {errComponent} */}
+                {serverError}
                 <label
                     className={'control-label'}
                     htmlFor={'issue'}

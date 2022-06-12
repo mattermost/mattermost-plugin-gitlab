@@ -34,7 +34,6 @@ export default class AttachCommentToIssueModal extends PureComponent {
     }
 
     handleCreate = async (e) => {
-        console.log(this.props.post);
         e.preventDefault();
 
         if (!this.validator.validate()) {
@@ -42,14 +41,11 @@ export default class AttachCommentToIssueModal extends PureComponent {
         }
 
         const issue = {
-            // project_id: this.state.issueValue.project_id,
-            project_id: 36353273,
-            // iid: this.state.issueValue.iid,
-            iid: 31,
+            project_id: this.state.issueValue.project_id,
+            iid: this.state.issueValue.iid,
             comment: this.props.post.message,
             post_id: this.props.post.id,
-            // web_url: this.state.issueValue.web_url,
-            web_url: "https://gitlab.com/raghavaggarwal2308/Calculator/-/issues/31",
+            web_url: this.state.issueValue.web_url,
         };
 
         this.setState({submitting: true});
