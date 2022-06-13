@@ -25,6 +25,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
     * pushes - includes pushes
 	* issue_comments - includes new issue comments
 	* merge_request_comments - include new merge-request comments
+	* merge_request_approvals - includes merge-request approvals and unapprovals
 	* pipeline - include pipeline
 	* tag - include tag creation
     * pull_reviews - includes merge request reviews
