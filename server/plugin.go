@@ -277,6 +277,7 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 	}
 
 	if newToken != nil {
+		p.API.LogDebug("Gitlab token refreshed.", "UserID", userInfo.UserID, "Gitlab Username", userInfo.GitlabUsername)
 		userInfo.Token = newToken
 		unencryptedToken = newToken.AccessToken // needed because the storeGitlabUserInfo method changes its value to an encrypted value
 		if err := p.storeGitlabUserInfo(&userInfo); err != nil {
