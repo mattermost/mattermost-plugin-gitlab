@@ -716,7 +716,6 @@ func (p *Plugin) searchIssues(c *UserContext, w http.ResponseWriter, r *http.Req
 
 	p.writeAPIResponse(w, result)
 }
-
 func (p *Plugin) getYourProjects(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	result, err := p.GitlabClient.GetYourProjects(c.Ctx, c.GitlabInfo)
 	if err != nil {
