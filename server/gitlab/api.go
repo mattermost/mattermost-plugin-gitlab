@@ -531,7 +531,7 @@ func (g *gitlab) AttachCommentToIssue(ctx context.Context, user *UserInfo, issue
 		return nil, respErr
 	}
 	if err != nil {
-		return nil, errors.Wrap(err, "can't create issue in GitLab api")
+		return nil, errors.Wrap(err, "can't create issue comment in GitLab api")
 	}
 	return result, nil
 }

@@ -631,8 +631,8 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 	var issue *gitlab.IssueRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&issue); err != nil {
-		c.Log.WithError(err).Warnf("Error decoding attach comment to issue JSON body")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Error decoding attach comment to issue JSON body. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
+		c.Log.WithError(err).Warnf("Error decoding JSON body to attach comment to the issue")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Error decoding JSON body to attach comment to the issue. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
 		return
 	}
 
@@ -653,11 +653,11 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 
 	post, appErr := p.API.GetPost(issue.PostID)
 	if appErr != nil {
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "failed to load post " + issue.PostID, StatusCode: http.StatusInternalServerError})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to load post %s", issue.PostID), StatusCode: http.StatusInternalServerError})
 		return
 	}
 	if post == nil {
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "failed to load post " + issue.PostID + ": not found", StatusCode: http.StatusNotFound})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to load post %s : not found", issue.PostID), StatusCode: http.StatusNotFound})
 		return
 	}
 
