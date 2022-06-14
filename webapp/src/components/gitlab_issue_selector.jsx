@@ -45,15 +45,16 @@ export default class GitlabIssueSelector extends PureComponent {
         }
     }
 
-    componentDidUpdate(prevProps, prevState) {
-        if (prevState.invalid && this.props.value !== prevProps.value) {
-            this.setState({invalid: false}); //eslint-disable-line react/no-did-update-set-state
-        }
+    componentDidUpdate() {
+        if(this.state.invalid)
+            this.isValid();
     }
 
     handleIssueSearchTermChange = (inputValue) => {
         return this.debouncedSearchIssues(inputValue);
     };
+
+    debouncedSearchIssues = debounce(this.searchIssues, searchDebounceDelay);
 
     searchIssues = async (text) => {
         const textEncoded = encodeURIComponent(text.trim().replace(/"/g, '\\"'));
@@ -77,8 +78,6 @@ export default class GitlabIssueSelector extends PureComponent {
             return [];
         }
     };
-
-    debouncedSearchIssues = debounce(this.searchIssues, searchDebounceDelay);
 
     onChange = (e) => {
         const value = e?.value ?? '';
