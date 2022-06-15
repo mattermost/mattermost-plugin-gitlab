@@ -46,8 +46,9 @@ export default class GitlabIssueSelector extends PureComponent {
     }
 
     componentDidUpdate() {
-        if(this.state.invalid)
+        if (this.state.invalid) {
             this.isValid();
+        }
     }
 
     handleIssueSearchTermChange = (inputValue) => {

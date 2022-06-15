@@ -11,7 +11,8 @@ import Validator from '../../validator';
 
 import GitlabIssueSelector from '../../gitlab_issue_selector';
 import {getErrorMessage} from '../../../utils/user_utils';
-import { Post } from 'mattermost-redux/types/posts';
+import {Post} from 'mattermost-redux/types/posts';
+import {Issue} from 'src/types/attach_comment_to_issue';
 
 const initialState = {
     submitting: false,
@@ -20,7 +21,7 @@ const initialState = {
 };
 
 interface PropTypes {
-    close: any,
+    close: () => {type: string},
     create: any,
     post: Post,
     theme: Theme,
@@ -74,7 +75,7 @@ export default class AttachCommentToIssueModal extends PureComponent<PropTypes, 
         this.setState(initialState, this.props.close);
     };
 
-    handleIssueValueChange = (newValue: any) => {
+    handleIssueValueChange = (newValue: Issue) => {
         this.setState({
             issueValue: newValue,
         });

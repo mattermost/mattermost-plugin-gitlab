@@ -281,7 +281,7 @@ export function attachCommentToIssue(payload) {
 
         const connected = await dispatch(checkAndHandleNotConnected(data));
         if (!connected) {
-            return {error: data};
+            return {error: 'user not connected'};
         }
         return {data};
     };

@@ -507,23 +507,19 @@ func (g *gitlab) CreateIssue(ctx context.Context, user *UserInfo, issue *IssueRe
 	return result, nil
 }
 
-func (g *gitlab) AttachCommentToIssue(ctx context.Context, user *UserInfo, issue *IssueRequest, permalink string, commentUsername string) (*internGitlab.Note, error) {
+func (g *gitlab) AttachCommentToIssue(ctx context.Context, user *UserInfo, issue *IssueRequest, permalink, commentUsername string) (*internGitlab.Note, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err
 	}
 
-	currentUsername := user.GitlabUsername
-
-	permalinkMessage := fmt.Sprintf("*@%s attached a* [message](%s) *from @%s*\n\n", currentUsername, permalink, commentUsername)
-
-	issue.Comment = permalinkMessage + issue.Comment
+	issueComment := fmt.Sprintf("*@%s attached a* [message](%s) *from @%s*\n\n%s", user.GitlabUsername, permalink, commentUsername, issue.Comment)
 
 	result, resp, err := client.Notes.CreateIssueNote(
 		issue.ProjectID,
 		issue.IID,
 		&internGitlab.CreateIssueNoteOptions{
-			Body: &issue.Comment,
+			Body: &issueComment,
 		},
 		internGitlab.WithContext(ctx),
 	)

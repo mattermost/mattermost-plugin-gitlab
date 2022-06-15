@@ -600,15 +600,15 @@ func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namesp
 // if the user is connected to GitLab via this plugin.
 // Otherwise it return the Mattermost username. It will be escaped via backticks.
 func (p *Plugin) getUsername(userID string) (string, error) {
-	info, apiEr := p.getGitlabUserInfoByMattermostID(userID)
-	if apiEr != nil {
-		if apiEr.ID != APIErrorIDNotConnected {
-			return "", apiEr
+	info, err := p.getGitlabUserInfoByMattermostID(userID)
+	if err != nil {
+		if err.ID != APIErrorIDNotConnected {
+			return "", err
 		}
 
-		user, appEr := p.API.GetUser(userID)
-		if appEr != nil {
-			return "", appEr
+		user, appErr := p.API.GetUser(userID)
+		if appErr != nil {
+			return "", appErr
 		}
 
 		return user.Username, nil

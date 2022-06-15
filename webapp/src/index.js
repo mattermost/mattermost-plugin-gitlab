@@ -7,14 +7,9 @@ import UserAttribute from './components/user_attribute';
 import CreateIssuePostMenuAction from './components/create_issue_menu';
 import AttachCommentToIssuePostMenuAction from './components/attach_comment_to_issue_menu';
 import CreateIssueModal from './components/modals/create_issue';
-<<<<<<< HEAD
 import Reducer from './reducers';
 import {getConnected} from './actions';
 import AttachCommentToIssueModal from './components/modals/attach_comment_to_issue';
-=======
-import AttachCommentToIssueModal from './components/modals/attach_comment_to_issue';
-import {getConnected, setShowRHSAction} from './actions';
->>>>>>> 9974a88... Merge branch 'MI-1847' of github.com:Brightscout/mattermost-plugin-gitlab into MI-1860
 import {
     handleConnect,
     handleDisconnect,
@@ -46,12 +41,6 @@ class PluginClass {
         registry.registerPostDropdownMenuComponent(CreateIssuePostMenuAction);
         registry.registerRootComponent(AttachCommentToIssueModal);
         registry.registerPostDropdownMenuComponent(AttachCommentToIssuePostMenuAction);
-<<<<<<< HEAD
-=======
-
-        const {showRHSPlugin} = registry.registerRightHandSidebarComponent(SidebarRight, 'GitLab Plugin');
-        store.dispatch(setShowRHSAction(() => store.dispatch(showRHSPlugin)));
->>>>>>> 9974a88... Merge branch 'MI-1847' of github.com:Brightscout/mattermost-plugin-gitlab into MI-1860
 
         registry.registerWebSocketEventHandler(
             `custom_${id}_gitlab_connect`,
