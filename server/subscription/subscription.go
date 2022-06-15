@@ -7,15 +7,14 @@ import (
 )
 
 var allFeatures = map[string]bool{
-	"merges":                  true,
-	"issues":                  true,
-	"pushes":                  true,
-	"issue_comments":          true,
-	"merge_request_comments":  true,
-	"merge_request_approvals": true,
-	"pipeline":                true,
-	"tag":                     true,
-	"pull_reviews":            true,
+	"merges":                 true,
+	"issues":                 true,
+	"pushes":                 true,
+	"issue_comments":         true,
+	"merge_request_comments": true,
+	"pipeline":               true,
+	"tag":                    true,
+	"pull_reviews":           true,
 	// "label:":               true,//particular case for label:XXX
 }
 
@@ -69,10 +68,6 @@ func (s *Subscription) IssueComments() bool {
 
 func (s *Subscription) MergeRequestComments() bool {
 	return strings.Contains(s.Features, "merge_request_comments")
-}
-
-func (s *Subscription) MergeRequestApprovals() bool {
-	return strings.Contains(s.Features, "merge_request_approvals")
 }
 
 func (s *Subscription) Pipeline() bool {
