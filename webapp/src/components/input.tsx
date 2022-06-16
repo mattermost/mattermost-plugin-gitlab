@@ -11,7 +11,7 @@ interface PropTypes {
     placeholder?: string;
     value: string;
     maxLength?: number;
-    onChange: (s: string) => void;
+    onChange?: (s: string) => void;
     disabled?: boolean;
     required: boolean;
     readOnly?: boolean;
@@ -29,7 +29,9 @@ export default class Input extends PureComponent<PropTypes, StateTypes> {
     }
 
     handleChange = (e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>) => {
-        this.props.onChange(e.target.value);
+        if (this.props.onChange) {
+            this.props.onChange(e.target.value);
+        }
     };
 
     render() {

@@ -46,22 +46,6 @@ export default class Client {
         return this.doGet(`${this.url}/searchissues?search=${searchTerm}`);
     }
 
-    attachCommentToIssue = async (payload) => {
-        return this.doPost(`${this.url}/attachcommenttoissue`, payload);
-    }
-
-    searchIssues = async (searchTerm) => {
-        return this.doGet(`${this.url}/searchissues?search=${searchTerm}`);
-    }
-
-    attachCommentToIssue = async (payload) => {
-        return this.doPost(`${this.url}/attachcommenttoissue`, payload);
-    }
-
-    searchIssues = async (searchTerm) => {
-        return this.doGet(`${this.url}/searchissues?search=${searchTerm}`);
-    }
-
     getProjects = async () => {
         return this.doGet(`${this.url}/projects`);
     }

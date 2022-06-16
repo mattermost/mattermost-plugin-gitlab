@@ -4,6 +4,7 @@
 import React, {PureComponent} from 'react';
 import {Modal} from 'react-bootstrap';
 import {Theme} from 'mattermost-redux/types/preferences';
+import {Post} from 'mattermost-redux/types/posts';
 
 import FormButton from '../../form_button';
 import Input from '../../input';
@@ -11,27 +12,36 @@ import Validator from '../../validator';
 
 import GitlabIssueSelector from '../../gitlab_issue_selector';
 import {getErrorMessage} from '../../../utils/user_utils';
-import {Post} from 'mattermost-redux/types/posts';
 import {Issue} from 'src/types/attach_comment_to_issue';
 
 const initialState = {
     submitting: false,
     issueValue: null,
-    error: null,
+    error: '',
 };
 
-interface PropTypes {
-    close: () => {type: string},
-    create: any,
+interface PropTypes {  
     post: Post,
     theme: Theme,
     visible: boolean,
+    actions: {
+        close: () => {
+            type: string;
+        };
+        create: (payload: any) => Promise<{
+            error: any;
+            data?: undefined;
+        } | {
+            data: any;
+            error?: undefined;
+        }>;
+    }
 }
 
 interface StateTypes {
     submitting: boolean,
-    issueValue: any,
-    error: null | string,
+    issueValue: Issue | null,
+    error: string,
 }
 
 export default class AttachCommentToIssueModal extends PureComponent<PropTypes, StateTypes> {
@@ -43,7 +53,7 @@ export default class AttachCommentToIssueModal extends PureComponent<PropTypes, 
         this.validator = new Validator();
     }
 
-    handleCreate = async (e: any) => {
+    handleCreate = async (e: React.FormEvent<HTMLFormElement> | Event) => {
         e.preventDefault();
 
         if (!this.validator.validate()) {
@@ -51,31 +61,30 @@ export default class AttachCommentToIssueModal extends PureComponent<PropTypes, 
         }
 
         const issue = {
-            project_id: this.state.issueValue.project_id,
-            iid: this.state.issueValue.iid,
+            project_id: this.state.issueValue?.project_id,
+            iid: this.state.issueValue?.iid,
             comment: this.props.post.message,
             post_id: this.props.post.id,
-            web_url: this.state.issueValue.web_url,
+            web_url: this.state.issueValue?.web_url,
         };
 
         this.setState({submitting: true});
 
-        const created = await this.props.create(issue);
+        const created = await this.props.actions.create(issue);
         if (created.error) {
             const errMessage = getErrorMessage(created.error.message);
             this.setState({error: errMessage, submitting: false});
             return;
         }
 
-        this.handleClose(e);
+        this.handleClose();
     };
 
-    handleClose = (e: any) => {
-        e.preventDefault();
-        this.setState(initialState, this.props.close);
+    handleClose = () => {
+        this.setState(initialState, this.props.actions.close);
     };
 
-    handleIssueValueChange = (newValue: Issue) => {
+    handleIssueValueChange = (newValue: Issue | null) => {
         this.setState({
             issueValue: newValue,
         });
@@ -94,7 +103,6 @@ export default class AttachCommentToIssueModal extends PureComponent<PropTypes, 
             <div>
                 <GitlabIssueSelector
                     name={'issue'}
-                    id={'issue'}
                     onChange={this.handleIssueValueChange}
                     required={true}
                     theme={theme}
@@ -104,9 +112,10 @@ export default class AttachCommentToIssueModal extends PureComponent<PropTypes, 
                     removeValidate={this.validator.removeComponent}
                 />
                 <Input
+                    id={'comment'}
                     label='Message Attached to GitLab Issue'
                     type='textarea'
-                    isDisabled={true}
+                    required={false}
                     value={this.props.post.message}
                     disabled={false}
                     readOnly={true}
@@ -139,13 +148,11 @@ export default class AttachCommentToIssueModal extends PureComponent<PropTypes, 
                     </Modal.Body>
                     <Modal.Footer>
                         <FormButton
-                            type='button'
                             btnClass='btn-link'
                             defaultMessage='Cancel'
                             onClick={this.handleClose}
                         />
                         <FormButton
-                            type='submit'
                             btnClass='btn btn-primary'
                             saving={submitting}
                             defaultMessage='Attach'

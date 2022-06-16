@@ -2,34 +2,41 @@
 // See LICENSE.txt for license information.
 
 import React, {PureComponent} from 'react';
-import PropTypes from 'prop-types';
+import {Theme} from 'mattermost-redux/types/preferences';
 
 import debounce from 'debounce-promise';
 import AsyncSelect from 'react-select/async';
+import {SingleValue} from 'react-select';
 
-import {getStyleForReactSelect} from 'utils/styles';
-import Client from 'client';
+import {getStyleForReactSelect} from '../utils/styles';
+import {Issue, IssueSelection} from 'src/types/attach_comment_to_issue';
+import Client from 'src/client';
+import Setting from './setting';
 
 const searchDebounceDelay = 400;
 
-export default class GitlabIssueSelector extends PureComponent {
-    static propTypes = {
-        name: PropTypes.string,
-        required: PropTypes.bool,
-        theme: PropTypes.object.isRequired,
-        onChange: PropTypes.func.isRequired,
-        error: PropTypes.string,
-        value: PropTypes.object,
-        addValidate: PropTypes.func.isRequired,
-        removeValidate: PropTypes.func.isRequired,
-    };
+interface PropTypes {
+    name: string;
+    required: boolean;
+    theme: Theme;
+    onChange: (value: Issue | null) => void;
+    error: string;
+    value: Issue | null;
+    addValidate: (key: string, validateField: () => boolean) => void;
+    removeValidate: (key: string) => void;
+};
 
-    constructor(props) {
+interface StateTypes {
+    invalid: boolean;
+    error: string;
+}
+
+export default class GitlabIssueSelector extends PureComponent<PropTypes, StateTypes> {
+    constructor(props: PropTypes) {
         super(props);
-
         this.state = {
             invalid: false,
-            error: null,
+            error: '',
         };
     }
 
@@ -51,11 +58,11 @@ export default class GitlabIssueSelector extends PureComponent {
         }
     }
 
-    handleIssueSearchTermChange = (inputValue) => {
+    handleIssueSearchTermChange = (inputValue: string) => {
         return this.debouncedSearchIssues(inputValue);
     };
 
-    searchIssues = async (text) => {
+    searchIssues = async (text: string) => {
         const textEncoded = encodeURIComponent(text.trim().replace(/"/g, '\\"'));
         try {
             const issues = await Client.searchIssues(textEncoded);
@@ -72,7 +79,7 @@ export default class GitlabIssueSelector extends PureComponent {
                 }
                 return ({value: issue, label: `${prefix}, #${issue.iid}: ${issue.title}`});
             });
-        } catch (e) {
+        } catch (e: any) {
             this.setState({error: e.message});
             return [];
         }
@@ -80,8 +87,8 @@ export default class GitlabIssueSelector extends PureComponent {
 
     debouncedSearchIssues = debounce(this.searchIssues, searchDebounceDelay);
 
-    onChange = (e) => {
-        const value = e?.value ?? '';
+    onChange = (newValue: SingleValue<IssueSelection>) => {
+        const value = newValue?.value ?? null;
         this.props.onChange(value);
     }
 
@@ -96,15 +103,6 @@ export default class GitlabIssueSelector extends PureComponent {
     };
 
     render() {
-        const requiredStar = (
-            <span
-                className={'error-text'}
-                style={{marginLeft: '3px'}}
-            >
-                {'*'}
-            </span>
-        );
-
         let issueError = null;
         if (this.props.error) {
             issueError = (
@@ -138,35 +136,32 @@ export default class GitlabIssueSelector extends PureComponent {
         }
 
         return (
-            <div className={'form-group margin-bottom x3'}>
-                {serverError}
-                <label
-                    className={'control-label'}
-                    htmlFor={'issue'}
-                >
-                    {'GitLab Issue'}
-                </label>
-                {this.props.required && requiredStar}
-                <AsyncSelect
-                    name={'issue'}
-                    placeholder={'Search for issues containing text...'}
-                    onChange={this.onChange}
-                    required={true}
-                    disabled={false}
-                    isMulti={false}
-                    isClearable={true}
-                    defaultOptions={true}
-                    loadOptions={this.handleIssueSearchTermChange}
-                    menuPortalTarget={document.body}
-                    menuPlacement='auto'
-                    styles={getStyleForReactSelect(this.props.theme)}
-                />
-                {validationError}
-                {issueError}
-                <div className={'help-text'}>
-                    {'Returns issues sorted by most recently created.'} <br/>
-                </div>
-            </div>
+            <Setting
+                inputId={this.props.name}
+                label='Gitlab Issue'
+                required={this.props.required}
+            >
+                <>
+                    {serverError}
+                    <AsyncSelect
+                        name={'issue'}
+                        placeholder={'Search for issues containing text...'}
+                        onChange={this.onChange}
+                        isMulti={false}
+                        defaultOptions={true}
+                        isClearable={true}
+                        loadOptions={this.handleIssueSearchTermChange}
+                        menuPortalTarget={document.body}
+                        menuPlacement='auto'
+                        styles={getStyleForReactSelect(this.props.theme)}
+                    />
+                    {validationError}
+                    {issueError}
+                    <div className={'help-text'}>
+                        {'Returns issues sorted by most recently created.'} <br/>
+                    </div>
+                </>
+            </Setting>
         );
     }
 }

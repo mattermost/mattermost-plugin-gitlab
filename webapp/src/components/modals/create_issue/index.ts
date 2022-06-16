@@ -1,7 +1,7 @@
 import {connect} from 'react-redux';
 import {ActionCreatorsMapObject, bindActionCreators, Dispatch} from 'redux';
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
-import { GlobalState } from 'mattermost-redux/types/store';
+import {GlobalState} from 'mattermost-redux/types/store';
 import {ActionFunc, GenericAction} from 'mattermost-redux/types/actions';
 
 import {id as pluginId} from '../../../manifest';

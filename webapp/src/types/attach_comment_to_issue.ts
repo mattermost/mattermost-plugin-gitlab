@@ -3,3 +3,8 @@ export interface Issue {
     web_url: string;
     project_id: number;
 }
+
+export interface IssueSelection {
+    value: Issue;
+    label: string;
+}
