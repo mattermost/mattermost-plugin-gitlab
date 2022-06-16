@@ -14,7 +14,7 @@ export default class GitLabIcon extends React.PureComponent {
     static defaultProps = {
         type: 'menu',
     };
-
+    
     render() {
         const iconStyle = (this.props.type === 'menu') ? {flex: '0 0 auto', width: '20px', height: '20px', borderRadius: '50px', padding: '2px'} : {};
 
