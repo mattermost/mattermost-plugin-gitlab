@@ -38,12 +38,12 @@ function mapDispatchToProps(dispatch) {
                 getYourPrs,
                 getYourAssignments,
             },
-            dispatch
+            dispatch,
         ),
     };
 }
 
 export default connect(
     mapStateToProps,
-    mapDispatchToProps
+    mapDispatchToProps,
 )(SidebarButtons);

@@ -34,6 +34,26 @@ export default class Client {
         return this.doPost(`${this.url}/user`, {user_id: userID});
     };
 
+    createIssue = async (payload) => {
+        return this.doPost(`${this.url}/issue`, payload);
+    }
+
+    getProjects = async () => {
+        return this.doGet(`${this.url}/projects`);
+    }
+
+    getLabels = async (projectID) => {
+        return this.doGet(`${this.url}/labels?projectID=${projectID}`);
+    }
+
+    getMilestones = async (projectID) => {
+        return this.doGet(`${this.url}/milestones?projectID=${projectID}`);
+    }
+
+    getAssignees = async (projectID) => {
+        return this.doGet(`${this.url}/assignees?projectID=${projectID}`);
+    }
+
     doGet = async (url, body, headers = {}) => {
         headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
 
