@@ -5,6 +5,7 @@ import Octicon, {GitMerge, GitPullRequest, IssueClosed, IssueOpened} from '@prim
 
 import Client from '../../client';
 import './tooltip.css';
+import { validateGitlabURL } from '../../utils/regex_utils';
 
 const STATE_COLOR_MAP = {
     OPENED_COLOR: '#28a745',
@@ -12,18 +13,28 @@ const STATE_COLOR_MAP = {
     MERGED_COLOR: '#6f42c1',
 };
 
+const STATE_TYPES = {
+    OPENED: 'opened',
+    CLOSED: 'closed',
+}
+
+const LINK_TYPES = {
+    MERGE_REQUESTS: 'merge_requests',
+    ISSUES: 'issues',
+};
+
 export const LinkTooltip = ({href, connected}) => {
     const [data, setData] = useState(null);
     useEffect(() => {
         const init = async () => {
-            if (href.includes('gitlab.com/')) {
+            if (href.includes('gitlab.com/') && validateGitlabURL(href)) {
                 const [owner, repo, , type, number] = href.split('gitlab.com/')[1].split('/');
                 let res;
                 switch (type) {
-                case 'issues':
+                case LINK_TYPES.ISSUES:
                     res = await Client.getIssue(owner, repo, number);
                     break;
-                case 'merge_requests':
+                case LINK_TYPES.MERGE_REQUESTS:
                     res = await Client.getPullRequest(owner, repo, number);
                     break;
                 }
@@ -46,10 +57,10 @@ export const LinkTooltip = ({href, connected}) => {
         let iconType;
         const {OPENED_COLOR, CLOSED_COLOR, MERGED_COLOR} = STATE_COLOR_MAP;
         switch (data.type) {
-        case 'merge_requests':
+        case LINK_TYPES.MERGE_REQUESTS:
             color = OPENED_COLOR;
             iconType = GitPullRequest;
-            if (data.state === 'closed') {
+            if (data.state === STATE_TYPES.CLOSED) {
                 if (data.merged) {
                     color = MERGED_COLOR;
                     iconType = GitMerge;
@@ -58,9 +69,9 @@ export const LinkTooltip = ({href, connected}) => {
                 }
             }
             break;
-        case 'issues':
-            color = data.state === 'opened' ? OPENED_COLOR : CLOSED_COLOR;
-            iconType = data.state === 'opened' ? IssueOpened : IssueClosed;
+        case LINK_TYPES.ISSUES:
+            color = data.state === STATE_TYPES.OPENED ? OPENED_COLOR : CLOSED_COLOR;
+            iconType = data.state === STATE_TYPES.OPENED ? IssueOpened : IssueClosed;
             break;
         }
         const icon = (
@@ -88,7 +99,7 @@ export const LinkTooltip = ({href, connected}) => {
                         >
                             {data.repo}
                         </a>
-                        &nbsp;on&nbsp;<span>{date}</span>
+                        <span className='text-spacing'>on</span><span>{date}</span>
                     </div>
 
                     <div className='body d-flex mt-2'>
@@ -111,7 +122,7 @@ export const LinkTooltip = ({href, connected}) => {
                             </div>
 
                             {/* base <- head */}
-                            {data.type === 'merge_requests' && (
+                            {data.type === LINK_TYPES.MERGE_REQUESTS && (
                                 <div className='base-head mt-1 mr-3'>
                                     <span
                                         title={data.target_branch}
@@ -142,7 +153,7 @@ export const LinkTooltip = ({href, connected}) => {
 
                             {/* Labels */}
                             <div className='labels mt-3'>
-                                {data.labels && data.labels_with_details && data.labels_with_details.map((label, index) => {
+                                {data.labels && data.labels_with_details && data.labels_with_details.length && data.labels_with_details.map((label, index) => {
                                     return (
                                         <span
                                             key={index}
