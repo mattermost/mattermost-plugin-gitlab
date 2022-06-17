@@ -5,7 +5,7 @@ import Octicon, {GitMerge, GitPullRequest, IssueClosed, IssueOpened} from '@prim
 
 import Client from '../../client';
 import './tooltip.css';
-import { validateGitlabURL } from '../../utils/regex_utils';
+import {validateGitlabURL} from '../../utils/regex_utils';
 
 const STATE_COLOR_MAP = {
     OPENED_COLOR: '#28a745',
@@ -16,7 +16,7 @@ const STATE_COLOR_MAP = {
 const STATE_TYPES = {
     OPENED: 'opened',
     CLOSED: 'closed',
-}
+};
 
 const LINK_TYPES = {
     MERGE_REQUESTS: 'merge_requests',
