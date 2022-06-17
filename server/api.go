@@ -571,8 +571,8 @@ func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Requ
 	var issue *gitlab.IssueRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&issue); err != nil {
-		c.Log.WithError(err).Warnf("Error decoding the JSON body to create issue")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Please provide a valid JSON object. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
+		c.Log.WithError(err).Warnf("error decoding the JSON body to create issue")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("please provide a valid JSON object. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
 		return
 	}
 
@@ -594,8 +594,8 @@ func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Requ
 
 	result, err := p.GitlabClient.CreateIssue(c.Ctx, c.GitlabInfo, issue)
 	if err != nil {
-		c.Log.WithError(err).Warnf("Can't create issue in GitLab")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Unable to create issue in GitLab. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
+		c.Log.WithError(err).Warnf("can't create issue in GitLab")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("unable to create issue in GitLab. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
 		return
 	}
 
@@ -723,8 +723,8 @@ func (p *Plugin) searchIssues(c *UserContext, w http.ResponseWriter, r *http.Req
 func (p *Plugin) getYourProjects(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	result, err := p.GitlabClient.GetYourProjects(c.Ctx, c.GitlabInfo)
 	if err != nil {
-		c.Log.WithError(err).Warnf("can't list repos in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list repos in GitLab API.", StatusCode: http.StatusInternalServerError})
+		c.Log.WithError(err).Warnf("can't list projects in GitLab")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list projects in GitLab.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 
@@ -735,8 +735,8 @@ func (p *Plugin) getLabels(c *UserContext, w http.ResponseWriter, r *http.Reques
 	projectID := r.URL.Query().Get(projectID)
 	result, err := p.GitlabClient.GetLabels(c.Ctx, c.GitlabInfo, projectID)
 	if err != nil {
-		c.Log.WithError(err).Warnf("can't list labels of project in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list labels in GitLab API.", StatusCode: http.StatusInternalServerError})
+		c.Log.WithError(err).Warnf("can't list labels of project in GitLab")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list labels in GitLab.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 
@@ -747,8 +747,8 @@ func (p *Plugin) getMilestones(c *UserContext, w http.ResponseWriter, r *http.Re
 	projectID := r.URL.Query().Get(projectID)
 	result, err := p.GitlabClient.GetMilestones(c.Ctx, c.GitlabInfo, projectID)
 	if err != nil {
-		c.Log.WithError(err).Warnf("can't list milestones of project in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list milestones in GitLab API.", StatusCode: http.StatusInternalServerError})
+		c.Log.WithError(err).Warnf("can't list milestones of project in GitLab")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list milestones in GitLab.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 
@@ -759,8 +759,8 @@ func (p *Plugin) getAssignees(c *UserContext, w http.ResponseWriter, r *http.Req
 	projectID := r.URL.Query().Get(projectID)
 	result, err := p.GitlabClient.GetAssignees(c.Ctx, c.GitlabInfo, projectID)
 	if err != nil {
-		c.Log.WithError(err).Warnf("can't list assignees of the project in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list assignees in GitLab API.", StatusCode: http.StatusInternalServerError})
+		c.Log.WithError(err).Warnf("can't list assignees of the project in GitLab")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list assignees in GitLab.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 

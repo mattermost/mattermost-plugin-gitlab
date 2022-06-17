@@ -551,7 +551,7 @@ func (g *gitlab) SearchIssues(ctx context.Context, user *UserInfo, search string
 	if err != nil {
 		return nil, errors.Wrap(err, "can't search issues in GitLab api")
 	}
-	
+
 	return result, nil
 }
 
