@@ -153,7 +153,7 @@ export const LinkTooltip = ({href, connected}) => {
 
                             {/* Labels */}
                             <div className='labels mt-3'>
-                                {data.labels && data.labels_with_details?.length && data.labels_with_details.map((label, index) => {
+                                {data.labels && data.labels_with_details && data.labels_with_details.length && data.labels_with_details.map((label, index) => {
                                     return (
                                         <span
                                             key={index}
