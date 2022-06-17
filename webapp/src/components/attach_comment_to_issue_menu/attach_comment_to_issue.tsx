@@ -10,10 +10,10 @@ interface PropTypes {
     postId: string;
     show: boolean;
     actions: {
-        open: (postId: any) => {
+        open: (postId: string) => {
             type: string;
             data: {
-                postId: any;
+                postId: string;
             };
         };
     };

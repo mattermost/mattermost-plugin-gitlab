@@ -12,7 +12,6 @@ import Validator from '../../validator';
 
 import GitlabIssueSelector from '../../gitlab_issue_selector';
 import {getErrorMessage} from '../../../utils/user_utils';
-import {Issue} from 'src/types/attach_comment_to_issue';
 
 const initialState = {
     submitting: false,
@@ -28,12 +27,8 @@ interface PropTypes {
         close: () => {
             type: string;
         };
-        create: (payload: any) => Promise<{
-            error: any;
-            data?: undefined;
-        } | {
-            data: any;
-            error?: undefined;
+        create: (payload: CommentBody) => Promise<{
+            error?: ErrorType;
         }>;
     }
 }
@@ -60,7 +55,7 @@ export default class AttachCommentToIssueModal extends PureComponent<PropTypes, 
             return;
         }
 
-        const issue = {
+        const comment = {
             project_id: this.state.issueValue?.project_id,
             iid: this.state.issueValue?.iid,
             comment: this.props.post.message,
@@ -70,7 +65,7 @@ export default class AttachCommentToIssueModal extends PureComponent<PropTypes, 
 
         this.setState({submitting: true});
 
-        const created = await this.props.actions.create(issue);
+        const created = await this.props.actions.create(comment);
         if (created.error) {
             const errMessage = getErrorMessage(created.error.message);
             this.setState({error: errMessage, submitting: false});

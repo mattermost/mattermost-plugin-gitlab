@@ -504,6 +504,7 @@ func (g *gitlab) CreateIssue(ctx context.Context, user *UserInfo, issue *IssueRe
 	if err != nil {
 		return nil, errors.Wrap(err, "can't create issue in GitLab")
 	}
+
 	return result, nil
 }
 
@@ -529,6 +530,7 @@ func (g *gitlab) AttachCommentToIssue(ctx context.Context, user *UserInfo, issue
 	if err != nil {
 		return nil, errors.Wrap(err, "can't create issue comment in GitLab api")
 	}
+
 	return result, nil
 }
 
@@ -549,6 +551,7 @@ func (g *gitlab) SearchIssues(ctx context.Context, user *UserInfo, search string
 	if err != nil {
 		return nil, errors.Wrap(err, "can't search issues in GitLab api")
 	}
+	
 	return result, nil
 }
 

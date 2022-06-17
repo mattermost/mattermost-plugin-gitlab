@@ -13,8 +13,6 @@ import {openAttachCommentToIssueModal} from '../../actions';
 
 import AttachCommentToIssuePostMenuAction from './attach_comment_to_issue';
 
-type plugin = "plugin"
-
 interface pluginMethods {
     connected: boolean
 }
@@ -28,10 +26,10 @@ interface OwnProps {
 }
 
 type Actions = {
-    open: (postId: any) => {
+    open: (postId: string) => {
         type: string;
         data: {
-            postId: any;
+            postId: string;
         };
     };
 };

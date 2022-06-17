@@ -1,20 +1,13 @@
 // Copyright (c) 2017-present Mattermost, Inc. All Rights Reserved.
 // See License for license information.
 
-import React from 'react';
-import PropTypes from 'prop-types';
+import React, {PureComponent} from 'react';
 
-export default class GitLabIcon extends React.PureComponent {
-    static propTypes = {
-        type: PropTypes.oneOf([
-            'menu',
-        ]),
-    };
+interface PropTypes {
+    type: string;
+};
 
-    static defaultProps = {
-        type: 'menu',
-    };
-
+export default class GitLabIcon extends PureComponent<PropTypes> {
     render() {
         const iconStyle = (this.props.type === 'menu') ? {flex: '0 0 auto', width: '20px', height: '20px', borderRadius: '50px', padding: '2px'} : {};
 

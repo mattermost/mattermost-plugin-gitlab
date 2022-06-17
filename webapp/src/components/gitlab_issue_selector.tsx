@@ -9,7 +9,6 @@ import AsyncSelect from 'react-select/async';
 import {SingleValue} from 'react-select';
 
 import {getStyleForReactSelect} from '../utils/styles';
-import {Issue, IssueSelection} from 'src/types/attach_comment_to_issue';
 import Client from 'src/client';
 import Setting from './setting';
 
@@ -79,8 +78,9 @@ export default class GitlabIssueSelector extends PureComponent<PropTypes, StateT
                 }
                 return ({value: issue, label: `${prefix}, #${issue.iid}: ${issue.title}`});
             });
-        } catch (e: any) {
-            this.setState({error: e.message});
+        } catch (e) {
+            const err = e as ErrorType;
+            this.setState({error: err.message});
             return [];
         }
     };

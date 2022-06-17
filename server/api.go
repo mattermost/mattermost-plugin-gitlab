@@ -28,6 +28,8 @@ const (
 	requestTimeout = 5 * time.Second
 
 	search = "search"
+
+	projectID = "projectID"
 )
 
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
@@ -730,7 +732,7 @@ func (p *Plugin) getYourProjects(c *UserContext, w http.ResponseWriter, r *http.
 }
 
 func (p *Plugin) getLabels(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	projectID := r.URL.Query().Get("projectID")
+	projectID := r.URL.Query().Get(projectID)
 	result, err := p.GitlabClient.GetLabels(c.Ctx, c.GitlabInfo, projectID)
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't list labels of project in GitLab API")
@@ -742,7 +744,7 @@ func (p *Plugin) getLabels(c *UserContext, w http.ResponseWriter, r *http.Reques
 }
 
 func (p *Plugin) getMilestones(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	projectID := r.URL.Query().Get("projectID")
+	projectID := r.URL.Query().Get(projectID)
 	result, err := p.GitlabClient.GetMilestones(c.Ctx, c.GitlabInfo, projectID)
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't list milestones of project in GitLab API")
@@ -754,7 +756,7 @@ func (p *Plugin) getMilestones(c *UserContext, w http.ResponseWriter, r *http.Re
 }
 
 func (p *Plugin) getAssignees(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	projectID := r.URL.Query().Get("projectID")
+	projectID := r.URL.Query().Get(projectID)
 	result, err := p.GitlabClient.GetAssignees(c.Ctx, c.GitlabInfo, projectID)
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't list assignees of the project in GitLab API")

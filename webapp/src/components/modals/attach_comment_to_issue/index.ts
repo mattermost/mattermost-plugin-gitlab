@@ -12,8 +12,6 @@ import {closeAttachCommentToIssueModal, attachCommentToIssue} from '../../../act
 
 import AttachCommentToIssueModal from './attach_comment_to_issue';
 
-type plugin = "plugin"
-
 interface pluginMethods {
     attachCommentToIssueModalForPostId: string;
     attachCommentToIssueModalVisible: boolean
@@ -27,12 +25,8 @@ type Actions = {
     close: () => {
         type: string;
     };
-    create: (payload: any) => Promise<{
-        error: any;
-        data?: undefined;
-    } | {
-        data: any;
-        error?: undefined;
+    create: (payload: CommentBody) => Promise<{
+        error?: ErrorType;
     }>;
 };
 
