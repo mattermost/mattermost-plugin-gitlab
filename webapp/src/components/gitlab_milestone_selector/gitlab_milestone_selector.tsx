@@ -10,7 +10,7 @@ interface PropTypes {
     projectID?: number;
     projectName: string;
     theme: Theme;
-    selectedMilestone: SelectionType;
+    selectedMilestone: SelectionType | null;
     onChange: (milestone: OnChangeType) => void;
     actions: {
         getMilestoneOptions: (projectID?: number) =>  Promise<{

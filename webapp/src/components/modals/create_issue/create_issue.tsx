@@ -38,7 +38,7 @@ interface StateTypes {
     issueDescription: string;
     labels: SelectionType[];
     assignees: SelectionType[];
-    milestone: SelectionType;
+    milestone: SelectionType | null;
     showErrors: boolean;
     issueTitleValid: boolean;
 }
@@ -51,10 +51,7 @@ const initialState = {
     issueDescription: '',
     labels: [],
     assignees: [],
-    milestone: {
-        value: 1,
-        label: '',
-    },
+    milestone: null,
     showErrors: false,
     issueTitleValid: true,
 };
