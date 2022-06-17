@@ -10,12 +10,9 @@ import {getMilestoneOptions} from '../../actions';
 import GitlabMilestoneSelector from './gitlab_milestone_selector';
 
 type Actions = {
-    getMilestoneOptions: (projectID: any) =>  Promise<{
-        error: any;
-        data?: undefined;
-    } | {
-        data: any;
-        error?: undefined;
+    getMilestoneOptions: (projectID?: number) =>  Promise<{
+        error?: ErrorType;
+        data?: Milestone[];
     }>
 }
 

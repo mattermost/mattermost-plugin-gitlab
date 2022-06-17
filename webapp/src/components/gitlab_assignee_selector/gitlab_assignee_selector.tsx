@@ -5,27 +5,23 @@ import React, {PureComponent} from 'react';
 import {Theme} from 'mattermost-redux/types/preferences';
 
 import IssueAttributeSelector from '../issue_attribute_selector';
-import {Assignee, AssigneeSelection} from '../../types/gitlab_assignee_selector'
 
 interface PropTypes {
     projectID?: number;
     projectName: string;
     theme: Theme;
-    selectedAssignees: AssigneeSelection[];
-    onChange: (assignees: AssigneeSelection[]) => void;
+    selectedAssignees: SelectionType[];
+    onChange: (assignees: OnChangeType) => void;
     actions: {
-        getAssigneeOptions: (projectID: any) =>  Promise<{
-            error: any;
-            data?: undefined;
-        } | {
-            data: any;
-            error?: undefined;
+        getAssigneeOptions: (projectID?: number) =>  Promise<{
+            error?: ErrorType;
+            data?: Assignee[];
         }>
     };
 };
 
 export default class GitlabAssigneeSelector extends PureComponent<PropTypes> {
-    loadAssignees = async () => {
+    loadAssignees = async (): Promise<SelectionType[]> => {
         if (this.props.projectName === '') {
             return [];
         }
@@ -51,10 +47,10 @@ export default class GitlabAssigneeSelector extends PureComponent<PropTypes> {
             <div className='form-group margin-bottom x3'>
                 <IssueAttributeSelector
                     {...this.props}
-                    label= 'Assignees'
+                    selection={this.props.selectedAssignees}
+                    label='Assignees'
                     isMulti={true}
                     onChange={this.props.onChange}
-                    selection={this.props.selectedAssignees}
                     loadOptions={this.loadAssignees}
                 />
             </div>

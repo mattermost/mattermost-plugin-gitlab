@@ -1,23 +1,23 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {MouseEvent} from 'react';
+import React, {MouseEvent, PureComponent} from 'react';
 import GitLabIcon from '../../images/icons/gitlab';
 
 interface PropTypes {
     show: boolean;
     actions: {
-        open: (postId: any) => {
+        open: (postId: string) => {
             type: string;
             data: {
-                postId: any;
+                postId: string;
             };
         };
     };
     postId: string;
 }
 
-export default class CreateIssuePostMenuAction extends React.PureComponent<PropTypes> {
+export default class CreateIssuePostMenuAction extends PureComponent<PropTypes> {
     handleClick = (e: MouseEvent<HTMLButtonElement> | Event) => {        
         const {postId} = this.props;
         e.preventDefault();

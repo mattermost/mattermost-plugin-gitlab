@@ -1,7 +1,9 @@
 import React, {PureComponent} from 'react';
 import {Modal} from 'react-bootstrap';
 import {Theme} from 'mattermost-redux/types/preferences';
+import {Post} from 'mattermost-redux/types/posts';
 
+import {getErrorMessage} from '../../../utils/user_utils';
 import GitlabLabelSelector from '../../gitlab_label_selector';
 import GitlabAssigneeSelector from '../../gitlab_assignee_selector';
 import GitlabMilestoneSelector from '../../gitlab_milestone_selector';
@@ -9,12 +11,6 @@ import GitlabProjectSelector from '../../gitlab_project_selector';
 import Validator from '../../validator';
 import FormButton from '../../form_button';
 import Input from '../../input';
-import {getErrorMessage} from '../../../utils/user_utils';
-import {Post} from 'mattermost-redux/types/posts';
-import {LabelSelection} from 'src/types/gitlab_label_selector';
-import {AssigneeSelection} from 'src/types/gitlab_assignee_selector';
-import {MilestoneSelection} from 'src/types/gitlab_milestone_selector';
-import {ProjectSelection as Project } from 'src/types/gitlab_project_selector';
 
 const MAX_TITLE_LENGTH = 256;
 
@@ -28,12 +24,8 @@ interface PropTypes {
         close: () => {
             type: string;
         };
-        create: (payload: any) => Promise<{
-            error: any;
-            data?: undefined;
-        } | {
-            data: any;
-            error?: undefined;
+        create: (payload: IssueBody) => Promise<{
+            error?: ErrorType;
         }>;
     }
 };
@@ -41,12 +33,12 @@ interface PropTypes {
 interface StateTypes {
     submitting: boolean;
     error: string | null;
-    project: Project | null;
+    project: ProjectSelection | null;
     issueTitle: string;
     issueDescription: string;
-    labels: LabelSelection[];
-    assignees: AssigneeSelection[];
-    milestone: null | MilestoneSelection;
+    labels: SelectionType[];
+    assignees: SelectionType[];
+    milestone: SelectionType;
     showErrors: boolean;
     issueTitleValid: boolean;
 }
@@ -59,7 +51,10 @@ const initialState = {
     issueDescription: '',
     labels: [],
     assignees: [],
-    milestone: null,
+    milestone: {
+        value: 1,
+        label: '',
+    },
     showErrors: false,
     issueTitleValid: true,
 };
@@ -101,8 +96,8 @@ export default class CreateIssueModal extends PureComponent<PropTypes, StateType
             title: this.state.issueTitle,
             description: this.state.issueDescription,
             project_id: this.state.project?.project_id,
-            labels: this.state.labels.map((label) => label.value),
-            assignees: this.state.assignees.map((assignee) => assignee.value),
+            labels: this.state.labels?.map((label) => label.value),
+            assignees: this.state.assignees?.map((assignee) => assignee.value),
             milestone: this.state.milestone?.value,
             post_id: postId,
             channel_id: this.props.channelId,
@@ -126,13 +121,13 @@ export default class CreateIssueModal extends PureComponent<PropTypes, StateType
 
     handleClose = () => {this.setState(initialState, this.props.actions.close);};
 
-    handleProjectChange = (project: Project) => this.setState({project});
+    handleProjectChange = (project: ProjectSelection) => this.setState({project});
 
-    handleLabelsChange = (labels: LabelSelection[]) => this.setState({labels});
+    handleLabelsChange = (newLabels: OnChangeType) => this.setState({labels: newLabels as SelectionType[]});
 
-    handleAssigneesChange = (assignees: AssigneeSelection[]) => this.setState({assignees});
+    handleAssigneesChange = (newAssignees: OnChangeType) => this.setState({assignees: newAssignees as SelectionType[]});
 
-    handleMilestoneChange = (milestone: MilestoneSelection) => this.setState({milestone});
+    handleMilestoneChange = (newMilestone: OnChangeType) => this.setState({milestone: newMilestone as SelectionType});
 
     handleIssueTitleChange = (issueTitle: string) => {
         this.setState({issueTitle});

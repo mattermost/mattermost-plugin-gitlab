@@ -7,9 +7,8 @@ import {Theme} from 'mattermost-redux/types/preferences';
 import ReactSelect, {SingleValue} from 'react-select';
 import AsyncSelect from 'react-select/async';
 
-import Setting from './setting';
 import {getStyleForReactSelect} from '../utils/styles';
-import {LabelSelection as ProjectSelection} from 'src/types/gitlab_label_selector';
+import Setting from './setting';
 
 const MAX_NUM_OPTIONS = 100;
 
@@ -18,9 +17,9 @@ interface PropTypes {
     onChange: (name: string, value: string) => void,
     label: string;
     theme: Theme;
-    options: ProjectSelection[],
+    options: SelectionType[],
     isLoading: boolean;
-    value?: ProjectSelection;
+    value?: SelectionType;
     addValidate: (key: string, validateField: () => boolean) => void;
     removeValidate: (key: string) => void;
     required: boolean;
@@ -55,9 +54,9 @@ export default class ReactSelectSetting extends PureComponent<PropTypes, StateTy
         }
     }
 
-    handleChange = (value: SingleValue<ProjectSelection>) => {             
+    handleChange = (value: SingleValue<SelectionType>) => {             
         const newValue = value?.value ?? '';
-        this.props.onChange(this.props.name, newValue);
+        this.props.onChange(this.props.name, newValue as string);
     };
 
     filterOptions = (input: string) => {
@@ -100,6 +99,7 @@ export default class ReactSelectSetting extends PureComponent<PropTypes, StateTy
                 <AsyncSelect
                     loadOptions={this.filterOptions}
                     defaultOptions={true}
+                    isClearable={true}
                     menuPortalTarget={document.body}
                     menuPlacement='auto'
                     onChange={this.handleChange}
@@ -113,6 +113,7 @@ export default class ReactSelectSetting extends PureComponent<PropTypes, StateTy
                     options={this.props.options}
                     menuPortalTarget={document.body}
                     menuPlacement='auto'
+                    isClearable={true}
                     isLoading={this.props.isLoading}
                     onChange={this.handleChange}
                     styles={getStyleForReactSelect(this.props.theme)}

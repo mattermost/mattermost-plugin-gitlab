@@ -1,9 +1,9 @@
-export interface ProjectSelection {
+interface ProjectSelection {
     name: string;
     project_id?: number;
 }
 
-export interface Project{
+interface Project{
     path_with_namespace: string;
     id: number;
 }

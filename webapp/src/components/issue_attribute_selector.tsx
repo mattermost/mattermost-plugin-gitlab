@@ -2,27 +2,24 @@
 // See LICENSE.txt for license information.
 
 import React, {PureComponent} from 'react';
-import ReactSelect, {MultiValue, SingleValue} from 'react-select';
+import ReactSelect, {OnChangeValue} from 'react-select';
 import {Theme} from 'mattermost-redux/types/preferences';
 
 import {getStyleForReactSelect} from '../utils/styles';
 import Setting from './setting';
-import {LabelSelection} from 'src/types/gitlab_label_selector';
-import {AssigneeSelection} from 'src/types/gitlab_assignee_selector';
-import {MilestoneSelection} from 'src/types/gitlab_milestone_selector';
 
 interface PropTypes {
     isMulti: boolean;
     projectName: string;
     theme: Theme;
     label: string;
-    onChange: (value: any) => void;
-    loadOptions: () => Promise<any>,
-    selection: MilestoneSelection | AssigneeSelection[] | LabelSelection[] | null; 
+    onChange: (value: OnChangeType) => void;
+    loadOptions: () => Promise<Array<SelectionType>>,
+    selection: OnChangeType;
 };
 
 interface StateTypes {
-    options: any; 
+    options: Array<SelectionType>; 
     isLoading: boolean;
     error: string;
 }
@@ -54,13 +51,15 @@ export default class IssueAttributeSelector extends PureComponent<PropTypes, Sta
 
         try {
             const options = await this.props.loadOptions();
-
+            this.filterSelection(options);
             this.setState({
                 options,
                 isLoading: false,
                 error: '',
             });
-        } catch (err: any) {
+        } catch (e) {
+            this.filterSelection([]);
+            const err = e as ErrorType;
             this.setState({
                 options: [],
                 error: err.message,
@@ -69,12 +68,31 @@ export default class IssueAttributeSelector extends PureComponent<PropTypes, Sta
         }
     };
 
-    onChange = (selection: MultiValue<AssigneeSelection | LabelSelection> | SingleValue<AssigneeSelection | LabelSelection>) => {
-        if (this.props.isMulti) {
-            this.props.onChange(selection ?? []);
+    filterSelection = (options: Array<SelectionType>) => {
+        if (!this.props.selection) {
+            return;
         }
-        this.props.onChange(selection);
-    };
+
+        if (this.props.isMulti) {
+            const selectionValues = (this.props.selection as SelectionType[]).map((s) => s.value)
+            const filtered = options.filter((option) => selectionValues.includes(option.value));
+            this.props.onChange(filtered);
+            return;
+        }
+
+        for (const option of options) {
+            if (option.value === (this.props.selection as SelectionType).value) {
+                this.props.onChange(option);
+                return;
+            }
+        }
+
+        this.props.onChange(null);
+    }
+
+    onChangeHandler =  (newValue: OnChangeValue<OnChangeType, boolean>) => {
+        this.props.onChange(newValue as OnChangeType)
+    }
 
     render() {
         const noOptionsMessage = this.props.projectName ? 'No options' : 'Please select a project first';
@@ -88,11 +106,14 @@ export default class IssueAttributeSelector extends PureComponent<PropTypes, Sta
                         placeholder={'Select...'}
                         noOptionsMessage={() => noOptionsMessage}
                         closeMenuOnSelect={!this.props.isMulti}
+                        menuPortalTarget={document.body}
+                        menuPlacement='auto'
                         hideSelectedOptions={this.props.isMulti}
-                        onChange={this.onChange}
+                        onChange={this.onChangeHandler}
                         options={this.state.options}
                         isLoading={this.state.isLoading}
                         styles={getStyleForReactSelect(this.props.theme)}
+                        value={this.props.selection}
                     />
                     {this.state.error && (
                         <p className='alert alert-danger'>

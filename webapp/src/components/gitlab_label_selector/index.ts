@@ -10,12 +10,9 @@ import {getLabelOptions} from '../../actions';
 import GitlabLabelSelector from './gitlab_label_selector';
 
 type Actions = {
-    getLabelOptions: (projectID: any) =>  Promise<{
-        error: any;
-        data?: undefined;
-    } | {
-        data: any;
-        error?: undefined;
+    getLabelOptions: (projectID?: number) =>  Promise<{
+        error?: ErrorType;
+        data?: Label[];
     }>
 }
 

@@ -9,9 +9,6 @@ import {closeCreateIssueModal, createIssue} from '../../../actions';
 
 import CreateIssueModal from './create_issue';
 
-
-type plugin = "plugin"
-
 interface pluginMethods {
     createIssueModal: {
         postId: string;
@@ -29,12 +26,8 @@ type Actions = {
     close: () => {
         type: string;
     };
-    create: (payload: any) => Promise<{
-        error: any;
-        data?: undefined;
-    } | {
-        data: any;
-        error?: undefined;
+    create: (payload: IssueBody) => Promise<{
+        error?: ErrorType;
     }>;
 };
 

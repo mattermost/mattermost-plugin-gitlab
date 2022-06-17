@@ -4,22 +4,18 @@
 import React, {PureComponent} from 'react';
 import {Theme} from 'mattermost-redux/types/preferences';
 
-import {Milestone, MilestoneSelection} from '../../types/gitlab_milestone_selector'
 import IssueAttributeSelector from '../issue_attribute_selector';
 
 interface PropTypes {
     projectID?: number;
     projectName: string;
     theme: Theme;
-    selectedMilestone: MilestoneSelection | null;
-    onChange: (milestone: MilestoneSelection) => void;
+    selectedMilestone: SelectionType;
+    onChange: (milestone: OnChangeType) => void;
     actions: {
-        getMilestoneOptions: (projectID: any) =>  Promise<{
-            error: any;
-            data?: undefined;
-        } | {
-            data: any;
-            error?: undefined;
+        getMilestoneOptions: (projectID?: number) =>  Promise<{
+            error?: ErrorType;
+            data?: Milestone[];
         }>
     };
 };
@@ -51,10 +47,10 @@ export default class GitlabMilestoneSelector extends PureComponent<PropTypes> {
             <div className='form-group margin-bottom x3'>
                 <IssueAttributeSelector
                     {...this.props}
+                    selection={this.props.selectedMilestone}
                     label='Milestone'
                     onChange={this.props.onChange}
                     isMulti={false}
-                    selection={this.props.selectedMilestone}
                     loadOptions={this.loadMilestones}
                 />
             </div>

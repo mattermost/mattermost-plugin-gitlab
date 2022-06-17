@@ -5,21 +5,17 @@ import React, {PureComponent} from 'react';
 import {Theme} from 'mattermost-redux/types/preferences';
 
 import IssueAttributeSelector from '../issue_attribute_selector';
-import {Label, LabelSelection} from '../../types/gitlab_label_selector'
 
 interface PropTypes {
     projectID?: number;
     projectName: string;
     theme: Theme;
-    selectedLabels: LabelSelection[];
-    onChange: (labels: LabelSelection[]) => void;
+    selectedLabels: SelectionType[];
+    onChange: (labels: OnChangeType) => void;
     actions: {
-        getLabelOptions: (projectID: any) =>  Promise<{
-            error: any;
-            data?: undefined;
-        } | {
-            data: any;
-            error?: undefined;
+        getLabelOptions: (projectID?: number) =>  Promise<{
+            error?: ErrorType;
+            data?: Label[];
         }>
     };
 };
@@ -51,10 +47,10 @@ export default class GitlabLabelSelector extends PureComponent<PropTypes> {
             <div className='form-group margin-bottom x3'>
                 <IssueAttributeSelector
                     {...this.props}
+                    selection={this.props.selectedLabels}
                     label='Labels'
                     isMulti={true}
                     onChange={this.props.onChange}
-                    selection={this.props.selectedLabels}
                     loadOptions={this.loadLabels}
                 />
             </div>

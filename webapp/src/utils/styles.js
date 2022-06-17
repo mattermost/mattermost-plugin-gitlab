@@ -2,19 +2,18 @@
 // See LICENSE.txt for license information.
 
 import {changeOpacity} from 'mattermost-redux/utils/theme_utils';
-import {Theme} from 'mattermost-redux/types/preferences';
 
-export const getStyleForReactSelect = (theme: Theme) => {
+export const getStyleForReactSelect = (theme) => {
     if (!theme) {
-        return undefined;
+        return {};
     }
 
     return {
-        menuPortal: (provided: any) => ({
+        menuPortal: (provided) => ({
             ...provided,
             zIndex: 9999,
         }),
-        control: (provided: any, state: any) => ({
+        control: (provided, state) => ({
             ...provided,
             color: theme.centerChannelColor,
             background: theme.centerChannelBg,
@@ -30,7 +29,7 @@ export const getStyleForReactSelect = (theme: Theme) => {
                 borderColor: changeOpacity(theme.centerChannelColor, 0.25),
             },
         }),
-        option: (provided: any, state: any) => ({
+        option: (provided, state) => ({
             ...provided,
             background: state.isFocused ? changeOpacity(theme.centerChannelColor, 0.12) : theme.centerChannelBg,
             cursor: state.isDisabled ? 'not-allowed' : 'pointer',
@@ -39,7 +38,7 @@ export const getStyleForReactSelect = (theme: Theme) => {
                 background: changeOpacity(theme.centerChannelColor, 0.12),
             },
         }),
-        clearIndicator: (provided: any) => ({
+        clearIndicator: (provided) => ({
             ...provided,
             width: '34px',
             color: changeOpacity(theme.centerChannelColor, 0.4),
@@ -49,17 +48,17 @@ export const getStyleForReactSelect = (theme: Theme) => {
                 color: theme.centerChannelColor,
             },
         }),
-        multiValue: (provided: any) => ({
+        multiValue: (provided) => ({
             ...provided,
             background: changeOpacity(theme.centerChannelColor, 0.15),
         }),
-        multiValueLabel: (provided: any) => ({
+        multiValueLabel: (provided) => ({
             ...provided,
             color: theme.centerChannelColor,
             paddingBottom: '4px',
             paddingLeft: '8px',
         }),
-        multiValueRemove: (provided: any) => ({
+        multiValueRemove: (provided) => ({
             ...provided,
             transform: 'translateX(-2px) scaleX(1.15)',
             color: changeOpacity(theme.centerChannelColor, 0.4),
@@ -67,7 +66,7 @@ export const getStyleForReactSelect = (theme: Theme) => {
                 background: 'transparent',
             },
         }),
-        menu: (provided: any) => ({
+        menu: (provided) => ({
             ...provided,
             color: theme.centerChannelColor,
             background: theme.centerChannelBg,
@@ -76,26 +75,26 @@ export const getStyleForReactSelect = (theme: Theme) => {
             boxShadow: changeOpacity(theme.centerChannelColor, 0.2) + ' 1px 3px 12px',
             marginTop: '4px',
         }),
-        input: (provided: any) => ({
+        input: (provided) => ({
             ...provided,
             color: theme.centerChannelColor,
         }),
-        placeholder: (provided: any) => ({
+        placeholder: (provided) => ({
             ...provided,
             color: theme.centerChannelColor,
         }),
-        dropdownIndicator: (provided: any) => ({
+        dropdownIndicator: (provided) => ({
             ...provided,
 
             '&:hover': {
                 color: theme.centerChannelColor,
             },
         }),
-        singleValue: (provided: any) => ({
+        singleValue: (provided) => ({
             ...provided,
             color: theme.centerChannelColor,
         }),
-        indicatorSeparator: (provided: any) => ({
+        indicatorSeparator: (provided) => ({
             ...provided,
             display: 'none',
         }),

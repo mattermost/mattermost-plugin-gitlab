@@ -10,12 +10,9 @@ import {getAssigneeOptions} from '../../actions';
 import GitlabAssigneeSelector from './gitlab_assignee_selector';
 
 type Actions = {
-    getAssigneeOptions: (projectID: any) =>  Promise<{
-        error: any;
-        data?: undefined;
-    } | {
-        data: any;
-        error?: undefined;
+    getAssigneeOptions: (projectID?: number) =>  Promise<{
+        error?: ErrorType;
+        data?: Assignee[];
     }>
 }
 

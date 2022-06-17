@@ -4,22 +4,17 @@
 import React, {PureComponent} from 'react';
 import {Theme} from 'mattermost-redux/types/preferences';
 
-import {Project, ProjectSelection as Selection} from '../../types/gitlab_project_selector'
-import {LabelSelection as ProjectSelection} from '../../types/gitlab_label_selector'
 import ReactSelectSetting from '../react_select_setting';
 
 interface PropTypes {
     yourProjects: Project[];
     theme: Theme;
     required: boolean;
-    onChange: (project: Selection) => void;
+    onChange: (project: ProjectSelection) => void;
     actions: {
         getProjects: () => Promise<{
-            error: any;
-            data?: undefined;
-        } | {
-            data: any;
-            error?: undefined;
+            error?: ErrorType;
+            data?: Project[];
         }>;
     };
     value?: string;
@@ -77,7 +72,7 @@ export default class GitlabProjectSelector extends PureComponent<PropTypes, Stat
                     theme={this.props.theme}
                     addValidate={this.props.addValidate}
                     removeValidate={this.props.removeValidate}
-                    value={projectOptions.find((option: ProjectSelection) => option.value === this.props.value)}
+                    value={projectOptions.find((option: SelectionType) => option.value === this.props.value)}
                 />
                 <div className={'help-text'}>
                     {'Returns GitLab projects connected to the user account'} <br/>
