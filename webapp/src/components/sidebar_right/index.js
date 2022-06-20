@@ -5,13 +5,13 @@ import {connect} from 'react-redux';
 
 import {bindActionCreators} from 'redux';
 
-import {getYourPrDetails, getReviewDetails} from '../../actions';
-import {id as pluginId} from '../../manifest';
+import {getYourPrDetails, getReviewDetails} from 'src/actions';
+import {id as pluginId} from 'src/manifest';
 
 import SidebarRight from './sidebar_right.tsx';
 
 function mapPrsToDetails(prs, details) {
-    if (!prs) {
+    if (!prs || !prs.length) {
         return [];
     }
 
@@ -38,7 +38,7 @@ function mapPrsToDetails(prs, details) {
 function mapStateToProps(state) {
     return {
         username: state[`plugins-${pluginId}`].username,
-        reviews: mapPrsToDetails(state[`plugins-${pluginId}`].yourPrs, state[`plugins-${pluginId}`].reviewDetails),
+        reviews: mapPrsToDetails(state[`plugins-${pluginId}`].reviews, state[`plugins-${pluginId}`].reviewDetails),
         yourPrs: mapPrsToDetails(state[`plugins-${pluginId}`].yourPrs, state[`plugins-${pluginId}`].yourPrDetails),
         yourAssignments: state[`plugins-${pluginId}`].yourAssignments,
         unreads: state[`plugins-${pluginId}`].unreads,

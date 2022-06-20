@@ -3,12 +3,13 @@ import {GitPullRequestIcon, IssueOpenedIcon, IconProps} from '@primer/octicons-r
 import {makeStyleFromTheme, changeOpacity} from 'mattermost-redux/utils/theme_utils';
 import {Badge, Tooltip, OverlayTrigger} from "react-bootstrap";
 import * as CSS from 'csstype';
-import CrossIcon from "../../images/icons/cross";
-import DotIcon from "../../images/icons/dot";
-import TickIcon from "../../images/icons/tick";
-import SignIcon from '../../images/icons/sign';
-import {formatTimeSince} from '../../utils/date_utils';
-import {GitlabItemsProps, Label} from "../../types/gitlab_items"
+
+import CrossIcon from "src/images/icons/cross";
+import DotIcon from "src/images/icons/dot";
+import TickIcon from "src/images/icons/tick";
+import SignIcon from 'src/images/icons/sign';
+import {formatTimeSince} from 'src/utils/date_utils';
+import {GitlabItemsProps, Label} from "src/types/gitlab_items"
 
 export const notificationReasons: Record<string, string> = {
     assigned: 'You were assigned to the issue/merge request',
@@ -22,6 +23,9 @@ export const notificationReasons: Record<string, string> = {
     merge_train_removed: 'A merge train was removed.',
     attention_required: 'Your attention is required on the issue/merge request.',
 };
+
+const SUCCESS = 'success';
+const PENDING = 'pending';
 
 function GitlabItems({item, theme}: GitlabItemsProps) {
     const style = getStyle(theme);
@@ -50,25 +54,25 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
 
     let title: JSX.Element | null = <>{titleText}</>;
     if (item.web_url || item.target_url) {
-      title = (
-        <a
-          href={item.web_url ?? item.target_url}
-          target='_blank'
-          rel='noopener noreferrer'
-          style={style.itemTitle}
-        >
-          {titleText}
-        </a>
-      );
-      if (item.iid) {
-        number = (
-          <strong>
-            <a href={item.web_url} target='_blank' rel='noopener noreferrer'>
-              {number}
+        title = (
+            <a
+              href={item.web_url ?? item.target_url}
+              target='_blank'
+              rel='noopener noreferrer'
+              style={style.itemTitle}
+            >
+                {titleText}
             </a>
-          </strong>
         );
-      }
+        if (item.iid) {
+            number = (
+                <strong>
+                    <a href={item.web_url} target='_blank' rel='noopener noreferrer'>
+                        {number}
+                    </a>
+                </strong>
+            );
+        }
     }
 
     const milestone: JSX.Element | null = item.milestone ? (
@@ -113,7 +117,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
     let status: JSX.Element | null = null;
     if (item.status) {
         switch (item.status) {
-            case "success":
+            case SUCCESS:
                 status = (
                     <span
                         style={{ ...style.icon, ...style.iconSuccess }}
@@ -122,7 +126,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
                     </span>
                 );
                 break;
-            case "pending":
+            case PENDING:
                 status = (
                     <span
                         style={{ ...style.icon, ...style.iconPending }}
@@ -172,14 +176,14 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
           {milestone}
         </div>
         <div className="light" style={style.subtitle}>
-        {item.action_name ? (
+        {item.action_name && (
             <>
               <div>{item.updated_at && `${formatTimeSince(item.updated_at)} ago`}</div>
               {notificationReasons[item.action_name]}
             </>
-          ) : null}
+        )}
         </div>
-        {item.total_reviewers>0 && reviews}
+        {item.total_reviewers > 0 && reviews}
       </div>
     );
 }
