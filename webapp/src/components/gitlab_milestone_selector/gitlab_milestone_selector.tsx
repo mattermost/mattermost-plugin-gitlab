@@ -30,7 +30,7 @@ export default class GitlabMilestoneSelector extends PureComponent<PropTypes> {
 
         const options = await this.props.actions.getMilestoneOptions(this.props.projectID);
 
-        if (options && options.error) {
+        if (options?.error) {
             throw new Error('Failed to load milestones');
         }
 

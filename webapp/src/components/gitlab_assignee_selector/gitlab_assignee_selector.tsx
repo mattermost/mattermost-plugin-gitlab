@@ -30,7 +30,7 @@ export default class GitlabAssigneeSelector extends PureComponent<PropTypes> {
 
         const options = await this.props.actions.getAssigneeOptions(this.props.projectID);
 
-        if (options.error) {
+        if (options?.error) {
             throw new Error('Failed to load assignees');
         }
 

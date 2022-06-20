@@ -30,7 +30,7 @@ export default class GitlabLabelSelector extends PureComponent<PropTypes> {
 
         const options = await this.props.actions.getLabelOptions(this.props.projectID);
 
-        if (options && options.error) {
+        if (options?.error) {
             throw new Error('failed to load labels');
         }
 
