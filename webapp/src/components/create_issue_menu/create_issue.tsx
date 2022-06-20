@@ -4,16 +4,18 @@
 import React, {MouseEvent, PureComponent} from 'react';
 import GitLabIcon from '../../images/icons/gitlab';
 
-interface PropTypes {
-    show: boolean;
-    actions: {
-        open: (postId: string) => {
-            type: string;
-            data: {
-                postId: string;
-            };
+export type Actions = {
+    open: (postId: string) => {
+        type: string;
+        data: {
+            postId: string;
         };
     };
+}
+
+interface PropTypes {
+    show: boolean;
+    actions: Actions;
     postId: string;
 }
 

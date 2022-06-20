@@ -14,20 +14,22 @@ import Input from '../../input';
 
 const MAX_TITLE_LENGTH = 256;
 
+export type Actions = {
+    close: () => {
+        type: string;
+    };
+    create: (payload: IssueBody) => Promise<{
+        error?: ErrorType;
+    }>;
+};
+
 interface PropTypes {
-    post: Post | null,
-    title: string,
-    channelId: string,
-    theme: Theme,
-    visible: boolean,
-    actions: {
-        close: () => {
-            type: string;
-        };
-        create: (payload: IssueBody) => Promise<{
-            error?: ErrorType;
-        }>;
-    }
+    post: Post | null;
+    title: string;
+    channelId: string;
+    theme: Theme;
+    visible: boolean;
+    actions: Actions;
 };
 
 interface StateTypes {
@@ -69,8 +71,7 @@ export default class CreateIssueModal extends PureComponent<PropTypes, StateType
         if (this.props.post && !prevProps.post) {
             this.setState({issueDescription: this.props.post.message});
         } else if (this.props.channelId && (this.props.channelId !== prevProps.channelId || this.props.title !== prevProps.title)) {
-            const title = this.props.title.substring(0, MAX_TITLE_LENGTH);
-            this.setState({issueTitle: title});
+            this.setState({issueTitle: this.props.title.substring(0, MAX_TITLE_LENGTH)});
         }
     }
 
@@ -93,8 +94,8 @@ export default class CreateIssueModal extends PureComponent<PropTypes, StateType
             title: this.state.issueTitle,
             description: this.state.issueDescription,
             project_id: this.state.project?.project_id,
-            labels: this.state.labels?.map((label) => label.value),
-            assignees: this.state.assignees?.map((assignee) => assignee.value),
+            labels: this.state.labels.map((label) => label.value),
+            assignees: this.state.assignees.map((assignee) => assignee.value),
             milestone: this.state.milestone?.value,
             post_id: postId,
             channel_id: this.props.channelId,
@@ -275,9 +276,7 @@ export default class CreateIssueModal extends PureComponent<PropTypes, StateType
                             saving={submitting}
                             defaultMessage='Submit'
                             savingMessage='Submitting'
-                        >
-                            {'Submit'}
-                        </FormButton>
+                        />
                     </Modal.Footer>
                 </form>
             </Modal>

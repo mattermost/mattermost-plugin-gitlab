@@ -12,31 +12,29 @@ interface PropTypes {
     onClick?: () => void;
 };
 
-export default class FormButton extends PureComponent<PropTypes> {
-    render() {
-        const {saving, disabled, savingMessage, defaultMessage, btnClass, onClick} = this.props;
+const FormButton = ({saving, disabled, savingMessage, defaultMessage, btnClass, onClick}: PropTypes) => {
+    const contents = saving ? (
+        <span>
+            <span
+                className='fa fa-spin fa-spinner'
+                title={'Loading Icon'}
+            />
+            {savingMessage}
+        </span>
+    ) : defaultMessage;
 
-        const contents = saving ? (
-            <span>
-                <span
-                    className='fa fa-spin fa-spinner'
-                    title={'Loading Icon'}
-                />
-                {savingMessage}
-            </span>
-        ) : defaultMessage;
-
-        const className = `save-button btn ${btnClass}`;
-
-        return (
-            <button
-                id='saveSetting'
-                className={className}
-                disabled={disabled}
-                onClick={onClick}
-            >
-                {contents}
-            </button>
-        );
-    }
+    const className = `save-button btn ${btnClass}`;
+    
+    return (
+        <button
+            id='saveSetting'
+            className={className}
+            disabled={disabled}
+            onClick={onClick}
+        >
+            {contents}
+        </button>
+    );
 }
+
+export default FormButton;

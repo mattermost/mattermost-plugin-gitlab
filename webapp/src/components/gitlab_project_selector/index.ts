@@ -9,7 +9,7 @@ import {GlobalState} from 'mattermost-redux/types/store';
 import {id as pluginId} from '../../manifest';
 import {getProjects} from '../../actions';
 
-import GitlabProjectSelector from './gitlab_project_selector';
+import GitlabProjectSelector, {Actions} from './gitlab_project_selector';
 
 interface pluginMethods {
     yourProjects: Project[];
@@ -18,13 +18,6 @@ interface pluginMethods {
 interface CurrentState extends GlobalState {
     plugin: pluginMethods;
 }
-
-type Actions = {
-    getProjects: () => Promise<{
-        error?: ErrorType;
-        data?: Project[];
-    }>;
-};
 
 function mapStateToProps(state: CurrentState) {
     return {

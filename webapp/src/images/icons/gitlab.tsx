@@ -2,21 +2,13 @@
 // See License for license information.
 
 import React from 'react';
-import PropTypes from 'prop-types';
 
-export default class GitLabIcon extends React.PureComponent {
-    static propTypes = {
-        type: PropTypes.oneOf([
-            'menu',
-        ]),
-    };
-
-    static defaultProps = {
-        type: 'menu',
-    };
-
+interface PropTypes {
+    type: String;
+}
+export default class GitLabIcon extends React.PureComponent<PropTypes> {
     render() {
-        const iconStyle = (this.props.type === 'menu') ? {flex: '0 0 auto', width: '20px', height: '20px', borderRadius: '50px', padding: '2px'} : {};
+        const iconStyle = this.props.type === 'menu' ? {flex: '0 0 auto', width: '20px', height: '20px', borderRadius: '50px', padding: '2px'} : {};
 
         return (
             <span className='MenuItem__icon'>

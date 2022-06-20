@@ -6,29 +6,31 @@ import {Theme} from 'mattermost-redux/types/preferences';
 
 import IssueAttributeSelector from '../issue_attribute_selector';
 
+export type Actions = {
+    getMilestoneOptions: (projectID?: number) =>  Promise<{
+        error?: ErrorType;
+        data?: Milestone[];
+    }>
+}
+
 interface PropTypes {
     projectID?: number;
     projectName: string;
     theme: Theme;
     selectedMilestone: SelectionType | null;
     onChange: (milestone: OnChangeType) => void;
-    actions: {
-        getMilestoneOptions: (projectID?: number) =>  Promise<{
-            error?: ErrorType;
-            data?: Milestone[];
-        }>
-    };
+    actions: Actions;
 };
 
 export default class GitlabMilestoneSelector extends PureComponent<PropTypes> {
     loadMilestones = async () => {
-        if (this.props.projectName === '') {
+        if (!this.props.projectName) {
             return [];
         }
 
         const options = await this.props.actions.getMilestoneOptions(this.props.projectID);
 
-        if (options.error) {
+        if (options && options.error) {
             throw new Error('Failed to load milestones');
         }
 

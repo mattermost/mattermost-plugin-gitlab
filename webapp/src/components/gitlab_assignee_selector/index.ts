@@ -7,14 +7,7 @@ import {ActionFunc, GenericAction} from 'mattermost-redux/types/actions';
 
 import {getAssigneeOptions} from '../../actions';
 
-import GitlabAssigneeSelector from './gitlab_assignee_selector';
-
-type Actions = {
-    getAssigneeOptions: (projectID?: number) =>  Promise<{
-        error?: ErrorType;
-        data?: Assignee[];
-    }>
-}
+import GitlabAssigneeSelector, {Actions} from './gitlab_assignee_selector';
 
 const mapDispatchToProps = (dispatch: Dispatch<GenericAction>) => ({
     actions: bindActionCreators<ActionCreatorsMapObject<ActionFunc | GenericAction>, Actions>({getAssigneeOptions}, dispatch),

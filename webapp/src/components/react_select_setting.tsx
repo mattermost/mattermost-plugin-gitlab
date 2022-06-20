@@ -23,7 +23,7 @@ interface PropTypes {
     addValidate: (key: string, validateField: () => boolean) => void;
     removeValidate: (key: string) => void;
     required: boolean;
-    limitOptions: Boolean;
+    limitOptions: boolean;
 };
 
 interface StateTypes {
