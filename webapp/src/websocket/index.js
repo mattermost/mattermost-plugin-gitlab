@@ -6,6 +6,7 @@ import {
     getUnreads,
     getYourPrs,
     getYourAssignments,
+    openCreateIssueModalWithoutPost,
 } from '../actions';
 import {id} from '../manifest';
 
@@ -46,7 +47,7 @@ export function handleReconnect(store, reminder = false) {
     return async () => {
         const {data} = await getConnected(reminder)(
             store.dispatch,
-            store.getState
+            store.getState,
         );
         if (data && data.connected) {
             getReviews()(store.dispatch, store.getState);
@@ -65,5 +66,14 @@ export function handleRefresh(store) {
             getYourPrs()(store.dispatch, store.getState);
             getYourAssignments()(store.dispatch, store.getState);
         }
+    };
+}
+
+export function handleOpenCreateIssueModal(store) {
+    return (msg) => {
+        if (!msg.data) {
+            return;
+        }
+        store.dispatch(openCreateIssueModalWithoutPost(msg.data.title, msg.data.channel_id));
     };
 }

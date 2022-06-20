@@ -1,0 +1,3 @@
+interface Label{
+    name: string;
+}
