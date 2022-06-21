@@ -49,7 +49,7 @@ export function getReviews() {
 
         const connected = await checkAndHandleNotConnected(data)(
             dispatch,
-            getState
+            getState,
         );
         if (!connected) {
             return {error: data};
@@ -75,7 +75,7 @@ export function getYourPrs() {
 
         const connected = await checkAndHandleNotConnected(data)(
             dispatch,
-            getState
+            getState,
         );
         if (!connected) {
             return {error: data};
@@ -101,7 +101,7 @@ export function getYourAssignments() {
 
         const connected = await checkAndHandleNotConnected(data)(
             dispatch,
-            getState
+            getState,
         );
         if (!connected) {
             return {error: data};
@@ -127,7 +127,7 @@ export function getMentions() {
 
         const connected = await checkAndHandleNotConnected(data)(
             dispatch,
-            getState
+            getState,
         );
         if (!connected) {
             return {error: data};
@@ -153,7 +153,7 @@ export function getUnreads() {
 
         const connected = await checkAndHandleNotConnected(data)(
             dispatch,
-            getState
+            getState,
         );
         if (!connected) {
             return {error: data};
@@ -208,6 +208,125 @@ export function getGitlabUser(userID) {
             userID,
             data,
         });
+
+        return {data};
+    };
+}
+
+export function openCreateIssueModal(postId) {
+    return {
+        type: ActionTypes.OPEN_CREATE_ISSUE_MODAL,
+        data: {
+            postId,
+        },
+    };
+}
+
+export function openCreateIssueModalWithoutPost(title, channelId) {
+    return {
+        type: ActionTypes.OPEN_CREATE_ISSUE_MODAL_WITHOUT_POST,
+        data: {
+            title,
+            channelId,
+        },
+    };
+}
+
+export function closeCreateIssueModal() {
+    return {
+        type: ActionTypes.CLOSE_CREATE_ISSUE_MODAL,
+    };
+}
+
+export function createIssue(payload) {
+    return async (dispatch) => {
+        let data;
+        try {
+            data = await Client.createIssue(payload);
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await dispatch(checkAndHandleNotConnected(data));
+        if (!connected) {
+            return {error: data};
+        }
+        return {data};
+    };
+}
+
+export function getProjects() {
+    return async (dispatch, getState) => {
+        let data;
+        try {
+            data = await Client.getProjects();
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        if (!connected) {
+            return {error: data};
+        }
+
+        dispatch({
+            type: ActionTypes.RECEIVED_PROJECTS,
+            data,
+        });
+
+        return {data};
+    };
+}
+
+export function getLabelOptions(projectID) {
+    return async (dispatch, getState) => {
+        let data;
+        try {
+            data = await Client.getLabels(projectID);
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        if (!connected) {
+            return {error: data};
+        }
+
+        return {data};
+    };
+}
+
+export function getMilestoneOptions(pid) {
+    return async (dispatch, getState) => {
+        let data;
+        try {
+            data = await Client.getMilestones(pid);
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        if (!connected) {
+            return {error: data};
+        }
+
+        return {data};
+    };
+}
+
+export function getAssigneeOptions(pid) {
+    return async (dispatch, getState) => {
+        let data;
+        try {
+            data = await Client.getAssignees(pid);
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        if (!connected) {
+            return {error: data};
+        }
 
         return {data};
     };

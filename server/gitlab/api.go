@@ -16,6 +16,18 @@ const (
 	scopeAll    = "all"
 )
 
+type IssueRequest struct {
+	ID          int                 `json:"id"`
+	Title       string              `json:"title"`
+	Description string              `json:"description"`
+	Milestone   int                 `json:"milestone"`
+	ProjectID   int                 `json:"project_id"`
+	Assignees   []int               `json:"assignees"`
+	Labels      internGitlab.Labels `json:"labels"`
+	PostID      string              `json:"post_id"`
+	ChannelID   string              `json:"channel_id"`
+}
+
 // NewGroupHook creates a webhook associated with a GitLab group
 func (g *gitlab) NewGroupHook(ctx context.Context, user *UserInfo, groupName string, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
 	client, err := g.gitlabConnect(*user.Token)
@@ -381,6 +393,115 @@ func (g *gitlab) GetUnreads(ctx context.Context, user *UserInfo) ([]*internGitla
 	}
 
 	return notifications, nil
+}
+
+func (g *gitlab) GetYourProjects(ctx context.Context, user *UserInfo) ([]*internGitlab.Project, error) {
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+	owned := true
+
+	result, resp, err := client.Projects.ListProjects(
+		&internGitlab.ListProjectsOptions{
+			Owned: &owned,
+		},
+		internGitlab.WithContext(ctx),
+	)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (g *gitlab) GetLabels(ctx context.Context, user *UserInfo, projectID string) ([]*internGitlab.Label, error) {
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+	result, resp, err := client.Labels.ListLabels(
+		projectID,
+		nil,
+		internGitlab.WithContext(ctx),
+	)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (g *gitlab) GetMilestones(ctx context.Context, user *UserInfo, projectID string) ([]*internGitlab.Milestone, error) {
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+	result, resp, err := client.Milestones.ListMilestones(
+		projectID,
+		nil,
+		internGitlab.WithContext(ctx),
+	)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (g *gitlab) GetAssignees(ctx context.Context, user *UserInfo, projectID string) ([]*internGitlab.ProjectMember, error) {
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+	result, resp, err := client.ProjectMembers.ListProjectMembers(
+		projectID,
+		nil,
+		internGitlab.WithContext(ctx),
+	)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (g *gitlab) CreateIssue(ctx context.Context, user *UserInfo, issue *IssueRequest) (*internGitlab.Issue, error) {
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+
+	result, resp, err := client.Issues.CreateIssue(
+		issue.ProjectID,
+		&internGitlab.CreateIssueOptions{
+			Title:       &issue.Title,
+			Description: &issue.Description,
+			MilestoneID: &issue.Milestone,
+			AssigneeIDs: &issue.Assignees,
+			Labels:      &issue.Labels,
+		},
+		internGitlab.WithContext(ctx),
+	)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "can't create issue in GitLab")
+	}
+	return result, nil
 }
 
 func (g *gitlab) ResolveNamespaceAndProject(

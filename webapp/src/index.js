@@ -4,6 +4,8 @@
 import SidebarHeader from './components/sidebar_header';
 import TeamSidebar from './components/team_sidebar';
 import UserAttribute from './components/user_attribute';
+import CreateIssuePostMenuAction from './components/create_issue_menu';
+import CreateIssueModal from './components/modals/create_issue';
 import Reducer from './reducers';
 import {getConnected} from './actions';
 import {
@@ -11,6 +13,7 @@ import {
     handleDisconnect,
     handleReconnect,
     handleRefresh,
+    handleOpenCreateIssueModal,
 } from './websocket';
 import {id} from './manifest';
 import Client from './client';
@@ -32,18 +35,24 @@ class PluginClass {
         registry.registerLeftSidebarHeaderComponent(SidebarHeader);
         registry.registerBottomTeamSidebarComponent(TeamSidebar);
         registry.registerPopoverUserAttributesComponent(UserAttribute);
+        registry.registerRootComponent(CreateIssueModal);
+        registry.registerPostDropdownMenuComponent(CreateIssuePostMenuAction);
 
         registry.registerWebSocketEventHandler(
             `custom_${id}_gitlab_connect`,
-            handleConnect(store)
+            handleConnect(store),
         );
         registry.registerWebSocketEventHandler(
             `custom_${id}_gitlab_disconnect`,
-            handleDisconnect(store)
+            handleDisconnect(store),
         );
         registry.registerWebSocketEventHandler(
             `custom_${id}_gitlab_refresh`,
-            handleRefresh(store)
+            handleRefresh(store),
+        );
+        registry.registerWebSocketEventHandler(
+            `custom_${id}_create_issue`,
+            handleOpenCreateIssueModal(store),
         );
         registry.registerReconnectHandler(handleReconnect(store));
 

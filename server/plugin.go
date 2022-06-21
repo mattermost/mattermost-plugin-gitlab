@@ -34,6 +34,7 @@ const (
 	WsEventConnect       = "gitlab_connect"
 	WsEventDisconnect    = "gitlab_disconnect"
 	WsEventRefresh       = "gitlab_refresh"
+	wsEventCreateIssue   = "create_issue"
 	SettingNotifications = "notifications"
 	SettingReminders     = "reminders"
 	SettingOn            = "on"
@@ -534,6 +535,17 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 	p.API.PublishWebSocketEvent(
 		WsEventRefresh,
 		nil,
+		&model.WebsocketBroadcast{UserId: userID},
+	)
+}
+
+func (p *Plugin) openIssueCreateModal(userID, channelID, title string) {
+	p.API.PublishWebSocketEvent(
+		wsEventCreateIssue,
+		map[string]interface{}{
+			"title":      title,
+			"channel_id": channelID,
+		},
 		&model.WebsocketBroadcast{UserId: userID},
 	)
 }
