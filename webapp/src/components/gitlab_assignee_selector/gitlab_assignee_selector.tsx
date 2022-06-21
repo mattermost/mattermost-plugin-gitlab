@@ -6,29 +6,31 @@ import {Theme} from 'mattermost-redux/types/preferences';
 
 import IssueAttributeSelector from '../issue_attribute_selector';
 
+export type Actions = {
+    getAssigneeOptions: (projectID?: number) =>  Promise<{
+        error?: ErrorType;
+        data?: Assignee[];
+    }>
+}
+
 interface PropTypes {
     projectID?: number;
     projectName: string;
     theme: Theme;
     selectedAssignees: SelectionType[];
     onChange: (assignees: OnChangeType) => void;
-    actions: {
-        getAssigneeOptions: (projectID?: number) =>  Promise<{
-            error?: ErrorType;
-            data?: Assignee[];
-        }>
-    };
+    actions: Actions;
 };
 
 export default class GitlabAssigneeSelector extends PureComponent<PropTypes> {
-    loadAssignees = async (): Promise<SelectionType[]> => {
-        if (this.props.projectName === '') {
+    loadAssignees = async () => {
+        if (!this.props.projectName) {
             return [];
         }
 
         const options = await this.props.actions.getAssigneeOptions(this.props.projectID);
 
-        if (options.error) {
+        if (options?.error) {
             throw new Error('Failed to load assignees');
         }
 

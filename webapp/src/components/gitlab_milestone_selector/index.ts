@@ -7,14 +7,7 @@ import {ActionFunc, GenericAction} from 'mattermost-redux/types/actions';
 
 import {getMilestoneOptions} from '../../actions';
 
-import GitlabMilestoneSelector from './gitlab_milestone_selector';
-
-type Actions = {
-    getMilestoneOptions: (projectID?: number) =>  Promise<{
-        error?: ErrorType;
-        data?: Milestone[];
-    }>
-}
+import GitlabMilestoneSelector, {Actions} from './gitlab_milestone_selector';
 
 const mapDispatchToProps = (dispatch: Dispatch<GenericAction>) => ({
     actions: bindActionCreators<ActionCreatorsMapObject<ActionFunc | GenericAction>, Actions>({getMilestoneOptions}, dispatch),

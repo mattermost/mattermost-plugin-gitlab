@@ -152,9 +152,7 @@ export default class AttachCommentToIssueModal extends PureComponent<PropTypes, 
                             saving={submitting}
                             defaultMessage='Attach'
                             savingMessage='Attaching'
-                        >
-                            {'Attach'}
-                        </FormButton>
+                        />
                     </Modal.Footer>
                 </form>
             </Modal>

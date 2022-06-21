@@ -6,17 +6,19 @@ import {Theme} from 'mattermost-redux/types/preferences';
 
 import ReactSelectSetting from '../react_select_setting';
 
+export type Actions = {
+    getProjects: () => Promise<{
+        error?: ErrorType;
+        data?: Project[];
+    }>;
+};
+
 interface PropTypes {
     yourProjects: Project[];
     theme: Theme;
     required: boolean;
     onChange: (project: ProjectSelection) => void;
-    actions: {
-        getProjects: () => Promise<{
-            error?: ErrorType;
-            data?: Project[];
-        }>;
-    };
+    actions: Actions;
     value?: string;
     addValidate: (key: string, validateField: () => boolean) => void;
     removeValidate: (key: string) => void;

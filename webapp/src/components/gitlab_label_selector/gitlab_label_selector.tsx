@@ -6,18 +6,20 @@ import {Theme} from 'mattermost-redux/types/preferences';
 
 import IssueAttributeSelector from '../issue_attribute_selector';
 
+export type Actions = {
+    getLabelOptions: (projectID?: number) =>  Promise<{
+        error?: ErrorType;
+        data?: Label[];
+    }>
+}
+
 interface PropTypes {
     projectID?: number;
     projectName: string;
     theme: Theme;
     selectedLabels: SelectionType[];
     onChange: (labels: OnChangeType) => void;
-    actions: {
-        getLabelOptions: (projectID?: number) =>  Promise<{
-            error?: ErrorType;
-            data?: Label[];
-        }>
-    };
+    actions: Actions;
 };
 
 export default class GitlabLabelSelector extends PureComponent<PropTypes> { 
@@ -28,7 +30,7 @@ export default class GitlabLabelSelector extends PureComponent<PropTypes> {
 
         const options = await this.props.actions.getLabelOptions(this.props.projectID);
 
-        if (options.error) {
+        if (options?.error) {
             throw new Error('failed to load labels');
         }
 

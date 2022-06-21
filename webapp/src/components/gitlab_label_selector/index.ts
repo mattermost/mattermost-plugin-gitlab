@@ -7,14 +7,7 @@ import {ActionFunc, GenericAction} from 'mattermost-redux/types/actions';
 
 import {getLabelOptions} from '../../actions';
 
-import GitlabLabelSelector from './gitlab_label_selector';
-
-type Actions = {
-    getLabelOptions: (projectID?: number) =>  Promise<{
-        error?: ErrorType;
-        data?: Label[];
-    }>
-}
+import GitlabLabelSelector, {Actions} from './gitlab_label_selector';
 
 const mapDispatchToProps = (dispatch: Dispatch<GenericAction>) => ({
     actions: bindActionCreators<ActionCreatorsMapObject<ActionFunc | GenericAction>, Actions>({getLabelOptions}, dispatch),

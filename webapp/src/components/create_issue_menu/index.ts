@@ -11,7 +11,7 @@ import { GlobalState } from 'mattermost-redux/types/store';
 import {id as pluginId} from '../../manifest';
 import {openCreateIssueModal} from '../../actions';
 
-import CreateIssuePostMenuAction from './create_issue';
+import CreateIssuePostMenuAction, {Actions} from './create_issue';
 
 interface pluginMethods {
     connected: boolean
@@ -23,15 +23,6 @@ interface CurrentState extends GlobalState {
 
 interface OwnProps {
     postId: string;
-}
-
-type Actions = {
-    open: (postId: string) => {
-        type: string;
-        data: {
-            postId: string;
-        };
-    };
 }
 
 const mapStateToProps = (state: CurrentState, ownProps: OwnProps) => {
