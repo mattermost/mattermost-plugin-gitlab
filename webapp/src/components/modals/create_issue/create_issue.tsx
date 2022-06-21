@@ -3,14 +3,14 @@ import {Modal} from 'react-bootstrap';
 import {Theme} from 'mattermost-redux/types/preferences';
 import {Post} from 'mattermost-redux/types/posts';
 
-import {getErrorMessage} from '../../../utils/user_utils';
-import GitlabLabelSelector from '../../gitlab_label_selector';
-import GitlabAssigneeSelector from '../../gitlab_assignee_selector';
-import GitlabMilestoneSelector from '../../gitlab_milestone_selector';
-import GitlabProjectSelector from '../../gitlab_project_selector';
-import Validator from '../../validator';
-import FormButton from '../../form_button';
-import Input from '../../input';
+import {getErrorMessage} from 'src/utils/user_utils';
+import GitlabLabelSelector from 'src/components/gitlab_label_selector';
+import GitlabAssigneeSelector from 'src/components/gitlab_assignee_selector';
+import GitlabMilestoneSelector from 'src/components/gitlab_milestone_selector';
+import GitlabProjectSelector from 'src/components/gitlab_project_selector';
+import Validator from 'src/components/validator';
+import FormButton from 'src/components/form_button';
+import Input from 'src/components/input';
 
 const MAX_TITLE_LENGTH = 256;
 

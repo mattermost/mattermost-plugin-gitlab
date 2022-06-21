@@ -5,7 +5,7 @@ import {connect} from 'react-redux';
 import {ActionCreatorsMapObject, bindActionCreators, Dispatch} from 'redux';
 import {ActionFunc, GenericAction} from 'mattermost-redux/types/actions';
 
-import {getMilestoneOptions} from '../../actions';
+import {getMilestoneOptions} from 'src/actions';
 
 import GitlabMilestoneSelector, {Actions} from './gitlab_milestone_selector';
 

@@ -8,8 +8,8 @@ import {isSystemMessage} from 'mattermost-redux/utils/post_utils';
 import {ActionFunc, GenericAction} from 'mattermost-redux/types/actions';
 import { GlobalState } from 'mattermost-redux/types/store';
 
-import {id as pluginId} from '../../manifest';
-import {openCreateIssueModal} from '../../actions';
+import {id as pluginId} from 'src/manifest';
+import {openCreateIssueModal} from 'src/actions';
 
 import CreateIssuePostMenuAction, {Actions} from './create_issue';
 

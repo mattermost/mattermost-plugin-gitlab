@@ -4,7 +4,7 @@
 import React, {PureComponent} from 'react';
 import {Theme} from 'mattermost-redux/types/preferences';
 
-import IssueAttributeSelector from '../issue_attribute_selector';
+import IssueAttributeSelector from 'src/components/issue_attribute_selector';
 
 export type Actions = {
     getMilestoneOptions: (projectID?: number) =>  Promise<{
@@ -22,13 +22,13 @@ interface PropTypes {
     actions: Actions;
 };
 
-export default class GitlabMilestoneSelector extends PureComponent<PropTypes> {
-    loadMilestones = async () => {
-        if (!this.props.projectName) {
+const GitlabMilestoneSelector = ({projectID, projectName, theme, selectedMilestone, onChange, actions}: PropTypes) => {
+    const loadMilestones = async () => {
+        if (!projectName) {
             return [];
         }
 
-        const options = await this.props.actions.getMilestoneOptions(this.props.projectID);
+        const options = await actions.getMilestoneOptions(projectID);
 
         if (options?.error) {
             throw new Error('Failed to load milestones');
@@ -44,18 +44,19 @@ export default class GitlabMilestoneSelector extends PureComponent<PropTypes> {
         }));
     };
 
-    render() {
-        return (
-            <div className='form-group margin-bottom x3'>
-                <IssueAttributeSelector
-                    {...this.props}
-                    selection={this.props.selectedMilestone}
-                    label='Milestone'
-                    onChange={this.props.onChange}
-                    isMulti={false}
-                    loadOptions={this.loadMilestones}
-                />
-            </div>
-        );
-    }
+    return (
+        <div className='form-group margin-bottom x3'>
+            <IssueAttributeSelector
+                theme={theme}
+                projectName={projectName}
+                selection={selectedMilestone}
+                label='Milestone'
+                onChange={onChange}
+                isMulti={false}
+                loadOptions={loadMilestones}
+            />
+        </div>
+    );
 }
+
+export default GitlabMilestoneSelector;

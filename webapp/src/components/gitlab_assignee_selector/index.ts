@@ -5,7 +5,7 @@ import {connect} from 'react-redux';
 import {ActionCreatorsMapObject, bindActionCreators, Dispatch} from 'redux';
 import {ActionFunc, GenericAction} from 'mattermost-redux/types/actions';
 
-import {getAssigneeOptions} from '../../actions';
+import {getAssigneeOptions} from 'src/actions';
 
 import GitlabAssigneeSelector, {Actions} from './gitlab_assignee_selector';
 

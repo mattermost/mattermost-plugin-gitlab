@@ -1,8 +1,8 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {MouseEvent, PureComponent} from 'react';
-import GitLabIcon from '../../images/icons/gitlab';
+import React, {MouseEvent} from 'react';
+import GitLabIcon from 'src/images/icons/gitlab';
 
 export type Actions = {
     open: (postId: string) => {
@@ -19,36 +19,35 @@ interface PropTypes {
     postId: string;
 }
 
-export default class CreateIssuePostMenuAction extends PureComponent<PropTypes> {
-    handleClick = (e: MouseEvent<HTMLButtonElement> | Event) => {        
-        const {postId} = this.props;
+const CreateIssuePostMenuAction = ({show, actions, postId}: PropTypes) => {
+    const handleClick = (e: MouseEvent<HTMLButtonElement> | Event) => {        
         e.preventDefault();
-        this.props.actions.open(postId);
+        actions.open(postId);
     };
 
-    render() {
-        if (!this.props.show) {
-            return null;
-        }
-
-        const content = (
-            <button
-                className='style--none'
-                role='presentation'
-                onClick={this.handleClick}
-            >
-                <GitLabIcon type='menu'/>
-                {'Create GitLab Issue'}
-            </button>
-        );
-
-        return (
-            <li
-                className='MenuItem'
-                role='menuitem'
-            >
-                {content}
-            </li>
-        );
+    if (!show) {
+        return null;
     }
+
+    const content = (
+        <button
+            className='style--none'
+            role='presentation'
+            onClick={handleClick}
+        >
+            <GitLabIcon type='menu'/>
+            {'Create GitLab Issue'}
+        </button>
+    );
+
+    return (
+        <li
+            className='MenuItem'
+            role='menuitem'
+        >
+            {content}
+        </li>
+    );
 }
+
+export default CreateIssuePostMenuAction;

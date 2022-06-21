@@ -5,7 +5,7 @@ import {connect} from 'react-redux';
 import {ActionCreatorsMapObject, bindActionCreators, Dispatch} from 'redux';
 import {ActionFunc, GenericAction} from 'mattermost-redux/types/actions';
 
-import {getLabelOptions} from '../../actions';
+import {getLabelOptions} from 'src/actions';
 
 import GitlabLabelSelector, {Actions} from './gitlab_label_selector';
 
