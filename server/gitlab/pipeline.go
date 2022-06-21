@@ -12,7 +12,7 @@ type PipelineInfo struct {
 }
 
 // PipelineInfo is the struct describing the status of
-// a running Job which is part of a pieline
+// a running Job which is part of a pipeline
 type PipelineJobInfo struct {
 	JobID  int
 	Status string
