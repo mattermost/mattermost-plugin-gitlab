@@ -56,10 +56,10 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
     if (item.web_url || item.target_url) {
         title = (
             <a
-              href={item.web_url ?? item.target_url}
-              target='_blank'
-              rel='noopener noreferrer'
-              style={style.itemTitle}
+                href={item.web_url ?? item.target_url}
+                target='_blank'
+                rel='noopener noreferrer'
+                style={style.itemTitle}
             >
                 {titleText}
             </a>

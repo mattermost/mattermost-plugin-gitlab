@@ -105,7 +105,7 @@ export default class SidebarRight extends React.PureComponent<PropTypes> {
               this.props.rhsState,
               prevProps.rhsState,
           )
-      ) {          
+      ) {
           this.props.actions.getYourPrDetails(
               mapGitlabItemListToPrList(this.props.yourPrs),
           );
