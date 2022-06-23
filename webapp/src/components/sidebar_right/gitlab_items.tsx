@@ -64,6 +64,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
                 {titleText}
             </a>
         );
+        
         if (item.iid) {
             number = (
                 <strong>
