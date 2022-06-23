@@ -5,7 +5,7 @@ import React, {PureComponent} from 'react';
 import ReactSelect, {OnChangeValue} from 'react-select';
 import {Theme} from 'mattermost-redux/types/preferences';
 
-import {getStyleForReactSelect} from '../utils/styles';
+import {getStyleForReactSelect} from 'src/utils/styles';
 import Setting from './setting';
 
 interface PropTypes {

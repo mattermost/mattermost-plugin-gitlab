@@ -6,8 +6,8 @@ import {ActionCreatorsMapObject, bindActionCreators, Dispatch} from 'redux';
 import {ActionFunc, GenericAction} from 'mattermost-redux/types/actions';
 import {GlobalState} from 'mattermost-redux/types/store';
 
-import {id as pluginId} from '../../manifest';
-import {getProjects} from '../../actions';
+import {id as pluginId} from 'src/manifest';
+import {getProjects} from 'src/actions';
 
 import GitlabProjectSelector, {Actions} from './gitlab_project_selector';
 

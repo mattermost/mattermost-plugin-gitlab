@@ -4,7 +4,7 @@
 import React, {PureComponent} from 'react';
 import {Theme} from 'mattermost-redux/types/preferences';
 
-import ReactSelectSetting from '../react_select_setting';
+import ReactSelectSetting from 'src/components/react_select_setting';
 
 export type Actions = {
     getProjects: () => Promise<{
@@ -25,14 +25,10 @@ interface PropTypes {
 };
 
 interface StateTypes {
-    invalid: boolean;
-    error: null | string;
     isLoading: boolean;
 }
 
 const initialState = {
-    invalid: false,
-    error: null,
     isLoading: false,
 };
 

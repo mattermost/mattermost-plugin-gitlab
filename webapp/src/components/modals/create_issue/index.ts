@@ -4,8 +4,8 @@ import {getPost} from 'mattermost-redux/selectors/entities/posts';
 import {GlobalState} from 'mattermost-redux/types/store';
 import {ActionFunc, GenericAction} from 'mattermost-redux/types/actions';
 
-import {id as pluginId} from '../../../manifest';
-import {closeCreateIssueModal, createIssue} from '../../../actions';
+import {id as pluginId} from 'src/manifest';
+import {closeCreateIssueModal, createIssue} from 'src/actions';
 
 import CreateIssueModal, {Actions} from './create_issue';
 
