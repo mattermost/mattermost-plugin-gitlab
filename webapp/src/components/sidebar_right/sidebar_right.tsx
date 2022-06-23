@@ -6,9 +6,9 @@ import Scrollbars from 'react-custom-scrollbars';
 import {Theme} from 'mattermost-redux/types/preferences';
 import {makeStyleFromTheme, changeOpacity} from 'mattermost-redux/utils/theme_utils';
 
-import {RHSStates} from '../../constants';
+import {RHSStates} from 'src/constants';
+import {Item} from 'src/types/gitlab_items';
 import GitlabItems from './gitlab_items';
-import {Item} from '../../types/gitlab_items';
 
 interface PropTypes {
     username: string;
@@ -22,6 +22,9 @@ interface PropTypes {
     theme: Theme,
     actions:any,
 };
+
+const AUTO_HIDE_TIMEOUT = 500;
+const AUTO_HIDE_DURATION = 500;
 
 export function renderView(props: PropTypes) {
     return (
@@ -158,11 +161,11 @@ export default class SidebarRight extends React.PureComponent<PropTypes> {
       }
 
       return (
-          <React.Fragment>
+          <>
               <Scrollbars
                   autoHide={true}
-                  autoHideTimeout={500}     // Hide delay in ms
-                  autoHideDuration={500}     // Duration for hide animation in ms.
+                  autoHideTimeout={AUTO_HIDE_TIMEOUT}     // Hide delay in ms
+                  autoHideDuration={AUTO_HIDE_DURATION}     // Duration for hide animation in ms.
                   renderThumbHorizontal={renderThumbHorizontal}
                   renderThumbVertical={renderThumbVertical}
                   renderView={renderView}
@@ -190,7 +193,7 @@ export default class SidebarRight extends React.PureComponent<PropTypes> {
                       
                   </div>
               </Scrollbars>
-          </React.Fragment>
+          </>
       );
   }
 }

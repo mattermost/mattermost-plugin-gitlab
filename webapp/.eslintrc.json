@@ -1,8 +1,5 @@
 {
-  "extends": [
-    "eslint:recommended",
-    "plugin:react-hooks/recommended"
-  ],
+  "extends": "eslint:recommended",
   "parserOptions": {
     "ecmaVersion": 8,
     "sourceType": "module",
@@ -37,11 +34,7 @@
   "settings": {
     "import/resolver": "webpack",
     "react": {
-      "createClass": "createReactClass",
-      "pragma": "React",
-      "fragment": "Fragment",
-      "version": "detect",
-      "flowVersion": "0.53"
+      "version": "detect"
     }
   },
   "rules": {

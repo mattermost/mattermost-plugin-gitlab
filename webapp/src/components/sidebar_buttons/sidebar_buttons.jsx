@@ -3,7 +3,7 @@ import {Tooltip, OverlayTrigger} from 'react-bootstrap';
 import PropTypes from 'prop-types';
 import {makeStyleFromTheme, changeOpacity} from 'mattermost-redux/utils/theme_utils';
 
-import {RHSStates} from '../../constants';
+import {RHSStates} from 'src/constants';
 
 export default class SidebarButtons extends React.PureComponent {
     static propTypes = {
