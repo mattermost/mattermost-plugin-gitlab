@@ -2,10 +2,9 @@
 // See LICENSE.txt for license information.
 
 import React, {PureComponent} from 'react';
-import {Theme} from 'mattermost-redux/types/preferences';
-
 import ReactSelect, {SingleValue} from 'react-select';
 import AsyncSelect from 'react-select/async';
+import {Theme} from 'mattermost-redux/types/preferences';
 
 import {getStyleForReactSelect} from 'src/utils/styles';
 import Setting from './setting';

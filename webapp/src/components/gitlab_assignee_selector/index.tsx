@@ -1,17 +1,12 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {PureComponent} from 'react';
+import React from 'react';
+import { useDispatch } from 'react-redux';
 import {Theme} from 'mattermost-redux/types/preferences';
 
 import IssueAttributeSelector from 'src/components/issue_attribute_selector';
-
-export type Actions = {
-    getAssigneeOptions: (projectID?: number) =>  Promise<{
-        error?: ErrorType;
-        data?: Assignee[];
-    }>
-}
+import {getAssigneeOptions} from 'src/actions';
 
 interface PropTypes {
     projectID?: number;
@@ -19,16 +14,17 @@ interface PropTypes {
     theme: Theme;
     selectedAssignees: SelectionType[];
     onChange: (assignees: OnChangeType) => void;
-    actions: Actions;
 };
 
-const GitlabAssigneeSelector = ({projectID, projectName, theme, selectedAssignees, onChange, actions}: PropTypes) => {
+const GitlabAssigneeSelector = ({projectID, projectName, theme, selectedAssignees, onChange}: PropTypes) => {
+    const dispatch = useDispatch();
+
     const loadAssignees = async () => {
         if (!projectName) {
             return [];
         }
 
-        const options = await actions.getAssigneeOptions(projectID);
+        const options = await getAssigneeOptions(projectID)(dispatch);
 
         if (options?.error) {
             throw new Error('Failed to load assignees');

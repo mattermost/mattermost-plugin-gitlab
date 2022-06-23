@@ -1,17 +1,12 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {PureComponent} from 'react';
+import React from 'react';
 import {Theme} from 'mattermost-redux/types/preferences';
+import { useDispatch } from 'react-redux';
 
 import IssueAttributeSelector from 'src/components/issue_attribute_selector';
-
-export type Actions = {
-    getLabelOptions: (projectID?: number) =>  Promise<{
-        error?: ErrorType;
-        data?: Label[];
-    }>
-}
+import {getLabelOptions} from 'src/actions';
 
 interface PropTypes {
     projectID?: number;
@@ -19,16 +14,17 @@ interface PropTypes {
     theme: Theme;
     selectedLabels: SelectionType[];
     onChange: (labels: OnChangeType) => void;
-    actions: Actions;
 };
 
-const GitlabLabelSelector = ({projectID, projectName, theme, selectedLabels, onChange, actions}: PropTypes) => { 
+const GitlabLabelSelector = ({projectID, projectName, theme, selectedLabels, onChange}: PropTypes) => {
+    const dispatch = useDispatch();
+    
     const loadLabels = async () => {
         if (!projectName) {
             return [];
         }
 
-        const options = await actions.getLabelOptions(projectID);
+        const options = await getLabelOptions(projectID)(dispatch);
 
         if (options?.error) {
             throw new Error('failed to load labels');
