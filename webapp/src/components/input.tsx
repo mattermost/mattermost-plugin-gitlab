@@ -18,26 +18,9 @@ interface PropTypes {
     type: string;
 };
 
-<<<<<<< HEAD
-interface StateTypes {
-    invalid: boolean;
-}
-
-export default class Input extends PureComponent<PropTypes, StateTypes> {   
-    constructor(props: PropTypes) {
-        super(props);
-        this.state = {invalid: false};
-    }
-
-    handleChange = (e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>) => {
-        if (this.props.onChange) {
-            this.props.onChange(e.target.value);
-        }
-=======
 const Input = (props: PropTypes) => {   
     const handleChange = (e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>) => {
-        props.onChange(e.target.value);
->>>>>>> 612dae900fe62f07d0cecbcc0b691004d3aedc4e
+        props.onChange?.(e.target.value);
     };
 
     const value = props.value ?? '';

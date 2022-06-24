@@ -150,7 +150,7 @@ const attachCommentToIssueModalVisible = (state = false, action) => {
     }
 };
 
-const attachCommentToIssueModalForPostId = (state = '', action) => {
+const postIdForAttachCommentToIssueModal = (state = '', action) => {
     switch (action.type) {
     case ActionTypes.OPEN_ATTACH_COMMENT_TO_ISSUE_MODAL:
         return action.data.postId;
@@ -203,6 +203,6 @@ export default combineReducers({
     isCreateIssueModalVisible,
     yourProjects,
     createIssueModal,
-    attachCommentToIssueModalForPostId,
+    postIdForAttachCommentToIssueModal,
     attachCommentToIssueModalVisible,
 });

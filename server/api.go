@@ -27,9 +27,8 @@ const (
 
 	requestTimeout = 5 * time.Second
 
-	search = "search"
-
-	projectID = "projectID"
+	queryParamSearch = "search"
+	queryParamProjectID = "projectID"
 )
 
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
@@ -635,29 +634,19 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 	var issue *gitlab.IssueRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&issue); err != nil {
-		c.Log.WithError(err).Warnf("error decoding JSON body to attach comment to the issue")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("error decoding JSON body to attach comment to the issue. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
+		c.Log.WithError(err).Warnf("error decoding JSON body for attach comment to issue")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("error decoding JSON body for attach comment to issue. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
 		return
 	}
 
-	if issue.PostID == "" {
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "please provide a valid post id", StatusCode: http.StatusBadRequest})
-		return
-	}
-
-	if issue.IID == 0 {
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "please provide a valid issue iid.", StatusCode: http.StatusBadRequest})
-		return
-	}
-
-	if issue.Comment == "" {
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "please provide a valid non empty comment.", StatusCode: http.StatusBadRequest})
+	if err := p.validateCommentBody(issue); err != nil {
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: err.Error(), StatusCode: http.StatusBadRequest})
 		return
 	}
 
 	post, appErr := p.API.GetPost(issue.PostID)
 	if appErr != nil {
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to load post %s", issue.PostID), StatusCode: http.StatusInternalServerError})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to load post %s", issue.PostID), StatusCode: appErr.StatusCode})
 		return
 	}
 	if post == nil {
@@ -667,7 +656,7 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 
 	commentUsername, apiErr := p.getUsername(post.UserId)
 	if apiErr != nil {
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "failed to get username", StatusCode: http.StatusInternalServerError})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to get username. Error: %s", apiErr.Message), StatusCode: apiErr.StatusCode})
 		return
 	}
 
@@ -675,8 +664,8 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 
 	result, err := p.GitlabClient.AttachCommentToIssue(c.Ctx, c.GitlabInfo, issue, permalink, commentUsername)
 	if err != nil {
-		c.Log.WithError(err).Warnf("can't add comment to issue in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("cant't add comment to issue in GitLab API. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
+		c.Log.WithError(err).Warnf("can't add comment to issue in GitLab")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("cant't add comment to issue in GitLab. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
 		return
 	}
 
@@ -686,20 +675,35 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 		rootID = post.RootId
 	}
 
-	permalinkReplyMessage := fmt.Sprintf("[Message](%v) attached to GitLab issue [#%v](%v)", permalink, issue.IID, issue.WebURL)
+	permalinkReplyMessage := fmt.Sprintf("[Message](%s) attached to GitLab issue [#%d](%s)", permalink, issue.IID, issue.WebURL)
 	reply := &model.Post{
 		Message:   permalinkReplyMessage,
 		ChannelId: post.ChannelId,
 		RootId:    rootID,
-		UserId:    c.UserID,
+		UserId:    p.BotUserID,
 	}
 
 	_, appErr = p.API.CreatePost(reply)
 	if appErr != nil {
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to create notification post %s", issue.PostID), StatusCode: http.StatusInternalServerError})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to create notification post %s", issue.PostID), StatusCode: appErr.StatusCode})
 		return
 	}
 	p.writeAPIResponse(w, result)
+}
+
+func (p *Plugin) validateCommentBody(issue *gitlab.IssueRequest) error {
+	if issue.PostID == "" {
+		return errors.Errorf("please provide a valid post id")
+	}
+
+	if issue.IID == 0 {
+		return errors.Errorf("please provide a valid post iid")
+	}
+
+	if issue.Comment == "" {
+		return errors.Errorf("please provide a valid non empty comment")
+	}
+	return nil
 }
 
 func (p *Plugin) getPermalink(postID string) string {
@@ -709,11 +713,11 @@ func (p *Plugin) getPermalink(postID string) string {
 }
 
 func (p *Plugin) searchIssues(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	search := r.FormValue(search)
+	search := r.FormValue(queryParamSearch)
 	result, err := p.GitlabClient.SearchIssues(c.Ctx, c.GitlabInfo, search)
 	if err != nil {
-		c.Log.WithError(err).Warnf("unable to search issues in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("unable to search issues in GitLab API. Error: %d", err), StatusCode: http.StatusInternalServerError})
+		c.Log.WithError(err).Warnf("unable to search issues in GitLab")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("unable to search issues in GitLab. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
 		return
 	}
 
@@ -732,7 +736,7 @@ func (p *Plugin) getYourProjects(c *UserContext, w http.ResponseWriter, r *http.
 }
 
 func (p *Plugin) getLabels(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	projectID := r.URL.Query().Get(projectID)
+	projectID := r.URL.Query().Get(queryParamProjectID)
 	result, err := p.GitlabClient.GetLabels(c.Ctx, c.GitlabInfo, projectID)
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't list labels of project in GitLab")
@@ -744,7 +748,7 @@ func (p *Plugin) getLabels(c *UserContext, w http.ResponseWriter, r *http.Reques
 }
 
 func (p *Plugin) getMilestones(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	projectID := r.URL.Query().Get(projectID)
+	projectID := r.URL.Query().Get(queryParamProjectID)
 	result, err := p.GitlabClient.GetMilestones(c.Ctx, c.GitlabInfo, projectID)
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't list milestones of project in GitLab")
@@ -756,7 +760,7 @@ func (p *Plugin) getMilestones(c *UserContext, w http.ResponseWriter, r *http.Re
 }
 
 func (p *Plugin) getAssignees(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	projectID := r.URL.Query().Get(projectID)
+	projectID := r.URL.Query().Get(queryParamProjectID)
 	result, err := p.GitlabClient.GetAssignees(c.Ctx, c.GitlabInfo, projectID)
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't list assignees of the project in GitLab")
