@@ -628,12 +628,12 @@ func (p *Plugin) getMergeRequestByNumber(c *UserContext, w http.ResponseWriter, 
 		return
 	}
 
-	mergeRequst, err := p.GitlabClient.GetMergeRequestByID(c.Ctx, c.GitlabInfo, owner, repo, mergeRequestID)
+	mergeRequest, err := p.GitlabClient.GetMergeRequestByID(c.Ctx, c.GitlabInfo, owner, repo, mergeRequestID)
 	if err != nil {
 		c.Log.WithError(err).Warnf("Unable to get merge request in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get merge request in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 
-	p.writeAPIResponse(w, mergeRequst)
+	p.writeAPIResponse(w, mergeRequest)
 }
