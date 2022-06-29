@@ -26,8 +26,8 @@ interface PropTypes {
 };
 
 const GitlabIssueSelector = (props: PropTypes) => {
-    const [invalid, setinvalid] = useState(false);
-    const [error, seterror] = useState('')
+    const [invalid, setInvalid] = useState(false);
+    const [error, setError] = useState('')
 
     const isValid = useCallback(() => {                
         if (!props.required) {
@@ -35,7 +35,7 @@ const GitlabIssueSelector = (props: PropTypes) => {
         }
         
         const valid = Boolean(props.value);
-        setinvalid(!valid);
+        setInvalid(!valid);
         return valid;
     }, [props.value])
 
@@ -80,7 +80,7 @@ const GitlabIssueSelector = (props: PropTypes) => {
             });
         } catch (e) {
             const err = e as ErrorType;
-            seterror(err.message);
+            setError(err.message);
             return [];
         }
     };

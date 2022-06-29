@@ -1,7 +1,7 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {useState, useEffect, useCallback, useMemo} from 'react';
+import React, {useState, useCallback, useMemo} from 'react';
 import {Modal} from 'react-bootstrap';
 import {Theme} from 'mattermost-redux/types/preferences';
 import { useDispatch, useSelector } from 'react-redux';
@@ -30,10 +30,10 @@ interface CurrentState extends GlobalState {
 }
 
 const AttachCommentToIssueModal = ({theme}: PropTypes) => {
-    const [validator, setvalidator] = useState(new Validator())
-    const [submitting, setsubmitting] = useState(false);
-    const [issueValue, setissueValue] = useState<Issue | null>(null);
-    const [error, seterror] = useState<string>('')
+    const [validator, setValidator] = useState(new Validator())
+    const [submitting, setSubmitting] = useState(false);
+    const [issueValue, setIssueValue] = useState<Issue | null>(null);
+    const [error, setError] = useState<string>('')
 
     const {post, visible} = useSelector((state: CurrentState) => {
         const postId = state[`plugins-${pluginId}` as plugin].postIdForAttachCommentToIssueModal;
@@ -62,13 +62,13 @@ const AttachCommentToIssueModal = ({theme}: PropTypes) => {
             web_url: issueValue?.web_url,
         };
 
-        setsubmitting(true);
+        setSubmitting(true);
 
         const created = await attachCommentToIssue(comment)(dispatch);
         if (created.error) {
             const errMessage = getErrorMessage((created as {error: ErrorType}).error.message);
-            seterror(errMessage);
-            setsubmitting(false);
+            setError(errMessage);
+            setSubmitting(false);
             return;
         }
 
@@ -76,14 +76,14 @@ const AttachCommentToIssueModal = ({theme}: PropTypes) => {
     };
 
     const handleClose = useCallback(() => {
-        seterror('');
-        setsubmitting(false);
-        setissueValue(null);
+        setError('');
+        setSubmitting(false);
+        setIssueValue(null);
         dispatch(closeAttachCommentToIssueModal());
     }, []);
 
     const handleIssueValueChange = useCallback((newValue: Issue | null) => {
-        setissueValue(newValue);
+        setIssueValue(newValue);
     }, []);
 
     const style = useMemo(() => getStyle(theme), [theme]);
