@@ -1,11 +1,11 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {MouseEvent} from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import React, {MouseEvent, useCallback} from 'react';
+import {useDispatch, useSelector} from 'react-redux';
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
 import {isSystemMessage} from 'mattermost-redux/utils/post_utils';
-import { GlobalState } from 'mattermost-redux/types/store';
+import {GlobalState} from 'mattermost-redux/types/store';
 
 import GitLabIcon from 'src/images/icons/gitlab';
 import {id as pluginId} from 'src/manifest';
@@ -35,10 +35,10 @@ const CreateIssuePostMenuAction = ({postId}: PropTypes) => {
 
     const dispatch = useDispatch();
 
-    const handleClick = (e: MouseEvent<HTMLButtonElement> | Event) => {        
+    const handleClick = useCallback((e: MouseEvent<HTMLButtonElement> | Event) => {        
         e.preventDefault();
-        dispatch(openCreateIssueModal(postId))
-    };
+        dispatch(openCreateIssueModal(postId));
+    }, [postId]);
 
     if (!show) {
         return null;

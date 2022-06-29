@@ -1,7 +1,7 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React from 'react';
+import React, {useCallback} from 'react';
 
 import Setting from './setting';
 
@@ -19,9 +19,9 @@ interface PropTypes {
 };
 
 const Input = (props: PropTypes) => {   
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>) => {
+    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>) => {
         props.onChange(e.target.value);
-    };
+    }, [props.onChange]);
 
     const value = props.value ?? '';
 
@@ -70,6 +70,7 @@ const Input = (props: PropTypes) => {
             />
         );
     }
+
     return (
         <Setting
             label={props.label}

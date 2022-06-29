@@ -117,7 +117,7 @@ export default class CreateIssueModal extends PureComponent<PropTypes, StateType
         this.handleClose();
     };
 
-    handleClose = () => {this.setState(initialState, this.props.actions.close);};
+    handleClose = () => this.setState(initialState, this.props.actions.close);
 
     handleProjectChange = (project: ProjectSelection) => this.setState({project});
 

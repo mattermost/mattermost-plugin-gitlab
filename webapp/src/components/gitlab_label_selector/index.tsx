@@ -1,9 +1,9 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React from 'react';
+import React, {useCallback} from 'react';
 import {Theme} from 'mattermost-redux/types/preferences';
-import { useDispatch } from 'react-redux';
+import {useDispatch} from 'react-redux';
 
 import IssueAttributeSelector from 'src/components/issue_attribute_selector';
 import {getLabelOptions} from 'src/actions';
@@ -19,7 +19,7 @@ interface PropTypes {
 const GitlabLabelSelector = ({projectID, projectName, theme, selectedLabels, onChange}: PropTypes) => {
     const dispatch = useDispatch();
     
-    const loadLabels = async () => {
+    const loadLabels = useCallback(async () => {
         if (!projectName) {
             return [];
         }
@@ -38,7 +38,7 @@ const GitlabLabelSelector = ({projectID, projectName, theme, selectedLabels, onC
             value: option.name,
             label: option.name,
         }));
-    };
+    }, [projectID]);
 
     return (
         <div className='form-group margin-bottom x3'>

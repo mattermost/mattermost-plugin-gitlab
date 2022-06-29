@@ -1,8 +1,8 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React from 'react';
-import { useDispatch } from 'react-redux';
+import React, {useCallback} from 'react';
+import {useDispatch} from 'react-redux';
 import {Theme} from 'mattermost-redux/types/preferences';
 
 import IssueAttributeSelector from 'src/components/issue_attribute_selector';
@@ -19,7 +19,7 @@ interface PropTypes {
 const GitlabMilestoneSelector = ({projectID, projectName, theme, selectedMilestone, onChange}: PropTypes) => {
     const dispatch = useDispatch();
     
-    const loadMilestones = async () => {
+    const loadMilestones = useCallback(async () => {
         if (!projectName) {
             return [];
         }
@@ -38,7 +38,7 @@ const GitlabMilestoneSelector = ({projectID, projectName, theme, selectedMilesto
             value: option.id,
             label: option.title,
         }));
-    };
+    }, [projectID]);
 
     return (
         <div className='form-group margin-bottom x3'>

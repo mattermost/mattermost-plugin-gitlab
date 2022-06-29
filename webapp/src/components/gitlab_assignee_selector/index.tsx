@@ -1,8 +1,8 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React from 'react';
-import { useDispatch } from 'react-redux';
+import React, {useCallback} from 'react';
+import {useDispatch} from 'react-redux';
 import {Theme} from 'mattermost-redux/types/preferences';
 
 import IssueAttributeSelector from 'src/components/issue_attribute_selector';
@@ -19,7 +19,7 @@ interface PropTypes {
 const GitlabAssigneeSelector = ({projectID, projectName, theme, selectedAssignees, onChange}: PropTypes) => {
     const dispatch = useDispatch();
 
-    const loadAssignees = async () => {
+    const loadAssignees = useCallback(async () => {
         if (!projectName) {
             return [];
         }
@@ -38,7 +38,7 @@ const GitlabAssigneeSelector = ({projectID, projectName, theme, selectedAssignee
             value: option.id,
             label: option.username,
         }));
-    };
+    }, [projectID]);
 
     return (
         <div className='form-group margin-bottom x3'>
