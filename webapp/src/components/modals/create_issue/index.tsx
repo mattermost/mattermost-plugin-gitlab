@@ -12,10 +12,10 @@ import GitlabProjectSelector from 'src/components/gitlab_project_selector';
 import Validator from 'src/components/validator';
 import FormButton from 'src/components/form_button';
 import Input from 'src/components/input';
-import {usePrevious} from 'src/utils/hooks';
 import {id as pluginId} from 'src/manifest';
 import {closeCreateIssueModal, createIssue} from 'src/actions';
 import {GlobalState} from 'src/types/global_state';
+import {usePrevious} from 'src/hooks/use_previous';
 
 const MAX_TITLE_LENGTH = 256;
 

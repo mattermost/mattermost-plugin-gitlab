@@ -6,7 +6,7 @@ import ReactSelect, {OnChangeValue} from 'react-select';
 import {Theme} from 'mattermost-redux/types/preferences';
 
 import {getStyleForReactSelect} from 'src/utils/styles';
-import {usePrevious} from 'src/utils/hooks';
+import {usePrevious} from 'src/hooks/use_previous';
 import Setting from './setting';
 
 type PropTypes = {

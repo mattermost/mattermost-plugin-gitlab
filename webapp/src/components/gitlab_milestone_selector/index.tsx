@@ -1,12 +1,12 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {useCallback} from 'react';
-import {useDispatch} from 'react-redux';
+import React from 'react';
 import {Theme} from 'mattermost-redux/types/preferences';
 
 import IssueAttributeSelector from 'src/components/issue_attribute_selector';
 import {getMilestoneOptions} from 'src/actions';
+import {useOptions} from 'src/hooks/use_options';
 
 type PropTypes = {
     projectID?: number;
@@ -17,28 +17,10 @@ type PropTypes = {
 };
 
 const GitlabMilestoneSelector = ({projectID, projectName, theme, selectedMilestone, onChange}: PropTypes) => {
-    const dispatch = useDispatch();
-    
-    const loadMilestones = useCallback(async () => {
-        if (!projectName) {
-            return [];
-        }
+    const returnType: any = ['id', 'title'];
+    const errorMessage = 'failed to load milestones';
 
-        const options = await getMilestoneOptions(projectID)(dispatch);
-
-        if (options?.error) {
-            throw new Error('failed to load milestones');
-        }
-
-        if (!options || !options.data) {
-            return [];
-        }
-
-        return options.data.map((option: Milestone) => ({
-            value: option.id,
-            label: option.title,
-        }));
-    }, [projectID]);
+    const loadMilestones = useOptions(projectName, getMilestoneOptions as GetOptions, returnType , errorMessage, projectID);    
 
     return (
         <div className='form-group margin-bottom x3'>

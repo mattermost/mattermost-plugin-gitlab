@@ -296,11 +296,11 @@ export function getLabelOptions(projectID) {
     };
 }
 
-export function getMilestoneOptions(pid) {
+export function getMilestoneOptions(projectID) {
     return async (dispatch, getState) => {
         let data;
         try {
-            data = await Client.getMilestones(pid);
+            data = await Client.getMilestones(projectID);
         } catch (error) {
             return {error};
         }
@@ -314,11 +314,11 @@ export function getMilestoneOptions(pid) {
     };
 }
 
-export function getAssigneeOptions(pid) {
+export function getAssigneeOptions(projectID) {
     return async (dispatch, getState) => {
         let data;
         try {
-            data = await Client.getAssignees(pid);
+            data = await Client.getAssignees(projectID);
         } catch (error) {
             return {error};
         }
