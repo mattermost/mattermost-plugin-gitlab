@@ -5,7 +5,7 @@ import React, {useCallback} from 'react';
 
 import Setting from './setting';
 
-interface PropTypes {
+type PropTypes = {
     id: string;
     label: string;
     placeholder?: string;
@@ -23,15 +23,15 @@ const Input = (props: PropTypes) => {
         props.onChange(e.target.value);
     }, [props.onChange]);
 
-    const value = props.value ?? '';
+    const value = props.value ?? null;
 
     let input = null;
-    if (props.type === 'input') {
+    if (props.type !== 'textarea') {
         input = (
             <input
                 id={props.id}
                 className='form-control'
-                type='text'
+                type={props.type === 'input' ? 'text' : 'number'}
                 placeholder={props.placeholder}
                 value={value}
                 maxLength={props.maxLength}
@@ -40,21 +40,7 @@ const Input = (props: PropTypes) => {
                 readOnly={props.readOnly}
             />
         );
-    } else if (props.type === 'number') {
-        input = (
-            <input
-                id={props.id}
-                className='form-control'
-                type='number'
-                placeholder={props.placeholder}
-                value={value}
-                maxLength={props.maxLength}
-                onChange={handleChange}
-                disabled={props.disabled}
-                readOnly={props.readOnly}
-            />
-        );
-    } else if (props.type === 'textarea') {
+    } else {
         input = (
             <textarea
                 style={{resize: 'none'}}

@@ -11,7 +11,7 @@ import Setting from './setting';
 
 const MAX_NUM_OPTIONS = 100;
 
-interface PropTypes {
+type PropTypes = {
     name: string;
     onChange: (name: string, value: string) => void,
     label: string;
@@ -82,9 +82,9 @@ const ReactSelectSetting = (props: PropTypes) => {
 
     let selectComponent = null;
     if (props.limitOptions && props.options.length > MAX_NUM_OPTIONS) {
-        // The parent component has let us know that we may have a large number of options, and that
-        // the dataset is static. In this case, we use the AsyncSelect component and synchronous func
-        // filterOptions() to limit the number of options being rendered at a given time.
+        // The parent component help us know that we may have a large number of options, and that
+        // the data-set is static. In this case, we use the AsyncSelect component and synchronous func
+        // "filterOptions" to limit the number of options being rendered at a given time.
         selectComponent = (
             <AsyncSelect
                 loadOptions={filterOptions}

@@ -4,13 +4,13 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 import {Theme} from 'mattermost-redux/types/preferences';
-import {GlobalState} from 'mattermost-redux/types/store';
 
 import {getProjects} from 'src/actions';
 import {id as pluginId} from 'src/manifest';
 import ReactSelectSetting from 'src/components/react_select_setting';
+import {GlobalState} from 'src/types/global_state';
 
-interface PropTypes {
+type PropTypes = {
     theme: Theme;
     required: boolean;
     onChange: (project: ProjectSelection) => void;
@@ -19,18 +19,10 @@ interface PropTypes {
     removeValidate: (key: string) => void;
 };
 
-interface states {
-    yourProjects: Project[];
-}
-
-interface CurrentState extends GlobalState {
-    plugin: states;
-}
-
 const GitlabProjectSelector = (props: PropTypes) => { 
     const [isLoading, setIsLoading] = useState(false);
 
-    const {yourProjects} = useSelector((state: CurrentState) => {
+    const {yourProjects} = useSelector((state: GlobalState) => {
         return {
             yourProjects: state[`plugins-${pluginId}` as plugin].yourProjects,
         };
@@ -72,7 +64,7 @@ const GitlabProjectSelector = (props: PropTypes) => {
                 value={projectOptions.find((option: SelectionType) => option.value === props.value)}
             />
             <div className={'help-text'}>
-                {'Returns GitLab projects connected to the user account'} <br/>
+                {'Returns GitLab projects connected to the user account'}
             </div>
         </div>
     );

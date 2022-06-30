@@ -3,7 +3,6 @@ import {useDispatch, useSelector} from 'react-redux';
 import {Modal} from 'react-bootstrap';
 import {Theme} from 'mattermost-redux/types/preferences';
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
-import {GlobalState} from 'mattermost-redux/types/store';
 
 import {getErrorMessage} from 'src/utils/user_utils';
 import GitlabLabelSelector from 'src/components/gitlab_label_selector';
@@ -13,28 +12,16 @@ import GitlabProjectSelector from 'src/components/gitlab_project_selector';
 import Validator from 'src/components/validator';
 import FormButton from 'src/components/form_button';
 import Input from 'src/components/input';
-import {UsePrevious} from 'src/components/issue_attribute_selector';
+import {usePrevious} from 'src/utils/hooks';
 import {id as pluginId} from 'src/manifest';
 import {closeCreateIssueModal, createIssue} from 'src/actions';
+import {GlobalState} from 'src/types/global_state';
 
 const MAX_TITLE_LENGTH = 256;
 
-interface PropTypes {
+type PropTypes = {
     theme: Theme;
 };
-
-interface states {
-    createIssueModal: {
-        postId: string;
-        title: string;
-        channelId: string;
-    };
-    isCreateIssueModalVisible: boolean
-}
-
-interface CurrentState extends GlobalState {
-    plugin: states;
-}
 
 const CreateIssueModal = (props: PropTypes) => {
     const [validator, setValidator] = useState(new Validator());
@@ -49,7 +36,7 @@ const CreateIssueModal = (props: PropTypes) => {
     const [showErrors, setShowErrors] = useState<boolean>(false);
     const [issueTitleValid, setIssueTitleValid] = useState<boolean>(true);
 
-    const {visible, post, channelId, title} = useSelector((state: CurrentState) => {
+    const {visible, post, channelId, title} = useSelector((state: GlobalState) => {
         const {postId, title, channelId} = state[`plugins-${pluginId}` as plugin].createIssueModal;
         
         const post = postId ? getPost(state, postId) : null;
@@ -63,9 +50,9 @@ const CreateIssueModal = (props: PropTypes) => {
 
     const dispatch = useDispatch();
 
-    const prevPost = UsePrevious(post);
-    const prevChannelId = UsePrevious(channelId);
-    const prevTitle = UsePrevious(title);
+    const prevPost = usePrevious(post);
+    const prevChannelId = usePrevious(channelId);
+    const prevTitle = usePrevious(title);
 
     useEffect(() => {        
         if (post && !prevPost) {

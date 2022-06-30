@@ -9,4 +9,4 @@ type ErrorType = {
     message: string;
 }
 
-type plugin = "plugin"
+type plugin = 'plugins-com.github.manland.mattermost-plugin-gitlab'

@@ -8,7 +8,7 @@ import {Theme} from 'mattermost-redux/types/preferences';
 import IssueAttributeSelector from 'src/components/issue_attribute_selector';
 import {getMilestoneOptions} from 'src/actions';
 
-interface PropTypes {
+type PropTypes = {
     projectID?: number;
     projectName: string;
     theme: Theme;
@@ -27,7 +27,7 @@ const GitlabMilestoneSelector = ({projectID, projectName, theme, selectedMilesto
         const options = await getMilestoneOptions(projectID)(dispatch);
 
         if (options?.error) {
-            throw new Error('Failed to load milestones');
+            throw new Error('failed to load milestones');
         }
 
         if (!options || !options.data) {

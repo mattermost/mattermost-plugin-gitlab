@@ -8,7 +8,7 @@ import {useDispatch} from 'react-redux';
 import IssueAttributeSelector from 'src/components/issue_attribute_selector';
 import {getLabelOptions} from 'src/actions';
 
-interface PropTypes {
+type PropTypes = {
     projectID?: number;
     projectName: string;
     theme: Theme;

@@ -8,13 +8,13 @@ import {Theme} from 'mattermost-redux/types/preferences';
 import IssueAttributeSelector from 'src/components/issue_attribute_selector';
 import {getAssigneeOptions} from 'src/actions';
 
-interface PropTypes {
+type PropTypes = {
     projectID?: number;
     projectName: string;
     theme: Theme;
     selectedAssignees: SelectionType[];
     onChange: (assignees: OnChangeType) => void;
-};
+}; 
 
 const GitlabAssigneeSelector = ({projectID, projectName, theme, selectedAssignees, onChange}: PropTypes) => {
     const dispatch = useDispatch();
@@ -27,7 +27,7 @@ const GitlabAssigneeSelector = ({projectID, projectName, theme, selectedAssignee
         const options = await getAssigneeOptions(projectID)(dispatch);
 
         if (options?.error) {
-            throw new Error('Failed to load assignees');
+            throw new Error('failed to load assignees');
         }
 
         if (!options || !options.data) {

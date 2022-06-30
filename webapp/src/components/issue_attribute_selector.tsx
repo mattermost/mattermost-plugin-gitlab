@@ -1,15 +1,15 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {useState, useEffect, useRef, useCallback} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import ReactSelect, {OnChangeValue} from 'react-select';
 import {Theme} from 'mattermost-redux/types/preferences';
-import {Post} from 'mattermost-redux/types/posts';
 
 import {getStyleForReactSelect} from 'src/utils/styles';
+import {usePrevious} from 'src/utils/hooks';
 import Setting from './setting';
 
-interface PropTypes {
+type PropTypes = {
     isMulti: boolean;
     projectName: string;
     theme: Theme;
@@ -18,16 +18,6 @@ interface PropTypes {
     loadOptions: () => Promise<Array<SelectionType>>,
     selection: OnChangeType;
 };
-
-export const UsePrevious = (value: string | Post | null | undefined) => {
-    const ref: React.MutableRefObject<string | Post | null | undefined> = useRef();
-    // Store current value in ref
-    useEffect(() => {
-      ref.current = value;
-    }, [value]); // Only re-run if value changes
-    // Return previous value (happens before update in useEffect above)
-    return ref.current;
-}
 
 const IssueAttributeSelector = (props: PropTypes) => {
     const [options, setOptions] = useState<SelectionType[]>([]);
@@ -40,7 +30,7 @@ const IssueAttributeSelector = (props: PropTypes) => {
         }
     }, [])
 
-    const prevProjectName = UsePrevious(props.projectName)
+    const prevProjectName = usePrevious(props.projectName)
 
     useEffect(() => {
         if (props.projectName && prevProjectName !== props.projectName) {
