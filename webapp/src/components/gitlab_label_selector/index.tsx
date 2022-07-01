@@ -3,12 +3,12 @@
 
 import React from 'react';
 import {Theme} from 'mattermost-redux/types/preferences';
-import { useDispatch } from 'react-redux';
 
 import IssueAttributeSelector from 'src/components/issue_attribute_selector';
 import {getLabelOptions} from 'src/actions';
+import {useOptions} from 'src/hooks/use_options';
 
-interface PropTypes {
+type PropTypes = {
     projectID?: number;
     projectName: string;
     theme: Theme;
@@ -17,28 +17,10 @@ interface PropTypes {
 };
 
 const GitlabLabelSelector = ({projectID, projectName, theme, selectedLabels, onChange}: PropTypes) => {
-    const dispatch = useDispatch();
-    
-    const loadLabels = async () => {
-        if (!projectName) {
-            return [];
-        }
+    const returnType = ['name', 'name'];
+    const errorMessage = 'failed to load labels';
 
-        const options = await getLabelOptions(projectID)(dispatch);
-
-        if (options?.error) {
-            throw new Error('failed to load labels');
-        }
-
-        if (!options || !options.data) {
-            return [];
-        }
-
-        return options.data.map((option: Label) => ({
-            value: option.name,
-            label: option.name,
-        }));
-    };
+    const loadLabels = useOptions(projectName, getLabelOptions as GetOptions, returnType , errorMessage, projectID);
 
     return (
         <div className='form-group margin-bottom x3'>

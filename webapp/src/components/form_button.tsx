@@ -3,7 +3,7 @@
 
 import React from 'react';
 
-interface PropTypes {
+type PropTypes = {
     disabled?: boolean;
     defaultMessage?: string,
     btnClass?: string;

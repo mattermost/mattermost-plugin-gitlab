@@ -37,7 +37,7 @@ const GitlabIssueSelector = (props: PropTypes) => {
         const valid = Boolean(props.value);
         setInvalid(!valid);
         return valid;
-    }, [props.value])
+    }, [props.value, props.required])
 
     useEffect(() => {
         return () => {            
@@ -46,7 +46,7 @@ const GitlabIssueSelector = (props: PropTypes) => {
             }
         }
     }, [])
-    
+
     useEffect(() => {
         if (props.addValidate && props.name) {            
             props.addValidate(props.name, isValid);
@@ -54,13 +54,13 @@ const GitlabIssueSelector = (props: PropTypes) => {
         if (invalid) {            
             isValid();
         }
-    }, [props.value])
+    }, [isValid])
 
-    const handleIssueSearchTermChange = (inputValue: string) => {
+    const handleIssueSearchTermChange = useCallback((inputValue: string) => {
         return debouncedSearchIssues(inputValue);
-    };
+    }, []);
 
-    const searchIssues = async (text: string) => {
+    const searchIssues = useCallback(async (text: string) => {
         const textEncoded = encodeURIComponent(text.trim().replace(/"/g, '\\"'));
         try {
             const issues = await Client.searchIssues(textEncoded);
@@ -72,7 +72,7 @@ const GitlabIssueSelector = (props: PropTypes) => {
             return issues.map((issue) => {
                 const projectParts = issue.web_url.split('/');
                 let prefix = '';
-                //Extract "username/projectName" from the issueURL parts
+                // Extract "username/projectName" from the issueURL parts
                 if (projectParts.length >= 5) {
                     prefix = `${projectParts[projectParts.length - 5]}/${projectParts[projectParts.length - 4]}`;
                 }
@@ -83,22 +83,22 @@ const GitlabIssueSelector = (props: PropTypes) => {
             setError(err.message);
             return [];
         }
-    };
+    }, []);
 
     const debouncedSearchIssues = debounce(searchIssues, searchDebounceDelay);
 
     const onChange = useCallback((newValue: SingleValue<IssueSelection>) => {
         const value = newValue?.value ?? null;
         props.onChange(value);
-    }, [])
+    }, [props.onChange])
 
-    const issueError = (props.error) ? (
+    const issueError = props.error ? (
         <p className='help-text error-text'>
             <span>{props.error}</span>
         </p>
     ) : null;
 
-    const serverError = (error) ? (
+    const serverError = error ? (
         <p className='alert alert-danger'>
             <i
                 className='fa fa-warning'
@@ -109,7 +109,7 @@ const GitlabIssueSelector = (props: PropTypes) => {
     ) : null;
 
     const requiredMsg = 'This field is required.';
-    const validationError = (props.required && invalid) ? (
+    const validationError = props.required && invalid ? (
         <p className='help-text error-text'>
             <span>{requiredMsg}</span>
         </p>

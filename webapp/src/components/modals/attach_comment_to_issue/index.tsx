@@ -4,8 +4,7 @@
 import React, {useState, useCallback, useMemo} from 'react';
 import {Modal} from 'react-bootstrap';
 import {Theme} from 'mattermost-redux/types/preferences';
-import { useDispatch, useSelector } from 'react-redux';
-import {GlobalState} from 'mattermost-redux/types/store';
+import {useDispatch, useSelector} from 'react-redux';
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
 
 import FormButton from 'src/components/form_button';
@@ -15,18 +14,10 @@ import {id as pluginId} from 'src/manifest';
 import GitlabIssueSelector from 'src/components/gitlab_issue_selector';
 import {getErrorMessage} from 'src/utils/user_utils';
 import {closeAttachCommentToIssueModal, attachCommentToIssue} from 'src/actions';
+import {GlobalState} from 'src/types/global_state';
 
 interface PropTypes {  
     theme: Theme,
-}
-
-interface states {
-    postIdForAttachCommentToIssueModal: string;
-    attachCommentToIssueModalVisible: boolean
-}
-
-interface CurrentState extends GlobalState {
-    plugin: states;
 }
 
 const AttachCommentToIssueModal = ({theme}: PropTypes) => {
@@ -35,7 +26,7 @@ const AttachCommentToIssueModal = ({theme}: PropTypes) => {
     const [issueValue, setIssueValue] = useState<Issue | null>(null);
     const [error, setError] = useState<string>('')
 
-    const {post, visible} = useSelector((state: CurrentState) => {
+    const {post, visible} = useSelector((state: GlobalState) => {
         const postId = state[`plugins-${pluginId}` as plugin].postIdForAttachCommentToIssueModal;
         const post = getPost(state, postId);
     

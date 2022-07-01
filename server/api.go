@@ -613,7 +613,7 @@ func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Requ
 		Message:   message,
 		ChannelId: channelID,
 		RootId:    rootID,
-		UserId:    c.UserID,
+		UserId:    p.BotUserID,
 	}
 
 	if post != nil {

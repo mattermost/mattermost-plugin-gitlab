@@ -2,13 +2,13 @@
 // See LICENSE.txt for license information.
 
 import React from 'react';
-import { useDispatch } from 'react-redux';
 import {Theme} from 'mattermost-redux/types/preferences';
 
 import IssueAttributeSelector from 'src/components/issue_attribute_selector';
 import {getMilestoneOptions} from 'src/actions';
+import {useOptions} from 'src/hooks/use_options';
 
-interface PropTypes {
+type PropTypes = {
     projectID?: number;
     projectName: string;
     theme: Theme;
@@ -17,28 +17,10 @@ interface PropTypes {
 };
 
 const GitlabMilestoneSelector = ({projectID, projectName, theme, selectedMilestone, onChange}: PropTypes) => {
-    const dispatch = useDispatch();
-    
-    const loadMilestones = async () => {
-        if (!projectName) {
-            return [];
-        }
+    const returnType = ['id', 'title'];
+    const errorMessage = 'failed to load milestones';
 
-        const options = await getMilestoneOptions(projectID)(dispatch);
-
-        if (options?.error) {
-            throw new Error('Failed to load milestones');
-        }
-
-        if (!options || !options.data) {
-            return [];
-        }
-
-        return options.data.map((option: Milestone) => ({
-            value: option.id,
-            label: option.title,
-        }));
-    };
+    const loadMilestones = useOptions(projectName, getMilestoneOptions as GetOptions, returnType , errorMessage, projectID);    
 
     return (
         <div className='form-group margin-bottom x3'>

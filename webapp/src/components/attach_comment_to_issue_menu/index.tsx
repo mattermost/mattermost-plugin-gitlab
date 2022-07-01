@@ -3,31 +3,23 @@
 
 import React, {MouseEvent, useCallback} from 'react';
 import PropTypes from 'prop-types';
-import { useDispatch, useSelector } from 'react-redux';
-import { GlobalState } from 'mattermost-redux/types/store';
+import {useDispatch, useSelector} from 'react-redux';
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
 import {isSystemMessage} from 'mattermost-redux/utils/post_utils';
 
 import {id as pluginId} from 'src/manifest';
 import GitLabIcon from 'src/images/icons/gitlab';
 import {openAttachCommentToIssueModal} from 'src/actions';
+import {GlobalState} from 'src/types/global_state';
 
 interface PropTypes {
     postId: string;
 };
 
-interface states {
-    connected: boolean
-}
-
-interface CurrentState extends GlobalState {
-    plugin: states;
-}
-
 const AttachCommentToIssuePostMenuAction = ({postId}: PropTypes) => {
-    const {show} = useSelector((state: CurrentState) => {
+    const {show} = useSelector((state: GlobalState) => {
         const post = getPost(state, postId);
-        const systemMessage = post ? isSystemMessage(post) : true;
+        const systemMessage = Boolean(!post || isSystemMessage(post));
     
         return {
             show: state[`plugins-${pluginId}` as plugin].connected && !systemMessage,

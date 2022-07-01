@@ -3,7 +3,7 @@
 
 import React from 'react';
 
-interface PropTypes {
+type PropTypes = {
     inputId?: string;
     label?: string;
     children?: JSX.Element | null;
