@@ -17,7 +17,7 @@ type PropTypes = {
 };
 
 const GitlabLabelSelector = ({projectID, projectName, theme, selectedLabels, onChange}: PropTypes) => {
-    const returnType: any = ['name', 'name'];
+    const returnType = ['name', 'name'];
     const errorMessage = 'failed to load labels';
 
     const loadLabels = useOptions(projectName, getLabelOptions as GetOptions, returnType , errorMessage, projectID);
