@@ -38,7 +38,7 @@ const AttachCommentToIssueModal = ({theme}: PropTypes) => {
 
     const dispatch = useDispatch();
 
-    const handleCreate = async (e: React.FormEvent<HTMLFormElement> | Event) => {
+    const handleCreate = useCallback(async (e: React.FormEvent<HTMLFormElement> | Event) => {
         e.preventDefault();
         
         if (!validator.validate()) {
@@ -64,7 +64,7 @@ const AttachCommentToIssueModal = ({theme}: PropTypes) => {
         }
 
         handleClose();
-    };
+    }, [validator, issueValue, post]);
 
     const handleClose = useCallback(() => {
         setError('');

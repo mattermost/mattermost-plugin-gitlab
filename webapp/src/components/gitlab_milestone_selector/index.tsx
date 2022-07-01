@@ -20,7 +20,7 @@ const GitlabMilestoneSelector = ({projectID, projectName, theme, selectedMilesto
     const returnType = ['id', 'title'];
     const errorMessage = 'failed to load milestones';
 
-    const loadMilestones = useOptions(projectName, getMilestoneOptions as GetOptions, returnType , errorMessage, projectID);    
+    const loadMilestones = useOptions(projectName, getMilestoneOptions as GetOptions, returnType, errorMessage, projectID);    
 
     return (
         <div className='form-group margin-bottom x3'>
