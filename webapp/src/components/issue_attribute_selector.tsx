@@ -1,14 +1,15 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {PureComponent} from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import ReactSelect, {OnChangeValue} from 'react-select';
 import {Theme} from 'mattermost-redux/types/preferences';
 
-import {getStyleForReactSelect} from '../utils/styles';
+import {getStyleForReactSelect} from 'src/utils/styles';
+import {usePrevious} from 'src/hooks/use_previous';
 import Setting from './setting';
 
-interface PropTypes {
+type PropTypes = {
     isMulti: boolean;
     projectName: string;
     theme: Theme;
@@ -18,114 +19,101 @@ interface PropTypes {
     selection: OnChangeType;
 };
 
-interface StateTypes {
-    options: Array<SelectionType>; 
-    isLoading: boolean;
-    error: string;
-}
+const IssueAttributeSelector = (props: PropTypes) => {
+    const [options, setOptions] = useState<SelectionType[]>([]);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string>('');
 
-export default class IssueAttributeSelector extends PureComponent<PropTypes, StateTypes> {
-    constructor(props: PropTypes) {
-        super(props);
-        this.state = {
-            options: [],
-            isLoading: false,
-            error: '',
-        };
-    }
-
-    componentDidMount() {
-        if (this.props.projectName) {
-            this.loadOptions();
+    useEffect(() => {
+        if (props.projectName) {
+            loadOptions();
         }
-    }
+    }, [])
 
-    componentDidUpdate(prevProps: PropTypes) {
-        if (this.props.projectName && prevProps.projectName !== this.props.projectName) {
-            this.loadOptions();
+    const prevProjectName = usePrevious(props.projectName)
+
+    useEffect(() => {
+        if (props.projectName && prevProjectName !== props.projectName) {
+            loadOptions();
         }
-    }
+    }, [props])
 
-    loadOptions = async () => {
-        this.setState({isLoading: true});
+    const loadOptions = useCallback(async () => {
+        setIsLoading(true);
 
         try {
-            const options = await this.props.loadOptions();
-            this.filterSelection(options);
-            this.setState({
-                options,
-                isLoading: false,
-                error: '',
-            });
+            const options = await props.loadOptions();
+            filterSelection(options);
+            setOptions(options);
+            setIsLoading(false);
+            setError('');
         } catch (e) {
-            this.filterSelection([]);
+            filterSelection([]);
             const err = e as ErrorType;
-            this.setState({
-                options: [],
-                error: err.message,
-                isLoading: false,
-            });
+            setOptions([]);
+            setIsLoading(false);
+            setError(err.message);
         }
-    };
+    }, [props.loadOptions]);
 
-    filterSelection = (options: Array<SelectionType>) => {
-        if (!this.props.selection) {
+    const filterSelection = useCallback((options: Array<SelectionType>) => {
+        if (!props.selection) {
             return;
         }
 
-        if (this.props.isMulti) {
-            const selectionValues = (this.props.selection as SelectionType[]).map((s) => s.value)
+        if (props.isMulti) {
+            const selectionValues = (props.selection as SelectionType[]).map((s) => s.value)
             const filtered = options.filter((option) => selectionValues.includes(option.value));
-            this.props.onChange(filtered);
+            props.onChange(filtered);
             return;
         }
 
         for (const option of options) {
-            if (option.value === (this.props.selection as SelectionType).value) {
-                this.props.onChange(option);
+            if (option.value === (props.selection as SelectionType).value) {
+                props.onChange(option);
                 return;
             }
         }
 
-        this.props.onChange(null);
-    }
+        props.onChange(null);
+    }, [props.selection, props.isMulti, props.onChange])
 
-    onChangeHandler =  (newValue: OnChangeValue<OnChangeType, boolean>) => {
-        this.props.onChange(newValue as OnChangeType)
-    }
+    const onChangeHandler =  useCallback((newValue: OnChangeValue<OnChangeType, boolean>) => {
+        props.onChange(newValue as OnChangeType)
+    }, [props.onChange]);
 
-    render() {
-        const noOptionsMessage = this.props.projectName ? 'No options' : 'Please select a project first';
+    const noOptionsMessage = props.projectName ? 'No options' : 'Please select a project first';
 
-        return (
-            <Setting {...this.props}>
-                <>
-                    <ReactSelect
-                        isMulti={this.props.isMulti}
-                        isClearable={true}
-                        placeholder={'Select...'}
-                        noOptionsMessage={() => noOptionsMessage}
-                        closeMenuOnSelect={!this.props.isMulti}
-                        menuPortalTarget={document.body}
-                        menuPlacement='auto'
-                        hideSelectedOptions={this.props.isMulti}
-                        onChange={this.onChangeHandler}
-                        options={this.state.options}
-                        isLoading={this.state.isLoading}
-                        styles={getStyleForReactSelect(this.props.theme)}
-                        value={this.props.selection}
-                    />
-                    {this.state.error && (
-                        <p className='alert alert-danger'>
-                            <i
-                                className='fa fa-warning'
-                                title='Warning Icon'
-                            />
-                            <span> {this.state.error}</span>
-                        </p>
-                    )}
-                </>
-            </Setting>
-        );
-    }
+    return (
+        <Setting {...props}>
+            <>
+                <ReactSelect
+                    isMulti={props.isMulti}
+                    isClearable={true}
+                    placeholder={'Select...'}
+                    noOptionsMessage={() => noOptionsMessage}
+                    closeMenuOnSelect={!props.isMulti}
+                    menuPortalTarget={document.body}
+                    menuPlacement='auto'
+                    hideSelectedOptions={props.isMulti}
+                    onChange={onChangeHandler}
+                    options={options}
+                    isLoading={isLoading}
+                    styles={getStyleForReactSelect(props.theme)}
+                    value={props.selection}
+                />
+                {error && (
+                    <p className='alert alert-danger'>
+                        <i
+                            className='fa fa-warning'
+                            title='Warning Icon'
+                        />
+                        <span> {error}</span>
+                    </p>
+                )}
+            </>
+        </Setting>
+    );
 }
+
+export default IssueAttributeSelector;
