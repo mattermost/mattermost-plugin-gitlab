@@ -16,6 +16,16 @@ const (
 	scopeAll    = "all"
 )
 
+type Issue struct {
+	*internGitlab.Issue
+	LabelsWithDetails []*internGitlab.Label `json:"labels_with_details,omitempty"`
+}
+
+type MergeRequest struct {
+	*internGitlab.MergeRequest
+	LabelsWithDetails []*internGitlab.Label `json:"labels_with_details,omitempty"`
+}
+
 // NewGroupHook creates a webhook associated with a GitLab group
 func (g *gitlab) NewGroupHook(ctx context.Context, user *UserInfo, groupName string, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
 	client, err := g.gitlabConnect(*user.Token)
@@ -472,4 +482,76 @@ func (g *gitlab) ResolveNamespaceAndProject(
 		return project.Namespace.FullPath, project.Path, nil
 	}
 	return "", "", ErrNotFound
+}
+
+func (g *gitlab) GetIssueByID(ctx context.Context, user *UserInfo, owner, repo string, issueID int) (*Issue, error) {
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+	projectPath := fmt.Sprintf("%s/%s", owner, repo)
+	issue, resp, err := client.Issues.GetIssue(projectPath, issueID)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "can't get issue in GitLab api")
+	}
+
+	gitlabIssue := &Issue{
+		Issue: issue,
+	}
+	if issue.Labels != nil {
+		labelsWithDetails, err := g.GetLabelDetails(client, projectPath, issue.Labels)
+		if err != nil {
+			return nil, err
+		}
+		gitlabIssue.LabelsWithDetails = labelsWithDetails
+	}
+
+	return gitlabIssue, nil
+}
+
+func (g *gitlab) GetMergeRequestByID(ctx context.Context, user *UserInfo, owner, repo string, mergeRequestID int) (*MergeRequest, error) {
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+	projectPath := fmt.Sprintf("%s/%s", owner, repo)
+	mergeRequest, resp, err := client.MergeRequests.GetMergeRequest(projectPath, mergeRequestID, nil)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "can't get merge request in GitLab api")
+	}
+
+	gitlabMergeRequest := &MergeRequest{
+		MergeRequest: mergeRequest,
+	}
+	if mergeRequest.Labels != nil {
+		labelsWithDetails, err := g.GetLabelDetails(client, projectPath, mergeRequest.Labels)
+		if err != nil {
+			return nil, err
+		}
+		gitlabMergeRequest.LabelsWithDetails = labelsWithDetails
+	}
+
+	return gitlabMergeRequest, nil
+}
+
+func (g *gitlab) GetLabelDetails(client *internGitlab.Client, projectPath string, labels internGitlab.Labels) ([]*internGitlab.Label, error) {
+	var labelsWithDetails []*internGitlab.Label
+	for _, label := range labels {
+		labelWithDetails, resp, err := client.Labels.GetLabel(projectPath, label)
+		if respErr := checkResponse(resp); respErr != nil {
+			return nil, respErr
+		}
+		if err != nil {
+			return nil, errors.Wrap(err, "can't get label in GitLab api")
+		}
+		labelsWithDetails = append(labelsWithDetails, labelWithDetails)
+	}
+
+	return labelsWithDetails, nil
 }

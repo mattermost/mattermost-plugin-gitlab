@@ -15,6 +15,7 @@ import {
 import {id} from './manifest';
 import Client from './client';
 import {getPluginServerRoute} from './selectors';
+import LinkTooltip from './components/link_tooltip';
 
 let activityFunc;
 let lastActivityTime = Number.MAX_SAFE_INTEGER;
@@ -32,6 +33,7 @@ class PluginClass {
         registry.registerLeftSidebarHeaderComponent(SidebarHeader);
         registry.registerBottomTeamSidebarComponent(TeamSidebar);
         registry.registerPopoverUserAttributesComponent(UserAttribute);
+        registry.registerLinkTooltipComponent(LinkTooltip);
 
         registry.registerWebSocketEventHandler(
             `custom_${id}_gitlab_connect`,
