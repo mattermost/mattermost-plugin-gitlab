@@ -33,6 +33,7 @@ type configuration struct {
 	EncryptionKey               string `json:"encryptionkey"`
 	GitlabGroup                 string `json:"gitlabgroup"`
 	EnablePrivateRepo           bool   `json:"enableprivaterepo"`
+	EnableCodePreview           bool   `json:"enablecodepreview"`
 	UsePreregisteredApplication bool   `json:"usepreregisteredapplication"`
 }
 

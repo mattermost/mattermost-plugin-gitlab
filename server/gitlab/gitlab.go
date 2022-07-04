@@ -21,6 +21,7 @@ var (
 
 // Gitlab is a client to call GitLab api see New() to build one
 type Gitlab interface {
+	GitlabConnect(token oauth2.Token) (*internGitlab.Client, error)
 	GetCurrentUser(ctx context.Context, userID string, token oauth2.Token) (*UserInfo, error)
 	GetUserDetails(ctx context.Context, user *UserInfo) (*internGitlab.User, error)
 	GetProject(ctx context.Context, user *UserInfo, owner, repo string) (*internGitlab.Project, error)
@@ -73,7 +74,7 @@ func New(gitlabURL string, gitlabGroup string, checkGroup func(projectNameWithGr
 	return &gitlab{gitlabURL: gitlabURL, gitlabGroup: gitlabGroup, checkGroup: checkGroup}
 }
 
-func (g *gitlab) gitlabConnect(token oauth2.Token) (*internGitlab.Client, error) {
+func (g *gitlab) GitlabConnect(token oauth2.Token) (*internGitlab.Client, error) {
 	if g.gitlabURL == "" || strings.EqualFold(g.gitlabURL, Gitlabdotcom) {
 		return internGitlab.NewOAuthClient(token.AccessToken)
 	}
