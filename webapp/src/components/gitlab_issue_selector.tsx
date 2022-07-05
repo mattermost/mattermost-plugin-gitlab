@@ -25,31 +25,32 @@ interface PropTypes {
     removeValidate: (key: string) => void;
 };
 
-const GitlabIssueSelector = (props: PropTypes) => {
+const GitlabIssueSelector = ({name, required, theme, onChange, error, value, addValidate, removeValidate
+}: PropTypes) => {
     const [invalid, setInvalid] = useState(false);
-    const [error, setError] = useState('')
+    const [responseError, setResponseError] = useState('')
 
     const isValid = useCallback(() => {                
-        if (!props.required) {
+        if (!required) {
             return true;
         }
         
-        const valid = Boolean(props.value);
+        const valid = Boolean(value);
         setInvalid(!valid);
         return valid;
-    }, [props.value, props.required])
+    }, [value, required])
 
     useEffect(() => {
         return () => {            
-            if (props.removeValidate && props.name) {
-                props.removeValidate(props.name);
+            if (removeValidate && name) {
+                removeValidate(name);
             }
         }
     }, [])
 
     useEffect(() => {
-        if (props.addValidate && props.name) {            
-            props.addValidate(props.name, isValid);
+        if (addValidate && name) {            
+            addValidate(name, isValid);
         }
         if (invalid) {            
             isValid();
@@ -80,36 +81,36 @@ const GitlabIssueSelector = (props: PropTypes) => {
             });
         } catch (e) {
             const err = e as ErrorType;
-            setError(err.message);
+            setResponseError(err.message);
             return [];
         }
     }, []);
 
     const debouncedSearchIssues = debounce(searchIssues, searchDebounceDelay);
 
-    const onChange = useCallback((newValue: SingleValue<IssueSelection>) => {
+    const handleOnChange = useCallback((newValue: SingleValue<IssueSelection>) => {
         const value = newValue?.value ?? null;
-        props.onChange(value);
-    }, [props.onChange])
+        onChange(value);
+    }, [onChange])
 
-    const issueError = props.error ? (
+    const issueError = error ? (
         <p className='help-text error-text'>
-            <span>{props.error}</span>
+            <span>{error}</span>
         </p>
     ) : null;
 
-    const serverError = error ? (
+    const serverError = responseError ? (
         <p className='alert alert-danger'>
             <i
                 className='fa fa-warning'
                 title='Warning Icon'
             />
-            <span>{error}</span>
+            <span>{responseError}</span>
         </p>
     ) : null;
 
     const requiredMsg = 'This field is required.';
-    const validationError = props.required && invalid ? (
+    const validationError = required && invalid ? (
         <p className='help-text error-text'>
             <span>{requiredMsg}</span>
         </p>
@@ -117,23 +118,23 @@ const GitlabIssueSelector = (props: PropTypes) => {
 
     return (
         <Setting
-            inputId={props.name}
+            inputId={name}
             label='Gitlab Issue'
-            required={props.required}
+            required={required}
         >
             <>
                 {serverError}
                 <AsyncSelect
                     name={'issue'}
                     placeholder={'Search for issues containing text...'}
-                    onChange={onChange}
+                    onChange={handleOnChange}
                     isMulti={false}
                     defaultOptions={true}
                     isClearable={true}
                     loadOptions={handleIssueSearchTermChange}
                     menuPortalTarget={document.body}
                     menuPlacement='auto'
-                    styles={getStyleForReactSelect(props.theme)}
+                    styles={getStyleForReactSelect(theme)}
                 />
                 {validationError}
                 {issueError}

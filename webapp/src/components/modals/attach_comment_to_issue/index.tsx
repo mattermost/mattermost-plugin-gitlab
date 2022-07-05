@@ -21,7 +21,7 @@ interface PropTypes {
 }
 
 const AttachCommentToIssueModal = ({theme}: PropTypes) => {
-    const [validator, setValidator] = useState(new Validator())
+    const validator = useMemo(() => (new Validator()), []);
     const [submitting, setSubmitting] = useState(false);
     const [issueValue, setIssueValue] = useState<Issue | null>(null);
     const [error, setError] = useState<string>('')

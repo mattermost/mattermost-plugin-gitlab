@@ -25,63 +25,62 @@ type PropTypes = {
     limitOptions: boolean;
 };
 
-const ReactSelectSetting = (props: PropTypes) => {
+const ReactSelectSetting = ({name, onChange, label, theme, options, isLoading, value, addValidate, removeValidate, required, limitOptions}: PropTypes) => {
     const [invalid, setInvalid] = useState(false);
 
     useEffect(() => {
         return () => {
-            if (props.removeValidate && props.name) {
-                props.removeValidate(props.name);
+            if (removeValidate && name) {
+                removeValidate(name);
             }
         }
-    }, [])
+    }, []);
 
     useEffect(() => {
-        if (props.addValidate && props.name) {
-            props.addValidate(props.name, isValid);
+        if (addValidate && name) {
+            addValidate(name, isValid);
         }
         if (invalid) {
             isValid();
         }
-    }, [props.value])
+    }, [value]);
 
     const handleChange = useCallback((value: SingleValue<SelectionType>) => {             
         const newValue = value?.value ?? '';
-        props.onChange(props.name, newValue as string);
-    }, [props.onChange, props.name]);
+        onChange(name, newValue as string);
+    }, [onChange, name]);
 
     const filterOptions = useCallback((input: string) => {
-        let options = props.options;
         if (input) {
             options = options.filter((x) => x.label.toLowerCase().includes(input.toLowerCase()));
         }
 
         return Promise.resolve(options.slice(0, MAX_NUM_OPTIONS));
-    }, [props.options]);
+    }, [options]);
 
     const isValid = useCallback(() => {
-        if (!props.required) {
+        if (!required) {
             return true;
         }
 
-        const valid = Boolean(props.value);
+        const valid = Boolean(value);
 
         setInvalid(!valid);
         return valid;
-    }, [props.value, props.required]);
+    }, [value, required]);
 
     const requiredMsg = 'This field is required.';
     let validationError = null;
-    if (props.required && invalid) {
+    if (required && invalid) {
         validationError = (
             <p className='help-text error-text'>
                 <span>{requiredMsg}</span>
             </p>
         );
-    }
+    };
 
     let selectComponent = null;
-    if (props.limitOptions && props.options.length > MAX_NUM_OPTIONS) {
+    if (limitOptions && options.length > MAX_NUM_OPTIONS) {
         // The parent component help us know that we may have a large number of options, and that
         // the data-set is static. In this case, we use the AsyncSelect component and synchronous func
         // "filterOptions" to limit the number of options being rendered at a given time.
@@ -93,28 +92,29 @@ const ReactSelectSetting = (props: PropTypes) => {
                 menuPortalTarget={document.body}
                 menuPlacement='auto'
                 onChange={handleChange}
-                isLoading={props.isLoading}
-                styles={getStyleForReactSelect(props.theme)}
+                isLoading={isLoading}
+                styles={getStyleForReactSelect(theme)}
             />
         );
     } else {
         selectComponent = (
             <ReactSelect
-                options={props.options}
+                options={options}
                 menuPortalTarget={document.body}
                 menuPlacement='auto'
                 isClearable={true}
-                isLoading={props.isLoading}
+                isLoading={isLoading}
                 onChange={handleChange}
-                styles={getStyleForReactSelect(props.theme)}
+                styles={getStyleForReactSelect(theme)}
             />
         );
     }
 
     return (
         <Setting
-            inputId={props.name}
-            {...props}
+            inputId={name}
+            label={label}
+            required={required}
         >
             <>
                 {selectComponent}

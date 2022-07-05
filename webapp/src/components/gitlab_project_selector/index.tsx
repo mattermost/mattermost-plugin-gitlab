@@ -1,7 +1,7 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 import {Theme} from 'mattermost-redux/types/preferences';
 
@@ -19,14 +19,12 @@ type PropTypes = {
     removeValidate: (key: string) => void;
 };
 
-const GitlabProjectSelector = (props: PropTypes) => { 
+const GitlabProjectSelector = ({theme, required, onChange, value, addValidate, removeValidate}: PropTypes) => { 
     const [isLoading, setIsLoading] = useState(false);
 
-    const {yourProjects} = useSelector((state: GlobalState) => {
-        return {
-            yourProjects: state[`plugins-${pluginId}` as plugin].yourProjects,
-        };
-    });
+    const {yourProjects} = useSelector((state: GlobalState) => ({
+        yourProjects: state[`plugins-${pluginId}` as plugin].yourProjects,
+    }));
 
     const dispatch = useDispatch();
 
@@ -40,12 +38,12 @@ const GitlabProjectSelector = (props: PropTypes) => {
         setIsLoading(false);
     }, []);
 
-    const onChange = (_: string, name: string) => {
+    const handleOnChange = useCallback((_: string, name: string) => {
         const project = yourProjects.find((p: Project) => p.path_with_namespace === name);
-        props.onChange({name, project_id: project?.id});
-    }
+        onChange({name, project_id: project?.id});
+    }, [onChange, yourProjects])
 
-    const projectOptions = yourProjects.map((item: Project) => ({value: item.path_with_namespace, label: item.path_with_namespace}));
+    const projectOptions = useMemo(() => yourProjects.map((item: Project) => ({value: item.path_with_namespace, label: item.path_with_namespace})), [yourProjects]);
     
     return (
         <div className={'form-group margin-bottom x3'}>
@@ -53,15 +51,15 @@ const GitlabProjectSelector = (props: PropTypes) => {
                 name={'project'}
                 label={'Project'}
                 limitOptions={true}
-                required={true}
-                onChange={onChange}
+                required={required}
+                onChange={handleOnChange}
                 options={projectOptions}
                 key={'project'}
                 isLoading={isLoading}
-                theme={props.theme}
-                addValidate={props.addValidate}
-                removeValidate={props.removeValidate}
-                value={projectOptions.find((option: SelectionType) => option.value === props.value)}
+                theme={theme}
+                addValidate={addValidate}
+                removeValidate={removeValidate}
+                value={projectOptions.find((option: SelectionType) => option.value === value)}
             />
             <div className={'help-text'}>
                 {'Returns GitLab projects connected to the user account'}

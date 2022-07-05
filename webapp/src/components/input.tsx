@@ -18,50 +18,48 @@ type PropTypes = {
     type: string;
 };
 
-const Input = (props: PropTypes) => {   
+const Input = ({id, label, placeholder, value, maxLength, onChange, disabled, required, readOnly, type}: PropTypes) => {   
     const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>) => {
-        props.onChange?.(e.target.value);
-    }, [props.onChange]);
-
-    const value = props.value ?? null;
+        onChange?.(e.target.value);
+    }, [onChange]);
 
     let input = null;
-    if (props.type !== 'textarea') {
+    if (type !== 'textarea') {
         input = (
             <input
-                id={props.id}
+                id={id}
                 className='form-control'
-                type={props.type === 'input' ? 'text' : 'number'}
-                placeholder={props.placeholder}
-                value={value}
-                maxLength={props.maxLength}
+                type={type === 'input' ? 'text' : 'number'}
+                placeholder={placeholder}
+                value={value ?? null}
+                maxLength={maxLength}
                 onChange={handleChange}
-                disabled={props.disabled}
-                readOnly={props.readOnly}
+                disabled={disabled}
+                readOnly={readOnly}
             />
         );
     } else {
         input = (
             <textarea
                 style={{resize: 'none'}}
-                id={props.id}
+                id={id}
                 className='form-control'
                 rows= {5}
-                placeholder={props.placeholder}
-                value={value}
-                maxLength={props.maxLength}
+                placeholder={placeholder}
+                value={value ?? null}
+                maxLength={maxLength}
                 onChange={handleChange}
-                disabled={props.disabled}
-                readOnly={props.readOnly}
+                disabled={disabled}
+                readOnly={readOnly}
             />
         );
     }
 
     return (
         <Setting
-            label={props.label}
-            inputId={props.id}
-            required={props.required}
+            label={label}
+            inputId={id}
+            required={required}
         >
             {input}
         </Setting>

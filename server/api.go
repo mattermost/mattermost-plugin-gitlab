@@ -27,7 +27,7 @@ const (
 
 	requestTimeout = 5 * time.Second
 
-	queryParamSearch = "search"
+	queryParamSearch    = "search"
 	queryParamProjectID = "projectID"
 )
 
