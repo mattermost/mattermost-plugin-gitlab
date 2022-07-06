@@ -129,7 +129,7 @@ const CreateIssueModal = ({theme}: PropTypes) => {
 
     const handleIssueDescriptionChange = useCallback((issueDescription: string) => setIssueDescription(issueDescription), []);
 
-    const renderIssueAttributeSelectors = useMemo(() => {        
+    const issueAttributeSelectors = useMemo(() => {        
         if (!project) {
             return null;
         }
@@ -215,7 +215,7 @@ const CreateIssueModal = ({theme}: PropTypes) => {
                 onChange={handleIssueTitleChange}
             />
             {issueTitleValidationError}
-            {renderIssueAttributeSelectors}
+            {issueAttributeSelectors}
             <Input
                 id={'description'}
                 required={false}
