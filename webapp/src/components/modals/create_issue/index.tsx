@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 import {Modal} from 'react-bootstrap';
 import {Theme} from 'mattermost-redux/types/preferences';
@@ -23,8 +23,8 @@ type PropTypes = {
     theme: Theme;
 };
 
-const CreateIssueModal = (props: PropTypes) => {
-    const [validator, setValidator] = useState(new Validator());
+const CreateIssueModal = ({theme}: PropTypes) => {
+    const validator = useMemo(() => (new Validator()), []);
     const [submitting, setSubmitting] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [project, setProject] = useState<ProjectSelection | null>(null);
@@ -49,26 +49,23 @@ const CreateIssueModal = (props: PropTypes) => {
     });
 
     const dispatch = useDispatch();
-
     const prevPost = usePrevious(post);
     const prevChannelId = usePrevious(channelId);
     const prevTitle = usePrevious(title);
 
-    useEffect(() => {        
+    useEffect(() => {
         if (post && !prevPost) {
             setIssueDescription(post.message);
         } else if (channelId && (channelId !== prevChannelId || title !== prevTitle)) {
             setIssueTitle(title.substring(0, MAX_TITLE_LENGTH));
         }
-    }, [props, prevPost, prevChannelId, prevTitle, channelId, title, post]);
+    }, [channelId, title, post]);
 
     // handle issue creation after form is populated
     const handleCreate = useCallback(async (e: React.FormEvent<HTMLFormElement> | Event) => {
         e.preventDefault();
 
-        if (!validator.validate() || !issueTitle) {
-            console.log(issueTitle);
-            
+        if (!validator.validate() || !issueTitle) {            
             setIssueTitleValid(Boolean(issueTitle));
             setShowErrors(true);
             return;
@@ -99,7 +96,7 @@ const CreateIssueModal = (props: PropTypes) => {
         }
 
         handleClose();
-    }, [props, issueTitle, issueTitleValid, issueDescription, validator, labels, milestone, assignees, project, channelId]);
+    }, [issueTitle, issueTitleValid, issueDescription, validator, labels, milestone, assignees, project, channelId]);
 
     const handleClose = useCallback(() => {
         setError('');
@@ -132,7 +129,7 @@ const CreateIssueModal = (props: PropTypes) => {
 
     const handleIssueDescriptionChange = useCallback((issueDescription: string) => setIssueDescription(issueDescription), []);
 
-    const renderIssueAttributeSelectors = useCallback(() => {        
+    const issueAttributeSelectors = useMemo(() => {        
         if (!project) {
             return null;
         }
@@ -140,7 +137,7 @@ const CreateIssueModal = (props: PropTypes) => {
         const dropdownProps = {
             projectID: project.project_id,
             projectName: project.name,
-            theme: props.theme,
+            theme: theme,
         }
 
         const labelProps = {
@@ -182,7 +179,6 @@ const CreateIssueModal = (props: PropTypes) => {
         return null;
     }
 
-    const theme = props.theme;
     const style = getStyle(theme);
 
     const requiredMsg = 'This field is required.';
@@ -219,7 +215,7 @@ const CreateIssueModal = (props: PropTypes) => {
                 onChange={handleIssueTitleChange}
             />
             {issueTitleValidationError}
-            {renderIssueAttributeSelectors()}
+            {issueAttributeSelectors}
             <Input
                 id={'description'}
                 required={false}

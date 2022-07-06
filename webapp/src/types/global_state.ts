@@ -10,5 +10,7 @@ export type GlobalState = ReduxGlobalState & {
         isCreateIssueModalVisible: boolean;
         yourProjects: Project[];
         connected: boolean;
+        postIdForAttachCommentToIssueModal: string;
+        attachCommentToIssueModalVisible: boolean;
     }
 }

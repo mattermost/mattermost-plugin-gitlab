@@ -5,9 +5,11 @@ import SidebarHeader from './components/sidebar_header';
 import TeamSidebar from './components/team_sidebar';
 import UserAttribute from './components/user_attribute';
 import CreateIssuePostMenuAction from './components/create_issue_menu';
+import AttachCommentToIssuePostMenuAction from './components/attach_comment_to_issue_menu';
 import CreateIssueModal from './components/modals/create_issue';
 import Reducer from './reducers';
 import {getConnected} from './actions';
+import AttachCommentToIssueModal from './components/modals/attach_comment_to_issue';
 import {
     handleConnect,
     handleDisconnect,
@@ -37,6 +39,8 @@ class PluginClass {
         registry.registerPopoverUserAttributesComponent(UserAttribute);
         registry.registerRootComponent(CreateIssueModal);
         registry.registerPostDropdownMenuComponent(CreateIssuePostMenuAction);
+        registry.registerRootComponent(AttachCommentToIssueModal);
+        registry.registerPostDropdownMenuComponent(AttachCommentToIssuePostMenuAction);
 
         registry.registerWebSocketEventHandler(
             `custom_${id}_gitlab_connect`,

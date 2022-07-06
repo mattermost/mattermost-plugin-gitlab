@@ -4,12 +4,12 @@
 import React from 'react';
 
 interface PropTypes {
-    type: String;
-}
+    type: string;
+};
 
 const GitLabIcon = ({type}: PropTypes) => {
     const iconStyle = type === 'menu' ? {flex: '0 0 auto', width: '20px', height: '20px', borderRadius: '50px', padding: '2px'} : {};
-
+    
     return (
         <span className='MenuItem__icon'>
             <svg

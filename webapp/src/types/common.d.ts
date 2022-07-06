@@ -11,7 +11,7 @@ type ErrorType = {
 
 type plugin = 'plugins-com.github.manland.mattermost-plugin-gitlab'
 
-type GetOptions = (projectID?: number) => (dispatch: any) => Promise<{
+type GetOptions = (projectID?: number) => (dispatch: Dispatch<GenericAction>) => Promise<{
     error?: ErrorType;
     data?: Assignee[] | Milestone[] | Label[];
 }>

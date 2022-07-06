@@ -18,6 +18,7 @@ const (
 
 type IssueRequest struct {
 	ID          int                 `json:"id"`
+	IID         int                 `json:"iid"`
 	Title       string              `json:"title"`
 	Description string              `json:"description"`
 	Milestone   int                 `json:"milestone"`
@@ -26,6 +27,8 @@ type IssueRequest struct {
 	Labels      internGitlab.Labels `json:"labels"`
 	PostID      string              `json:"post_id"`
 	ChannelID   string              `json:"channel_id"`
+	Comment     string              `json:"comment"`
+	WebURL      string              `json:"web_url"`
 }
 
 // NewGroupHook creates a webhook associated with a GitLab group
@@ -501,6 +504,54 @@ func (g *gitlab) CreateIssue(ctx context.Context, user *UserInfo, issue *IssueRe
 	if err != nil {
 		return nil, errors.Wrap(err, "can't create issue in GitLab")
 	}
+
+	return result, nil
+}
+
+func (g *gitlab) AttachCommentToIssue(ctx context.Context, user *UserInfo, issue *IssueRequest, permalink, commentUsername string) (*internGitlab.Note, error) {
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+
+	issueComment := fmt.Sprintf("*@%s attached a* [message](%s) *from @%s*\n\n%s", user.GitlabUsername, permalink, commentUsername, issue.Comment)
+
+	result, resp, err := client.Notes.CreateIssueNote(
+		issue.ProjectID,
+		issue.IID,
+		&internGitlab.CreateIssueNoteOptions{
+			Body: &issueComment,
+		},
+		internGitlab.WithContext(ctx),
+	)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "can't create issue comment in GitLab api")
+	}
+
+	return result, nil
+}
+
+func (g *gitlab) SearchIssues(ctx context.Context, user *UserInfo, search string) ([]*internGitlab.Issue, error) {
+	client, err := g.gitlabConnect(*user.Token)
+	if err != nil {
+		return nil, err
+	}
+
+	result, resp, err := client.Search.Issues(
+		search,
+		&internGitlab.SearchOptions{},
+		internGitlab.WithContext(ctx),
+	)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "can't search issues in GitLab api")
+	}
+
 	return result, nil
 }
 

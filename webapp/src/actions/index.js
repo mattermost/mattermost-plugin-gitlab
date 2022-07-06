@@ -255,6 +255,38 @@ export function createIssue(payload) {
     };
 }
 
+export function openAttachCommentToIssueModal(postId) {
+    return {
+        type: ActionTypes.OPEN_ATTACH_COMMENT_TO_ISSUE_MODAL,
+        data: {
+            postId,
+        },
+    };
+}
+
+export function closeAttachCommentToIssueModal() {
+    return {
+        type: ActionTypes.CLOSE_ATTACH_COMMENT_TO_ISSUE_MODAL,
+    };
+}
+
+export function attachCommentToIssue(payload) {
+    return async (dispatch) => {
+        let data;
+        try {
+            data = await Client.attachCommentToIssue(payload);
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await dispatch(checkAndHandleNotConnected(data));
+        if (!connected) {
+            return {error: data};
+        }
+        return {data};
+    };
+}
+
 export function getProjects() {
     return async (dispatch, getState) => {
         let data;
