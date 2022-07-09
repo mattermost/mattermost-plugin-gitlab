@@ -139,12 +139,12 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[manland](http://my.gitlab.com/manland) unapproved your merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			Message:    "[manland](http://my.gitlab.com/manland) requested changes to your merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
 			ToUsers:    []string{"root"},
 			ToChannels: []string{},
 			From:       "manland",
 		}, {
-			Message:    "[manland/webhook] Merge request [!4 Master](http://localhost:3000/manland/webhook/merge_requests/4) was unapproved by [manland](http://my.gitlab.com/manland)",
+			Message:    "[manland/webhook] Merge request [!4 Master](http://localhost:3000/manland/webhook/merge_requests/4) changes were requested by [manland](http://my.gitlab.com/manland)",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "manland",
