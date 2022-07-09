@@ -15,7 +15,7 @@ var allFeatures = map[string]bool{
 	"pipeline":               true,
 	"tag":                    true,
 	"pull_reviews":           true,
-	// "label:":               true,//particular case for label:XXX
+	// "label:":              true,//particular case for label:XXX
 }
 
 type Subscription struct {
