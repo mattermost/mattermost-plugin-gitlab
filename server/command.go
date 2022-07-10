@@ -520,13 +520,15 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		ctx, info, fullPath, config.EnablePrivateRepo)
 
 	if err != nil {
-		if errors.Is(err, gitlab.ErrNotFound) {
+		switch {
+		case errors.Is(err, gitlab.ErrNotFound):
 			return "Resource with such path is not found."
-		} else if errors.Is(err, gitlab.ErrPrivateResource) {
+		case errors.Is(err, gitlab.ErrPrivateResource):
 			return "Requested resource is private."
-		} else if strings.Contains(err.Error(), invalidTokenError) {
+		case strings.Contains(err.Error(), invalidTokenError):
 			p.handleRevokedToken(info)
 		}
+
 		p.API.LogError(
 			"unable to resolve subscription namespace and project name",
 			"err", err.Error(),

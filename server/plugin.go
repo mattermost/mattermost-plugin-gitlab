@@ -41,7 +41,7 @@ const (
 	SettingOff           = "off"
 
 	chimeraGitLabAppIdentifier = "plugin-gitlab"
-	invalidTokenError          = "401 {error: invalid_token}"
+	invalidTokenError          = "401 {error: invalid_token}" //#nosec G101 -- False positive
 )
 
 var (
