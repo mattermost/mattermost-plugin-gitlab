@@ -219,6 +219,9 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 	case "me":
 		gitUser, err := p.GitlabClient.GetUserDetails(ctx, info)
 		if err != nil {
+			if strings.Contains(err.Error(), invalidTokenError) {
+				p.handleRevokedToken(info)
+			}
 			return p.getCommandResponse(args, "Encountered an error getting your GitLab profile."), nil
 		}
 
@@ -330,6 +333,9 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		namespace := parameters[1]
 		group, project, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, namespace, enablePrivateRepo)
 		if err != nil {
+			if strings.Contains(err.Error(), invalidTokenError) {
+				p.handleRevokedToken(info)
+			}
 			return err.Error()
 		}
 
@@ -392,6 +398,9 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		namespace := parameters[1]
 		group, project, namespaceErr := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, namespace, enablePrivateRepo)
 		if namespaceErr != nil {
+			if strings.Contains(namespaceErr.Error(), invalidTokenError) {
+				p.handleRevokedToken(info)
+			}
 			return namespaceErr.Error()
 		}
 
@@ -515,6 +524,8 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 			return "Resource with such path is not found."
 		} else if errors.Is(err, gitlab.ErrPrivateResource) {
 			return "Requested resource is private."
+		} else if strings.Contains(err.Error(), invalidTokenError) {
+			p.handleRevokedToken(info)
 		}
 		p.API.LogError(
 			"unable to resolve subscription namespace and project name",

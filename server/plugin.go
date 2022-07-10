@@ -41,6 +41,7 @@ const (
 	SettingOff           = "off"
 
 	chimeraGitLabAppIdentifier = "plugin-gitlab"
+	invalidTokenError          = "401 {error: invalid_token}"
 )
 
 var (
@@ -518,6 +519,9 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 	})
 
 	if err := g.Wait(); err != nil {
+		if strings.Contains(err.Error(), invalidTokenError) {
+			p.handleRevokedToken(user)
+		}
 		return false, "", err
 	}
 
@@ -558,6 +562,9 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 func (p *Plugin) HasProjectHook(ctx context.Context, user *gitlab.UserInfo, namespace string, project string) (bool, error) {
 	hooks, err := p.GitlabClient.GetProjectHooks(ctx, user, namespace, project)
 	if err != nil {
+		if strings.Contains(err.Error(), invalidTokenError) {
+			p.handleRevokedToken(user)
+		}
 		return false, errors.New("unable to connect to GitLab")
 	}
 
@@ -584,6 +591,9 @@ func (p *Plugin) HasProjectHook(ctx context.Context, user *gitlab.UserInfo, name
 func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namespace string) (bool, error) {
 	hooks, err := p.GitlabClient.GetGroupHooks(ctx, user, namespace)
 	if err != nil {
+		if strings.Contains(err.Error(), invalidTokenError) {
+			p.handleRevokedToken(user)
+		}
 		return false, errors.New("unable to connect to GitLab")
 	}
 
@@ -617,4 +627,13 @@ func (p *Plugin) checkAndRefreshToken(token *oauth2.Token) (*oauth2.Token, error
 	}
 
 	return nil, nil
+}
+
+func (p *Plugin) handleRevokedToken(info *gitlab.UserInfo) {
+	p.disconnectGitlabAccount(info.UserID)
+	err := p.CreateBotDMPost(info.UserID, "Your GitLab account was disconnected due to an invalid or revoked authorization token. Reconnect your account using the `/gitlab connect` command.", "custom_git_revoked_token")
+
+	if err != nil {
+		p.API.LogError("Error sending revoked token DM post", "err", err.Error())
+	}
 }
