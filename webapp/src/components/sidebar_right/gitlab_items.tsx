@@ -13,7 +13,7 @@ import {GitlabItemsProps, Label} from "src/types/gitlab_items"
 
 export const notificationReasons: Record<string, string> = {
     assigned: 'You were assigned to the issue/merge request',
-    review_requested: 'You were requested to review a merge request.',
+    review_requested: 'You were asked to review a merge request.',
     mentioned: 'You were specifically @mentioned in the content.',
     build_failed: 'Gitlab build was failed.',
     marked: 'Task is marked as done.',
