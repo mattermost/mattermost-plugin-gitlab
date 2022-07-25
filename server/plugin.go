@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
@@ -306,6 +307,20 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 	}
 
 	userInfo.Token.AccessToken = unencryptedToken
+	newToken, err := p.checkAndRefreshToken(userInfo.Token)
+	if err != nil {
+		return nil, &APIErrorResponse{ID: "", Message: err.Error(), StatusCode: http.StatusInternalServerError}
+	}
+
+	if newToken != nil {
+		p.API.LogDebug("Gitlab token refreshed.", "UserID", userInfo.UserID, "Gitlab Username", userInfo.GitlabUsername)
+		userInfo.Token = newToken
+		unencryptedToken = newToken.AccessToken // needed because the storeGitlabUserInfo method changes its value to an encrypted value
+		if err := p.storeGitlabUserInfo(&userInfo); err != nil {
+			return nil, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Unable to store user info. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError}
+		}
+		userInfo.Token.AccessToken = unencryptedToken
+	}
 
 	return &userInfo, nil
 }
@@ -618,4 +633,24 @@ func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namesp
 	}
 
 	return found, err
+}
+
+func (p *Plugin) checkAndRefreshToken(token *oauth2.Token) (*oauth2.Token, error) {
+	// If there is only one minute left for the token to expire, we are refreshing the token.
+	// The detailed reason for this can be found here: https://github.com/golang/oauth2/issues/84#issuecomment-831492464
+	// We don't want the token to expire between the time when we decide that the old token is valid
+	// and the time at which we create the request. We are handling that by not letting the token expire.
+	if time.Until(token.Expiry) <= 1*time.Minute {
+		conf := p.getOAuthConfig()
+		src := conf.TokenSource(context.Background(), token)
+		newToken, err := src.Token() // this actually goes and renews the tokens
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to get the new refreshed token")
+		}
+		if newToken.AccessToken != token.AccessToken {
+			return newToken, nil
+		}
+	}
+
+	return nil, nil
 }
