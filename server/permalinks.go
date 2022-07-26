@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/xanzy/go-gitlab"
@@ -28,27 +29,29 @@ const permalinkLineContext = 3
 // replacement holds necessary info to replace GitLab permalinks
 // in messages with a code preview block.
 type replacement struct {
-	index         int      // index of the permalink in the string
-	word          string   // the permalink
-	permalinkInfo struct { // holds the necessary metadata of a permalink
-		haswww string
-		commit string
-		user   string
-		repo   string
-		path   string
-		line   string
-	}
+	index         int    // Index of the permalink in the string
+	word          string // The permalink
+	permalinkData permalinkInfo
 }
 
-// getReplacements returns the permalink replacements that need to be performed
+type permalinkInfo struct { // Holds the necessary metadata of a permalink
+	haswww string
+	commit string
+	user   string
+	repo   string
+	path   string
+	line   string
+}
+
+// getPermalinkReplacements returns the permalink replacements that need to be performed
 // on a message. The returned slice is sorted by the index in ascending order.
-func (p *Plugin) getReplacements(msg string) []replacement {
-	// find the permalinks from the msg using a regex
-	matches := p.gitlabPermalinkRegex.FindAllStringSubmatch(msg, -1)
-	indices := p.gitlabPermalinkRegex.FindAllStringIndex(msg, -1)
+func (p *Plugin) getPermalinkReplacements(msg string) []replacement {
+	// Find the permalinks from the msg using a regex
+	matches := gitlabPermalinkRegex.FindAllStringSubmatch(msg, -1)
+	indices := gitlabPermalinkRegex.FindAllStringIndex(msg, -1)
 	var replacements []replacement
 	for i, m := range matches {
-		// have a limit on the number of replacements to do
+		// Have a limit on the number of replacements to do
 		if i > maxPermalinkReplacements {
 			break
 		}
@@ -58,28 +61,28 @@ func (p *Plugin) getReplacements(msg string) []replacement {
 			index: index,
 			word:  word,
 		}
-		// ignore if the word is inside a link
+		// Ignore if the word is inside a link
 		if isInsideLink(msg, index) {
 			continue
 		}
-		// populate the permalinkInfo with the extracted groups of the regex
-		for j, name := range p.gitlabPermalinkRegex.SubexpNames() {
+		// Populate the permalinkInfo with the extracted groups of the regex
+		for j, name := range gitlabPermalinkRegex.SubexpNames() {
 			if j == 0 {
 				continue
 			}
 			switch name {
 			case "haswww":
-				r.permalinkInfo.haswww = m[j]
+				r.permalinkData.haswww = m[j]
 			case "user":
-				r.permalinkInfo.user = m[j]
+				r.permalinkData.user = m[j]
 			case "repo":
-				r.permalinkInfo.repo = m[j]
+				r.permalinkData.repo = m[j]
 			case "commit":
-				r.permalinkInfo.commit = m[j]
+				r.permalinkData.commit = m[j]
 			case "path":
-				r.permalinkInfo.path = m[j]
+				r.permalinkData.path = m[j]
 			case "line":
-				r.permalinkInfo.line = m[j]
+				r.permalinkData.line = m[j]
 			}
 		}
 		replacements = append(replacements, r)
@@ -87,65 +90,80 @@ func (p *Plugin) getReplacements(msg string) []replacement {
 	return replacements
 }
 
+func (p *Plugin) processReplacement(r replacement, glClient *gitlab.Client, wg *sync.WaitGroup, markdownForPermalink []string, index int) {
+	defer wg.Done()
+	// Quick bailout if the commit hash is not proper.
+	if _, err := hex.DecodeString(r.permalinkData.commit); err != nil {
+		p.API.LogDebug("Bad git commit hash in permalink", "error", err.Error(), "hash", r.permalinkData.commit)
+		return
+	}
+
+	// Get the file contents
+	opts := gitlab.GetFileOptions{
+		Ref: &r.permalinkData.commit,
+	}
+	projectPath := fmt.Sprintf("%s/%s", r.permalinkData.user, r.permalinkData.repo)
+	_, cancel := context.WithTimeout(context.Background(), permalinkReqTimeout)
+	file, _, err := glClient.RepositoryFiles.GetFile(projectPath, r.permalinkData.path, &opts)
+	defer cancel()
+	if err != nil {
+		p.API.LogDebug("Error while fetching file contents", "error", err.Error(), "path", r.permalinkData.path)
+		return
+	}
+	// If this is not a file, ignore.
+	if file == nil {
+		p.API.LogWarn("Permalink is not a file", "file", r.permalinkData.path)
+		return
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(file.Content)
+	if err != nil {
+		p.API.LogDebug("Error while decoding file contents", "error", err.Error(), "path", r.permalinkData.path)
+		return
+	}
+	// Get the required lines.
+	start, end := getLineNumbers(r.permalinkData.line)
+	// Bad anchor tag, ignore.
+	if start == -1 || end == -1 {
+		return
+	}
+
+	isTruncated := false
+	if end-start > maxPreviewLines {
+		end = start + maxPreviewLines
+		isTruncated = true
+	}
+
+	lines, err := filterLines(string(decoded), start, end)
+	if err != nil {
+		p.API.LogDebug("Error while filtering lines", "error", err.Error(), "path", r.permalinkData.path)
+	}
+
+	if lines == "" {
+		p.API.LogDebug("Line numbers out of range. Skipping.", "file", r.permalinkData.path, "start", start, "end", end)
+		return
+	}
+
+	markdownForPermalink[index] = getCodeMarkdown(r.permalinkData.user, r.permalinkData.repo, r.permalinkData.path, r.word, lines, isTruncated)
+}
+
 // makeReplacements performs the given replacements on the msg and returns
 // the new msg. The replacements slice needs to be sorted by the index in ascending order.
 func (p *Plugin) makeReplacements(msg string, replacements []replacement, glClient *gitlab.Client) string {
-	// iterating the slice in reverse to preserve the replacement indices.
+	// Iterating the slice in reverse to preserve the replacement indices.
+	wg := new(sync.WaitGroup)
+	markdownForPermalink := make([]string, len(replacements))
+	for i := len(replacements) - 1; i >= 0; i-- {
+		wg.Add(1)
+		go p.processReplacement(replacements[i], glClient, wg, markdownForPermalink, i)
+	}
+	wg.Wait()
 	for i := len(replacements) - 1; i >= 0; i-- {
 		r := replacements[i]
-		// quick bailout if the commit hash is not proper.
-		if _, err := hex.DecodeString(r.permalinkInfo.commit); err != nil {
-			p.API.LogError("bad git commit hash in permalink", "error", err.Error(), "hash", r.permalinkInfo.commit)
-			continue
+		if markdownForPermalink[i] != "" {
+			// Replace word in msg starting from r.index only once.
+			msg = msg[:r.index] + strings.Replace(msg[r.index:], r.word, markdownForPermalink[i], 1)
 		}
-
-		// get the file contents
-		opts := gitlab.GetFileOptions{
-			Ref: &r.permalinkInfo.commit,
-		}
-		projectPath := fmt.Sprintf("%s/%s", r.permalinkInfo.user, r.permalinkInfo.repo)
-		// TODO: make all of these requests concurrently.
-		_, cancel := context.WithTimeout(context.Background(), permalinkReqTimeout)
-		file, _, err := glClient.RepositoryFiles.GetFile(projectPath, r.permalinkInfo.path, &opts)
-		defer cancel()
-		if err != nil {
-			p.API.LogError("error while fetching file contents", "error", err.Error(), "path", r.permalinkInfo.path)
-			continue
-		}
-		// if this is not a file, ignore.
-		if file == nil {
-			p.API.LogWarn("permalink is not a file", "file", r.permalinkInfo.path)
-			continue
-		}
-		decoded, err := base64.StdEncoding.DecodeString(file.Content)
-		if err != nil {
-			p.API.LogError("error while decoding file contents", "error", err.Error(), "path", r.permalinkInfo.path)
-			continue
-		}
-
-		// get the required lines.
-		start, end := getLineNumbers(r.permalinkInfo.line)
-		// bad anchor tag, ignore.
-		if start == -1 || end == -1 {
-			continue
-		}
-		isTruncated := false
-		if end-start > maxPreviewLines {
-			end = start + maxPreviewLines
-			isTruncated = true
-		}
-		lines, err := filterLines(string(decoded), start, end)
-		if err != nil {
-			p.API.LogError("error while filtering lines", "error", err.Error(), "path", r.permalinkInfo.path)
-		}
-		if lines == "" {
-			p.API.LogError("line numbers out of range. Skipping.", "file", r.permalinkInfo.path, "start", start, "end", end)
-			continue
-		}
-		final := getCodeMarkdown(r.permalinkInfo.user, r.permalinkInfo.repo, r.permalinkInfo.path, r.word, lines, isTruncated)
-
-		// replace word in msg starting from r.index only once.
-		msg = msg[:r.index] + strings.Replace(msg[r.index:], r.word, final, 1)
 	}
 	return msg
 }

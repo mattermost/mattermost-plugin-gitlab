@@ -44,9 +44,7 @@ const (
 	chimeraGitLabAppIdentifier = "plugin-gitlab"
 )
 
-var (
-	manifest model.Manifest = root.Manifest
-)
+var manifest model.Manifest = root.Manifest
 
 type Plugin struct {
 	plugin.MattermostPlugin
@@ -74,15 +72,14 @@ type Plugin struct {
 
 	WebhookHandler webhook.Webhook
 	GitlabClient   gitlab.Gitlab
-	// gitlabPermalinkRegex is used to parse gitlab permalinks in post messages.
-	gitlabPermalinkRegex *regexp.Regexp
 }
+
+// gitlabPermalinkRegex is used to parse gitlab permalinks in post messages.
+var gitlabPermalinkRegex = regexp.MustCompile(`https?://(?P<haswww>www\.)?gitlab\.com/(?P<user>[\w/.?-]+)/(?P<repo>[\w-]+)/-/blob/(?P<commit>\w+)/(?P<path>[\w-/.]+)#(?P<line>[\w-]+)?`)
 
 // NewPlugin returns an instance of a Plugin.
 func NewPlugin() *Plugin {
-	return &Plugin{
-		gitlabPermalinkRegex: regexp.MustCompile(`https?://(?P<haswww>www\.)?gitlab\.com/(?P<user>[\w/.?-]+)/(?P<repo>[\w-]+)/-/blob/(?P<commit>\w+)/(?P<path>[\w-/.]+)#(?P<line>[\w-]+)?`),
-	}
+	return &Plugin{}
 }
 
 func (p *Plugin) OnActivate() error {
@@ -168,17 +165,24 @@ func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*mode
 	}
 
 	msg := post.Message
+	replacements := p.getPermalinkReplacements(msg)
+	if len(replacements) == 0 {
+		return nil, ""
+	}
 	info, err := p.getGitlabUserInfoByMattermostID(post.UserId)
 	if err != nil {
-		p.API.LogError("error in getting user info", "error", err.Message)
+		if err.ID == APIErrorIDNotConnected {
+			p.API.LogDebug("Error while processing permalinks in the post", "Error", err.Error())
+		} else {
+			p.API.LogDebug("Error in getting user info", "Error", err.Error())
+		}
 		return nil, ""
 	}
 	glClient, cErr := p.GitlabClient.GitlabConnect(*info.Token)
 	if cErr != nil {
-		p.API.LogError("error in getting GitLab client", "error", cErr.Error())
+		p.API.LogDebug("Error in getting GitLab client", "Error", cErr.Error())
 		return nil, ""
 	}
-	replacements := p.getReplacements(msg)
 	post.Message = p.makeReplacements(msg, replacements, glClient)
 	return post, ""
 }
