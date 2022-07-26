@@ -121,6 +121,7 @@ export function getYourPrDetails(prList) {
         } catch (error) {
             return {error};
         }
+
         const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
         if (!connected) {
             return {error: data};
@@ -224,7 +225,7 @@ export function setShowRHSAction(showRHSPluginAction) {
     };
 }
 
-export function updateRhsState(rhsState) {
+export function updateRHSState(rhsState) {
     return {
         type: ActionTypes.UPDATE_RHS_STATE,
         state: rhsState,

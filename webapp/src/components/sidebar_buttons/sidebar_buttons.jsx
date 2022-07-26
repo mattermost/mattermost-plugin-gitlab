@@ -25,7 +25,7 @@ export default class SidebarButtons extends React.PureComponent {
             getUnreads: PropTypes.func.isRequired,
             getYourPrs: PropTypes.func.isRequired,
             getYourAssignments: PropTypes.func.isRequired,
-            updateRhsState: PropTypes.func.isRequired,
+            updateRHSState: PropTypes.func.isRequired,
         }).isRequired,
     };
 
@@ -74,7 +74,7 @@ export default class SidebarButtons extends React.PureComponent {
     };
 
     openRHS = (rhsState) => {
-        this.props.actions.updateRhsState(rhsState);
+        this.props.actions.updateRHSState(rhsState);
         this.props.showRHSPlugin();
     };
 

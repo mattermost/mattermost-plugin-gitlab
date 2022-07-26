@@ -1,6 +1,7 @@
 import {Theme} from 'mattermost-redux/types/preferences';
 import * as CSS from 'csstype';
-import { notificationReasons } from 'src/components/sidebar_right/gitlab_items';
+
+import {notificationReasons} from 'src/components/sidebar_right/gitlab_items';
 
 export interface Label {
     id: number;
@@ -56,9 +57,15 @@ export interface Item {
     target: Target;
     approvers: number;
     total_reviewers: number;
+    reviewers: User[];
 }
 
 export interface GitlabItemsProps {
     item: Item;
     theme: Theme;
+}
+
+export interface LocalizedString {
+    id: string;
+    message: string;
 }

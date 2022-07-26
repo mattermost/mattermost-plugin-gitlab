@@ -6,7 +6,7 @@ import {
     getUnreads,
     getYourPrs,
     getYourAssignments,
-    updateRhsState,
+    updateRHSState,
 } from '../../actions';
 
 import {id} from '../../manifest';
@@ -39,7 +39,7 @@ function mapDispatchToProps(dispatch) {
                 getUnreads,
                 getYourPrs,
                 getYourAssignments,
-                updateRhsState,
+                updateRHSState,
             },
             dispatch,
         ),

@@ -20,11 +20,11 @@ const (
 )
 
 type PRDetails struct {
-	IID       int                           `json:"iid"`
-	Status    *internGitlab.BuildStateValue `json:"status"`
-	SHA       string                        `json:"sha"`
-	Approvers int                           `json:"approvers"`
-	ProjectID int                           `json:"project_id"`
+	IID          int                           `json:"iid"`
+	Status       *internGitlab.BuildStateValue `json:"status"`
+	SHA          string                        `json:"sha"`
+	NumApprovers int                           `json:"approvers"`
+	ProjectID    int                           `json:"project_id"`
 }
 
 type MergeRequest struct {
@@ -444,10 +444,10 @@ func (g *gitlab) fetchYourPrDetails(c context.Context, log logger.Logger, client
 	wg.Wait()
 	if commitDetails != nil && approvalDetails != nil {
 		return &PRDetails{
-			ProjectID: pid,
-			SHA:       sha,
-			Status:    commitDetails.Status,
-			Approvers: len(approvalDetails.ApprovedBy),
+			ProjectID:    pid,
+			SHA:          sha,
+			Status:       commitDetails.Status,
+			NumApprovers: len(approvalDetails.ApprovedBy),
 		}
 	}
 	return nil
