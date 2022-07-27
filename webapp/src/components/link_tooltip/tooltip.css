@@ -73,6 +73,7 @@
     line-height: 1.25;
     overflow: hidden;
     font-size: 12px;
+    word-break: break-word;
 }
 
 .gitlab-tooltip .tooltip-info .markdown-text::-webkit-scrollbar {
