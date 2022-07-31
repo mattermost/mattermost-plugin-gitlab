@@ -217,11 +217,13 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		}
 		return p.getCommandResponse(args, text), nil
 	case "me":
+		if err := p.checkAndRefreshToken(info); err != nil {
+			p.API.LogError("Unable to refresh GitLab access token", "err", err.Error())
+			return p.getCommandResponse(args, "Encountered an error refreshing your GitLab access token."), nil
+		}
 		gitUser, err := p.GitlabClient.GetUserDetails(ctx, info)
 		if err != nil {
-			if strings.Contains(err.Error(), invalidTokenError) {
-				p.handleRevokedToken(info)
-			}
+			p.handleGitlabError(info, err)
 			return p.getCommandResponse(args, "Encountered an error getting your GitLab profile."), nil
 		}
 
@@ -324,6 +326,10 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 	}
 	subCommand := parameters[0]
 
+	if err := p.checkAndRefreshToken(info); err != nil {
+		return err.Error()
+	}
+
 	switch subCommand {
 	case commandList:
 		if len(parameters) != 2 {
@@ -333,9 +339,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		namespace := parameters[1]
 		group, project, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, namespace, enablePrivateRepo)
 		if err != nil {
-			if strings.Contains(err.Error(), invalidTokenError) {
-				p.handleRevokedToken(info)
-			}
+			p.handleGitlabError(info, err)
 			return err.Error()
 		}
 
@@ -398,9 +402,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		namespace := parameters[1]
 		group, project, namespaceErr := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, namespace, enablePrivateRepo)
 		if namespaceErr != nil {
-			if strings.Contains(namespaceErr.Error(), invalidTokenError) {
-				p.handleRevokedToken(info)
-			}
+			p.handleGitlabError(info, namespaceErr)
 			return namespaceErr.Error()
 		}
 
@@ -513,22 +515,21 @@ func (p *Plugin) subscriptionsListCommand(channelID string) string {
 	return txt
 }
 
-// subscriptionsAddCommand subscripes to A GitLab Project
+// subscriptionsAddCommand subscribes to A GitLab Project
 func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserInfo, config *configuration, fullPath, channelID, features string) string {
-	var err error
+	if err := p.checkAndRefreshToken(info); err != nil {
+		return err.Error()
+	}
 	namespace, project, err := p.GitlabClient.ResolveNamespaceAndProject(
 		ctx, info, fullPath, config.EnablePrivateRepo)
 
 	if err != nil {
-		switch {
-		case errors.Is(err, gitlab.ErrNotFound):
+		if errors.Is(err, gitlab.ErrNotFound) {
 			return "Resource with such path is not found."
-		case errors.Is(err, gitlab.ErrPrivateResource):
+		} else if errors.Is(err, gitlab.ErrPrivateResource) {
 			return "Requested resource is private."
-		case strings.Contains(err.Error(), invalidTokenError):
-			p.handleRevokedToken(info)
 		}
-
+		p.handleGitlabError(info, err)
 		p.API.LogError(
 			"unable to resolve subscription namespace and project name",
 			"err", err.Error(),

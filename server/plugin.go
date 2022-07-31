@@ -272,20 +272,6 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 	}
 
 	userInfo.Token.AccessToken = unencryptedToken
-	newToken, err := p.checkAndRefreshToken(userInfo.Token)
-	if err != nil {
-		return nil, &APIErrorResponse{ID: "", Message: err.Error(), StatusCode: http.StatusInternalServerError}
-	}
-
-	if newToken != nil {
-		p.API.LogDebug("Gitlab token refreshed.", "UserID", userInfo.UserID, "Gitlab Username", userInfo.GitlabUsername)
-		userInfo.Token = newToken
-		unencryptedToken = newToken.AccessToken // needed because the storeGitlabUserInfo method changes its value to an encrypted value
-		if err := p.storeGitlabUserInfo(&userInfo); err != nil {
-			return nil, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Unable to store user info. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError}
-		}
-		userInfo.Token.AccessToken = unencryptedToken
-	}
 
 	return &userInfo, nil
 }
@@ -419,8 +405,11 @@ func (p *Plugin) PostToDo(ctx context.Context, info *gitlab.UserInfo) {
 
 func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, string, error) {
 	hasTodo := false
-
 	g, ctx := errgroup.WithContext(ctx)
+
+	if err := p.checkAndRefreshToken(user); err != nil {
+		return false, "", err
+	}
 
 	notificationText := ""
 	g.Go(func() error {
@@ -519,9 +508,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 	})
 
 	if err := g.Wait(); err != nil {
-		if strings.Contains(err.Error(), invalidTokenError) {
-			p.handleRevokedToken(user)
-		}
+		p.handleGitlabError(user, err)
 		return false, "", err
 	}
 
@@ -560,11 +547,12 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 // HasProjectHook checks if the subscribed GitLab Project or its parrent Group has a webhook
 // with a URL that matches the Mattermost Site URL.
 func (p *Plugin) HasProjectHook(ctx context.Context, user *gitlab.UserInfo, namespace string, project string) (bool, error) {
+	if err := p.checkAndRefreshToken(user); err != nil {
+		return false, errors.Wrap(err, "Unable to refresh GitLab access token")
+	}
 	hooks, err := p.GitlabClient.GetProjectHooks(ctx, user, namespace, project)
 	if err != nil {
-		if strings.Contains(err.Error(), invalidTokenError) {
-			p.handleRevokedToken(user)
-		}
+		p.handleGitlabError(user, err)
 		return false, errors.New("unable to connect to GitLab")
 	}
 
@@ -589,11 +577,12 @@ func (p *Plugin) HasProjectHook(ctx context.Context, user *gitlab.UserInfo, name
 // HasGroupHook checks if the subscribed GitLab Group has a webhook
 // with a URL that matches the Mattermost Site URL.
 func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namespace string) (bool, error) {
+	if err := p.checkAndRefreshToken(user); err != nil {
+		return false, errors.Wrap(err, "Unable to refresh GitLab access token")
+	}
 	hooks, err := p.GitlabClient.GetGroupHooks(ctx, user, namespace)
 	if err != nil {
-		if strings.Contains(err.Error(), invalidTokenError) {
-			p.handleRevokedToken(user)
-		}
+		p.handleGitlabError(user, err)
 		return false, errors.New("unable to connect to GitLab")
 	}
 
@@ -609,24 +598,38 @@ func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namesp
 	return found, err
 }
 
-func (p *Plugin) checkAndRefreshToken(token *oauth2.Token) (*oauth2.Token, error) {
+func (p *Plugin) checkAndRefreshToken(userInfo *gitlab.UserInfo) error {
 	// If there is only one minute left for the token to expire, we are refreshing the token.
 	// The detailed reason for this can be found here: https://github.com/golang/oauth2/issues/84#issuecomment-831492464
 	// We don't want the token to expire between the time when we decide that the old token is valid
 	// and the time at which we create the request. We are handling that by not letting the token expire.
-	if time.Until(token.Expiry) <= 1*time.Minute {
+
+	if time.Until(userInfo.Token.Expiry) <= 1*time.Minute {
 		conf := p.getOAuthConfig()
-		src := conf.TokenSource(context.Background(), token)
+		src := conf.TokenSource(context.Background(), userInfo.Token)
+
 		newToken, err := src.Token() // this actually goes and renews the tokens
+
 		if err != nil {
-			return nil, errors.Wrap(err, "unable to get the new refreshed token")
+			if strings.Contains(err.Error(), "\"error\":\"invalid_grant\"") {
+				p.handleRevokedToken(userInfo)
+			}
+			return errors.Wrap(err, "unable to get the new refreshed token")
 		}
-		if newToken.AccessToken != token.AccessToken {
-			return newToken, nil
+
+		if newToken.AccessToken != userInfo.Token.AccessToken {
+			p.API.LogDebug("Gitlab token refreshed.", "UserID", userInfo.UserID, "Gitlab Username", userInfo.GitlabUsername)
+			userInfo.Token = newToken
+			unencryptedNewToken := newToken.AccessToken // needed because the storeGitlabUserInfo method changes its value to an encrypted value
+
+			if err := p.storeGitlabUserInfo(userInfo); err != nil {
+				return errors.Wrap(err, "unable to store user info with refreshed token")
+			}
+			userInfo.Token.AccessToken = unencryptedNewToken
 		}
 	}
 
-	return nil, nil
+	return nil
 }
 
 func (p *Plugin) handleRevokedToken(info *gitlab.UserInfo) {
@@ -635,5 +638,11 @@ func (p *Plugin) handleRevokedToken(info *gitlab.UserInfo) {
 
 	if err != nil {
 		p.API.LogError("Error sending revoked token DM post", "err", err.Error())
+	}
+}
+
+func (p *Plugin) handleGitlabError(info *gitlab.UserInfo, err error) {
+	if err != nil && strings.Contains(err.Error(), invalidTokenError) {
+		p.handleRevokedToken(info)
 	}
 }
