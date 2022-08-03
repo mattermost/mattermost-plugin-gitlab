@@ -26,8 +26,9 @@ const LINK_TYPES = {
 export const LinkTooltip = ({href, connected}) => {
     const [data, setData] = useState(null);
     useEffect(() => {
+        const url = new URL(href);
         const init = async () => {
-            if (href.includes('gitlab.com/') && validateGitlabURL(href)) {
+            if (url.hostname === 'gitlab.com' && validateGitlabURL(href)) {
                 const [owner, repo, , type, number] = href.split('gitlab.com/')[1].split('/');
                 let res;
                 switch (type) {
