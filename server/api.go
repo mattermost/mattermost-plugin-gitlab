@@ -517,6 +517,7 @@ func (p *Plugin) getUnreads(c *UserContext, w http.ResponseWriter, r *http.Reque
 	if err := p.checkAndRefreshToken(c.GitlabInfo); err != nil {
 		c.Log.WithError(err).Warnf("Unable to list unreads in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list unreads in GitLab API.", StatusCode: http.StatusInternalServerError})
+		return
 	}
 	result, err := p.GitlabClient.GetUnreads(c.Ctx, c.GitlabInfo)
 	if err != nil {
@@ -531,8 +532,9 @@ func (p *Plugin) getUnreads(c *UserContext, w http.ResponseWriter, r *http.Reque
 
 func (p *Plugin) getReviews(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	if err := p.checkAndRefreshToken(c.GitlabInfo); err != nil {
-		c.Log.WithError(err).Warnf("Unable to list unreads in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list unreads in GitLab API.", StatusCode: http.StatusInternalServerError})
+		c.Log.WithError(err).Warnf("Unable to list merge-request where assignee in GitLab API")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
+		return
 	}
 	result, err := p.GitlabClient.GetReviews(c.Ctx, c.GitlabInfo)
 	if err != nil {
@@ -547,8 +549,9 @@ func (p *Plugin) getReviews(c *UserContext, w http.ResponseWriter, r *http.Reque
 
 func (p *Plugin) getYourPrs(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	if err := p.checkAndRefreshToken(c.GitlabInfo); err != nil {
-		c.Log.WithError(err).Warnf("Unable to list unreads in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list unreads in GitLab API.", StatusCode: http.StatusInternalServerError})
+		c.Log.WithError(err).Warnf("Can't list merge-request where author in GitLab API")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
+		return
 	}
 	result, err := p.GitlabClient.GetYourPrs(c.Ctx, c.GitlabInfo)
 	if err != nil {
@@ -563,8 +566,9 @@ func (p *Plugin) getYourPrs(c *UserContext, w http.ResponseWriter, r *http.Reque
 
 func (p *Plugin) getYourAssignments(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	if err := p.checkAndRefreshToken(c.GitlabInfo); err != nil {
-		c.Log.WithError(err).Warnf("Unable to list unreads in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list unreads in GitLab API.", StatusCode: http.StatusInternalServerError})
+		c.Log.WithError(err).Warnf("Unable to list issue where assignee in GitLab API")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list issue in GitLab API.", StatusCode: http.StatusInternalServerError})
+		return
 	}
 	result, err := p.GitlabClient.GetYourAssignments(c.Ctx, c.GitlabInfo)
 	if err != nil {
