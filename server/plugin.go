@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
@@ -43,9 +44,7 @@ const (
 	chimeraGitLabAppIdentifier = "plugin-gitlab"
 )
 
-var (
-	manifest model.Manifest = root.Manifest
-)
+var manifest model.Manifest = root.Manifest
 
 type Plugin struct {
 	plugin.MattermostPlugin
@@ -73,15 +72,14 @@ type Plugin struct {
 
 	WebhookHandler webhook.Webhook
 	GitlabClient   gitlab.Gitlab
-	// gitlabPermalinkRegex is used to parse gitlab permalinks in post messages.
-	gitlabPermalinkRegex *regexp.Regexp
 }
+
+// gitlabPermalinkRegex is used to parse gitlab permalinks in post messages.
+var gitlabPermalinkRegex = regexp.MustCompile(`https?://(?P<haswww>www\.)?gitlab\.com/(?P<user>[\w/.?-]+)/(?P<repo>[\w-]+)/-/blob/(?P<commit>\w+)/(?P<path>[\w-/.]+)#(?P<line>[\w-]+)?`)
 
 // NewPlugin returns an instance of a Plugin.
 func NewPlugin() *Plugin {
-	return &Plugin{
-		gitlabPermalinkRegex: regexp.MustCompile(`https?://(?P<haswww>www\.)?gitlab\.com/(?P<user>[\w/.?-]+)/(?P<repo>[\w-]+)/-/blob/(?P<commit>\w+)/(?P<path>[\w-/.]+)#(?P<line>[\w-]+)?`),
-	}
+	return &Plugin{}
 }
 
 func (p *Plugin) OnActivate() error {
@@ -167,17 +165,24 @@ func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*mode
 	}
 
 	msg := post.Message
+	replacements := p.getPermalinkReplacements(msg)
+	if len(replacements) == 0 {
+		return nil, ""
+	}
 	info, err := p.getGitlabUserInfoByMattermostID(post.UserId)
 	if err != nil {
-		p.API.LogError("error in getting user info", "error", err.Message)
+		if err.ID == APIErrorIDNotConnected {
+			p.API.LogDebug("Error while processing permalinks in the post", "Error", err.Error())
+		} else {
+			p.API.LogDebug("Error in getting user info", "Error", err.Error())
+		}
 		return nil, ""
 	}
 	glClient, cErr := p.GitlabClient.GitlabConnect(*info.Token)
 	if cErr != nil {
-		p.API.LogError("error in getting GitLab client", "error", cErr.Error())
+		p.API.LogDebug("Error in getting GitLab client", "Error", cErr.Error())
 		return nil, ""
 	}
-	replacements := p.getReplacements(msg)
 	post.Message = p.makeReplacements(msg, replacements, glClient)
 	return post, ""
 }
@@ -306,6 +311,20 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 	}
 
 	userInfo.Token.AccessToken = unencryptedToken
+	newToken, err := p.checkAndRefreshToken(userInfo.Token)
+	if err != nil {
+		return nil, &APIErrorResponse{ID: "", Message: err.Error(), StatusCode: http.StatusInternalServerError}
+	}
+
+	if newToken != nil {
+		p.API.LogDebug("Gitlab token refreshed.", "UserID", userInfo.UserID, "Gitlab Username", userInfo.GitlabUsername)
+		userInfo.Token = newToken
+		unencryptedToken = newToken.AccessToken // needed because the storeGitlabUserInfo method changes its value to an encrypted value
+		if err := p.storeGitlabUserInfo(&userInfo); err != nil {
+			return nil, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Unable to store user info. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError}
+		}
+		userInfo.Token.AccessToken = unencryptedToken
+	}
 
 	return &userInfo, nil
 }
@@ -618,4 +637,24 @@ func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namesp
 	}
 
 	return found, err
+}
+
+func (p *Plugin) checkAndRefreshToken(token *oauth2.Token) (*oauth2.Token, error) {
+	// If there is only one minute left for the token to expire, we are refreshing the token.
+	// The detailed reason for this can be found here: https://github.com/golang/oauth2/issues/84#issuecomment-831492464
+	// We don't want the token to expire between the time when we decide that the old token is valid
+	// and the time at which we create the request. We are handling that by not letting the token expire.
+	if time.Until(token.Expiry) <= 1*time.Minute {
+		conf := p.getOAuthConfig()
+		src := conf.TokenSource(context.Background(), token)
+		newToken, err := src.Token() // this actually goes and renews the tokens
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to get the new refreshed token")
+		}
+		if newToken.AccessToken != token.AccessToken {
+			return newToken, nil
+		}
+	}
+
+	return nil, nil
 }

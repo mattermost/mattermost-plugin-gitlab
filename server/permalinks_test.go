@@ -31,7 +31,7 @@ func TestGetReplacements(t *testing.T) {
 				{
 					index: 6,
 					word:  "https://gitlab.com/mattermost/mattermost-server/-/blob/cbb25838a61872b624ac512556d7bc932486a64c/app/authentication.go#L15-L22",
-					permalinkInfo: struct {
+					permalinkData: struct {
 						haswww string
 						commit string
 						user   string
@@ -56,7 +56,7 @@ func TestGetReplacements(t *testing.T) {
 				{
 					index: 6,
 					word:  "https://gitlab.com/mattermost/mattermost-server/-/blob/cbb25838a61872b624ac512556d7bc932486a64c/app/authentication.go#L15-L22",
-					permalinkInfo: struct {
+					permalinkData: struct {
 						haswww string
 						commit string
 						user   string
@@ -74,7 +74,7 @@ func TestGetReplacements(t *testing.T) {
 				}, {
 					index: 144,
 					word:  "https://gitlab.com/mattermost/mattermost-server/-/blob/cbb25838a61872b624ac512556d7bc932486a64c/app/authentication.go#L15-L22",
-					permalinkInfo: struct {
+					permalinkData: struct {
 						haswww string
 						commit string
 						user   string
@@ -104,7 +104,7 @@ func TestGetReplacements(t *testing.T) {
 				{
 					index: 170,
 					word:  "https://gitlab.com/mattermost/mattermost-server/-/blob/cbb25838a61872b624ac512556d7bc932486a64c/app/authentication.go#L15-L22",
-					permalinkInfo: struct {
+					permalinkData: struct {
 						haswww string
 						commit string
 						user   string
@@ -129,7 +129,7 @@ func TestGetReplacements(t *testing.T) {
 				{
 					index: 20,
 					word:  "https://gitlab.com/mattermost/mattermost-server/-/blob/cbb25838a61872b624ac512556d7bc932486a64c/app/authentication.go#L15-L22",
-					permalinkInfo: struct {
+					permalinkData: struct {
 						haswww string
 						commit string
 						user   string
@@ -159,7 +159,7 @@ func TestGetReplacements(t *testing.T) {
 				{
 					index: 11,
 					word:  "https://gitlab.com/golang/go/-/blob/27fc32ff01cc699e160890546816bd99d6c57823/src/debug/macho/macho.go#L13-L16",
-					permalinkInfo: struct {
+					permalinkData: struct {
 						haswww string
 						commit string
 						user   string
@@ -177,7 +177,7 @@ func TestGetReplacements(t *testing.T) {
 				}, {
 					index: 128,
 					word:  "https://gitlab.com/mattermost/mattermost-server/-/blob/cbb25838a61872b624ac512556d7bc932486a64c/app/authentication.go#L15-L22",
-					permalinkInfo: struct {
+					permalinkData: struct {
 						haswww string
 						commit string
 						user   string
@@ -202,7 +202,7 @@ func TestGetReplacements(t *testing.T) {
 				{
 					index: 29,
 					word:  "https://gitlab.com/mattermost/mattermost-server/-/blob/4225977966cf0855c8a5e55f8a0fef702b19dc18/api4/bot.go#L16",
-					permalinkInfo: struct {
+					permalinkData: struct {
 						haswww string
 						commit string
 						user   string
@@ -224,17 +224,17 @@ func TestGetReplacements(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			replacements := p.getReplacements(tc.input)
+			replacements := p.getPermalinkReplacements(tc.input)
 			require.Equalf(t, tc.numReplacements, len(replacements), "unexpected number of replacements for %s", tc.input)
 			for i, r := range replacements {
 				assert.Equalf(t, tc.replacements[i].index, r.index, "unexpected replacement index")
 				assert.Equalf(t, tc.replacements[i].word, r.word, "unexpected replacement word")
-				assert.Equalf(t, tc.replacements[i].permalinkInfo.commit, r.permalinkInfo.commit, "unexpected gitlab commit")
-				assert.Equalf(t, tc.replacements[i].permalinkInfo.haswww, r.permalinkInfo.haswww, "unexpected gitlab www domain")
-				assert.Equalf(t, tc.replacements[i].permalinkInfo.line, r.permalinkInfo.line, "unexpected line number")
-				assert.Equalf(t, tc.replacements[i].permalinkInfo.path, r.permalinkInfo.path, "unexpected file path")
-				assert.Equalf(t, tc.replacements[i].permalinkInfo.user, r.permalinkInfo.user, "unexpected gitlab user")
-				assert.Equalf(t, tc.replacements[i].permalinkInfo.repo, r.permalinkInfo.repo, "unexpected gitlab repo")
+				assert.Equalf(t, tc.replacements[i].permalinkData.commit, r.permalinkData.commit, "unexpected gitlab commit")
+				assert.Equalf(t, tc.replacements[i].permalinkData.haswww, r.permalinkData.haswww, "unexpected gitlab www domain")
+				assert.Equalf(t, tc.replacements[i].permalinkData.line, r.permalinkData.line, "unexpected line number")
+				assert.Equalf(t, tc.replacements[i].permalinkData.path, r.permalinkData.path, "unexpected file path")
+				assert.Equalf(t, tc.replacements[i].permalinkData.user, r.permalinkData.user, "unexpected gitlab user")
+				assert.Equalf(t, tc.replacements[i].permalinkData.repo, r.permalinkData.repo, "unexpected gitlab repo")
 			}
 		})
 	}
@@ -243,7 +243,7 @@ func TestGetReplacements(t *testing.T) {
 func TestMakeReplacements(t *testing.T) {
 	p := NewPlugin()
 	mockPluginAPI := &plugintest.API{}
-	mockPluginAPI.On("LogError", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	mockPluginAPI.On("LogDebug", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	mockPluginAPI.On("LogWarn", mock.Anything, mock.Anything)
 	p.SetAPI(mockPluginAPI)
 
@@ -261,7 +261,7 @@ func TestMakeReplacements(t *testing.T) {
 				{
 					index: 6,
 					word:  "https://gitlab.com/mattermost/mattermost-server/-/blob/cbb25838a61872b624ac512556d7bc932486a64c/app/authentication.go#L15-L22",
-					permalinkInfo: struct {
+					permalinkData: struct {
 						haswww string
 						commit string
 						user   string
@@ -287,7 +287,7 @@ func TestMakeReplacements(t *testing.T) {
 				{
 					index: 6,
 					word:  "https://gitlab.com/mattermost/mattermost-server/-/blob/cbb25838a61872b624ac512556d7bc932486a64c/app/authentication.go#L15-L22",
-					permalinkInfo: struct {
+					permalinkData: struct {
 						haswww string
 						commit string
 						user   string
@@ -305,7 +305,7 @@ func TestMakeReplacements(t *testing.T) {
 				}, {
 					index: 142,
 					word:  "https://gitlab.com/mattermost/mattermost-server/-/blob/cbb25838a61872b624ac512556d7bc932486a64c/app/authentication.go#L15-L22",
-					permalinkInfo: struct {
+					permalinkData: struct {
 						haswww string
 						commit string
 						user   string
@@ -331,7 +331,7 @@ func TestMakeReplacements(t *testing.T) {
 				{
 					index: 6,
 					word:  "https://gitlab.com/mattermost/mattermost-server/-/blob/badhash/app/authentication.go#L15-L22",
-					permalinkInfo: struct {
+					permalinkData: struct {
 						haswww string
 						commit string
 						user   string
@@ -357,7 +357,7 @@ func TestMakeReplacements(t *testing.T) {
 				{
 					index: 6,
 					word:  "https://gitlab.com/mattermost/mattermost-server/-/blob/cbb25838a61872b624ac512556d7bc932486a64c/app/authentication.go#L22-L15",
-					permalinkInfo: struct {
+					permalinkData: struct {
 						haswww string
 						commit string
 						user   string
@@ -386,17 +386,18 @@ func TestMakeReplacements(t *testing.T) {
 		})
 	}
 
-	mockPluginAPI.AssertCalled(t, "LogError", "bad git commit hash in permalink", "error", "encoding/hex: invalid byte: U+0068 'h'", "hash", "badhash")
+	mockPluginAPI.AssertCalled(t, "LogDebug", "Bad git commit hash in permalink", "error", "encoding/hex: invalid byte: U+0068 'h'", "hash", "badhash")
 }
 
 const (
-	baseURLPath = "/api/v4"
+	baseURLPath    = "/api/v4"
+	requestURLPath = "/api/v4/projects/mattermost/mattermost-server/repository/files/app/authentication.go"
 )
 
 func getClient() (*gitlab.Client, func()) {
 	apiHandler := http.NewServeMux()
 	apiHandler.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		if req.URL.Path == "/api/v4/projects/mattermost/mattermost-server/repository/files/app/authentication.go" {
+		if req.URL.Path == requestURLPath {
 			fmt.Fprintln(w, `{
 				"file_name": "authentication.go",
 				"file_path": "app/authentication.go",
