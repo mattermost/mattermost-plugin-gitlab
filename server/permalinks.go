@@ -90,7 +90,7 @@ func (p *Plugin) getPermalinkReplacements(msg string) []replacement {
 	return replacements
 }
 
-// Concurrently modifying unique slice elements is not racy
+// processReplacement processes a single replacement and stores the resulting markdown at the given index of the given array. Multiple goroutines are executing this function but all the goroutines concurrently modify unique indices of the given array, and concurrently modifying unique slice elements is not racy.
 func (p *Plugin) processReplacement(r replacement, glClient *gitlab.Client, wg *sync.WaitGroup, markdownForPermalink []string, index int) {
 	defer wg.Done()
 	// Quick bailout if the commit hash is not proper.
