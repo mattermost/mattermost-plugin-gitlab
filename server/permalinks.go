@@ -90,6 +90,7 @@ func (p *Plugin) getPermalinkReplacements(msg string) []replacement {
 	return replacements
 }
 
+// Concurrently modifying unique slice elements is not racy
 func (p *Plugin) processReplacement(r replacement, glClient *gitlab.Client, wg *sync.WaitGroup, markdownForPermalink []string, index int) {
 	defer wg.Done()
 	// Quick bailout if the commit hash is not proper.
