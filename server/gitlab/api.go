@@ -23,7 +23,7 @@ type PRDetails struct {
 	IID          int                           `json:"iid"`
 	Status       *internGitlab.BuildStateValue `json:"status"`
 	SHA          string                        `json:"sha"`
-	NumApprovers int                           `json:"approvers"`
+	NumApprovers int                           `json:"num_approvers"`
 	ProjectID    int                           `json:"project_id"`
 }
 
@@ -296,7 +296,7 @@ func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo) ([]*MergeReques
 		)
 	}
 
-	var mergeRequests []*MergeRequest
+	mergeRequests := []*MergeRequest{}
 	for _, res := range result {
 		if res.Labels != nil {
 			var labelsWithDetails []*internGitlab.Label
@@ -351,7 +351,7 @@ func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo) ([]*MergeReques
 		return nil, err
 	}
 
-	var mergeRequests []*MergeRequest
+	mergeRequests := []*MergeRequest{}
 	for _, res := range result {
 		if res.Labels != nil {
 			var labelsWithDetails []*internGitlab.Label
@@ -370,16 +370,26 @@ func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo) ([]*MergeReques
 }
 
 func (g *gitlab) GetLabelDetails(client *internGitlab.Client, pid int, labels internGitlab.Labels) ([]*internGitlab.Label, error) {
-	var labelsWithDetails []*internGitlab.Label
+	// Get list of all labels.
+	labelList, resp, err := client.Labels.ListLabels(pid, nil)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "can't get list of labels in GitLab")
+	}
+
+	allLabels := map[string]*internGitlab.Label{}
+	for _, label := range labelList {
+		allLabels[label.Name] = label
+	}
+
+	labelsWithDetails := []*internGitlab.Label{}
 	for _, label := range labels {
-		labelWithDetails, resp, err := client.Labels.GetLabel(pid, label)
-		if respErr := checkResponse(resp); respErr != nil {
-			return nil, respErr
-		}
-		if err != nil {
+		if allLabels[label] == nil {
 			return nil, errors.Wrap(err, "can't get label in GitLab api")
 		}
-		labelsWithDetails = append(labelsWithDetails, labelWithDetails)
+		labelsWithDetails = append(labelsWithDetails, allLabels[label])
 	}
 
 	return labelsWithDetails, nil
@@ -391,7 +401,7 @@ func (g *gitlab) GetYourPrDetails(ctx context.Context, log logger.Logger, user *
 		return nil, err
 	}
 
-	var result []*PRDetails
+	result := []*PRDetails{}
 	var wg sync.WaitGroup
 	for _, pr := range prList {
 		wg.Add(1)
@@ -488,7 +498,7 @@ func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo) ([]*Iss
 		return nil, err
 	}
 
-	var issues []*Issue
+	issues := []*Issue{}
 	for _, res := range result {
 		if res.Labels != nil {
 			var labelsWithDetails []*internGitlab.Label

@@ -1,5 +1,4 @@
 import React from 'react';
-import {FormattedMessage} from 'react-intl';
 import {GitPullRequestIcon, IssueOpenedIcon, IconProps} from '@primer/octicons-react';
 import {makeStyleFromTheme, changeOpacity} from 'mattermost-redux/utils/theme_utils';
 import {Badge, Tooltip, OverlayTrigger} from 'react-bootstrap';
@@ -10,49 +9,19 @@ import DotIcon from 'src/images/icons/dot';
 import TickIcon from 'src/images/icons/tick';
 import SignIcon from 'src/images/icons/sign';
 import {formatTimeSince} from 'src/utils/date_utils';
-import {GitlabItemsProps, Label, LocalizedString} from 'src/types/gitlab_items';
+import {GitlabItemsProps, Label} from 'src/types/gitlab_items';
 
-export const notificationReasons: Record<string, LocalizedString> = {
-    assigned: {
-        id: 'com.github.manland.mattermost-plugin-gitlab.action.assigned',
-        message: 'You were assigned to the issue/merge request',
-    },
-    review_requested: {
-        id: 'com.github.manland.mattermost-plugin-gitlab.action.review_requested',
-        message: 'You were asked to review a merge request.',
-    },
-    mentioned: {
-        id: 'com.github.manland.mattermost-plugin-gitlab.action.mentioned',
-        message: 'You were specifically @mentioned in the content.',
-    },
-    build_failed: {
-        id: 'com.github.manland.mattermost-plugin-gitlab.action.build_failed',
-        message: 'Gitlab build was failed.',
-    },
-    marked: {
-        id: 'com.github.manland.mattermost-plugin-gitlab.action.marked',
-        message: 'Task is marked as done.',
-    },
-    approval_required: {
-        id: 'com.github.manland.mattermost-plugin-gitlab.action.approval_required',
-        message: 'Your approval is required on this issue/merge request.',
-    },
-    unmergeable: {
-        id: 'com.github.manland.mattermost-plugin-gitlab.action.unmergeable',
-        message: 'This merge request can not be merged.',
-    },
-    directly_addressed: {
-        id: 'com.github.manland.mattermost-plugin-gitlab.action.directly_addressed',
-        message: 'You were directly addressed.',
-    },
-    merge_train_removed: {
-        id: 'com.github.manland.mattermost-plugin-gitlab.action.merge_train_removed',
-        message: 'A merge train was removed.',
-    },
-    attention_required: {
-        id: 'com.github.manland.mattermost-plugin-gitlab.action.attention_required',
-        message: 'Your attention is required on the issue/merge request.',
-    },
+export const notificationReasons: Record<string, string> = {
+    assigned: 'You were assigned to the issue/merge request',
+    review_requested: 'You were requested to review a merge request.',
+    mentioned: 'You were specifically @mentioned in the content.',
+    build_failed: 'GitLab build was failed.',
+    marked: 'Task is marked as done.',
+    approval_required: 'Your approval is required on this issue/merge request.',
+    unmergeable: 'This merge request can not be merged.',
+    directly_addressed: 'You were directly addressed.',
+    merge_train_removed: 'A merge train was removed.',
+    attention_required: 'Your attention is required on the issue/merge request.',
 };
 
 const SUCCESS = 'success';
@@ -61,8 +30,8 @@ const PENDING = 'pending';
 function GitlabItems({item, theme}: GitlabItemsProps) {
     const style = getStyle(theme);
 
-    const repoName = item.references?.full ?? item.project?.path_with_namespace ?? '';
-    const userName = item.author?.username ?? '';
+    const repoName = item.references?.full || item.project?.path_with_namespace || '';
+    const userName = item.author?.username || '';
 
     let number: React.ReactNode | undefined;
     if (item.iid) {
@@ -81,13 +50,13 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
         );
     }
 
-    const titleText = item.title ?? item.target?.title ?? '';
+    const titleText = item.title || item.target?.title || '';
 
-    let title: JSX.Element | undefined = <>{titleText}</>;
+    let title: React.ReactNode = titleText;
     if (item.web_url || item.target_url) {
         title = (
             <a
-                href={item.web_url ?? item.target_url}
+                href={item.web_url || item.target_url}
                 target='_blank'
                 rel='noopener noreferrer'
                 style={style.itemTitle}
@@ -187,7 +156,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
         reviews = (
             <div style={style.subtitle}>
                 <span className='light'>
-                    {`${item.approvers} out of ${item.total_reviewers} ${(item.total_reviewers > 1 ? 'reviews' : 'review')} complete.`}
+                    {`${item.num_approvers} out of ${item.total_reviewers} ${(item.total_reviewers > 1 ? 'reviews' : 'review')} complete.`}
                 </span>
             </div>
         );
@@ -207,14 +176,14 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
             </div>
             <div>
                 {number}
-                <span className='light'>{`(${repoName})`}</span>
+                <span className='light'>{repoName}</span>
             </div>
             {labels}
             <div
                 className='light'
                 style={style.subtitle}
             >
-                {item.created_at && `Opened ${formatTimeSince(item.created_at)} ago ${userName && ` by ${userName}.`}`}
+                {item.created_at && `Opened ${formatTimeSince(item.created_at)} ago ${userName && `by ${userName}`}.`}
                 {milestone}
             </div>
             <div
@@ -223,15 +192,12 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
             >
                 {item.action_name && (
                     <>
-                        <div>{item.updated_at && `${formatTimeSince(item.updated_at)} ago`}</div>
-                        <FormattedMessage
-                            id={notificationReasons[item.action_name].id}
-                            defaultMessage={notificationReasons[item.action_name].message}
-                        />
+                        <div>{item.updated_at && `Updated ${formatTimeSince(item.updated_at)} ago.`}</div>
+                        {notificationReasons[item.action_name]}
                     </>
                 )}
             </div>
-            {item.total_reviewers > 0 && reviews}
+            {(item.total_reviewers > 0) && reviews}
         </div>
     );
 }

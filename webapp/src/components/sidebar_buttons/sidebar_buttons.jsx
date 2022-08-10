@@ -221,6 +221,5 @@ const getStyle = makeStyleFromTheme((theme) => {
             justifyContent: 'space-around',
             padding: '0 10px',
         },
-        containerTeam: {},
     };
 });

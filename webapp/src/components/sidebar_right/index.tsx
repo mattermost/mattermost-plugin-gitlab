@@ -5,17 +5,13 @@ import React, {useEffect, useState} from 'react';
 import Scrollbars from 'react-custom-scrollbars';
 import {useDispatch, useSelector} from 'react-redux';
 
-import {getCurrentUserLocale} from 'mattermost-redux/selectors/entities/i18n';
 import {Theme} from 'mattermost-redux/types/preferences';
-import {GlobalState} from 'mattermost-redux/types/store';
 import {makeStyleFromTheme, changeOpacity} from 'mattermost-redux/utils/theme_utils';
 
 import {getYourPrDetails, getReviewDetails} from 'src/actions';
 import {RHSStates} from 'src/constants';
-import {getPluginState} from 'src/selectors';
+import {getSidebarData} from 'src/selectors';
 import {Item} from 'src/types/gitlab_items';
-
-import I18nProvider from '../i18n_provider';
 
 import GitlabItems from './gitlab_items';
 
@@ -34,39 +30,26 @@ interface Props {
     theme: Theme,
 }
 
-export function renderView(props: Props) {
-    return (
-        <div
-            {...props}
-            className='scrollbar--view'
-        />);
-}
+export const renderView = (props: Props) => (
+    <div
+        {...props}
+        className='scrollbar--view'
+    />
+);
 
-export function renderThumbHorizontal(props: Props) {
-    return (
-        <div
-            {...props}
-            className='scrollbar--horizontal'
-        />);
-}
+export const renderThumbHorizontal = (props: Props) => (
+    <div
+        {...props}
+        className='scrollbar--horizontal'
+    />
+);
 
-export function renderThumbVertical(props: Props) {
-    return (
-        <div
-            {...props}
-            className='scrollbar--vertical'
-        />);
-}
-
-function mapGitlabItemListToPrList(gilist: Item[]) {
-    if (!gilist) {
-        return [];
-    }
-
-    return gilist.map((pr: Item) => {
-        return {sha: pr.sha, project_id: pr.project_id, iid: pr.iid};
-    });
-}
+export const renderThumbVertical = (props: Props) => (
+    <div
+        {...props}
+        className='scrollbar--vertical'
+    />
+);
 
 function shouldUpdateDetails(prs: Item[], prevPrs: Item[], targetState: string, currentState: string) {
     if (currentState !== targetState) {
@@ -99,29 +82,15 @@ function mapPrsToDetails(prs: Item[], details: Item[]) {
         return {
             ...pr,
             status: foundDetails.status,
-            approvers: foundDetails.approvers,
+            num_approvers: foundDetails.num_approvers,
             total_reviewers: pr.reviewers.length,
         };
     });
 }
 
 function SidebarRight({theme}: {theme: Theme}) {
-    const {username, yourAssignments, org, unreads, gitlabURL, rhsState, reviews, yourPrs, reviewDetails, yourPrDetails, getUserLocale} = useSelector((state: GlobalState) => {
-        const store = getPluginState(state);
-        return {
-            username: store.username,
-            reviews: store.reviews,
-            reviewDetails: store.reviewDetails,
-            yourPrs: store.yourPrs,
-            yourPrDetails: store.yourPrDetails,
-            yourAssignments: store.yourAssignments,
-            unreads: store.unreads,
-            org: store.organization,
-            gitlabURL: store.gitlabURL,
-            rhsState: store.rhsState,
-            getUserLocale: getCurrentUserLocale(state),
-        };
-    });
+    const sidebarData = useSelector(getSidebarData);
+    const {username, yourAssignments, org, unreads, gitlabURL, rhsState, reviews, yourPrs, reviewDetails, yourPrDetails} = sidebarData;
 
     // States used for storing the PRs/Reviews along with their details which are present separately in redux state.
     const [prsWithDetails, setPrsWithDetails] = useState<Item[]>(yourPrs);
@@ -139,30 +108,27 @@ function SidebarRight({theme}: {theme: Theme}) {
 
     useEffect(() => {
         if (yourPrs && rhsState === RHSStates.PRS) {
-            dispatch(getYourPrDetails(
-                mapGitlabItemListToPrList(yourPrs),
-            ));
-            if (reviews && rhsState === RHSStates.REVIEWS) {
-                dispatch(getReviewDetails(
-                    mapGitlabItemListToPrList(reviews),
-                ));
-            }
+            dispatch(getYourPrDetails(yourPrs));
         }
-    }, []);
+
+        if (reviews && rhsState === RHSStates.REVIEWS) {
+            dispatch(getReviewDetails(reviews));
+        }
+    }, [yourPrs, rhsState, reviews]);
 
     useEffect(() => {
         if (shouldUpdateDetails(yourPrs, prsWithDetails, RHSStates.PRS, rhsState)) {
             setPrsWithDetails(yourPrs);
-            dispatch(getYourPrDetails(mapGitlabItemListToPrList(yourPrs)));
+            dispatch(getYourPrDetails(yourPrs));
         }
-    }, [yourPrs, rhsState]);
+    }, [yourPrs, prsWithDetails, rhsState]);
 
     useEffect(() => {
         if (shouldUpdateDetails(reviews, reviewsWithDetails, RHSStates.REVIEWS, rhsState)) {
             setReviewsWithDetails(reviews);
-            dispatch(getReviewDetails(mapGitlabItemListToPrList(reviews)));
+            dispatch(getReviewDetails(reviews));
         }
-    }, [reviews, rhsState]);
+    }, [reviews, reviewsWithDetails, rhsState]);
 
     const style = getStyle(theme);
     const baseURL = gitlabURL || 'https://gitlab.com';
@@ -212,31 +178,27 @@ function SidebarRight({theme}: {theme: Theme}) {
     }
 
     return (
-        <I18nProvider
-            currentLocale={getUserLocale}
+        <Scrollbars
+            autoHide={true}
+            autoHideTimeout={AUTO_HIDE_TIMEOUT} // Hide delay in ms
+            autoHideDuration={AUTO_HIDE_DURATION} // Duration for hide animation in ms.
+            renderThumbHorizontal={renderThumbHorizontal}
+            renderThumbVertical={renderThumbVertical}
+            renderView={renderView}
         >
-            <Scrollbars
-                autoHide={true}
-                autoHideTimeout={AUTO_HIDE_TIMEOUT} // Hide delay in ms
-                autoHideDuration={AUTO_HIDE_DURATION} // Duration for hide animation in ms.
-                renderThumbHorizontal={renderThumbHorizontal}
-                renderThumbVertical={renderThumbVertical}
-                renderView={renderView}
-            >
-                <div style={style.sectionHeader}>
-                    <strong>
-                        <a
-                            href={listUrl}
-                            target='_blank'
-                            rel='noopener noreferrer'
-                        >
-                            {title}
-                        </a>
-                    </strong>
-                </div>
-                {renderedGitlabItems}
-            </Scrollbars>
-        </I18nProvider>
+            <div style={style.sectionHeader}>
+                <strong>
+                    <a
+                        href={listUrl}
+                        target='_blank'
+                        rel='noopener noreferrer'
+                    >
+                        {title}
+                    </a>
+                </strong>
+            </div>
+            {renderedGitlabItems}
+        </Scrollbars>
     );
 }
 
