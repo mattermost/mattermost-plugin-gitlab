@@ -31,7 +31,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
     const style = getStyle(theme);
 
     const repoName = item.references?.full || item.project?.path_with_namespace || '';
-    const userName = item.author?.username || '';
+    const userName = item.author.username;
 
     let number: React.ReactNode | undefined;
     if (item.iid) {
