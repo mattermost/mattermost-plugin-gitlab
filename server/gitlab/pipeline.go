@@ -11,7 +11,7 @@ type PipelineInfo struct {
 	User       string
 }
 
-// PipelineInfo is the struct describing the status of
+// PipelineJobInfo is the struct describing the status of
 // a running Job which is part of a pipeline
 type PipelineJobInfo struct {
 	JobID  int
