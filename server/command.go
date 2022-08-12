@@ -633,7 +633,7 @@ func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channel
 	projectID := fmt.Sprintf("%d", project.ID)
 	pipelineInfo, err := p.GitlabClient.TriggerProjectPipeline(info, projectID, ref)
 	if err != nil {
-		return errors.Wrapf(err, "failed to run pipeline for Poject: :%s", projectName).Error()
+		return errors.Wrapf(err, "failed to run pipeline for Project: :%s", projectName).Error()
 	}
 	var txt string
 	if pipelineInfo == nil {
