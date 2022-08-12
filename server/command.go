@@ -637,7 +637,7 @@ func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channel
 	}
 	var txt string
 	if pipelineInfo == nil {
-		txt = "Currently there are no pipeline info"
+		txt = "Currently there is no pipeline info"
 		return txt
 	}
 	txt = "### Pipeline info\n"
