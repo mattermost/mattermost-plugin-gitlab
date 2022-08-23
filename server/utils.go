@@ -219,6 +219,7 @@ func getLine(s string) int {
 //
 // Note: it is fine to go one byte at a time instead of one rune because
 // we are anyways looking for ASCII chars.
+// Ref: mattermost plugin github (https://github.com/mattermost/mattermost-plugin-github/blob/fcc50523c17c2670cb595a8038864a8a7f7fd1e5/server/plugin/utils.go#L273)
 func isInsideLink(msg string, index int) bool {
 	stage := 0 // 0 is looking for space or ( and 1 for ]
 
