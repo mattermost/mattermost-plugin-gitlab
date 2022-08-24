@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"sync"
@@ -93,11 +92,6 @@ func (p *Plugin) getPermalinkReplacements(msg string) []replacement {
 // processReplacement processes a single replacement and stores the resulting markdown at the given index of the given array. Multiple goroutines are executing this function but all the goroutines concurrently modify unique indices of the given array, and concurrently modifying unique slice elements is not racy.
 func (p *Plugin) processReplacement(r replacement, glClient *gitlab.Client, wg *sync.WaitGroup, markdownForPermalink []string, index int) {
 	defer wg.Done()
-	// Quick bailout if the commit hash is not proper.
-	if _, err := hex.DecodeString(r.permalinkData.commit); err != nil {
-		p.API.LogDebug("Bad git commit hash in permalink", "error", err.Error(), "hash", r.permalinkData.commit)
-		return
-	}
 
 	// Get the file contents
 	opts := gitlab.GetFileOptions{
@@ -150,6 +144,7 @@ func (p *Plugin) processReplacement(r replacement, glClient *gitlab.Client, wg *
 
 // makeReplacements performs the given replacements on the msg and returns
 // the new msg. The replacements slice needs to be sorted by the index in ascending order.
+// Ref: mattermost plugin github (https://github.com/mattermost/mattermost-plugin-github/blob/fcc50523c17c2670cb595a8038864a8a7f7fd1e5/server/plugin/permalinks.go#L90)
 func (p *Plugin) makeReplacements(msg string, replacements []replacement, glClient *gitlab.Client) string {
 	// Iterating the slice in reverse to preserve the replacement indices.
 	wg := new(sync.WaitGroup)
