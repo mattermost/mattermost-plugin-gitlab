@@ -324,32 +324,6 @@ func TestMakeReplacements(t *testing.T) {
 			},
 		},
 		{
-			name:   "bad commit hash",
-			input:  "start https://gitlab.com/mattermost/mattermost-server/-/blob/badhash/app/authentication.go#L15-L22 lorem ipsum",
-			output: "start https://gitlab.com/mattermost/mattermost-server/-/blob/badhash/app/authentication.go#L15-L22 lorem ipsum",
-			replacements: []replacement{
-				{
-					index: 6,
-					word:  "https://gitlab.com/mattermost/mattermost-server/-/blob/badhash/app/authentication.go#L15-L22",
-					permalinkData: struct {
-						haswww string
-						commit string
-						user   string
-						repo   string
-						path   string
-						line   string
-					}{
-						haswww: "",
-						commit: "badhash",
-						line:   "L15-L22",
-						path:   "app/authentication.go",
-						user:   "mattermost",
-						repo:   "mattermost-server",
-					},
-				},
-			},
-		},
-		{
 			name:   "bad line range",
 			input:  "start https://gitlab.com/mattermost/mattermost-server/-/blob/cbb25838a61872b624ac512556d7bc932486a64c/app/authentication.go#L22-L15 lorem ipsum",
 			output: "start https://gitlab.com/mattermost/mattermost-server/-/blob/cbb25838a61872b624ac512556d7bc932486a64c/app/authentication.go#L22-L15 lorem ipsum",
@@ -385,8 +359,6 @@ func TestMakeReplacements(t *testing.T) {
 			assert.Equalf(t, tc.output, msg, "mismatched output")
 		})
 	}
-
-	mockPluginAPI.AssertCalled(t, "LogDebug", "Bad git commit hash in permalink", "error", "encoding/hex: invalid byte: U+0068 'h'", "hash", "badhash")
 }
 
 const (
