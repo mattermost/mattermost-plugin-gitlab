@@ -100,7 +100,8 @@ export const LinkTooltip = ({href, connected}) => {
                         >
                             {data.repo}
                         </a>
-                        <span className='text-spacing'>on</span><span>{date}</span>
+                        {' on '}
+                        <span>{date}</span>
                     </div>
 
                     <div className='body d-flex mt-2'>
