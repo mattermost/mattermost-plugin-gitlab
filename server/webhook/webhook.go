@@ -7,6 +7,7 @@ import (
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/xanzy/go-gitlab"
 )
 
@@ -162,4 +163,10 @@ func normalizeNamespacedProject(pathWithNamespace string) (namespace string, pro
 		return "", ""
 	}
 	return strings.Join(splits[:len(splits)-1], "/"), splits[len(splits)-1]
+}
+
+func sanitizeDescription(description string) string {
+	var policy = bluemonday.StrictPolicy()
+	policy.SkipElementsContent("details")
+	return strings.TrimSpace(policy.Sanitize(description))
 }
