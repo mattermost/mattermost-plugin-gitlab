@@ -109,7 +109,7 @@ func (p *Plugin) attachUserContext(handler HTTPHandlerFuncWithUserContext) http.
 		context, cancel := p.createContext(w, r)
 		defer cancel()
 
-		mutex, err := cluster.NewMutex(p.API, context.UserID)
+		mutex, err := cluster.NewMutex(p.API, context.UserID + "-refresh-token")
 		if err != nil {
 			p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get mutex: " + err.Error(), StatusCode: http.StatusInternalServerError})
 			return
