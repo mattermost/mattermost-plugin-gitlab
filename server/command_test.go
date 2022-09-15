@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/mattermost/mattermost-server/v6/model"
@@ -11,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	gitLabAPI "github.com/xanzy/go-gitlab"
+	"golang.org/x/oauth2"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	mocks "github.com/mattermost/mattermost-plugin-gitlab/server/gitlab/mocks"
@@ -75,7 +77,12 @@ func TestSubscribeCommand(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
 
 			channelID := "12345"
-			userInfo := &gitlab.UserInfo{}
+
+			userInfo := &gitlab.UserInfo{
+				Token: &oauth2.Token{
+					Expiry: time.Now().Add(time.Minute * 5),
+				},
+			}
 
 			p := getTestPlugin(t, mockCtrl, test.webhookInfo, test.mattermostURL, test.projectHookErr, test.mockGitlab)
 			subscribeMessage := p.subscribeCommand(context.Background(), test.parameters, channelID, &configuration{}, userInfo)
@@ -204,7 +211,13 @@ func TestListWebhookCommand(t *testing.T) {
 				p.GitlabClient = mockedClient
 			}
 
-			got := p.webhookCommand(context.Background(), test.parameters, &gitlab.UserInfo{}, true)
+			userInfo := &gitlab.UserInfo{
+				Token: &oauth2.Token{
+					Expiry: time.Now().Add(time.Minute * 5),
+				},
+			}
+
+			got := p.webhookCommand(context.Background(), test.parameters, userInfo, true)
 			assert.Equal(t, test.want, got)
 		})
 	}
@@ -359,7 +372,13 @@ func TestAddWebhookCommand(t *testing.T) {
 			api.On("GetConfig", mock.Anything).Return(conf)
 			p.SetAPI(api)
 
-			got := p.webhookCommand(context.Background(), test.parameters, &gitlab.UserInfo{}, true)
+			userInfo := &gitlab.UserInfo{
+				Token: &oauth2.Token{
+					Expiry: time.Now().Add(time.Minute * 5),
+				},
+			}
+
+			got := p.webhookCommand(context.Background(), test.parameters, userInfo, true)
 
 			assert.Equal(t, test.want, got)
 		})

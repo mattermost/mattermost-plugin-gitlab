@@ -52,10 +52,10 @@ func (p *Plugin) initializeAPI() {
 
 	apiRouter.HandleFunc("/user", p.checkAuth(p.attachContext(p.getGitlabUser), ResponseTypeJSON)).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/todo", p.checkAuth(p.attachUserContext(p.postToDo), ResponseTypeJSON)).Methods(http.MethodPost)
-	apiRouter.HandleFunc("/reviews", p.checkAuth(p.attachUserContext(p.getReviews), ResponseTypePlain)).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/yourprs", p.checkAuth(p.attachUserContext(p.getYourPrs), ResponseTypePlain)).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/yourassignments", p.checkAuth(p.attachUserContext(p.getYourAssignments), ResponseTypePlain)).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/unreads", p.checkAuth(p.attachUserContext(p.getUnreads), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/reviews", p.checkAuth(p.attachUserContext(p.checkToken(p.getReviews)), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/yourprs", p.checkAuth(p.attachUserContext(p.checkToken(p.getYourPrs)), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/yourassignments", p.checkAuth(p.attachUserContext(p.checkToken(p.getYourAssignments)), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/unreads", p.checkAuth(p.attachUserContext(p.checkToken(p.getUnreads)), ResponseTypePlain)).Methods(http.MethodGet)
 
 	apiRouter.HandleFunc("/settings", p.checkAuth(p.attachUserContext(p.updateSettings), ResponseTypePlain)).Methods(http.MethodPost)
 }
@@ -109,7 +109,7 @@ func (p *Plugin) attachUserContext(handler HTTPHandlerFuncWithUserContext) http.
 		context, cancel := p.createContext(w, r)
 		defer cancel()
 
-		mutex, err := cluster.NewMutex(p.API, context.UserID + "-refresh-token")
+		mutex, err := cluster.NewMutex(p.API, context.UserID+"-refresh-token")
 		if err != nil {
 			p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get mutex: " + err.Error(), StatusCode: http.StatusInternalServerError})
 			return
@@ -183,6 +183,17 @@ func (p *Plugin) checkAuth(handler http.HandlerFunc, responseType ResponseType) 
 		}
 
 		handler(w, r)
+	}
+}
+
+func (p *Plugin) checkToken(handler HTTPHandlerFuncWithUserContext) HTTPHandlerFuncWithUserContext {
+	return func(c *UserContext, w http.ResponseWriter, r *http.Request) {
+		if err := p.checkAndRefreshToken(c.GitlabInfo); err != nil {
+			c.Log.WithError(err).Warnf("Error while checking for expired GitLab token")
+			p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Error while checking for expired GitLab token.", StatusCode: http.StatusInternalServerError})
+			return
+		}
+		handler(c, w, r)
 	}
 }
 
@@ -525,11 +536,6 @@ func (p *Plugin) getConnected(c *Context, w http.ResponseWriter, r *http.Request
 }
 
 func (p *Plugin) getUnreads(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	if err := p.checkAndRefreshToken(c.GitlabInfo); err != nil {
-		c.Log.WithError(err).Warnf("Unable to list unreads in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list unreads in GitLab API.", StatusCode: http.StatusInternalServerError})
-		return
-	}
 	result, err := p.GitlabClient.GetUnreads(c.Ctx, c.GitlabInfo)
 	if err != nil {
 		p.handleGitlabError(c.GitlabInfo, err)
@@ -542,11 +548,6 @@ func (p *Plugin) getUnreads(c *UserContext, w http.ResponseWriter, r *http.Reque
 }
 
 func (p *Plugin) getReviews(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	if err := p.checkAndRefreshToken(c.GitlabInfo); err != nil {
-		c.Log.WithError(err).Warnf("Unable to list merge-request where assignee in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
-		return
-	}
 	result, err := p.GitlabClient.GetReviews(c.Ctx, c.GitlabInfo)
 	if err != nil {
 		p.handleGitlabError(c.GitlabInfo, err)
@@ -559,11 +560,6 @@ func (p *Plugin) getReviews(c *UserContext, w http.ResponseWriter, r *http.Reque
 }
 
 func (p *Plugin) getYourPrs(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	if err := p.checkAndRefreshToken(c.GitlabInfo); err != nil {
-		c.Log.WithError(err).Warnf("Can't list merge-request where author in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
-		return
-	}
 	result, err := p.GitlabClient.GetYourPrs(c.Ctx, c.GitlabInfo)
 	if err != nil {
 		p.handleGitlabError(c.GitlabInfo, err)
@@ -576,11 +572,6 @@ func (p *Plugin) getYourPrs(c *UserContext, w http.ResponseWriter, r *http.Reque
 }
 
 func (p *Plugin) getYourAssignments(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	if err := p.checkAndRefreshToken(c.GitlabInfo); err != nil {
-		c.Log.WithError(err).Warnf("Unable to list issue where assignee in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list issue in GitLab API.", StatusCode: http.StatusInternalServerError})
-		return
-	}
 	result, err := p.GitlabClient.GetYourAssignments(c.Ctx, c.GitlabInfo)
 	if err != nil {
 		p.handleGitlabError(c.GitlabInfo, err)
