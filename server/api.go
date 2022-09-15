@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 
+	"github.com/mattermost/mattermost-plugin-api/cluster"
 	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
 	"github.com/mattermost/mattermost-plugin-api/experimental/flow"
 	"github.com/mattermost/mattermost-server/v6/model"
@@ -108,7 +109,17 @@ func (p *Plugin) attachUserContext(handler HTTPHandlerFuncWithUserContext) http.
 		context, cancel := p.createContext(w, r)
 		defer cancel()
 
+		mutex, err := cluster.NewMutex(p.API, context.UserID)
+		if err != nil {
+			p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get mutex: " + err.Error(), StatusCode: http.StatusInternalServerError})
+			return
+		}
+
+		mutex.Lock()
+
 		info, apiErr := p.getGitlabUserInfoByMattermostID(context.UserID)
+		defer mutex.Unlock()
+
 		if apiErr != nil {
 			p.writeAPIError(w, apiErr)
 			return
