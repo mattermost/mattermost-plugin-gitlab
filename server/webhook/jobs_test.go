@@ -26,7 +26,7 @@ var testDataJobs = []testDataJobsStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "jobs", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "### Pipeline Job Stage: **test**\n:rocket: **Status**: running\n**Triggered By**: User\n**Visit job [here](http://my.gitlab.com/gitlab-org/gitlab-test/-/jobs/1977)**: \n",
+			Message:    "### Pipeline Job Stage: **test**\n:rocket: **Status**: running\n**Triggered By**: User\n**Visit job [here](http://my.gitlab.com/gitlab-org/gitlab-test/-/jobs/1977)** \n",
 			ToUsers:    []string{}, // No DM because user know he has launch a pipeline
 			ToChannels: []string{"channel1"},
 			From:       "User",
@@ -39,7 +39,7 @@ var testDataJobs = []testDataJobsStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "jobs", Repository: "manland/subgroup/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "### Pipeline Job Stage: **test**\n:rocket: **Status**: running\n**Triggered By**: User\n**Visit job [here](http://my.gitlab.com/gitlab-org/gitlab-test/-/jobs/1977)**: \n",
+			Message:    "### Pipeline Job Stage: **test**\n:rocket: **Status**: running\n**Triggered By**: User\n**Visit job [here](http://my.gitlab.com/gitlab-org/gitlab-test/-/jobs/1977)** \n",
 			ToUsers:    []string{}, // No DM because user know he has launch a pipeline
 			ToChannels: []string{"channel1"},
 			From:       "User",
@@ -52,7 +52,7 @@ var testDataJobs = []testDataJobsStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "jobs", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "### Pipeline Job Stage: **test**\n:large_green_circle: **Status**: success\n**Triggered By**: User\n**Visit job [here](http://my.gitlab.com/gitlab-org/gitlab-test/-/jobs/1977)**: \n",
+			Message:    "### Pipeline Job Stage: **test**\n:large_green_circle: **Status**: success\n**Triggered By**: User\n**Visit job [here](http://my.gitlab.com/gitlab-org/gitlab-test/-/jobs/1977)** \n",
 			ToUsers:    []string{}, // No DM because user know he has launch a pipeline
 			ToChannels: []string{"channel1"},
 			From:       "User",
@@ -65,7 +65,7 @@ var testDataJobs = []testDataJobsStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "jobs", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "### Pipeline Job Stage: **test**\n:red_circle: **Status**: failed\n**Reason Failed**: script_failure\n**Triggered By**: User\n**Visit job [here](http://my.gitlab.com/gitlab-org/gitlab-test/-/jobs/1977)**: \n",
+			Message:    "### Pipeline Job Stage: **test**\n:red_circle: **Status**: failed\n**Reason Failed**: script_failure\n**Triggered By**: User\n**Visit job [here](http://my.gitlab.com/gitlab-org/gitlab-test/-/jobs/1977)** \n",
 			ToUsers:    []string{}, // No DM because user know he has launch a pipeline
 			ToChannels: []string{"channel1"},
 			From:       "User",
