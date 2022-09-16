@@ -706,8 +706,8 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 	pipelineRun.AddTextArgument("Project path: includes user or group name with optional slash project name", "", "owner[/repo] [ref]")
 	pipelines.AddCommand(pipelineRun)
 
-	pipelineJobTrigger := model.NewAutocompleteData(commandTrigger, "[job-name]", "Play a job of a running pipeline for the provided project")
-	pipelineJobTrigger.AddTextArgument("Job name: the name of the job to play in a running pipeline", "", "[job-name]")
+	pipelineJobTrigger := model.NewAutocompleteData(commandTrigger, "[job-name]", "Trigger a job of a running pipeline for the provided project")
+	pipelineJobTrigger.AddTextArgument("Job name: the name of the job to trigger in a running pipeline", "", "[job-name]")
 	pipelines.AddCommand(pipelineJobTrigger)
 
 	gitlab.AddCommand(pipelines)

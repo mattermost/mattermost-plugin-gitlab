@@ -25,7 +25,7 @@ func (w *webhook) handleChannelJob(ctx context.Context, event *gitlab.JobEvent) 
 	switch event.BuildStatus {
 	case statusRunning:
 		message += fmt.Sprintf(":rocket: **Status**: %s\n", event.BuildStatus)
-	case "pending":
+	case statusPending:
 		message = fmt.Sprintf("### Pipeline Job Stage: **%s**\n", event.BuildStage)
 		message += fmt.Sprintf(":clock1: **Status**: %s\n", event.BuildStatus)
 	case statusSuccess:
@@ -39,7 +39,7 @@ func (w *webhook) handleChannelJob(ctx context.Context, event *gitlab.JobEvent) 
 		return res, nil
 	}
 	message += fmt.Sprintf("**Triggered By**: %s\n", senderGitlabUsername)
-	message += fmt.Sprintf("**Visit job [here](%s)**: \n", w.gitlabRetreiver.GetJobURL(repo.PathWithNamespace, event.BuildID))
+	message += fmt.Sprintf("**Visit job [here](%s)**: \n", w.gitlabRetreiver.GetJobURL(event.ProjectName, event.BuildID))
 	toChannels := make([]string, 0)
 	namespace, project := normalizeNamespacedProject(event.ProjectName)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
