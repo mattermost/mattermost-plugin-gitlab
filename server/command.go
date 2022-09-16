@@ -612,6 +612,9 @@ func (p *Plugin) pipelinesCommand(ctx context.Context, parameters []string, chan
 	subcommand := parameters[0]
 	switch subcommand {
 	case commandRun:
+		if len(parameters) < 2 {
+			return specifyRepositoryMessage
+		}
 		namespace := parameters[1]
 		ref := parameters[2]
 		return p.pipelineRunCommand(ctx, namespace, ref, channelID, info)
