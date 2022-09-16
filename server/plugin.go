@@ -147,9 +147,9 @@ func (p *Plugin) OnPluginClusterEvent(c *plugin.Context, ev model.PluginClusterE
 	p.HandleClusterEvent(ev)
 }
 
-func (p *Plugin) UserHasBeenDeactivated(userID string) {
-	if info, _ := p.getGitlabUserInfoByMattermostID(userID); info != nil {
-		p.disconnectGitlabAccount(userID)
+func (p *Plugin) UserHasBeenDeactivated(c *plugin.Context, user *model.User) {
+	if info, _ := p.getGitlabUserInfoByMattermostID(user.Id); info != nil {
+		p.disconnectGitlabAccount(user.Id)
 	}
 }
 
