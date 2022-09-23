@@ -48,16 +48,16 @@ func (p *Plugin) initializeAPI() {
 	oauthRouter.HandleFunc("/connect", p.checkAuth(p.attachContext(p.connectUserToGitlab), ResponseTypePlain)).Methods(http.MethodGet)
 	oauthRouter.HandleFunc("/complete", p.checkAuth(p.attachContext(p.completeConnectUserToGitlab), ResponseTypePlain)).Methods(http.MethodGet)
 
-	apiRouter.HandleFunc("/connected", p.attachContext(p.getConnected)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/connected", p.attachUserContext(p.getConnected, false)).Methods(http.MethodGet)
 
 	apiRouter.HandleFunc("/user", p.checkAuth(p.attachContext(p.getGitlabUser), ResponseTypeJSON)).Methods(http.MethodPost)
-	apiRouter.HandleFunc("/todo", p.checkAuth(p.attachUserContext(p.postToDo), ResponseTypeJSON)).Methods(http.MethodPost)
-	apiRouter.HandleFunc("/reviews", p.checkAuth(p.attachUserContext(p.checkToken(p.getReviews)), ResponseTypePlain)).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/yourprs", p.checkAuth(p.attachUserContext(p.checkToken(p.getYourPrs)), ResponseTypePlain)).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/yourassignments", p.checkAuth(p.attachUserContext(p.checkToken(p.getYourAssignments)), ResponseTypePlain)).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/unreads", p.checkAuth(p.attachUserContext(p.checkToken(p.getUnreads)), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/todo", p.checkAuth(p.attachUserContext(p.checkToken(p.postToDo), true), ResponseTypeJSON)).Methods(http.MethodPost)
+	apiRouter.HandleFunc("/reviews", p.checkAuth(p.attachUserContext(p.checkToken(p.getReviews), true), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/yourprs", p.checkAuth(p.attachUserContext(p.checkToken(p.getYourPrs), true), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/yourassignments", p.checkAuth(p.attachUserContext(p.checkToken(p.getYourAssignments), true), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/unreads", p.checkAuth(p.attachUserContext(p.checkToken(p.getUnreads), true), ResponseTypePlain)).Methods(http.MethodGet)
 
-	apiRouter.HandleFunc("/settings", p.checkAuth(p.attachUserContext(p.updateSettings), ResponseTypePlain)).Methods(http.MethodPost)
+	apiRouter.HandleFunc("/settings", p.checkAuth(p.attachUserContext(p.updateSettings, true), ResponseTypePlain)).Methods(http.MethodPost)
 }
 
 type Context struct {
@@ -104,7 +104,7 @@ type UserContext struct {
 // HTTPHandlerFuncWithUserContext is http.HandleFunc but with a UserContext attached
 type HTTPHandlerFuncWithUserContext func(c *UserContext, w http.ResponseWriter, r *http.Request)
 
-func (p *Plugin) attachUserContext(handler HTTPHandlerFuncWithUserContext) http.HandlerFunc {
+func (p *Plugin) attachUserContext(handler HTTPHandlerFuncWithUserContext, requireConnected bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		context, cancel := p.createContext(w, r)
 		defer cancel()
@@ -116,19 +116,20 @@ func (p *Plugin) attachUserContext(handler HTTPHandlerFuncWithUserContext) http.
 		}
 
 		mutex.Lock()
-
-		info, apiErr := p.getGitlabUserInfoByMattermostID(context.UserID)
 		defer mutex.Unlock()
 
-		if apiErr != nil {
-			p.writeAPIError(w, apiErr)
-			return
-		}
+		info, apiErr := p.getGitlabUserInfoByMattermostID(context.UserID)
 
-		context.Log = context.Log.With(logger.LogContext{
-			"gitlab username": info.GitlabUsername,
-			"gitlab userid":   info.GitlabUserID,
-		})
+		if requireConnected {
+			if apiErr != nil {
+				p.writeAPIError(w, apiErr)
+				return
+			}
+			context.Log = context.Log.With(logger.LogContext{
+				"gitlab username": info.GitlabUsername,
+				"gitlab userid":   info.GitlabUserID,
+			})
+		}
 
 		userContext := &UserContext{
 			Context:    *context,
@@ -495,7 +496,7 @@ func (p *Plugin) getGitlabUser(c *Context, w http.ResponseWriter, r *http.Reques
 	p.writeAPIResponse(w, &GitlabUserResponse{Username: userInfo.GitlabUsername})
 }
 
-func (p *Plugin) getConnected(c *Context, w http.ResponseWriter, r *http.Request) {
+func (p *Plugin) getConnected(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	config := p.getConfiguration()
 
 	resp := &ConnectedResponse{
