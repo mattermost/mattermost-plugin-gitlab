@@ -612,7 +612,7 @@ func (p *Plugin) pipelinesCommand(ctx context.Context, parameters []string, chan
 	subcommand := parameters[0]
 	switch subcommand {
 	case commandRun:
-		if len(parameters) < 3 {
+		if len(parameters) < 2 {
 			return specifyRepositoryMessage
 		}
 		namespace := parameters[1]
