@@ -38,6 +38,7 @@ func (w *webhook) handleChannelJob(ctx context.Context, event *gitlab.JobEvent) 
 	default:
 		return res, nil
 	}
+	message += fmt.Sprintf("**Repository**: [%s](%s)\n", event.ProjectName, event.Repository.GitHTTPURL)
 	message += fmt.Sprintf("**Triggered By**: %s\n", senderGitlabUsername)
 	message += fmt.Sprintf("**Visit job [here](%s)** \n", w.gitlabRetreiver.GetJobURL(event.ProjectName, event.BuildID))
 	toChannels := make([]string, 0)
