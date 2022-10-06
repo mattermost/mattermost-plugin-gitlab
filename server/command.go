@@ -333,7 +333,7 @@ func (p *Plugin) handleIssue(_ *plugin.Context, args *model.CommandArgs, paramet
 		p.openIssueCreateModal(args.UserId, args.ChannelId, strings.Join(parameters, " "))
 		return ""
 	default:
-		return fmt.Sprintf("Unknown subcommand %v", command)
+		return fmt.Sprintf("This command is not implemented yet. Command: %v", command)
 	}
 }
 

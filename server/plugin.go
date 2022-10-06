@@ -616,11 +616,9 @@ func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namesp
 // Otherwise it returns the Mattermost username.
 func (p *Plugin) getUsername(userID string) (string, *APIErrorResponse) {
 	info, err := p.getGitlabUserInfoByMattermostID(userID)
-	if err != nil {
-		if err.ID != APIErrorIDNotConnected {
-			return "", err
-		}
-
+	if err != nil && err.ID != APIErrorIDNotConnected {
+		return "", err
+	} else if err != nil {
 		user, appErr := p.API.GetUser(userID)
 		if appErr != nil {
 			return "", &APIErrorResponse{
