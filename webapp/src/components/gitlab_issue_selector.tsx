@@ -62,7 +62,7 @@ const GitlabIssueSelector = ({name, required, theme, onChange, error, value, add
     }, []);
 
     const searchIssues = useCallback(async (text: string) => {
-        const textEncoded = encodeURIComponent(text.trim().replace(/"/g, '\\"'));
+        const textEncoded = encodeURIComponent(text.trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'));
         try {
             const issues = await Client.searchIssues(textEncoded);
 
