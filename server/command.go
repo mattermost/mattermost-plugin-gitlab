@@ -56,11 +56,12 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
   * |token| Secret token. Defaults to secret token used in plugin's settings.
 `
 const (
-	webhookHowToURL               = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
-	inboundWebhookURL             = "plugins/com.github.manland.mattermost-plugin-gitlab/webhook"
-	specifyRepositoryMessage      = "Please specify a repository."
-	unknownActionMessage          = "Unknown action, please use `/gitlab help` to see all actions available."
-	newWebhookEmptySiteURLmessage = "Unable to create webhook. The Mattermot Site URL is not set. " +
+	webhookHowToURL                   = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
+	inboundWebhookURL                 = "plugins/com.github.manland.mattermost-plugin-gitlab/webhook"
+	specifyRepositoryMessage          = "Please specify a repository."
+	specifyRepositoryAndBranchMessage = "Please specify a repository and a branch."
+	unknownActionMessage              = "Unknown action, please use `/gitlab help` to see all actions available."
+	newWebhookEmptySiteURLmessage     = "Unable to create webhook. The Mattermot Site URL is not set. " +
 		"Set it in the Admin Console or rerun /gitlab webhook add group/project URL including the desired URL."
 )
 
@@ -612,8 +613,8 @@ func (p *Plugin) pipelinesCommand(ctx context.Context, parameters []string, chan
 	subcommand := parameters[0]
 	switch subcommand {
 	case commandRun:
-		if len(parameters) < 2 {
-			return specifyRepositoryMessage
+		if len(parameters) < 3 {
+			return specifyRepositoryAndBranchMessage
 		}
 		namespace := parameters[1]
 		ref := parameters[2]
