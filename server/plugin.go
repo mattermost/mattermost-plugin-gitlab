@@ -720,7 +720,6 @@ func (p *Plugin) useGitlabClient(info *gitlab.UserInfo, toRun func(info *gitlab.
 	// We don't want the token to expire between the time when we decide that the old token is valid
 	// and the time at which we create the request. We are handling that by not letting the token expire.
 	if time.Until(token.Expiry) <= 1*time.Minute {
-
 		tokenMutex.Lock()
 		defer tokenMutex.Unlock()
 

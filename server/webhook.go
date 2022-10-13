@@ -220,7 +220,7 @@ func (p *Plugin) createHook(ctx context.Context, gitlabClient gitlab.Gitlab, inf
 	// If project scope
 	if project != "" {
 		var gitProject *gitlabLib.Project
-		err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		getProjectErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 			resp, err := p.GitlabClient.GetProject(ctx, info, token, group, project)
 			if err != nil {
 				return err
@@ -228,11 +228,11 @@ func (p *Plugin) createHook(ctx context.Context, gitlabClient gitlab.Gitlab, inf
 			gitProject = resp
 			return nil
 		})
-		if err != nil {
-			return nil, err
+		if getProjectErr != nil {
+			return nil, getProjectErr
 		}
 		var newWebhook *gitlab.WebhookInfo
-		err = p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		getGroupErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 			resp, err := p.GitlabClient.NewProjectHook(ctx, info, token, gitProject.ID, hookOptions)
 			if err != nil {
 				return err
@@ -240,8 +240,8 @@ func (p *Plugin) createHook(ctx context.Context, gitlabClient gitlab.Gitlab, inf
 			newWebhook = resp
 			return nil
 		})
-		if err != nil {
-			return nil, err
+		if getGroupErr != nil {
+			return nil, getGroupErr
 		}
 		return newWebhook, nil
 	}
