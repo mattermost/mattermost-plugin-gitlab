@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	internGitlab "github.com/xanzy/go-gitlab"
+	"golang.org/x/oauth2"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -17,8 +18,8 @@ const (
 )
 
 // NewGroupHook creates a webhook associated with a GitLab group
-func (g *gitlab) NewGroupHook(ctx context.Context, user *UserInfo, groupName string, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
-	client, err := g.gitlabConnect(*user.Token)
+func (g *gitlab) NewGroupHook(ctx context.Context, user *UserInfo, token *oauth2.Token, groupName string, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
+	client, err := g.gitlabConnect(*token)
 	if err != nil {
 		return nil, err
 	}
@@ -62,8 +63,8 @@ func (g *gitlab) NewGroupHook(ctx context.Context, user *UserInfo, groupName str
 }
 
 // NewProjectHook creates a webhook associated with a GitLab project
-func (g *gitlab) NewProjectHook(ctx context.Context, user *UserInfo, projectID interface{}, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
-	client, err := g.gitlabConnect(*user.Token)
+func (g *gitlab) NewProjectHook(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID interface{}, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
+	client, err := g.gitlabConnect(*token)
 	if err != nil {
 		return nil, err
 	}
@@ -98,8 +99,8 @@ func (g *gitlab) NewProjectHook(ctx context.Context, user *UserInfo, projectID i
 }
 
 // GetGroupHooks gathers all the group level hooks for a GitLab group.
-func (g *gitlab) GetGroupHooks(ctx context.Context, user *UserInfo, owner string) ([]*WebhookInfo, error) {
-	client, err := g.gitlabConnect(*user.Token)
+func (g *gitlab) GetGroupHooks(ctx context.Context, user *UserInfo, token *oauth2.Token, owner string) ([]*WebhookInfo, error) {
+	client, err := g.gitlabConnect(*token)
 	if err != nil {
 		return nil, err
 	}
@@ -205,8 +206,8 @@ func getGroupHookInfo(hook *internGitlab.GroupHook) *WebhookInfo {
 }
 
 // GetProjectHooks gathers all the project level hooks from a single GitLab project.
-func (g *gitlab) GetProjectHooks(ctx context.Context, user *UserInfo, owner string, repo string) ([]*WebhookInfo, error) {
-	client, err := g.gitlabConnect(*user.Token)
+func (g *gitlab) GetProjectHooks(ctx context.Context, user *UserInfo, token *oauth2.Token, owner string, repo string) ([]*WebhookInfo, error) {
+	client, err := g.gitlabConnect(*token)
 	if err != nil {
 		return nil, err
 	}
@@ -226,8 +227,8 @@ func (g *gitlab) GetProjectHooks(ctx context.Context, user *UserInfo, owner stri
 	return webhooks, nil
 }
 
-func (g *gitlab) GetProject(ctx context.Context, user *UserInfo, owner, repo string) (*internGitlab.Project, error) {
-	client, err := g.gitlabConnect(*user.Token)
+func (g *gitlab) GetProject(ctx context.Context, user *UserInfo, token *oauth2.Token, owner, repo string) (*internGitlab.Project, error) {
+	client, err := g.gitlabConnect(*token)
 	if err != nil {
 		return nil, err
 	}
@@ -246,8 +247,8 @@ func (g *gitlab) GetProject(ctx context.Context, user *UserInfo, owner, repo str
 	return result, nil
 }
 
-func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo) ([]*internGitlab.MergeRequest, error) {
-	client, err := g.gitlabConnect(*user.Token)
+func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.MergeRequest, error) {
+	client, err := g.gitlabConnect(*token)
 	if err != nil {
 		return nil, err
 	}
@@ -278,8 +279,8 @@ func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo) ([]*internGitla
 	return result, err
 }
 
-func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo) ([]*internGitlab.MergeRequest, error) {
-	client, err := g.gitlabConnect(*user.Token)
+func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.MergeRequest, error) {
+	client, err := g.gitlabConnect(*token)
 	if err != nil {
 		return nil, err
 	}
@@ -317,8 +318,8 @@ func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo) ([]*internGitla
 	return result, nil
 }
 
-func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo) ([]*internGitlab.Issue, error) {
-	client, err := g.gitlabConnect(*user.Token)
+func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.Issue, error) {
+	client, err := g.gitlabConnect(*token)
 	if err != nil {
 		return nil, err
 	}
@@ -356,8 +357,8 @@ func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo) ([]*int
 	return result, nil
 }
 
-func (g *gitlab) GetUnreads(ctx context.Context, user *UserInfo) ([]*internGitlab.Todo, error) {
-	client, err := g.gitlabConnect(*user.Token)
+func (g *gitlab) GetUnreads(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.Todo, error) {
+	client, err := g.gitlabConnect(*token)
 	if err != nil {
 		return nil, err
 	}
@@ -386,11 +387,12 @@ func (g *gitlab) GetUnreads(ctx context.Context, user *UserInfo) ([]*internGitla
 func (g *gitlab) ResolveNamespaceAndProject(
 	ctx context.Context,
 	userInfo *UserInfo,
+	token *oauth2.Token,
 	fullPath string,
 	allowPrivate bool,
 ) (owner string, repo string, err error) {
 	// Initialize client
-	client, err := g.gitlabConnect(*userInfo.Token)
+	client, err := g.gitlabConnect(*token)
 	if err != nil {
 		return "", "", err
 	}

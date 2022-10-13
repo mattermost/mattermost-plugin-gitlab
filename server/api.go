@@ -12,9 +12,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	gitlabLib "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
 
-	"github.com/mattermost/mattermost-plugin-api/cluster"
 	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
 	"github.com/mattermost/mattermost-plugin-api/experimental/flow"
 	"github.com/mattermost/mattermost-server/v6/model"
@@ -48,16 +48,16 @@ func (p *Plugin) initializeAPI() {
 	oauthRouter.HandleFunc("/connect", p.checkAuth(p.attachContext(p.connectUserToGitlab), ResponseTypePlain)).Methods(http.MethodGet)
 	oauthRouter.HandleFunc("/complete", p.checkAuth(p.attachContext(p.completeConnectUserToGitlab), ResponseTypePlain)).Methods(http.MethodGet)
 
-	apiRouter.HandleFunc("/connected", p.attachUserContext(p.getConnected, false)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/connected", p.attachContext(p.getConnected)).Methods(http.MethodGet)
 
 	apiRouter.HandleFunc("/user", p.checkAuth(p.attachContext(p.getGitlabUser), ResponseTypeJSON)).Methods(http.MethodPost)
-	apiRouter.HandleFunc("/todo", p.checkAuth(p.attachUserContext(p.checkToken(p.postToDo), true), ResponseTypeJSON)).Methods(http.MethodPost)
-	apiRouter.HandleFunc("/reviews", p.checkAuth(p.attachUserContext(p.checkToken(p.getReviews), true), ResponseTypePlain)).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/yourprs", p.checkAuth(p.attachUserContext(p.checkToken(p.getYourPrs), true), ResponseTypePlain)).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/yourassignments", p.checkAuth(p.attachUserContext(p.checkToken(p.getYourAssignments), true), ResponseTypePlain)).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/unreads", p.checkAuth(p.attachUserContext(p.checkToken(p.getUnreads), true), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/todo", p.checkAuth(p.attachUserContext(p.postToDo), ResponseTypeJSON)).Methods(http.MethodPost)
+	apiRouter.HandleFunc("/reviews", p.checkAuth(p.attachUserContext(p.getReviews), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/yourprs", p.checkAuth(p.attachUserContext(p.getYourPrs), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/yourassignments", p.checkAuth(p.attachUserContext(p.getYourAssignments), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/unreads", p.checkAuth(p.attachUserContext(p.getUnreads), ResponseTypePlain)).Methods(http.MethodGet)
 
-	apiRouter.HandleFunc("/settings", p.checkAuth(p.attachUserContext(p.updateSettings, true), ResponseTypePlain)).Methods(http.MethodPost)
+	apiRouter.HandleFunc("/settings", p.checkAuth(p.attachUserContext(p.updateSettings), ResponseTypePlain)).Methods(http.MethodPost)
 }
 
 type Context struct {
@@ -104,32 +104,21 @@ type UserContext struct {
 // HTTPHandlerFuncWithUserContext is http.HandleFunc but with a UserContext attached
 type HTTPHandlerFuncWithUserContext func(c *UserContext, w http.ResponseWriter, r *http.Request)
 
-func (p *Plugin) attachUserContext(handler HTTPHandlerFuncWithUserContext, requireConnected bool) http.HandlerFunc {
+func (p *Plugin) attachUserContext(handler HTTPHandlerFuncWithUserContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		context, cancel := p.createContext(w, r)
 		defer cancel()
 
-		mutex, err := cluster.NewMutex(p.API, context.UserID+"-refresh-token")
-		if err != nil {
-			p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get mutex: " + err.Error(), StatusCode: http.StatusInternalServerError})
+		info, apiErr := p.getGitlabUserInfoByMattermostID(context.UserID)
+		if apiErr != nil {
+			p.writeAPIError(w, apiErr)
 			return
 		}
 
-		mutex.Lock()
-		defer mutex.Unlock()
-
-		info, apiErr := p.getGitlabUserInfoByMattermostID(context.UserID)
-
-		if requireConnected {
-			if apiErr != nil {
-				p.writeAPIError(w, apiErr)
-				return
-			}
-			context.Log = context.Log.With(logger.LogContext{
-				"gitlab username": info.GitlabUsername,
-				"gitlab userid":   info.GitlabUserID,
-			})
-		}
+		context.Log = context.Log.With(logger.LogContext{
+			"gitlab username": info.GitlabUsername,
+			"gitlab userid":   info.GitlabUserID,
+		})
 
 		userContext := &UserContext{
 			Context:    *context,
@@ -184,17 +173,6 @@ func (p *Plugin) checkAuth(handler http.HandlerFunc, responseType ResponseType) 
 		}
 
 		handler(w, r)
-	}
-}
-
-func (p *Plugin) checkToken(handler HTTPHandlerFuncWithUserContext) HTTPHandlerFuncWithUserContext {
-	return func(c *UserContext, w http.ResponseWriter, r *http.Request) {
-		if err := p.checkAndRefreshToken(c.GitlabInfo); err != nil {
-			c.Log.WithError(err).Warnf("Error while checking for expired GitLab token")
-			p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Error while checking for expired GitLab token.", StatusCode: http.StatusInternalServerError})
-			return
-		}
-		handler(c, w, r)
 	}
 }
 
@@ -371,6 +349,14 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		return
 	}
 
+	if err = p.storeGitlabUserToken(userInfo.UserID, tok); err != nil {
+		c.Log.WithError(err).Warnf("Can't store user token")
+
+		rErr = errors.Wrap(err, "Unable to connect user to GitLab")
+		http.Error(w, rErr.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	if err = p.storeGitlabToUserIDMapping(userInfo.GitlabUsername, userID); err != nil {
 		c.Log.WithError(err).Warnf("Can't store GitLab to user id mapping")
 	}
@@ -496,7 +482,7 @@ func (p *Plugin) getGitlabUser(c *Context, w http.ResponseWriter, r *http.Reques
 	p.writeAPIResponse(w, &GitlabUserResponse{Username: userInfo.GitlabUsername})
 }
 
-func (p *Plugin) getConnected(c *UserContext, w http.ResponseWriter, r *http.Request) {
+func (p *Plugin) getConnected(c *Context, w http.ResponseWriter, r *http.Request) {
 	config := p.getConfiguration()
 
 	resp := &ConnectedResponse{
@@ -506,7 +492,7 @@ func (p *Plugin) getConnected(c *UserContext, w http.ResponseWriter, r *http.Req
 	}
 
 	info, _ := p.getGitlabUserInfoByMattermostID(c.UserID)
-	if info != nil && info.Token != nil {
+	if info != nil {
 		resp.Connected = true
 		resp.GitlabUsername = info.GitlabUsername
 		resp.GitlabClientID = config.GitlabOAuthClientID
@@ -537,9 +523,17 @@ func (p *Plugin) getConnected(c *UserContext, w http.ResponseWriter, r *http.Req
 }
 
 func (p *Plugin) getUnreads(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	result, err := p.GitlabClient.GetUnreads(c.Ctx, c.GitlabInfo)
+	var result []*gitlabLib.Todo
+	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetUnreads(c.Ctx, info, token)
+		if err != nil {
+			return err
+		}
+		result = resp
+		return nil
+	})
+
 	if err != nil {
-		p.handleGitlabError(c.GitlabInfo, err)
 		c.Log.WithError(err).Warnf("Unable to list unreads in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list unreads in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
@@ -549,9 +543,17 @@ func (p *Plugin) getUnreads(c *UserContext, w http.ResponseWriter, r *http.Reque
 }
 
 func (p *Plugin) getReviews(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	result, err := p.GitlabClient.GetReviews(c.Ctx, c.GitlabInfo)
+	var result []*gitlabLib.MergeRequest
+	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetReviews(c.Ctx, info, token)
+		if err != nil {
+			return err
+		}
+		result = resp
+		return nil
+	})
+
 	if err != nil {
-		p.handleGitlabError(c.GitlabInfo, err)
 		c.Log.WithError(err).Warnf("Unable to list merge-request where assignee in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
@@ -561,9 +563,17 @@ func (p *Plugin) getReviews(c *UserContext, w http.ResponseWriter, r *http.Reque
 }
 
 func (p *Plugin) getYourPrs(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	result, err := p.GitlabClient.GetYourPrs(c.Ctx, c.GitlabInfo)
+	var result []*gitlabLib.MergeRequest
+	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetYourPrs(c.Ctx, info, token)
+		if err != nil {
+			return err
+		}
+		result = resp
+		return nil
+	})
+
 	if err != nil {
-		p.handleGitlabError(c.GitlabInfo, err)
 		c.Log.WithError(err).Warnf("Can't list merge-request where author in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
@@ -573,9 +583,17 @@ func (p *Plugin) getYourPrs(c *UserContext, w http.ResponseWriter, r *http.Reque
 }
 
 func (p *Plugin) getYourAssignments(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	result, err := p.GitlabClient.GetYourAssignments(c.Ctx, c.GitlabInfo)
+	var result []*gitlabLib.Issue
+	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetYourAssignments(c.Ctx, info, token)
+		if err != nil {
+			return err
+		}
+		result = resp
+		return nil
+	})
+
 	if err != nil {
-		p.handleGitlabError(c.GitlabInfo, err)
 		c.Log.WithError(err).Warnf("Unable to list issue where assignee in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list issue in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return

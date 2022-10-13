@@ -10,6 +10,8 @@ import (
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin"
 	"github.com/pkg/errors"
+	gitlabLib "github.com/xanzy/go-gitlab"
+	"golang.org/x/oauth2"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 )
@@ -217,13 +219,17 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		}
 		return p.getCommandResponse(args, text), nil
 	case "me":
-		if err := p.checkAndRefreshToken(info); err != nil {
-			p.API.LogError("Unable to refresh GitLab access token", "err", err.Error())
-			return p.getCommandResponse(args, "Encountered an error refreshing your GitLab access token."), nil
-		}
-		gitUser, err := p.GitlabClient.GetUserDetails(ctx, info)
+		var gitUser *gitlabLib.User
+		err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+			resp, err := p.GitlabClient.GetUserDetails(ctx, info, token)
+			if err != nil {
+				return err
+			}
+			gitUser = resp
+			return nil
+		})
+
 		if err != nil {
-			p.handleGitlabError(info, err)
 			return p.getCommandResponse(args, "Encountered an error getting your GitLab profile."), nil
 		}
 
@@ -326,10 +332,6 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 	}
 	subCommand := parameters[0]
 
-	if err := p.checkAndRefreshToken(info); err != nil {
-		return err.Error()
-	}
-
 	switch subCommand {
 	case commandList:
 		if len(parameters) != 2 {
@@ -337,15 +339,31 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		}
 
 		namespace := parameters[1]
-		group, project, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, namespace, enablePrivateRepo)
+		var group, project string
+		err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+			respGroup, respProject, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
+			if err != nil {
+				return err
+			}
+			group = respGroup
+			project = respProject
+			return nil
+		})
+
 		if err != nil {
-			p.handleGitlabError(info, err)
 			return err.Error()
 		}
 
 		var webhookInfo []*gitlab.WebhookInfo
 		if project != "" {
-			webhookInfo, err = p.GitlabClient.GetProjectHooks(ctx, info, group, project)
+			err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+				resp, err := p.GitlabClient.GetProjectHooks(ctx, info, token, group, project)
+				if err != nil {
+					return err
+				}
+				webhookInfo = resp
+				return nil
+			})
 			if err != nil {
 				if strings.Contains(err.Error(), projectNotFoundError) {
 					return projectNotFoundMessage + namespace
@@ -353,7 +371,14 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 				return err.Error()
 			}
 		} else {
-			webhookInfo, err = p.GitlabClient.GetGroupHooks(ctx, info, group)
+			err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+				resp, err := p.GitlabClient.GetGroupHooks(ctx, info, token, group)
+				if err != nil {
+					return err
+				}
+				webhookInfo = resp
+				return nil
+			})
 			if err != nil {
 				if strings.Contains(err.Error(), groupNotFoundError) {
 					return groupNotFoundMessage + group
@@ -400,13 +425,21 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		}
 
 		namespace := parameters[1]
-		group, project, namespaceErr := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, namespace, enablePrivateRepo)
+		var group, project string
+		namespaceErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+			respGroup, respProject, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
+			if err != nil {
+				return err
+			}
+			group = respGroup
+			project = respProject
+			return nil
+		})
 		if namespaceErr != nil {
-			p.handleGitlabError(info, namespaceErr)
 			return namespaceErr.Error()
 		}
 
-		newWebhook, err := CreateHook(ctx, p.GitlabClient, info, group, project, hookOptions)
+		newWebhook, err := p.createHook(ctx, p.GitlabClient, info, group, project, hookOptions)
 		if err != nil {
 			return err.Error()
 		}
@@ -515,21 +548,24 @@ func (p *Plugin) subscriptionsListCommand(channelID string) string {
 	return txt
 }
 
-// subscriptionsAddCommand subscribes to A GitLab Project
+// subscriptionsAddCommand subscripes to A GitLab Project
 func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserInfo, config *configuration, fullPath, channelID, features string) string {
-	if err := p.checkAndRefreshToken(info); err != nil {
-		return err.Error()
-	}
-	namespace, project, err := p.GitlabClient.ResolveNamespaceAndProject(
-		ctx, info, fullPath, config.EnablePrivateRepo)
-
+	var namespace, project string
+	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		respGroup, respProject, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, token, fullPath, config.EnablePrivateRepo)
+		if err != nil {
+			return err
+		}
+		namespace = respGroup
+		project = respProject
+		return nil
+	})
 	if err != nil {
 		if errors.Is(err, gitlab.ErrNotFound) {
 			return "Resource with such path is not found."
 		} else if errors.Is(err, gitlab.ErrPrivateResource) {
 			return "Requested resource is private."
 		}
-		p.handleGitlabError(info, err)
 		p.API.LogError(
 			"unable to resolve subscription namespace and project name",
 			"err", err.Error(),
