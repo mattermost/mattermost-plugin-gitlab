@@ -728,12 +728,17 @@ func (p *Plugin) useGitlabClient(info *gitlab.UserInfo, toRun func(info *gitlab.
 			return apiErr
 		}
 
-		newToken, err := p.refreshToken(info, lockedToken)
-		if err != nil {
-			return err
+		// in case the token was already refreshed by a concurrent goroutine, we want to simply use
+		// that token rather than trying to refresh it again
+		if time.Until(lockedToken.Expiry) <= 1*time.Minute {
+			newToken, err := p.refreshToken(info, lockedToken) // this will also persist the new token to KV
+			if err != nil {
+				return err
+			}
+			toRunErr = toRun(info, newToken)
+		} else {
+			toRunErr = toRun(info, lockedToken)
 		}
-
-		toRunErr = toRun(info, newToken)
 	} else {
 		toRunErr = toRun(info, token)
 	}
