@@ -707,45 +707,47 @@ func (p *Plugin) handleRevokedToken(info *gitlab.UserInfo) {
 	}
 }
 
-func (p *Plugin) useGitlabClient(info *gitlab.UserInfo, toRun func(info *gitlab.UserInfo, token *oauth2.Token) error) error {
+func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo) (*oauth2.Token, error) {
 	token, apiErr := p.getGitlabUserTokenByMattermostID(info.UserID)
 	if apiErr != nil {
-		return apiErr
+		return nil, apiErr
 	}
 
-	var toRunErr error
-
-	// If there is only one minute left for the token to expire, we are refreshing the token.
-	// The detailed reason for this can be found here: https://github.com/golang/oauth2/issues/84#issuecomment-831492464
-	// We don't want the token to expire between the time when we decide that the old token is valid
-	// and the time at which we create the request. We are handling that by not letting the token expire.
-	if time.Until(token.Expiry) <= 1*time.Minute {
-		tokenMutex.Lock()
-		defer tokenMutex.Unlock()
-
-		lockedToken, apiErr := p.getGitlabUserTokenByMattermostID(info.UserID)
-		if apiErr != nil {
-			return apiErr
-		}
-
-		// in case the token was already refreshed by a concurrent goroutine, we want to simply use
-		// that token rather than trying to refresh it again
-		if time.Until(lockedToken.Expiry) <= 1*time.Minute {
-			newToken, err := p.refreshToken(info, lockedToken) // this will also persist the new token to KV
-			if err != nil {
-				return err
-			}
-			toRunErr = toRun(info, newToken)
-		} else {
-			toRunErr = toRun(info, lockedToken)
-		}
-	} else {
-		toRunErr = toRun(info, token)
+	if time.Until(token.Expiry) > 1*time.Minute {
+		return token, nil
 	}
 
-	if toRunErr != nil && strings.Contains(toRunErr.Error(), invalidTokenError) {
+	tokenMutex.Lock()
+	defer tokenMutex.Unlock()
+
+	lockedToken, apiErr := p.getGitlabUserTokenByMattermostID(info.UserID)
+	if apiErr != nil {
+		return nil, apiErr
+	}
+
+	if time.Until(lockedToken.Expiry) > 1*time.Minute {
+		return lockedToken, nil
+	}
+
+	newToken, err := p.refreshToken(info, lockedToken)
+	if err != nil {
+		return nil, err
+	}
+
+	return newToken, nil
+}
+
+func (p *Plugin) useGitlabClient(info *gitlab.UserInfo, toRun func(info *gitlab.UserInfo, token *oauth2.Token) error) error {
+	token, err := p.getOrRefreshTokenWithMutex(info)
+	if err != nil {
+		return err
+	}
+
+	err = toRun(info, token)
+
+	if err != nil && strings.Contains(err.Error(), invalidTokenError) {
 		p.handleRevokedToken(info)
 	}
 
-	return toRunErr
+	return err
 }
