@@ -195,12 +195,12 @@ func TestListWebhookCommand(t *testing.T) {
 			mockedClient := mocks.NewMockGitlab(mockCtrl)
 
 			p.configuration = &configuration{
-				EncryptionKey: `4DcXZac29pOMAn9qh8F7E3FGdlc/BT2J`,
+				EncryptionKey: `shD-LC2DElnQzUO50cbvlOvjsNnzfEbk`,
 			}
-			jsonToken := []byte("{\"access_token\":\"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"token_type\":\"Bearer\",\"refresh_token\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"expiry\":\"3022-10-11T19:57:54.768715261-05:00\"}")
+			encryptedToken := []byte("x-Oz-EgJnnsh8TnEIEcrc-y2idnvr7mGSgSiHDKhzMXFXnmCmxz05PEwYq__yrMatSE_HBmXw63x33jaD9WxOl5fRFIcep6ZT3J27GmhnBNAJhUMLwse_-7m0j6DqRAWwD1oTn9R0iSmni2rC4zafm7OkLschNIKP0qOaOHCrIqJAHM07aYplEID6Mis09S6zk28vFskle_5LUq8rAk6z_flAPKzZ8j_JQ6G2SMcPb6mdP1qiTJy_V1lG9T08i9oU8V-ovrqjo-C0yJiZHS-2HK2uw51edlx8RPGM3KDk4m500V_EOsfxSBQMr6DoWq_9ikB47yRInvSIHuiBFAx3Q==")
 
 			api := &plugintest.API{}
-			api.On("KVGet", "_usertoken").Return(jsonToken, nil)
+			api.On("KVGet", "_usertoken").Return(encryptedToken, nil)
 			p.SetAPI(api)
 
 			if test.scope == "project" {
@@ -236,17 +236,18 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.We
 	conf := &model.Config{}
 	conf.ServiceSettings.SiteURL = &mattermostURL
 	p.configuration = &configuration{
-		EncryptionKey: `4DcXZac29pOMAn9qh8F7E3FGdlc/BT2J`,
+		EncryptionKey: `shD-LC2DElnQzUO50cbvlOvjsNnzfEbk`,
 	}
-	jsonToken := []byte("{\"access_token\":\"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"token_type\":\"Bearer\",\"refresh_token\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"expiry\":\"3022-10-11T19:57:54.768715261-05:00\"}")
+	encryptedToken := []byte("x-Oz-EgJnnsh8TnEIEcrc-y2idnvr7mGSgSiHDKhzMXFXnmCmxz05PEwYq__yrMatSE_HBmXw63x33jaD9WxOl5fRFIcep6ZT3J27GmhnBNAJhUMLwse_-7m0j6DqRAWwD1oTn9R0iSmni2rC4zafm7OkLschNIKP0qOaOHCrIqJAHM07aYplEID6Mis09S6zk28vFskle_5LUq8rAk6z_flAPKzZ8j_JQ6G2SMcPb6mdP1qiTJy_V1lG9T08i9oU8V-ovrqjo-C0yJiZHS-2HK2uw51edlx8RPGM3KDk4m500V_EOsfxSBQMr6DoWq_9ikB47yRInvSIHuiBFAx3Q==")
 
 	var subVal []byte
 
 	api := &plugintest.API{}
 	api.On("GetConfig", mock.Anything).Return(conf)
-	api.On("KVGet", "_usertoken").Return(jsonToken, nil)
+	api.On("KVGet", "_usertoken").Return(encryptedToken, nil)
 	api.On("KVGet", mock.Anything).Return(subVal, nil)
 	api.On("KVSet", mock.Anything, mock.Anything).Return(nil)
+	api.On("KVSetWithOptions", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
 	p.SetAPI(api)
 	return p
 }
@@ -370,13 +371,13 @@ func TestAddWebhookCommand(t *testing.T) {
 			conf := &model.Config{}
 			conf.ServiceSettings.SiteURL = &test.siteURL
 			p.configuration = &configuration{
-				EncryptionKey: `4DcXZac29pOMAn9qh8F7E3FGdlc/BT2J`,
+				EncryptionKey: `shD-LC2DElnQzUO50cbvlOvjsNnzfEbk`,
 			}
-			jsonToken := []byte("{\"access_token\":\"00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\",\"token_type\":\"Bearer\",\"refresh_token\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"expiry\":\"3022-10-11T19:57:54.768715261-05:00\"}")
+			encryptedToken := []byte("x-Oz-EgJnnsh8TnEIEcrc-y2idnvr7mGSgSiHDKhzMXFXnmCmxz05PEwYq__yrMatSE_HBmXw63x33jaD9WxOl5fRFIcep6ZT3J27GmhnBNAJhUMLwse_-7m0j6DqRAWwD1oTn9R0iSmni2rC4zafm7OkLschNIKP0qOaOHCrIqJAHM07aYplEID6Mis09S6zk28vFskle_5LUq8rAk6z_flAPKzZ8j_JQ6G2SMcPb6mdP1qiTJy_V1lG9T08i9oU8V-ovrqjo-C0yJiZHS-2HK2uw51edlx8RPGM3KDk4m500V_EOsfxSBQMr6DoWq_9ikB47yRInvSIHuiBFAx3Q==")
 
 			api := &plugintest.API{}
 			api.On("GetConfig", mock.Anything).Return(conf)
-			api.On("KVGet", "_usertoken").Return(jsonToken, nil)
+			api.On("KVGet", "_usertoken").Return(encryptedToken, nil)
 			p.SetAPI(api)
 
 			got := p.webhookCommand(context.Background(), test.parameters, &gitlab.UserInfo{}, true)
