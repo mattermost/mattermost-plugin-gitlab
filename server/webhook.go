@@ -132,7 +132,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if errHandler != nil {
-		p.API.LogDebug("Error when handling webhook event", "err", err)
+		p.API.LogDebug("Error when handling webhook event", "err", errHandler)
 		return
 	}
 
