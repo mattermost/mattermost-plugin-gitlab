@@ -15,6 +15,7 @@ import (
 
 	"github.com/gorilla/mux"
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
+	"github.com/mattermost/mattermost-plugin-api/cluster"
 	"github.com/mattermost/mattermost-plugin-api/experimental/bot/poster"
 	"github.com/mattermost/mattermost-plugin-api/experimental/telemetry"
 	"github.com/mattermost/mattermost-server/v6/model"
@@ -48,8 +49,7 @@ const (
 )
 
 var (
-	manifest   model.Manifest = root.Manifest
-	tokenMutex sync.Mutex
+	manifest model.Manifest = root.Manifest
 )
 
 type Plugin struct {
@@ -715,8 +715,13 @@ func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo) (*oauth2.Toke
 		return token, nil
 	}
 
-	tokenMutex.Lock()
-	defer tokenMutex.Unlock()
+	mutex, err := cluster.NewMutex(p.API, info.UserID+"-refresh-token")
+	if err != nil {
+		return nil, err
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
 
 	lockedToken, apiErr := p.getGitlabUserTokenByMattermostID(info.UserID)
 	if apiErr != nil {
