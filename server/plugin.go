@@ -245,19 +245,17 @@ func (p *Plugin) storeGitlabUserInfo(info *gitlab.UserInfo) error {
 func (p *Plugin) storeGitlabUserToken(userID string, token *oauth2.Token) error {
 	config := p.getConfiguration()
 
-	encryptedToken, err := encrypt([]byte(config.EncryptionKey), token.AccessToken)
+	jsonToken, err := json.Marshal(token)
 	if err != nil {
 		return err
 	}
 
-	token.AccessToken = encryptedToken
-
-	jsonInfo, err := json.Marshal(token)
+	encryptedToken, err := encrypt([]byte(config.EncryptionKey), string(jsonToken))
 	if err != nil {
 		return err
 	}
 
-	if err := p.API.KVSet(userID+GitlabUserTokenKey, jsonInfo); err != nil {
+	if err := p.API.KVSet(userID+GitlabUserTokenKey, []byte(encryptedToken)); err != nil {
 		return err
 	}
 
@@ -294,18 +292,20 @@ func (p *Plugin) getGitlabUserTokenByMattermostID(userID string) (*oauth2.Token,
 	config := p.getConfiguration()
 	var token oauth2.Token
 
-	if infoBytes, err := p.API.KVGet(userID + GitlabUserTokenKey); err != nil || infoBytes == nil {
+	tokenBytes, appErr := p.API.KVGet(userID + GitlabUserTokenKey)
+	if appErr != nil || tokenBytes == nil {
 		return nil, &APIErrorResponse{ID: APIErrorIDNotConnected, Message: "Must connect user account to GitLab first.", StatusCode: http.StatusBadRequest}
-	} else if err := json.Unmarshal(infoBytes, &token); err != nil {
-		return nil, &APIErrorResponse{ID: "", Message: "Unable to parse token.", StatusCode: http.StatusInternalServerError}
 	}
 
-	unencryptedToken, err := decrypt([]byte(config.EncryptionKey), token.AccessToken)
+	unencryptedToken, err := decrypt([]byte(config.EncryptionKey), string(tokenBytes))
 	if err != nil {
 		p.API.LogError("can't decrypt token", "err", err.Error())
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to decrypt access token.", StatusCode: http.StatusInternalServerError}
 	}
-	token.AccessToken = unencryptedToken
+
+	if err := json.Unmarshal([]byte(unencryptedToken), &token); err != nil {
+		return nil, &APIErrorResponse{ID: "", Message: "Unable to parse token.", StatusCode: http.StatusInternalServerError}
+	}
 
 	return &token, nil
 }
@@ -684,14 +684,12 @@ func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*
 	}
 
 	if newToken.AccessToken != token.AccessToken {
-		p.API.LogDebug("Gitlab token refreshed.", "UserID", userInfo.UserID, "Gitlab Username", userInfo.GitlabUsername)
-		unencryptedNewToken := newToken.AccessToken // needed because the storeGitlabUserInfo method changes its value to an encrypted value
+		p.API.LogDebug("Gitlab token refreshed.", "UserID", userInfo.UserID)
 
 		if err := p.storeGitlabUserToken(userInfo.UserID, newToken); err != nil {
 			return nil, errors.Wrap(err, "unable to store user info with refreshed token")
 		}
 
-		newToken.AccessToken = unencryptedNewToken
 		return newToken, nil
 	}
 
