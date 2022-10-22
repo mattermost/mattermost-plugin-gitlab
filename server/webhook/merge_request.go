@@ -38,7 +38,18 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 		case actionReopen:
 			message = fmt.Sprintf("[%s](%s) reopen your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 		case actionUpdate:
-			// TODO not enough check (opened/update) to say assigned to you...
+			toUsers = []string{}
+			for _, assigneeID := range(event.ObjectAttributes.AssigneeIDs) {
+				assignedInPrevious := false
+				for _, eventUser := range(event.Changes.Assignees.Previous) {
+					if eventUser.ID == assigneeID {
+						assignedInPrevious = true
+					}
+				}
+				if (!assignedInPrevious) {
+					toUsers = append(toUsers, w.gitlabRetreiver.GetUsernameByID(assigneeID))
+				}
+			}
 			message = fmt.Sprintf("[%s](%s) assigned you to merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 		}
 	case stateClosed:
