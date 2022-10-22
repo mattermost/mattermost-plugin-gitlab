@@ -25,6 +25,11 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 
 	message := ""
 
+	toUsers := []string{authorGitlabUsername}
+	for _, assigneeID := range(event.ObjectAttributes.AssigneeIDs) {
+		toUsers = append(toUsers, w.gitlabRetreiver.GetUsernameByID(assigneeID))
+	}
+
 	switch event.ObjectAttributes.State {
 	case stateOpened:
 		switch event.ObjectAttributes.Action {
@@ -47,7 +52,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 	if len(message) > 0 {
 		handlers := []*HandleWebhook{{
 			Message:    message,
-			ToUsers:    []string{w.gitlabRetreiver.GetUsernameByID(event.ObjectAttributes.AssigneeID), authorGitlabUsername},
+			ToUsers:    toUsers,
 			ToChannels: []string{},
 			From:       senderGitlabUsername,
 		}}
