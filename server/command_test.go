@@ -27,6 +27,8 @@ type subscribeCommandTest struct {
 }
 
 const subscribeSuccessMessage = "Successfully subscribed to group/project.\nA Webhook is needed, run ```/gitlab webhook add group/project``` to create one now."
+const testGitlabToken = `{"access_token":"6328a1014b19f741489b48cdc4291d93aa2957b0cea67335a34dcdadaf212139","token_type":"Bearer","refresh_token":"e6453b621e8979214c9f8a1b0e1e39723df8af11cef5e0d613a2cb2e39bdfeb7","expiry":"3022-10-23T15:14:43.623638795-05:00"}`
+const testEncryptionKey = `shD-LC2DElnQzUO50cbvlOvjsNnzfEbk`
 
 var subscribeCommandTests = []subscribeCommandTest{
 	{
@@ -194,13 +196,14 @@ func TestListWebhookCommand(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
 			mockedClient := mocks.NewMockGitlab(mockCtrl)
 
+			encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
+
 			p.configuration = &configuration{
-				EncryptionKey: `shD-LC2DElnQzUO50cbvlOvjsNnzfEbk`,
+				EncryptionKey: testEncryptionKey,
 			}
-			encryptedToken := []byte("x-Oz-EgJnnsh8TnEIEcrc-y2idnvr7mGSgSiHDKhzMXFXnmCmxz05PEwYq__yrMatSE_HBmXw63x33jaD9WxOl5fRFIcep6ZT3J27GmhnBNAJhUMLwse_-7m0j6DqRAWwD1oTn9R0iSmni2rC4zafm7OkLschNIKP0qOaOHCrIqJAHM07aYplEID6Mis09S6zk28vFskle_5LUq8rAk6z_flAPKzZ8j_JQ6G2SMcPb6mdP1qiTJy_V1lG9T08i9oU8V-ovrqjo-C0yJiZHS-2HK2uw51edlx8RPGM3KDk4m500V_EOsfxSBQMr6DoWq_9ikB47yRInvSIHuiBFAx3Q==")
 
 			api := &plugintest.API{}
-			api.On("KVGet", "_usertoken").Return(encryptedToken, nil)
+			api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
 			p.SetAPI(api)
 
 			if test.scope == "project" {
@@ -235,16 +238,18 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.We
 
 	conf := &model.Config{}
 	conf.ServiceSettings.SiteURL = &mattermostURL
+
+	encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
+
 	p.configuration = &configuration{
-		EncryptionKey: `shD-LC2DElnQzUO50cbvlOvjsNnzfEbk`,
+		EncryptionKey: testEncryptionKey,
 	}
-	encryptedToken := []byte("x-Oz-EgJnnsh8TnEIEcrc-y2idnvr7mGSgSiHDKhzMXFXnmCmxz05PEwYq__yrMatSE_HBmXw63x33jaD9WxOl5fRFIcep6ZT3J27GmhnBNAJhUMLwse_-7m0j6DqRAWwD1oTn9R0iSmni2rC4zafm7OkLschNIKP0qOaOHCrIqJAHM07aYplEID6Mis09S6zk28vFskle_5LUq8rAk6z_flAPKzZ8j_JQ6G2SMcPb6mdP1qiTJy_V1lG9T08i9oU8V-ovrqjo-C0yJiZHS-2HK2uw51edlx8RPGM3KDk4m500V_EOsfxSBQMr6DoWq_9ikB47yRInvSIHuiBFAx3Q==")
 
 	var subVal []byte
 
 	api := &plugintest.API{}
 	api.On("GetConfig", mock.Anything).Return(conf)
-	api.On("KVGet", "_usertoken").Return(encryptedToken, nil)
+	api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
 	api.On("KVGet", mock.Anything).Return(subVal, nil)
 	api.On("KVSet", mock.Anything, mock.Anything).Return(nil)
 	api.On("KVSetWithOptions", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
@@ -370,14 +375,16 @@ func TestAddWebhookCommand(t *testing.T) {
 
 			conf := &model.Config{}
 			conf.ServiceSettings.SiteURL = &test.siteURL
+
+			encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
+
 			p.configuration = &configuration{
-				EncryptionKey: `shD-LC2DElnQzUO50cbvlOvjsNnzfEbk`,
+				EncryptionKey: testEncryptionKey,
 			}
-			encryptedToken := []byte("x-Oz-EgJnnsh8TnEIEcrc-y2idnvr7mGSgSiHDKhzMXFXnmCmxz05PEwYq__yrMatSE_HBmXw63x33jaD9WxOl5fRFIcep6ZT3J27GmhnBNAJhUMLwse_-7m0j6DqRAWwD1oTn9R0iSmni2rC4zafm7OkLschNIKP0qOaOHCrIqJAHM07aYplEID6Mis09S6zk28vFskle_5LUq8rAk6z_flAPKzZ8j_JQ6G2SMcPb6mdP1qiTJy_V1lG9T08i9oU8V-ovrqjo-C0yJiZHS-2HK2uw51edlx8RPGM3KDk4m500V_EOsfxSBQMr6DoWq_9ikB47yRInvSIHuiBFAx3Q==")
 
 			api := &plugintest.API{}
 			api.On("GetConfig", mock.Anything).Return(conf)
-			api.On("KVGet", "_usertoken").Return(encryptedToken, nil)
+			api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
 			p.SetAPI(api)
 
 			got := p.webhookCommand(context.Background(), test.parameters, &gitlab.UserInfo{}, true)
