@@ -46,7 +46,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 						assignedInPrevious = true
 					}
 				}
-				if (!assignedInPrevious) {
+				if !assignedInPrevious {
 					toUsers = append(toUsers, w.gitlabRetreiver.GetUsernameByID(currentAssigneeID))
 				}
 			}
