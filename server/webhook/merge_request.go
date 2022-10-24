@@ -26,7 +26,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 	message := ""
 
 	toUsers := []string{authorGitlabUsername}
-	for _, assigneeID := range(event.ObjectAttributes.AssigneeIDs) {
+	for _, assigneeID := range event.ObjectAttributes.AssigneeIDs {
 		toUsers = append(toUsers, w.gitlabRetreiver.GetUsernameByID(assigneeID))
 	}
 
@@ -39,15 +39,15 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 			message = fmt.Sprintf("[%s](%s) reopen your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 		case actionUpdate:
 			toUsers = []string{}
-			for _, assigneeID := range(event.ObjectAttributes.AssigneeIDs) {
+			for _, currentAssigneeID := range event.ObjectAttributes.AssigneeIDs {
 				assignedInPrevious := false
-				for _, eventUser := range(event.Changes.Assignees.Previous) {
-					if eventUser.ID == assigneeID {
+				for _, previousAssignee := range event.Changes.Assignees.Previous {
+					if previousAssignee.ID == currentAssigneeID {
 						assignedInPrevious = true
 					}
 				}
 				if (!assignedInPrevious) {
-					toUsers = append(toUsers, w.gitlabRetreiver.GetUsernameByID(assigneeID))
+					toUsers = append(toUsers, w.gitlabRetreiver.GetUsernameByID(currentAssigneeID))
 				}
 			}
 			message = fmt.Sprintf("[%s](%s) assigned you to merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
