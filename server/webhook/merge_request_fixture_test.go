@@ -28,6 +28,7 @@ const OpenMergeRequest = `{
 	},
 	"object_attributes":{
 		"assignee_id":50,
+		"assignee_ids":[50],
 		"author_id":1,
 		"created_at":"2019-04-03 21:07:32 UTC",
 		"description":"test open merge request",
@@ -171,6 +172,7 @@ const ReopenMerge = `{
 			},
 			"object_attributes":{
 				"assignee_id":null,
+				"assignee_ids":[],
 				"author_id":1,
 				"created_at":"2019-04-01 20:25:41 UTC",
 				"description":"# Et voila\\n\\nC'est tro pbien",
@@ -302,6 +304,7 @@ const CloseMergeRequestByAssignee = `{
 			},
 			"object_attributes":{
 				"assignee_id":50,
+				"assignee_ids":[50],
 				"author_id":1,
 				"created_at":"2019-04-03 21:07:32 UTC",
 				"description":"test open merge request",
@@ -445,6 +448,7 @@ const CloseMergeRequestByCreator = `{
 				},
 				"object_attributes":{
 					"assignee_id":null,
+					"assignee_ids":[],
 					"author_id":1,
 					"created_at":"2019-04-01 20:25:41 UTC",
 					"description":"# Et voila\\n\\nC'est tro pbien",
@@ -573,6 +577,7 @@ const AssigneeMergeRequest = `{
 						},
 						"object_attributes":{
 							"assignee_id":50,
+							"assignee_ids":[50],
 							"author_id":1,
 							"created_at":"2019-04-03 21:07:32 UTC",
 							"description":"test open merge request",
@@ -658,6 +663,10 @@ const AssigneeMergeRequest = `{
 								"previous":1,
 								"current":50
 							},
+							"assignee_ids":{
+								"previous":[1],
+								"current":[50]
+							},
 							"updated_at":{
 								"previous":"2019-04-04 21:02:42 UTC",
 								"current":"2019-04-04 21:03:46 UTC"
@@ -715,6 +724,7 @@ const MergeRequestMerged = `{
 							},
 							"object_attributes":{
 								"assignee_id":50,
+								"assignee_ids":[50],
 								"author_id":1,
 								"created_at":"2019-04-03 21:07:32 UTC",
 								"description":"test open merge request",
