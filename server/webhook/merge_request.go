@@ -44,6 +44,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 				for _, previousAssignee := range event.Changes.Assignees.Previous {
 					if previousAssignee.ID == currentAssigneeID {
 						assignedInPrevious = true
+						break
 					}
 				}
 				if !assignedInPrevious {
