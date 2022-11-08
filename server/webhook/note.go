@@ -42,7 +42,7 @@ func (w *webhook) handleDMIssueComment(event *gitlab.IssueCommentEvent) ([]*Hand
 		pathWithNamespace: event.Project.PathWithNamespace,
 		IID:               fmt.Sprintf("%d", event.Issue.IID),
 		URL:               event.ObjectAttributes.URL,
-		body:              event.ObjectAttributes.Note,
+		body:              sanitizeDescription(event.ObjectAttributes.Note),
 	}); mention != nil {
 		handlers = append(handlers, mention)
 	}
@@ -53,7 +53,7 @@ func (w *webhook) handleDMIssueComment(event *gitlab.IssueCommentEvent) ([]*Hand
 func (w *webhook) handleChannelIssueComment(ctx context.Context, event *gitlab.IssueCommentEvent) ([]*HandleWebhook, error) {
 	senderGitlabUsername := event.User.Username
 	repo := event.Project
-	body := event.ObjectAttributes.Note
+	body := sanitizeDescription(event.ObjectAttributes.Note)
 	res := []*HandleWebhook{}
 
 	message := fmt.Sprintf("[%s](%s) New comment by [%s](%s) on [#%v %s](%s):\n\n%s", repo.PathWithNamespace, repo.WebURL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Issue.IID, event.Issue.Title, event.ObjectAttributes.URL, body)
@@ -113,7 +113,7 @@ func (w *webhook) handleDMMergeRequestComment(event *gitlab.MergeCommentEvent) (
 		pathWithNamespace: event.Project.PathWithNamespace,
 		IID:               fmt.Sprintf("%d", event.MergeRequest.IID),
 		URL:               event.ObjectAttributes.URL,
-		body:              event.ObjectAttributes.Note,
+		body:              sanitizeDescription(event.ObjectAttributes.Note),
 	}); mention != nil {
 		handlers = append(handlers, mention)
 	}
@@ -123,7 +123,7 @@ func (w *webhook) handleDMMergeRequestComment(event *gitlab.MergeCommentEvent) (
 func (w *webhook) handleChannelMergeRequestComment(ctx context.Context, event *gitlab.MergeCommentEvent) ([]*HandleWebhook, error) {
 	senderGitlabUsername := event.User.Username
 	repo := event.Project
-	body := event.ObjectAttributes.Note
+	body := sanitizeDescription(event.ObjectAttributes.Note)
 	res := []*HandleWebhook{}
 
 	message := fmt.Sprintf("[%s](%s) New comment by [%s](%s) on [#%v %s](%s):\n\n%s", repo.PathWithNamespace, repo.WebURL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.MergeRequest.IID, event.MergeRequest.Title, event.ObjectAttributes.URL, body)
