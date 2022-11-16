@@ -29,16 +29,17 @@ import (
 )
 
 const (
-	GitlabTokenKey       = "_gitlabtoken"
-	GitlabUsernameKey    = "_gitlabusername"
-	GitlabIDUsernameKey  = "_gitlabidusername"
-	WsEventConnect       = "gitlab_connect"
-	WsEventDisconnect    = "gitlab_disconnect"
-	WsEventRefresh       = "gitlab_refresh"
-	SettingNotifications = "notifications"
-	SettingReminders     = "reminders"
-	SettingOn            = "on"
-	SettingOff           = "off"
+	GitlabTokenKey                = "_gitlabtoken"
+	GitlabUsernameKey             = "_gitlabusername"
+	GitlabIDUsernameKey           = "_gitlabidusername"
+	WsEventConnect                = "gitlab_connect"
+	WsEventDisconnect             = "gitlab_disconnect"
+	WsEventRefresh                = "gitlab_refresh"
+	WsChannelSubscriptionsUpdated = "gitlab_channel_subscriptions_updated"
+	SettingNotifications          = "notifications"
+	SettingReminders              = "reminders"
+	SettingOn                     = "on"
+	SettingOff                    = "off"
 
 	chimeraGitLabAppIdentifier = "plugin-gitlab"
 )
@@ -550,6 +551,56 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 		WsEventRefresh,
 		nil,
 		&model.WebsocketBroadcast{UserId: userID},
+	)
+}
+
+func (p *Plugin) sendChannelSubscriptionsUpdated(channelID string) {
+	config := p.getConfiguration()
+	gitlabURL, err := url.Parse(config.GitlabURL)
+	if err != nil {
+		p.API.LogWarn(
+			"unable to parse GitlabURL",
+			"err", err.Error(),
+		)
+		return
+	}
+
+	subscriptions, err := p.GetSubscriptionsByChannel(channelID)
+	if err != nil {
+		p.API.LogWarn(
+			"unable to fetch subscriptions by channel",
+			"err", err.Error(),
+		)
+		return
+	}
+
+	var payload struct {
+		ChannelID     string                 `json:"channel_id"`
+		Subscriptions []SubscriptionResponse `json:"subscriptions"`
+	}
+	payload.ChannelID = channelID
+	payload.Subscriptions = make([]SubscriptionResponse, 0, len(subscriptions))
+
+	for _, subscription := range subscriptions {
+		payload.Subscriptions = append(payload.Subscriptions, SubscriptionResponse{
+			RepositoryName: subscription.Repository,
+			RepositoryURL:  gitlabURL.JoinPath(subscription.Repository).String(),
+		})
+	}
+
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		p.API.LogWarn(
+			"unable to marshal payload for updated channel subscriptions",
+			"err", err.Error(),
+		)
+		return
+	}
+
+	p.API.PublishWebSocketEvent(
+		WsChannelSubscriptionsUpdated,
+		map[string]interface{}{"payload": string(payloadJSON)},
+		&model.WebsocketBroadcast{ChannelId: channelID},
 	)
 }
 

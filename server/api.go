@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -57,6 +58,8 @@ func (p *Plugin) initializeAPI() {
 	apiRouter.HandleFunc("/unreads", p.checkAuth(p.attachUserContext(p.getUnreads), ResponseTypePlain)).Methods(http.MethodGet)
 
 	apiRouter.HandleFunc("/settings", p.checkAuth(p.attachUserContext(p.updateSettings), ResponseTypePlain)).Methods(http.MethodPost)
+
+	apiRouter.HandleFunc("/channel/{channel_id:[A-Za-z0-9]+}/subscriptions", p.checkAuth(p.attachUserContext(p.getChannelSubscriptions), ResponseTypeJSON)).Methods(http.MethodGet)
 }
 
 type Context struct {
@@ -594,4 +597,40 @@ func (p *Plugin) updateSettings(c *UserContext, w http.ResponseWriter, r *http.R
 	}
 
 	p.writeAPIResponse(w, info.Settings)
+}
+
+type SubscriptionResponse struct {
+	RepositoryName string `json:"repository_name"`
+	RepositoryURL  string `json:"repository_url"`
+}
+
+func (p *Plugin) getChannelSubscriptions(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	channelID := vars["channel_id"]
+
+	if !p.API.HasPermissionToChannel(c.UserID, channelID, model.PermissionReadChannel) {
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Not authorized.", StatusCode: http.StatusUnauthorized})
+		return
+	}
+
+	config := p.getConfiguration()
+	gitlabURL, _ := url.Parse(config.GitlabURL)
+	subscriptions, err := p.GetSubscriptionsByChannel(channelID)
+	if err != nil {
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get subscriptions by channel.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	resp := make([]SubscriptionResponse, 0, len(subscriptions))
+	for _, subscription := range subscriptions {
+		resp = append(resp, SubscriptionResponse{
+			RepositoryName: subscription.Repository,
+			RepositoryURL:  gitlabURL.JoinPath(subscription.Repository).String(),
+		})
+	}
+
+	b, _ := json.Marshal(resp)
+	if _, err := w.Write(b); err != nil {
+		p.API.LogError("can't write api error http response", "err", err.Error())
+	}
 }
