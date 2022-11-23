@@ -217,7 +217,7 @@ const Subscription = (props) => {
 
 Subscription.propTypes = {
     url: PropTypes.string,
-    name: PropTypes.name,
+    name: PropTypes.string,
 };
 
 const containerStyle = {
@@ -293,20 +293,20 @@ const Subscriptions = (props) => {
 Subscriptions.propTypes = {
     subscriptions: PropTypes.arrayOf(PropTypes.shape({
         repository_name: PropTypes.string,
-        repository_url: PropTypes.url,
+        repository_url: PropTypes.string,
     })),
 };
 
 export default class RHSSidebar extends React.PureComponent {
     static propTypes = {
         currentUserId: PropTypes.string,
-        connected: PropTypes.boolean,
+        connected: PropTypes.bool,
         username: PropTypes.string,
         gitlabURL: PropTypes.string,
         currentChannelId: PropTypes.string,
         currentChannelSubscriptions: PropTypes.arrayOf(PropTypes.shape({
             repository_name: PropTypes.string,
-            repository_url: PropTypes.url,
+            repository_url: PropTypes.string,
         })),
         pluginServerRoute: PropTypes.string,
         actions: PropTypes.shape({
