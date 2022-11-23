@@ -281,7 +281,7 @@ const Subscriptions = (props) => {
             <div style={headerStyle}>{'GitLab Subscriptions'}</div>
             {props.subscriptions.map((subscription) => (
                 <Subscription
-                    key={subscription.repository_name}
+                    key={subscription.repository_url}
                     name={subscription.repository_name}
                     url={subscription.repository_url}
                 />
