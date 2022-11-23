@@ -21,6 +21,7 @@ import (
 	"github.com/mattermost/mattermost-server/v6/plugin"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
+	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
 
 const (
@@ -600,8 +601,23 @@ func (p *Plugin) updateSettings(c *UserContext, w http.ResponseWriter, r *http.R
 }
 
 type SubscriptionResponse struct {
-	RepositoryName string `json:"repository_name"`
-	RepositoryURL  string `json:"repository_url"`
+	RepositoryName string   `json:"repository_name"`
+	RepositoryURL  string   `json:"repository_url"`
+}
+
+func subscriptionsToResponse(config *configuration, subscriptions []*subscription.Subscription) []SubscriptionResponse {
+	gitlabURL, _ := url.Parse(config.GitlabURL)
+
+	subscriptionResponses := make([]SubscriptionResponse, 0, len(subscriptions))
+
+	for _, subscription := range subscriptions {
+		subscriptionResponses = append(subscriptionResponses, SubscriptionResponse{
+			RepositoryName: subscription.Repository,
+			RepositoryURL:  gitlabURL.JoinPath(subscription.Repository).String(),
+		})
+	}
+
+	return subscriptionResponses
 }
 
 func (p *Plugin) getChannelSubscriptions(c *UserContext, w http.ResponseWriter, r *http.Request) {
@@ -614,20 +630,13 @@ func (p *Plugin) getChannelSubscriptions(c *UserContext, w http.ResponseWriter, 
 	}
 
 	config := p.getConfiguration()
-	gitlabURL, _ := url.Parse(config.GitlabURL)
 	subscriptions, err := p.GetSubscriptionsByChannel(channelID)
 	if err != nil {
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get subscriptions by channel.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 
-	resp := make([]SubscriptionResponse, 0, len(subscriptions))
-	for _, subscription := range subscriptions {
-		resp = append(resp, SubscriptionResponse{
-			RepositoryName: subscription.Repository,
-			RepositoryURL:  gitlabURL.JoinPath(subscription.Repository).String(),
-		})
-	}
+	resp := subscriptionsToResponse(config, subscriptions)
 
 	b, _ := json.Marshal(resp)
 	if _, err := w.Write(b); err != nil {

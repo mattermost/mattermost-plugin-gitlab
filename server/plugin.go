@@ -556,14 +556,6 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 
 func (p *Plugin) sendChannelSubscriptionsUpdated(channelID string) {
 	config := p.getConfiguration()
-	gitlabURL, err := url.Parse(config.GitlabURL)
-	if err != nil {
-		p.API.LogWarn(
-			"unable to parse GitlabURL",
-			"err", err.Error(),
-		)
-		return
-	}
 
 	subscriptions, err := p.GetSubscriptionsByChannel(channelID)
 	if err != nil {
@@ -579,14 +571,7 @@ func (p *Plugin) sendChannelSubscriptionsUpdated(channelID string) {
 		Subscriptions []SubscriptionResponse `json:"subscriptions"`
 	}
 	payload.ChannelID = channelID
-	payload.Subscriptions = make([]SubscriptionResponse, 0, len(subscriptions))
-
-	for _, subscription := range subscriptions {
-		payload.Subscriptions = append(payload.Subscriptions, SubscriptionResponse{
-			RepositoryName: subscription.Repository,
-			RepositoryURL:  gitlabURL.JoinPath(subscription.Repository).String(),
-		})
-	}
+	payload.Subscriptions = subscriptionsToResponse(config, subscriptions)
 
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
