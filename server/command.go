@@ -26,7 +26,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
     * pushes - includes pushes
 	* issue_comments - includes new issue comments
 	* merge_request_comments - include new merge-request comments
-	* pipeline - includes pipeline triggers
+	* pipeline - includes pipeline runs
 	* tag - include tag creation
     * pull_reviews - includes merge request reviews
 	* label:"<labelname>" - must include "merges" or "issues" in feature list when using a label
@@ -82,8 +82,7 @@ const (
 	commandDelete = "delete"
 	commandList   = "list"
 
-	commandRun     = "run"
-	commandTrigger = "trigger"
+	commandRun = "run"
 )
 
 const (
@@ -709,10 +708,6 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 	pipelineRun := model.NewAutocompleteData(commandRun, "owner[/repo] [ref]", "Run a pipeline for the provided project")
 	pipelineRun.AddTextArgument("Project path: includes user or group name with optional slash project name", "", "owner[/repo] [ref]")
 	pipelines.AddCommand(pipelineRun)
-
-	pipelineJobTrigger := model.NewAutocompleteData(commandTrigger, "[job-name]", "Trigger a job of a running pipeline for the provided project")
-	pipelineJobTrigger.AddTextArgument("Job name: the name of the job to trigger in a running pipeline", "", "[job-name]")
-	pipelines.AddCommand(pipelineJobTrigger)
 
 	gitlab.AddCommand(pipelines)
 
