@@ -51,23 +51,6 @@ export const renderThumbVertical = (props: Props) => (
     />
 );
 
-function shouldUpdateDetails(prs: Item[], prevPrs: Item[], targetState: string, currentState: string) {
-    if (currentState !== targetState) {
-        return false;
-    }
-
-    if (prs.length !== prevPrs.length) {
-        return true;
-    }
-
-    for (let i = 0; i < prs.length; i++) {
-        if (prs[i].id !== prevPrs[i].id) {
-            return true;
-        }
-    }
-    return false;
-}
-
 function mapPrsToDetails(prs: Item[], details: Item[]) {
     if (!prs || !prs.length) {
         return [];
@@ -106,6 +89,7 @@ function SidebarRight({theme}: {theme: Theme}) {
         setPrsWithDetails(mapPrsToDetails(yourPrs, yourPrDetails));
     }, [yourPrs, yourPrDetails]);
 
+    // Dispatch the action on first render
     useEffect(() => {
         if (yourPrs && rhsState === RHSStates.PRS) {
             dispatch(getYourPrDetails(yourPrs));
@@ -114,21 +98,21 @@ function SidebarRight({theme}: {theme: Theme}) {
         if (reviews && rhsState === RHSStates.REVIEWS) {
             dispatch(getReviewDetails(reviews));
         }
-    }, [yourPrs, rhsState, reviews]);
+    }, []);
 
     useEffect(() => {
-        if (shouldUpdateDetails(yourPrs, prsWithDetails, RHSStates.PRS, rhsState)) {
+        if (RHSStates.PRS === rhsState) {
             setPrsWithDetails(yourPrs);
             dispatch(getYourPrDetails(yourPrs));
         }
-    }, [yourPrs, prsWithDetails, rhsState]);
+    }, [yourPrs, rhsState]);
 
     useEffect(() => {
-        if (shouldUpdateDetails(reviews, reviewsWithDetails, RHSStates.REVIEWS, rhsState)) {
+        if (RHSStates.REVIEWS === rhsState) {
             setReviewsWithDetails(reviews);
             dispatch(getReviewDetails(reviews));
         }
-    }, [reviews, reviewsWithDetails, rhsState]);
+    }, [reviews, rhsState]);
 
     const style = getStyle(theme);
     const baseURL = gitlabURL || 'https://gitlab.com';

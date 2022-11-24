@@ -12,16 +12,14 @@ import {formatTimeSince} from 'src/utils/date_utils';
 import {GitlabItemsProps, Label} from 'src/types/gitlab_items';
 
 export const notificationReasons: Record<string, string> = {
-    assigned: 'You were assigned to the issue/merge request',
+    assigned: 'You were assigned to the issue/merge request.',
     review_requested: 'You were requested to review a merge request.',
-    mentioned: 'You were specifically @mentioned in the content.',
-    build_failed: 'GitLab build was failed.',
+    mentioned: 'You were @mentioned in the content.',
+    build_failed: 'GitLab build failed.',
     marked: 'Task is marked as done.',
     approval_required: 'Your approval is required on this issue/merge request.',
-    unmergeable: 'This merge request can not be merged.',
-    directly_addressed: 'You were directly addressed.',
+    unmergeable: 'This merge request can\'t be merged.',
     merge_train_removed: 'A merge train was removed.',
-    attention_required: 'Your attention is required on the issue/merge request.',
 };
 
 const SUCCESS = 'success';
@@ -183,7 +181,10 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
                 className='light'
                 style={style.subtitle}
             >
-                {item.created_at && `Opened ${formatTimeSince(item.created_at)} ago ${userName && `by ${userName}`}.`}
+                {'Opened'}
+                {item.created_at && ` ${formatTimeSince(item.created_at)} ago`}
+                {userName && ` by ${userName}`}
+                {'.'}
                 {milestone}
             </div>
             <div

@@ -97,7 +97,7 @@ export default class SidebarButtons extends React.PureComponent {
                     <OverlayTrigger
                         key='gitlabConnectLink'
                         placement={placement}
-                        overlay={<Tooltip id='reviewTooltip'>{'Connect to your GitLab'}</Tooltip>}
+                        overlay={<Tooltip id='reviewTooltip'>{'Connect to your GitLab instance'}</Tooltip>}
                     >
                         <a
                             href={`${this.props.pluginServerRoute}/oauth/connect`}
@@ -146,7 +146,7 @@ export default class SidebarButtons extends React.PureComponent {
                 <OverlayTrigger
                     key='gitlabReviewsLink'
                     placement={placement}
-                    overlay={<Tooltip id='reviewTooltip'>{'Merge requests needing review'}</Tooltip>}
+                    overlay={<Tooltip id='reviewTooltip'>{'Merge requests that need review'}</Tooltip>}
                 >
                     <a
                         onClick={() => this.openRHS(RHSStates.REVIEWS)}
