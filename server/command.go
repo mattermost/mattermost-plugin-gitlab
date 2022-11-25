@@ -23,11 +23,12 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 * |/gitlab subscriptions add owner[/repo] [features]| - Subscribe the current channel to receive notifications about opened merge requests and issues for a group or repository
   * |features| is a comma-delimited list of one or more the following:
     * issues - includes new and closed issues
+	* jobs - includes jobs status updates
 	* merges - includes new and closed merge requests
     * pushes - includes pushes
 	* issue_comments - includes new issue comments
 	* merge_request_comments - include new merge-request comments
-	* pipeline - include pipeline
+	* pipeline - includes pipeline triggers
 	* tag - include tag creation
     * pull_reviews - includes merge request reviews
 	* label:"<labelname>" - must include "merges" or "issues" in feature list when using a label
@@ -57,11 +58,12 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
   * |token| Secret token. Defaults to secret token used in plugin's settings.
 `
 const (
-	webhookHowToURL               = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
-	inboundWebhookURL             = "plugins/com.github.manland.mattermost-plugin-gitlab/webhook"
-	specifyRepositoryMessage      = "Please specify a repository."
-	unknownActionMessage          = "Unknown action, please use `/gitlab help` to see all actions available."
-	newWebhookEmptySiteURLmessage = "Unable to create webhook. The Mattermot Site URL is not set. " +
+	webhookHowToURL                   = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
+	inboundWebhookURL                 = "plugins/com.github.manland.mattermost-plugin-gitlab/webhook"
+	specifyRepositoryMessage          = "Please specify a repository."
+	specifyRepositoryAndBranchMessage = "Please specify a repository and a branch."
+	unknownActionMessage              = "Unknown action, please use `/gitlab help` to see all actions available."
+	newWebhookEmptySiteURLmessage     = "Unable to create webhook. The Mattermot Site URL is not set. " +
 		"Set it in the Admin Console or rerun /gitlab webhook add group/project URL including the desired URL."
 )
 
@@ -73,12 +75,17 @@ const (
 	projectNotFoundMessage = "Unable to find project with namespace: "
 
 	invalidSubscribeSubCommand = "Invalid subscribe command. Available commands are add, delete, and list"
+
+	invalidPipelinesSubCommand = "Invalid pipelines command. Available commands are run, list"
 )
 
 const (
 	commandAdd    = "add"
 	commandDelete = "delete"
 	commandList   = "list"
+
+	commandRun     = "run"
+	commandTrigger = "trigger"
 )
 
 const (
@@ -282,7 +289,10 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		message := p.webhookCommand(ctx, parameters, info, config.EnablePrivateRepo)
 		response := p.getCommandResponse(args, message)
 		return response, nil
-
+	case "pipelines":
+		message := p.pipelinesCommand(ctx, parameters, args.ChannelId, info)
+		response := p.getCommandResponse(args, message)
+		return response, nil
 	default:
 		return p.getCommandResponse(args, unknownActionMessage), nil
 	}
@@ -646,6 +656,60 @@ func (p *Plugin) subscribeCommand(ctx context.Context, parameters []string, chan
 		return invalidSubscribeSubCommand
 	}
 }
+func (p *Plugin) pipelinesCommand(ctx context.Context, parameters []string, channelID string, info *gitlab.UserInfo) string {
+	if len(parameters) == 0 {
+		return invalidPipelinesSubCommand
+	}
+	subcommand := parameters[0]
+	switch subcommand {
+	case commandRun:
+		if len(parameters) < 3 {
+			return specifyRepositoryAndBranchMessage
+		}
+		namespace := parameters[1]
+		ref := parameters[2]
+		return p.pipelineRunCommand(ctx, namespace, ref, channelID, info)
+	default:
+		return unknownActionMessage
+	}
+}
+
+// pipelineRunCommand run a pipeline in a project
+func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channelID string, info *gitlab.UserInfo) string {
+	var pipelineInfo *gitlab.PipelineInfo
+	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		groupName, projectName, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, true)
+		if err != nil {
+			return err
+		}
+		project, err := p.GitlabClient.GetProject(ctx, info, token, groupName, projectName)
+		if err != nil {
+			return err
+		}
+		projectID := fmt.Sprintf("%d", project.ID)
+		pipelineInfo, err = p.GitlabClient.TriggerProjectPipeline(info, token, projectID, ref)
+		if err != nil {
+			return errors.Wrapf(err, "failed to run pipeline for Project: :%s", projectName)
+		}
+		return nil
+	})
+	if err != nil {
+		return err.Error()
+	}
+	var txt string
+	if pipelineInfo == nil {
+		txt = "Currently there is no pipeline info"
+		return txt
+	}
+	txt = "### Pipeline info\n"
+	txt += fmt.Sprintf("**Status**: %s\n", pipelineInfo.Status)
+	txt += fmt.Sprintf("**SHA**: %s\n", pipelineInfo.SHA)
+	txt += fmt.Sprintf("**Ref**: %s\n", pipelineInfo.Ref)
+	txt += fmt.Sprintf("**Triggered By**: %s\n", pipelineInfo.User)
+	txt += fmt.Sprintf("**Visit pipeline [here](%s)** \n\n", pipelineInfo.WebURL)
+	txt += "*This channel automatically subscribed to pipeline updates*"
+	return txt
+}
 
 func (p *Plugin) isAuthorizedSysAdmin(userID string) (bool, error) {
 	user, appErr := p.API.GetUser(userID)
@@ -697,6 +761,17 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 
 	me := model.NewAutocompleteData("me", "", "Displays the connected GitLab account")
 	gitlab.AddCommand(me)
+
+	pipelines := model.NewAutocompleteData("pipelines", "[command]", "Available commands: Run, Trigger")
+	pipelineRun := model.NewAutocompleteData(commandRun, "owner[/repo] [ref]", "Run a pipeline for the provided project")
+	pipelineRun.AddTextArgument("Project path: includes user or group name with optional slash project name", "", "owner[/repo] [ref]")
+	pipelines.AddCommand(pipelineRun)
+
+	pipelineJobTrigger := model.NewAutocompleteData(commandTrigger, "[job-name]", "Trigger a job of a running pipeline for the provided project")
+	pipelineJobTrigger.AddTextArgument("Job name: the name of the job to trigger in a running pipeline", "", "[job-name]")
+	pipelines.AddCommand(pipelineJobTrigger)
+
+	gitlab.AddCommand(pipelines)
 
 	settings := model.NewAutocompleteData("settings", "[setting]", "Update your user settings")
 	settingOptions := []model.AutocompleteListItem{{

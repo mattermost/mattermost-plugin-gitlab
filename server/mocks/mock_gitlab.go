@@ -217,3 +217,18 @@ func (mr *MockGitlabMockRecorder) ResolveNamespaceAndProject(arg0, arg1, arg2, a
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveNamespaceAndProject", reflect.TypeOf((*MockGitlab)(nil).ResolveNamespaceAndProject), arg0, arg1, arg2, arg3, arg4)
 }
+
+// TriggerProjectPipeline mocks base method.
+func (m *MockGitlab) TriggerProjectPipeline(arg0 *gitlab.UserInfo, arg1 *oauth2.Token, arg2, arg3 string) (*gitlab.PipelineInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TriggerProjectPipeline", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(*gitlab.PipelineInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TriggerProjectPipeline indicates an expected call of TriggerProjectPipeline.
+func (mr *MockGitlabMockRecorder) TriggerProjectPipeline(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TriggerProjectPipeline", reflect.TypeOf((*MockGitlab)(nil).TriggerProjectPipeline), arg0, arg1, arg2, arg3)
+}

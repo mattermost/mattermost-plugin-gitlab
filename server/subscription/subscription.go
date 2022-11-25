@@ -8,6 +8,7 @@ import (
 
 var allFeatures = map[string]bool{
 	"merges":                 true,
+	"jobs":                   true,
 	"issues":                 true,
 	"pushes":                 true,
 	"issue_comments":         true,
@@ -52,6 +53,10 @@ func New(channelID, creatorID, features, repository string) (*Subscription, erro
 
 func (s *Subscription) Merges() bool {
 	return strings.Contains(s.Features, "merges")
+}
+
+func (s *Subscription) Jobs() bool {
+	return strings.Contains(s.Features, "jobs")
 }
 
 func (s *Subscription) Issues() bool {
