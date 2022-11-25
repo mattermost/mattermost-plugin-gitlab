@@ -603,6 +603,8 @@ func (p *Plugin) updateSettings(c *UserContext, w http.ResponseWriter, r *http.R
 type SubscriptionResponse struct {
 	RepositoryName string   `json:"repository_name"`
 	RepositoryURL  string   `json:"repository_url"`
+	Features       []string `json:"features"`
+	CreatorID      string   `json:"creator_id"`
 }
 
 func subscriptionsToResponse(config *configuration, subscriptions []*subscription.Subscription) []SubscriptionResponse {
@@ -611,9 +613,16 @@ func subscriptionsToResponse(config *configuration, subscriptions []*subscriptio
 	subscriptionResponses := make([]SubscriptionResponse, 0, len(subscriptions))
 
 	for _, subscription := range subscriptions {
+		features := []string{}
+		if len(subscription.Features) > 0 {
+			features = strings.Split(subscription.Features, ",")
+		}
+
 		subscriptionResponses = append(subscriptionResponses, SubscriptionResponse{
 			RepositoryName: subscription.Repository,
 			RepositoryURL:  gitlabURL.JoinPath(subscription.Repository).String(),
+			Features:       features,
+			CreatorID:      subscription.CreatorID,
 		})
 	}
 

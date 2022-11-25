@@ -156,6 +156,27 @@ UserHeader.propTypes = {
     gitlabURL: PropTypes.string,
 };
 
+const featureStyle = {
+    fontFamily: 'Open Sans',
+    fontWeight: '600',
+    fontSize: '12px',
+    backgroundColor: 'rgba(var(--center-channel-color-rgb), 0.08)',
+    color: 'var(--center-channel-color)',
+    padding: '2px 5px',
+    borderRadius: '4px',
+    lineHeight: '16px',
+};
+
+const Feature = (props) => (
+    <span style={featureStyle}>
+        {props.feature}
+    </span>
+);
+
+Feature.propTypes = {
+    feature: PropTypes.string,
+};
+
 const subscriptionStyle = {
     backgroundColor: 'var(--center-channel-bg)',
     background: 'linear-gradient(0deg, rgba(var(--center-channel-color-rgb, 0.04), rgba(var(--center-channel-color-rgb, 0.04)), linear-gradient(0deg, var(--center-channel-bg), var(--center-channel-bg))',
@@ -165,6 +186,9 @@ const subscriptionStyle = {
     transition: 'box-shadow 0.3s ease-in-out',
     borderRadius: '4px',
     marginTop: '12px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
 };
 
 const hoveredSubscriptionStyle = {
@@ -191,6 +215,15 @@ const subscriptionDetailsStyle = {
     color: 'var(--button-bg)',
 };
 
+const featuresStyle = {
+    display: 'flex',
+    flexWrap: 'wrap',
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignContent: 'flex-start',
+    gap: '4px',
+};
+
 const Subscription = (props) => {
     const [hovering, setHovering] = useState(false);
 
@@ -205,12 +238,25 @@ const Subscription = (props) => {
             onMouseEnter={() => setHovering(true)}
             onMouseLeave={() => setHovering(false)}
         >
-            <h2 style={subscriptionHeaderStyle}>{'Repository'}</h2>
-            <a
-                style={subscriptionDetailsStyle}
-                href={props.url}
-                target='_new'
-            >{props.name}</a>
+            <div>
+                <h2 style={subscriptionHeaderStyle}>{'Repository'}</h2>
+                <a
+                    style={subscriptionDetailsStyle}
+                    href={props.url}
+                    target='_new'
+                >{props.name}</a>
+            </div>
+            <div>
+                <h2 style={subscriptionHeaderStyle}>{'Features'}</h2>
+                <div style={featuresStyle}>
+                    {props.features.map((feature) => (
+                        <Feature
+                            key={feature}
+                            feature={feature}
+                        />
+                    ))}
+                </div>
+            </div>
         </div>
     );
 };
@@ -218,6 +264,7 @@ const Subscription = (props) => {
 Subscription.propTypes = {
     url: PropTypes.string,
     name: PropTypes.string,
+    features: PropTypes.arrayOf(PropTypes.string),
 };
 
 const containerStyle = {
@@ -284,6 +331,7 @@ const Subscriptions = (props) => {
                     key={subscription.repository_url}
                     name={subscription.repository_name}
                     url={subscription.repository_url}
+                    features={subscription.features}
                 />
             ))}
         </div>
@@ -307,6 +355,7 @@ export default class RHSSidebar extends React.PureComponent {
         currentChannelSubscriptions: PropTypes.arrayOf(PropTypes.shape({
             repository_name: PropTypes.string,
             repository_url: PropTypes.string,
+            features: PropTypes.arrayOf(PropTypes.string),
         })),
         pluginServerRoute: PropTypes.string,
         actions: PropTypes.shape({

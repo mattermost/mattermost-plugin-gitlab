@@ -121,7 +121,7 @@ func TestGetChannelSubscriptions(t *testing.T) {
 		plugin, mock := setupPlugin(t)
 
 		mock.On("HasPermissionToChannel", "user_id", "id", model.PermissionReadChannel).Return(true, nil).Once()
-		mock.On("KVGet", SubscriptionsKey).Return([]byte(`{"Repositories":{"namespace":[{"ChannelID":"other","Repository":"repo1"},{"ChannelID":"id","Repository":"repo2"},{"ChannelID":"id", "Repository":"repo3"}]}}`), nil)
+		mock.On("KVGet", SubscriptionsKey).Return([]byte(`{"Repositories":{"namespace":[{"ChannelID":"other","Repository":"repo1","Features":"feature1,feature2","CreatorID":"creator1"},{"ChannelID":"id","Repository":"repo2","Features":"feature3,feature4","CreatorID":"creator2"},{"ChannelID":"id", "Repository":"repo3","Features":"feature5","CreatorID":"creator3"},{"ChannelID":"id","Repository":"repo4-empty"}]}}`), nil)
 
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodGet, "/api/v1/channel/id/subscriptions", nil)
@@ -136,6 +136,6 @@ func TestGetChannelSubscriptions(t *testing.T) {
 
 		assert.NotNil(t, result)
 		assert.Equal(t, http.StatusOK, result.StatusCode)
-		assert.Equal(t, `[{"repository_name":"repo2","repository_url":"https://example.com/repo2"},{"repository_name":"repo3","repository_url":"https://example.com/repo3"}]`, string(data))
+		assert.Equal(t, `[{"repository_name":"repo2","repository_url":"https://example.com/repo2","features":["feature3","feature4"],"creator_id":"creator2"},{"repository_name":"repo3","repository_url":"https://example.com/repo3","features":["feature5"],"creator_id":"creator3"},{"repository_name":"repo4-empty","repository_url":"https://example.com/repo4-empty","features":[],"creator_id":""}]`, string(data))
 	})
 }
