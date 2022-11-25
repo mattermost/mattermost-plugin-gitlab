@@ -321,3 +321,18 @@ func (mr *MockGitlabMockRecorder) SearchIssues(arg0, arg1, arg2 interface{}) *go
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchIssues", reflect.TypeOf((*MockGitlab)(nil).SearchIssues), arg0, arg1, arg2)
 }
+
+// TriggerProjectPipeline mocks base method
+func (m *MockGitlab) TriggerProjectPipeline(arg0 *gitlab.UserInfo, arg1, arg2 string) (*gitlab.PipelineInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TriggerProjectPipeline", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*gitlab.PipelineInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TriggerProjectPipeline indicates an expected call of TriggerProjectPipeline
+func (mr *MockGitlabMockRecorder) TriggerProjectPipeline(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TriggerProjectPipeline", reflect.TypeOf((*MockGitlab)(nil).TriggerProjectPipeline), arg0, arg1, arg2)
+}
