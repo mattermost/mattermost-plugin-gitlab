@@ -13,5 +13,6 @@ const (
 
 	statusSuccess = "success"
 	statusRunning = "running"
+	statusPending = "pending"
 	statusFailed  = "failed"
 )

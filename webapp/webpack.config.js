@@ -60,6 +60,7 @@ module.exports = {
     },
     externals: {
         react: 'React',
+        'react-dom': 'ReactDOM',
         redux: 'Redux',
         'react-redux': 'ReactRedux',
         'prop-types': 'PropTypes',
