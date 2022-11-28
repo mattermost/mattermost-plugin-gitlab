@@ -393,9 +393,7 @@ export default class RHSSidebar extends React.PureComponent {
         }
 
         this.setState({refreshing: true});
-        await Promise.all([
-            this.props.actions.getChannelSubscriptions(this.props.currentChannelId),
-        ]);
+        await this.props.actions.getChannelSubscriptions(this.props.currentChannelId);
         this.setState({refreshing: false});
     }
 
