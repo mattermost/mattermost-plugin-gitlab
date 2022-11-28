@@ -12,6 +12,8 @@ import {getPluginServerRoute} from '../../selectors';
 
 import RHSSidebar from './rhs_sidebar.jsx';
 
+const noSubscriptions = [];
+
 function mapStateToProps(state) {
     const currentUserId = getCurrentUserId(state);
     const currentChannelId = getCurrentChannelId(state);
@@ -22,7 +24,7 @@ function mapStateToProps(state) {
         username: state[`plugins-${id}`].username,
         gitlabURL: state[`plugins-${id}`].gitlabURL,
         currentChannelId,
-        currentChannelSubscriptions: state[`plugins-${id}`].subscriptions[currentChannelId] || [],
+        currentChannelSubscriptions: state[`plugins-${id}`].subscriptions[currentChannelId] || noSubscriptions,
         pluginServerRoute: getPluginServerRoute(state),
     };
 }

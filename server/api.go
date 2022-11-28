@@ -641,6 +641,7 @@ func (p *Plugin) getChannelSubscriptions(c *UserContext, w http.ResponseWriter, 
 	config := p.getConfiguration()
 	subscriptions, err := p.GetSubscriptionsByChannel(channelID)
 	if err != nil {
+		p.API.LogError("unable to get subscriptions by channel", "err", err.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get subscriptions by channel.", StatusCode: http.StatusInternalServerError})
 		return
 	}
