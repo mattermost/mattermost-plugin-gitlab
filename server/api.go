@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -618,9 +619,12 @@ func subscriptionsToResponse(config *configuration, subscriptions []*subscriptio
 			features = strings.Split(subscription.Features, ",")
 		}
 
+		repositoryURL := *gitlabURL
+		repositoryURL.Path = path.Join(gitlabURL.EscapedPath(), subscription.Repository)
+
 		subscriptionResponses = append(subscriptionResponses, SubscriptionResponse{
 			RepositoryName: subscription.Repository,
-			RepositoryURL:  gitlabURL.JoinPath(subscription.Repository).String(),
+			RepositoryURL:  repositoryURL.String(),
 			Features:       features,
 			CreatorID:      subscription.CreatorID,
 		})
