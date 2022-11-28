@@ -16,7 +16,8 @@
         "react": "16.8.6",
         "react-bootstrap": "0.32.4",
         "react-redux": "5.1.1",
-        "redux": "4.0.1"
+        "redux": "4.0.1",
+        "styled-components": "5.3.3"
     },
     "devDependencies": {
         "@babel/cli": "7.5.0",

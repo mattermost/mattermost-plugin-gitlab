@@ -1,55 +1,64 @@
-import React, {useState} from 'react';
+import React from 'react';
 import PropTypes from 'prop-types';
+import styled from 'styled-components';
 
-import MattermostGitLab from './mattermost_gitlab';
-import NoSubscriptions from './no_subscriptions';
+import MattermostGitLabSVG from './mattermost_gitlab';
+import NoSubscriptionsSVG from './no_subscriptions';
 
-const notSignedInStyle = {
-    margin: '24px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    textAlign: 'center',
-};
+const NotSignedInDiv = styled.div`
+    margin: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+`;
 
-const welcomeStyle = {
-    fontFamily: 'Metropolis',
-    fontSize: '16px',
-    fontWeight: '600',
-    lineHeight: '24px',
-    color: 'var(--center-channel-color)',
-};
+const Welcome = styled.div`
+    font-family: 'Metropolis';
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 24px;
+    color: var(--center-channel-color);
+`;
 
-const hrStyle = {
-    width: '244px',
-    borderTop: '1px solid rgba(var(--center-channel-color-rgb), 0.08)',
-    margin: '24px 0 0 0',
-};
+const Hr = styled.hr`
+    width: 244px;
+    border-top: 1px solid rgba(var(--center-channel-color-rgb), 0.08);
+    margin: 24px 0 0 0;
+`;
 
-const mattermostGitLabStyle = {
-    width: '217px',
-    height: '72px',
-    marginTop: '24px',
-};
+const MattermostGitLab = styled.div`
+    width: 217px;
+    height: 72px;
+    margin-top: 24px;
+`;
 
-const connectPromptStyle = {
-    fontFamily: 'Metropolis',
-    fontSize: '22px',
-    fontWeight: '600',
-    lineHeight: '28px',
-    marginTop: '16px',
-    color: 'var(--center-channel-color)',
-};
+const ConnectPrompt = styled.div`
+    font-family: 'Metropolis';
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 28px;
+    margin-top: 16px;
+    color: var(--center-channel-color);
+`;
 
-const connectStyle = {
-    backgroundColor: 'var(--button-bg)',
-    color: 'var(--button-color)',
-    fontFamily: 'Open Sans',
-    fontWeight: '600',
-    padding: '12px 16px 12px 16px',
-    borderRadius: '4px',
-    marginTop: '24px',
-};
+const Connect = styled.a`
+    && {
+        background-color: var(--button-bg);
+        color: var(--button-color);
+        font-family: 'Open Sans';
+        font-weight: 600;
+        padding: 12px 16px 12px 16px;
+        border-radius: 4px;
+        margin-top: 24px;
+        text-decoration: none;
+
+        &:active, &:visited, &:hover {
+            color: var(--button-color);
+            text-decoration: none;
+        }
+    }
+`;
 
 const NotSignedIn = (props) => {
     const openConnectWindow = (e) => {
@@ -58,21 +67,20 @@ const NotSignedIn = (props) => {
     };
 
     return (
-        <div style={notSignedInStyle}>
-            <div style={welcomeStyle}>{'Welcome to the Mattermost GitLab plugin'}</div>
-            <hr style={hrStyle}/>
-            <div style={mattermostGitLabStyle}>
-                <MattermostGitLab/>
-            </div>
-            <div style={connectPromptStyle}>{'Connect your account'}<br/>{'to get started'}</div>
-            <a
-                style={connectStyle}
+        <NotSignedInDiv>
+            <Welcome>{'Welcome to the Mattermost GitLab plugin'}</Welcome>
+            <Hr/>
+            <MattermostGitLab>
+                <MattermostGitLabSVG/>
+            </MattermostGitLab>
+            <ConnectPrompt>{'Connect your account'}<br/>{'to get started'}</ConnectPrompt>
+            <Connect
                 href={`${props.pluginServerRoute}/oauth/connect`}
                 onClick={openConnectWindow}
             >
                 {'Connect account'}
-            </a>
-        </div>
+            </Connect>
+        </NotSignedInDiv>
     );
 };
 
@@ -80,74 +88,72 @@ NotSignedIn.propTypes = {
     pluginServerRoute: PropTypes.string.isRequired,
 };
 
-const userHeaderStyle = {
-    display: 'flex',
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    backgroundColor: 'rgba(var(--center-channel-color-rgb), 0.04)',
-    padding: '12px 20px',
-};
+const UserHeaderContainer = styled.div`
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    background-color: rgba(var(--center-channel-color-rgb), 0.04);
+    padding: 12px 20px;
+`;
 
-const userProfileStyle = {
-    margin: '0 8px 0 0',
-};
+const UserProfile = styled.img`
+    margin: 0 8px 0 0;
+`;
 
-const userDetailsStyle = {
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'left',
-    fontFamily: 'Open Sans',
-    lineHeight: '16px',
-    textAlign: 'left',
-    color: 'var(--center-channel-color)',
-};
+const UserDetails = styled.div`
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: left;
+    font-family: 'Open Sans';
+    line-height: 16px;
+    text-align: left;
+    color: var(--center-channel-color);
+`;
 
-const descriptionStyle = {
-    fontSize: '12px',
-    fontWeight: '400',
-    letterSpacing: 0,
-};
+const Description = styled.div`
+    font-size: 12px;
+    font-weight: 400;
+    letterSpacing: 0;
+`;
 
-const usernameStyle = {
-    fontSize: '11px',
-    fontWeight: '600',
-    letterSpacing: '0.02em',
-};
+const Username = styled.div`
+    font-size: 11px;
+    font-weight: 600;
+    letterSpacing: 0.02em;
+`;
 
-const gitlabURLStyle = {
-    display: 'flex',
-    marginLeft: 'auto',
-    padding: '10px 16px',
-    gap: '10px',
-    border: '1px solid var(--button-bg)',
-    borderRadius: '4px',
-    fontFamily: 'Open Sans',
-    fontWeight: '600',
-    fontSize: '12px',
-    lineHeight: '10px',
-    color: 'var(--button-bg)',
-};
+const GitLabURL = styled.a`
+    display: flex;
+    margin-left: auto;
+    padding: 10px 16px;
+    gap: 10px;
+    border: 1px solid var(--button-bg);
+    border-radius: 4px;
+    font-family: 'Open Sans';
+    font-weight: 600;
+    font-size: 12px;
+    line-height: 10px;
+    color: var(--button-bg);
+`;
 
 const UserHeader = (props) => (
-    <div style={userHeaderStyle}>
-        <img
+    <UserHeaderContainer>
+        <UserProfile
             className='Avatar Avatar-lg'
-            style={userProfileStyle}
             alt='user profile image'
             src={`/api/v4/users/${props.currentUserId}/image`}
         />
-        <div style={userDetailsStyle}>
-            <div style={descriptionStyle}>{'Signed in as'}</div>
-            <div style={usernameStyle}>{props.username}</div>
-        </div>
-        <a
+        <UserDetails>
+            <Description>{'Signed in as'}</Description>
+            <Username>{props.username}</Username>
+        </UserDetails>
+        <GitLabURL
             href={props.gitlabURL}
-            style={gitlabURLStyle}
             target='_new'
-        >{'GitLab'}</a>
-    </div>
+        >{'GitLab'}</GitLabURL>
+    </UserHeaderContainer>
 );
 
 UserHeader.propTypes = {
@@ -156,108 +162,81 @@ UserHeader.propTypes = {
     gitlabURL: PropTypes.string.isRequired,
 };
 
-const featureStyle = {
-    fontFamily: 'Open Sans',
-    fontWeight: '600',
-    fontSize: '12px',
-    backgroundColor: 'rgba(var(--center-channel-color-rgb), 0.08)',
-    color: 'var(--center-channel-color)',
-    padding: '2px 5px',
-    borderRadius: '4px',
-    lineHeight: '16px',
-};
+const Feature = styled.span`
+    font-family: 'Open Sans';
+    font-weight: 600;
+    font-size: 12px;
+    background-color: rgba(var(--center-channel-color-rgb), 0.08);
+    color: var(--center-channel-color);
+    padding: 2px 5px;
+    border-radius: 4px;
+    line-height: 16px;
+`;
 
-const Feature = (props) => (
-    <span style={featureStyle}>
-        {props.feature}
-    </span>
-);
+const SubscriptionContainer = styled.div`
+    background-color: var(--center-channel-bg);
+    padding: 14px 16px 14px 16px;
+    border: 1px solid rgba(var(--center-channel-color-rgb), 0.04);
+    box-shadow: 0px 2px 3px 0px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 0.3s ease-in-out;
+    border-radius: 4px;
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 
-Feature.propTypes = {
-    feature: PropTypes.string.isRequired,
-};
+    &:hover {
+        box-shadow: 0px 4px 6px 0px rgba(0, 0, 0, 0.12);
+    }
+`;
 
-const subscriptionStyle = {
-    backgroundColor: 'var(--center-channel-bg)',
-    background: 'linear-gradient(0deg, rgba(var(--center-channel-color-rgb, 0.04), rgba(var(--center-channel-color-rgb, 0.04)), linear-gradient(0deg, var(--center-channel-bg), var(--center-channel-bg))',
-    padding: '14px 16px 14px 16px',
-    border: '1px solid rgba(var(--center-channel-color-rgb), 0.04)',
-    boxShadow: '0px 2px 3px 0px rgba(0, 0, 0, 0.08)',
-    transition: 'box-shadow 0.3s ease-in-out',
-    borderRadius: '4px',
-    marginTop: '12px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
-};
+const SubscriptionHeader = styled.h2`
+    font-family: 'Open Sans';
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
+    letterSpacing: 0.02em;
+    textTransform: uppercase;
+    margin: 0 0 4px 0;
+    color: rgba(var(--center-channel-color-rgb), 0.72);
+`;
 
-const hoveredSubscriptionStyle = {
-    ...subscriptionStyle,
-    boxShadow: '0px 4px 6px 0px rgba(0, 0, 0, 0.12)',
-};
+const SubscriptionDetails = styled.a`
+    font-family: 'Open Sans';
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 20px;
+    color: var(--button-bg);
+`;
 
-const subscriptionHeaderStyle = {
-    fontFamily: 'Open Sans',
-    fontSize: '12px',
-    fontWeight: '600',
-    lineHeight: '16px',
-    letterSpacing: '0.02em',
-    textTransform: 'uppercase',
-    margin: '0 0 4px 0',
-    color: 'rgba(var(--center-channel-color-rgb), 0.72)',
-};
-
-const subscriptionDetailsStyle = {
-    fontFamily: 'Open Sans',
-    fontSize: '14px',
-    fontWeight: '400',
-    lineHeight: '20px',
-    color: 'var(--button-bg)',
-};
-
-const featuresStyle = {
-    display: 'flex',
-    flexWrap: 'wrap',
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignContent: 'flex-start',
-    gap: '4px',
-};
+const Features = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-content: flex-start;
+    gap: 4px;
+`;
 
 const Subscription = (props) => {
-    const [hovering, setHovering] = useState(false);
-
-    let activeSubscriptionStyle = subscriptionStyle;
-    if (hovering) {
-        activeSubscriptionStyle = hoveredSubscriptionStyle;
-    }
-
     return (
-        <div
-            style={activeSubscriptionStyle}
-            onMouseEnter={() => setHovering(true)}
-            onMouseLeave={() => setHovering(false)}
-        >
+        <SubscriptionContainer>
             <div>
-                <h2 style={subscriptionHeaderStyle}>{'Repository'}</h2>
-                <a
-                    style={subscriptionDetailsStyle}
+                <SubscriptionHeader>{'Repository'}</SubscriptionHeader>
+                <SubscriptionDetails
                     href={props.url}
                     target='_new'
-                >{props.name}</a>
+                >{props.name}</SubscriptionDetails>
             </div>
             <div>
-                <h2 style={subscriptionHeaderStyle}>{'Features'}</h2>
-                <div style={featuresStyle}>
+                <SubscriptionHeader>{'Features'}</SubscriptionHeader>
+                <Features>
                     {props.features.map((feature) => (
-                        <Feature
-                            key={feature}
-                            feature={feature}
-                        />
+                        <Feature key={feature}>{feature}</Feature>
                     ))}
-                </div>
+                </Features>
             </div>
-        </div>
+        </SubscriptionContainer>
     );
 };
 
@@ -267,65 +246,64 @@ Subscription.propTypes = {
     features: PropTypes.arrayOf(PropTypes.string).isRequired,
 };
 
-const containerStyle = {
-    margin: '24px',
-};
+const Container = styled.div`
+    margin: 24px;
+`;
 
-const noSubscriptionsContainerStyle = {
-    ...containerStyle,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-};
+const NoSubscriptionsContainer = styled(Container)`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+`;
 
-const noSubscriptionsImgStyle = {
-    width: '264px',
-    margin: '10px 0 30px 0',
-};
+const NoSubscriptionsImg = styled.div`
+    width: 264px;
+    margin: 10px 0 30px 0;
+`;
 
-const noSubscriptionsStyle = {
-    fontFamily: 'Metropolis',
-    fontSize: '18px',
-    fontWeight: '600',
-    lineHeight: '24px',
-    textAlign: 'center',
-    color: 'var(--center-channel-color)',
-};
+const NoSubscriptions = styled.div`
+    font-family: 'Metropolis';
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 24px;
+    text-align: center;
+    color: var(--center-channel-color);
+`;
 
-const useGitLabSlashCommandStyle = {
-    fontFamily: 'Open Sans',
-    fontSize: '14px',
-    fontWeight: '400',
-    lineHeight: '20px',
-    textAlign: 'center',
-    color: 'var(--center-channel-color)',
-    margin: '8px 0 0 0',
-};
+const UseGitLabSlashCommand = styled.div`
+    font-family: 'Open Sans';
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 20px;
+    text-align: center;
+    color: var(--center-channel-color);
+    margin: 8px 0 0 0;
+`;
 
-const headerStyle = {
-    fontFamily: 'Metropolis',
-    fontSize: '16px',
-    fontWeight: '400',
-    lineHeight: '24px',
-    color: 'var(--center-channel-color)',
-};
+const Header = styled.div`
+    font-family: 'Metropolis';
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 24px;
+    color: var(--center-channel-color);
+`;
 
 const Subscriptions = (props) => {
     if (props.subscriptions.length === 0) {
         return (
-            <div style={noSubscriptionsContainerStyle}>
-                <div style={noSubscriptionsImgStyle}>
-                    <NoSubscriptions/>
-                </div>
-                <div style={noSubscriptionsStyle}>{'There are no GitLab subscriptions available in this channel.'}</div>
-                <div style={useGitLabSlashCommandStyle}>{'Use the /gitlab slash command to create a subscription.'}</div>
-            </div>
+            <NoSubscriptionsContainer>
+                <NoSubscriptionsImg>
+                    <NoSubscriptionsSVG/>
+                </NoSubscriptionsImg>
+                <NoSubscriptions>{'There are no GitLab subscriptions available in this channel.'}</NoSubscriptions>
+                <UseGitLabSlashCommand>{'Use the /gitlab slash command to create a subscription.'}</UseGitLabSlashCommand>
+            </NoSubscriptionsContainer>
         );
     }
 
     return (
-        <div style={containerStyle}>
-            <div style={headerStyle}>{'GitLab Subscriptions'}</div>
+        <Container>
+            <Header>{'GitLab Subscriptions'}</Header>
             {props.subscriptions.map((subscription) => (
                 <Subscription
                     key={subscription.repository_url + props.currentChannelId}
@@ -334,7 +312,7 @@ const Subscriptions = (props) => {
                     features={subscription.features}
                 />
             ))}
-        </div>
+        </Container>
     );
 };
 
