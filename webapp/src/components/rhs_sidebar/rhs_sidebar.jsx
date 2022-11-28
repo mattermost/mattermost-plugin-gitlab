@@ -328,7 +328,7 @@ const Subscriptions = (props) => {
             <div style={headerStyle}>{'GitLab Subscriptions'}</div>
             {props.subscriptions.map((subscription) => (
                 <Subscription
-                    key={subscription.repository_url}
+                    key={subscription.repository_url + props.currentChannelId}
                     name={subscription.repository_name}
                     url={subscription.repository_url}
                     features={subscription.features}
@@ -339,6 +339,7 @@ const Subscriptions = (props) => {
 };
 
 Subscriptions.propTypes = {
+    currentChannelId: PropTypes.string,
     subscriptions: PropTypes.arrayOf(PropTypes.shape({
         repository_name: PropTypes.string.isRequired,
         repository_url: PropTypes.string.isRequired,
@@ -409,7 +410,10 @@ export default class RHSSidebar extends React.PureComponent {
                     gitlabURL={this.props.gitlabURL}
                     username={this.props.username}
                 />
-                <Subscriptions subscriptions={this.props.currentChannelSubscriptions}/>
+                <Subscriptions
+                    currentChannelId={this.props.currentChannelId}
+                    subscriptions={this.props.currentChannelSubscriptions}
+                />
             </div>
         );
     }
