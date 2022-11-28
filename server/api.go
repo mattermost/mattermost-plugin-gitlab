@@ -652,8 +652,11 @@ func (p *Plugin) getChannelSubscriptions(c *UserContext, w http.ResponseWriter, 
 
 	resp := subscriptionsToResponse(config, subscriptions)
 
-	b, _ := json.Marshal(resp)
-	if _, err := w.Write(b); err != nil {
+	b, err := json.Marshal(resp)
+	if err != nil {
+		p.API.LogError("failed to marshal channel subscriptions response", "err", err.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
+	} else if _, err := w.Write(b); err != nil {
 		p.API.LogError("can't write api error http response", "err", err.Error())
 	}
 }
