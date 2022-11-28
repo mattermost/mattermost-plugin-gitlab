@@ -234,6 +234,6 @@ export function getChannelSubscriptions(channelId) {
             },
         });
 
-        return true;
+        return {subscriptions};
     };
 }
