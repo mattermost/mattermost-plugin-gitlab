@@ -77,7 +77,7 @@ const NotSignedIn = (props) => {
 };
 
 NotSignedIn.propTypes = {
-    pluginServerRoute: PropTypes.string,
+    pluginServerRoute: PropTypes.string.isRequired,
 };
 
 const userHeaderStyle = {
@@ -151,9 +151,9 @@ const UserHeader = (props) => (
 );
 
 UserHeader.propTypes = {
-    currentUserId: PropTypes.string,
-    username: PropTypes.string,
-    gitlabURL: PropTypes.string,
+    currentUserId: PropTypes.string.isRequired,
+    username: PropTypes.string.isRequired,
+    gitlabURL: PropTypes.string.isRequired,
 };
 
 const featureStyle = {
@@ -174,7 +174,7 @@ const Feature = (props) => (
 );
 
 Feature.propTypes = {
-    feature: PropTypes.string,
+    feature: PropTypes.string.isRequired,
 };
 
 const subscriptionStyle = {
@@ -262,9 +262,9 @@ const Subscription = (props) => {
 };
 
 Subscription.propTypes = {
-    url: PropTypes.string,
-    name: PropTypes.string,
-    features: PropTypes.arrayOf(PropTypes.string),
+    url: PropTypes.string.isRequired,
+    name: PropTypes.string.isRequired,
+    features: PropTypes.arrayOf(PropTypes.string).isRequired,
 };
 
 const containerStyle = {
@@ -340,15 +340,15 @@ const Subscriptions = (props) => {
 
 Subscriptions.propTypes = {
     subscriptions: PropTypes.arrayOf(PropTypes.shape({
-        repository_name: PropTypes.string,
-        repository_url: PropTypes.string,
-    })),
+        repository_name: PropTypes.string.isRequired,
+        repository_url: PropTypes.string.isRequired,
+    })).isRequired,
 };
 
 export default class RHSSidebar extends React.PureComponent {
     static propTypes = {
-        currentUserId: PropTypes.string,
-        connected: PropTypes.bool,
+        currentUserId: PropTypes.string.isRequired,
+        connected: PropTypes.bool.isRequired,
         username: PropTypes.string,
         gitlabURL: PropTypes.string,
         currentChannelId: PropTypes.string,
@@ -356,8 +356,8 @@ export default class RHSSidebar extends React.PureComponent {
             repository_name: PropTypes.string,
             repository_url: PropTypes.string,
             features: PropTypes.arrayOf(PropTypes.string),
-        })),
-        pluginServerRoute: PropTypes.string,
+        })).isRequired,
+        pluginServerRoute: PropTypes.string.isRequired,
         actions: PropTypes.shape({
             getChannelSubscriptions: PropTypes.func.isRequired,
         }).isRequired,
