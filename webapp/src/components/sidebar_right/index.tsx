@@ -89,7 +89,7 @@ function SidebarRight({theme}: {theme: Theme}) {
         setPrsWithDetails(mapPrsToDetails(yourPrs, yourPrDetails));
     }, [yourPrs, yourPrDetails]);
 
-    // Dispatch the action on first render
+    // Get the details for PRs and reviews on the first render
     useEffect(() => {
         if (yourPrs && rhsState === RHSStates.PRS) {
             dispatch(getYourPrDetails(yourPrs));
