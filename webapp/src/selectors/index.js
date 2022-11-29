@@ -21,20 +21,20 @@ export const getPluginServerRoute = (state) => {
 
 export const getPluginState = (state) => state[`plugins-${PluginId}`];
 
-const sidebarData = (state) => {
-    const pluginState = getPluginState(state);
-    return {
-        username: pluginState.username,
-        reviews: pluginState.reviews,
-        reviewDetails: pluginState.reviewDetails,
-        yourPrs: pluginState.yourPrs,
-        yourPrDetails: pluginState.yourPrDetails,
-        yourAssignments: pluginState.yourAssignments,
-        unreads: pluginState.unreads,
-        org: pluginState.organization,
-        gitlabURL: pluginState.gitlabURL,
-        rhsState: pluginState.rhsState,
-    };
-};
-
-export const getSidebarData = createSelector(sidebarData, (data) => data);
+export const getSidebarData = createSelector(
+    getPluginState,
+    (pluginState) => {
+        return {
+            username: pluginState.username,
+            reviews: pluginState.reviews,
+            reviewDetails: pluginState.reviewDetails,
+            yourPrs: pluginState.yourPrs,
+            yourPrDetails: pluginState.yourPrDetails,
+            yourAssignments: pluginState.yourAssignments,
+            unreads: pluginState.unreads,
+            org: pluginState.organization,
+            gitlabURL: pluginState.gitlabURL,
+            rhsState: pluginState.rhsState,
+        };
+    },
+);
