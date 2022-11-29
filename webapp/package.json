@@ -6,8 +6,7 @@
     "scripts": {
         "build": "webpack --mode=production --display-error-details --progress",
         "lint": "eslint --ignore-pattern node_modules --ignore-pattern dist --ext .js --ext .jsx . --quiet",
-        "fix": "eslint --ignore-pattern node_modules --ignore-pattern dist --ext .js --ext .jsx . --quiet --fix",
-        "test": "echo 'no webapp tests implemented';"
+        "fix": "eslint --ignore-pattern node_modules --ignore-pattern dist --ext .js --ext .jsx . --quiet --fix"
     },
     "dependencies": {
         "core-js": "3.1.4",
@@ -16,8 +15,7 @@
         "react": "16.8.6",
         "react-bootstrap": "0.32.4",
         "react-redux": "5.1.1",
-        "redux": "4.0.1",
-        "styled-components": "5.3.3"
+        "redux": "4.0.1"
     },
     "devDependencies": {
         "@babel/cli": "7.5.0",
