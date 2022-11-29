@@ -7,6 +7,7 @@ import (
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/xanzy/go-gitlab"
 )
 
@@ -14,7 +15,8 @@ import (
 type GitlabRetreiver interface {
 	// GetPipelineURL return the url of this pipeline depending on the instance and project path
 	GetPipelineURL(pathWithNamespace string, pipelineID int) string
-	// GetUserURL return the url of this GitLab user depending on domain instance (e.g. https://gitlab.com/username)
+	GetJobURL(pathWithNamespace string, jobID int) string
+	// GetUserURL return the url of this GitLab user depending on domain3 instance (e.g. https://gitlab.com/username)
 	GetUserURL(username string) string
 	// GetUsernameById return a username by GitLab id
 	GetUsernameByID(id int) string
@@ -39,6 +41,7 @@ type Webhook interface {
 	HandlePipeline(ctx context.Context, event *gitlab.PipelineEvent) ([]*HandleWebhook, error)
 	HandleTag(ctx context.Context, event *gitlab.TagEvent) ([]*HandleWebhook, error)
 	HandlePush(ctx context.Context, event *gitlab.PushEvent) ([]*HandleWebhook, error)
+	HandleJobs(ctx context.Context, event *gitlab.JobEvent) ([]*HandleWebhook, error)
 }
 
 type webhook struct {
@@ -160,4 +163,10 @@ func normalizeNamespacedProject(pathWithNamespace string) (namespace string, pro
 		return "", ""
 	}
 	return strings.Join(splits[:len(splits)-1], "/"), splits[len(splits)-1]
+}
+
+func sanitizeDescription(description string) string {
+	var policy = bluemonday.StrictPolicy()
+	policy.SkipElementsContent("details")
+	return strings.TrimSpace(policy.Sanitize(description))
 }

@@ -35,6 +35,7 @@ type Gitlab interface {
 	GetGroupHooks(ctx context.Context, user *UserInfo, owner string) ([]*WebhookInfo, error)
 	NewProjectHook(ctx context.Context, user *UserInfo, projectID interface{}, projectHookOptions *AddWebhookOptions) (*WebhookInfo, error)
 	NewGroupHook(ctx context.Context, user *UserInfo, groupName string, groupHookOptions *AddWebhookOptions) (*WebhookInfo, error)
+	TriggerProjectPipeline(userInfo *UserInfo, projectID string, ref string) (*PipelineInfo, error)
 	// ResolveNamespaceAndProject accepts full path to User, Group or namespaced Project and returns corresponding
 	// namespace and project name.
 	//

@@ -633,3 +633,26 @@ func (g *gitlab) ResolveNamespaceAndProject(
 	}
 	return "", "", ErrNotFound
 }
+
+// TriggerProjectPipeline runs a pipeline in a specific project
+func (g *gitlab) TriggerProjectPipeline(userInfo *UserInfo, projectID string, ref string) (*PipelineInfo, error) {
+	client, err := g.gitlabConnect(*userInfo.Token)
+	if err != nil {
+		return &PipelineInfo{}, err
+	}
+	pipeline, _, err := client.Pipelines.CreatePipeline(projectID, &internGitlab.CreatePipelineOptions{
+		Ref: &ref,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to run the pipeline")
+	}
+
+	return &PipelineInfo{
+		PipelineID: pipeline.ID,
+		Status:     pipeline.Status,
+		Ref:        pipeline.Ref,
+		WebURL:     pipeline.WebURL,
+		SHA:        pipeline.SHA,
+		User:       pipeline.User.Name,
+	}, err
+}
