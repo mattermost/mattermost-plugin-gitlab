@@ -1,7 +1,7 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {useEffect, useState} from 'react';
+import React, {useEffect} from 'react';
 import Scrollbars from 'react-custom-scrollbars';
 import {useDispatch, useSelector} from 'react-redux';
 
@@ -51,43 +51,11 @@ export const renderThumbVertical = (props: Props) => (
     />
 );
 
-function mapPrsToDetails(prs: Item[], details: Item[]) {
-    if (!prs || !prs.length) {
-        return [];
-    }
-
-    return prs.map((pr) => {
-        const foundDetails = details && details.find((prDetails) => pr.project_id === prDetails.project_id && pr.sha === prDetails.sha);
-        if (!foundDetails) {
-            return pr;
-        }
-
-        return {
-            ...pr,
-            status: foundDetails.status,
-            num_approvers: foundDetails.num_approvers,
-            total_reviewers: pr.reviewers.length,
-        };
-    });
-}
-
 function SidebarRight({theme}: {theme: Theme}) {
     const sidebarData = useSelector(getSidebarData);
-    const {username, yourAssignments, org, unreads, gitlabURL, rhsState, reviews, yourPrs, reviewDetails, yourPrDetails} = sidebarData;
-
-    // States used for storing the PRs/Reviews along with their details which are present separately in redux state.
-    const [prsWithDetails, setPrsWithDetails] = useState<Item[]>(yourPrs);
-    const [reviewsWithDetails, setReviewsWithDetails] = useState<Item[]>(reviews);
+    const {username, yourAssignments, org, unreads, gitlabURL, rhsState, reviews, yourPrs} = sidebarData;
 
     const dispatch = useDispatch();
-
-    useEffect(() => {
-        setReviewsWithDetails(mapPrsToDetails(reviews, reviewDetails));
-    }, [reviews, reviewDetails]);
-
-    useEffect(() => {
-        setPrsWithDetails(mapPrsToDetails(yourPrs, yourPrDetails));
-    }, [yourPrs, yourPrDetails]);
 
     // Get the details for PRs and reviews on the first render
     useEffect(() => {
@@ -102,14 +70,12 @@ function SidebarRight({theme}: {theme: Theme}) {
 
     useEffect(() => {
         if (RHSStates.PRS === rhsState) {
-            setPrsWithDetails(yourPrs);
             dispatch(getYourPrDetails(yourPrs));
         }
     }, [yourPrs, rhsState]);
 
     useEffect(() => {
         if (RHSStates.REVIEWS === rhsState) {
-            setReviewsWithDetails(reviews);
             dispatch(getReviewDetails(reviews));
         }
     }, [reviews, rhsState]);
@@ -127,12 +93,12 @@ function SidebarRight({theme}: {theme: Theme}) {
 
     switch (rhsState) {
     case RHSStates.PRS:
-        gitlabItems = prsWithDetails;
+        gitlabItems = yourPrs;
         title = 'Your Open Merge Requests';
         listUrl = `${baseURL}${orgQuery}/merge_requests?state=opened&author_username=${username}`;
         break;
     case RHSStates.REVIEWS:
-        gitlabItems = reviewsWithDetails;
+        gitlabItems = reviews;
         listUrl = `${baseURL}${orgQuery}/merge_requests?reviewer_username=${username}`;
         title = 'Merge Requests Needing Review';
         break;

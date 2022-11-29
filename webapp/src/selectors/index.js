@@ -19,6 +19,26 @@ export const getPluginServerRoute = (state) => {
     return basePath + '/plugins/' + PluginId;
 };
 
+function mapPrsToDetails(prs, details) {
+    if (!prs || !prs.length) {
+        return [];
+    }
+
+    return prs.map((pr) => {
+        const foundDetails = details && details.find((prDetails) => pr.project_id === prDetails.project_id && pr.sha === prDetails.sha);
+        if (!foundDetails) {
+            return pr;
+        }
+
+        return {
+            ...pr,
+            status: foundDetails.status,
+            num_approvers: foundDetails.num_approvers,
+            total_reviewers: pr.reviewers.length,
+        };
+    });
+}
+
 export const getPluginState = (state) => state[`plugins-${PluginId}`];
 
 export const getSidebarData = createSelector(
@@ -26,9 +46,9 @@ export const getSidebarData = createSelector(
     (pluginState) => {
         return {
             username: pluginState.username,
-            reviews: pluginState.reviews,
             reviewDetails: pluginState.reviewDetails,
-            yourPrs: pluginState.yourPrs,
+            reviews: mapPrsToDetails(pluginState.reviews, pluginState.reviewDetails),
+            yourPrs: mapPrsToDetails(pluginState.yourPrs, pluginState.yourPrDetails),
             yourPrDetails: pluginState.yourPrDetails,
             yourAssignments: pluginState.yourAssignments,
             unreads: pluginState.unreads,
