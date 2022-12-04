@@ -212,3 +212,28 @@ export function getGitlabUser(userID) {
         return {data};
     };
 }
+
+export function getChannelSubscriptions(channelId) {
+    return async (dispatch) => {
+        if (!channelId) {
+            return {};
+        }
+
+        let subscriptions;
+        try {
+            subscriptions = await Client.getChannelSubscriptions(channelId);
+        } catch (error) {
+            return {error};
+        }
+
+        dispatch({
+            type: ActionTypes.RECEIVED_CHANNEL_SUBSCRIPTIONS,
+            data: {
+                channelId,
+                subscriptions,
+            },
+        });
+
+        return {subscriptions};
+    };
+}

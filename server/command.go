@@ -536,6 +536,8 @@ func (p *Plugin) subscriptionDelete(info *gitlab.UserInfo, config *configuration
 		return "Subscription not found, please check repository name.", nil
 	}
 
+	p.sendChannelSubscriptionsUpdated(channelID)
+
 	return fmt.Sprintf("Successfully deleted subscription for %s.", normalizedPath), nil
 }
 
@@ -618,6 +620,9 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 			fullPath,
 		)
 	}
+
+	p.sendChannelSubscriptionsUpdated(channelID)
+
 	return fmt.Sprintf("Successfully subscribed to %s.%s", fullPath, hookStatusMessage)
 }
 

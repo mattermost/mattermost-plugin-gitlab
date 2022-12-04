@@ -253,6 +253,8 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.We
 	api.On("KVGet", mock.Anything).Return(subVal, nil)
 	api.On("KVSet", mock.Anything, mock.Anything).Return(nil)
 	api.On("KVSetWithOptions", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	api.On("PublishWebSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
 	p.SetAPI(api)
 	return p
 }

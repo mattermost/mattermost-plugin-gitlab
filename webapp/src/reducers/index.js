@@ -127,6 +127,19 @@ function gitlabUsers(state = {}, action) {
     }
 }
 
+function subscriptions(state = {}, action) {
+    switch (action.type) {
+    case ActionTypes.RECEIVED_CHANNEL_SUBSCRIPTIONS: {
+        const nextState = {...state};
+        nextState[action.data.channelId] = action.data.subscriptions;
+
+        return nextState;
+    }
+    default:
+        return state;
+    }
+}
+
 export default combineReducers({
     connected,
     gitlabURL,
@@ -140,4 +153,5 @@ export default combineReducers({
     mentions,
     unreads,
     gitlabUsers,
+    subscriptions,
 });
