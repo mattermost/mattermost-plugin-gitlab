@@ -12,6 +12,7 @@ import {getYourPrDetails, getReviewDetails} from 'src/actions';
 import {RHSStates} from 'src/constants';
 import {getSidebarData} from 'src/selectors';
 import {Item} from 'src/types/gitlab_items';
+import {usePrevious} from 'src/hooks/usePrevious';
 
 import GitlabItems from './gitlab_items';
 
@@ -51,31 +52,41 @@ export const renderThumbVertical = (props: Props) => (
     />
 );
 
+function shouldUpdateDetails(prs: Item[], prevPrs: Item[], targetState: string, currentState: string) {
+    if (currentState !== targetState) {
+        return false;
+    }
+
+    if (prs.length !== prevPrs.length) {
+        return true;
+    }
+
+    for (let i = 0; i < prs.length; i++) {
+        if (prs[i].id !== prevPrs[i].id) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function SidebarRight({theme}: {theme: Theme}) {
     const sidebarData = useSelector(getSidebarData);
     const {username, yourAssignments, org, unreads, gitlabURL, rhsState, reviews, yourPrs} = sidebarData;
 
     const dispatch = useDispatch();
 
-    // Get the details for PRs and reviews on the first render
-    useEffect(() => {
-        if (yourPrs && rhsState === RHSStates.PRS) {
-            dispatch(getYourPrDetails(yourPrs));
-        }
-
-        if (reviews && rhsState === RHSStates.REVIEWS) {
-            dispatch(getReviewDetails(reviews));
-        }
-    }, []);
+    const prevPrs = usePrevious<Item[]>(yourPrs)
+    const prevReviews = usePrevious<Item[]>(reviews)
 
     useEffect(() => {
-        if (RHSStates.PRS === rhsState) {
+        if (yourPrs && (!prevPrs || shouldUpdateDetails(yourPrs, prevPrs, RHSStates.PRS, rhsState))) {
             dispatch(getYourPrDetails(yourPrs));
         }
     }, [yourPrs, rhsState]);
 
     useEffect(() => {
-        if (RHSStates.REVIEWS === rhsState) {
+        if (reviews && (!prevReviews || shouldUpdateDetails(reviews, prevReviews, RHSStates.REVIEWS, rhsState))) {
             dispatch(getReviewDetails(reviews));
         }
     }, [reviews, rhsState]);
