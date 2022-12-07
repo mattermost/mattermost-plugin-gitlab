@@ -1,7 +1,7 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {useEffect, useRef} from 'react';
+import React, {useEffect} from 'react';
 import Scrollbars from 'react-custom-scrollbars';
 import {useDispatch, useSelector} from 'react-redux';
 
@@ -12,6 +12,7 @@ import {getYourPrDetails, getReviewDetails} from 'src/actions';
 import {RHSStates} from 'src/constants';
 import {getSidebarData} from 'src/selectors';
 import {Item} from 'src/types/gitlab_items';
+import {usePrevious} from 'src/hooks/usePrevious';
 
 import GitlabItems from './gitlab_items';
 
@@ -51,17 +52,6 @@ export const renderThumbVertical = (props: Props) => (
     />
 );
 
-// React hook to store the last state of "yourPrs" and "reviews"
-function usePrevious(value: Item[]) {
-    const ref = useRef<Item[]>();
-
-    useEffect(() => {
-      ref.current = value;
-    }, [value]);
-
-    return ref.current;
-}
-
 function shouldUpdateDetails(prs: Item[], prevPrs: Item[], targetState: string, currentState: string) {
     if (currentState !== targetState) {
         return false;
@@ -76,6 +66,7 @@ function shouldUpdateDetails(prs: Item[], prevPrs: Item[], targetState: string, 
             return true;
         }
     }
+
     return false;
 }
 
@@ -85,8 +76,8 @@ function SidebarRight({theme}: {theme: Theme}) {
 
     const dispatch = useDispatch();
 
-    const prevPrs = usePrevious(yourPrs)
-    const prevReviews = usePrevious(reviews)
+    const prevPrs = usePrevious<Item[]>(yourPrs)
+    const prevReviews = usePrevious<Item[]>(reviews)
 
     useEffect(() => {
         if (yourPrs && (!prevPrs || shouldUpdateDetails(yourPrs, prevPrs, RHSStates.PRS, rhsState))) {
