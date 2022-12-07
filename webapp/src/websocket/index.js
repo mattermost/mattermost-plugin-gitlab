@@ -67,3 +67,21 @@ export function handleRefresh(store) {
         }
     };
 }
+
+export function handleChannelSubscriptionsUpdated(store) {
+    return (msg) => {
+        if (!msg.data) {
+            return;
+        }
+
+        const data = JSON.parse(msg.data.payload);
+        store.dispatch({
+            type: ActionTypes.RECEIVED_CHANNEL_SUBSCRIPTIONS,
+            data: {
+                channelId: data.channel_id,
+                subscriptions: data.subscriptions,
+            },
+        });
+    };
+}
+

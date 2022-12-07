@@ -3,6 +3,7 @@
 
 import SidebarHeader from './components/sidebar_header';
 import TeamSidebar from './components/team_sidebar';
+import RHSSidebar from './components/rhs_sidebar';
 import UserAttribute from './components/user_attribute';
 import Reducer from './reducers';
 import SidebarRight from './components/sidebar_right';
@@ -12,6 +13,7 @@ import {
     handleDisconnect,
     handleReconnect,
     handleRefresh,
+    handleChannelSubscriptionsUpdated,
 } from './websocket';
 import {id} from './manifest';
 import Client from './client';
@@ -49,6 +51,10 @@ class PluginClass {
             `custom_${id}_gitlab_refresh`,
             handleRefresh(store),
         );
+        registry.registerWebSocketEventHandler(
+            `custom_${id}_gitlab_channel_subscriptions_updated`,
+            handleChannelSubscriptionsUpdated(store)
+        );
         registry.registerReconnectHandler(handleReconnect(store));
 
         activityFunc = () => {
@@ -60,6 +66,16 @@ class PluginClass {
         };
 
         document.addEventListener('click', activityFunc);
+
+        // RHS Registration
+        const {toggleRHSPlugin} = registry.registerRightHandSidebarComponent(RHSSidebar, 'GitLab');
+        const boundToggleRHSAction = () => store.dispatch(toggleRHSPlugin);
+
+        // App Bar icon
+        if (registry.registerAppBarComponent) {
+            const iconURL = `/plugins/${id}/public/app-bar-icon.png`;
+            registry.registerAppBarComponent(iconURL, boundToggleRHSAction, 'GitLab');
+        }
     }
 
     deinitialize() {
