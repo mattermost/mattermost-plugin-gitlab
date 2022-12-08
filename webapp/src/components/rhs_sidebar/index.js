@@ -35,7 +35,7 @@ function mapDispatchToProps(dispatch) {
             {
                 getChannelSubscriptions,
             },
-            dispatch
+            dispatch,
         ),
     };
 }

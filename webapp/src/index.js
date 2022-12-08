@@ -53,7 +53,7 @@ class PluginClass {
         );
         registry.registerWebSocketEventHandler(
             `custom_${id}_gitlab_channel_subscriptions_updated`,
-            handleChannelSubscriptionsUpdated(store)
+            handleChannelSubscriptionsUpdated(store),
         );
         registry.registerReconnectHandler(handleReconnect(store));
 
