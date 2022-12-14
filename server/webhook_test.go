@@ -47,6 +47,10 @@ func (fakeWebhookHandler) HandlePush(_ context.Context, _ *gitlabLib.PushEvent) 
 	return nil, nil
 }
 
+func (fakeWebhookHandler) HandleJobs(_ context.Context, _ *gitlabLib.JobEvent) ([]*webhook.HandleWebhook, error) {
+	return nil, nil
+}
+
 func TestHandleWebhookBadSecret(t *testing.T) {
 	p := &Plugin{configuration: &configuration{WebhookSecret: "secret"}}
 	req := httptest.NewRequest("POST", "http://example.com/foo", bytes.NewBufferString(""))

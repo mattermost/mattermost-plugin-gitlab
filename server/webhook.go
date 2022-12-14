@@ -29,6 +29,11 @@ func (g *gitlabRetreiver) GetPipelineURL(pathWithNamespace string, pipelineID in
 	return fmt.Sprintf("%s/%s/-/pipelines/%d", config.GitlabURL, pathWithNamespace, pipelineID)
 }
 
+func (g *gitlabRetreiver) GetJobURL(pathWithNamespace string, jobID int) string {
+	config := g.p.getConfiguration()
+	return fmt.Sprintf("%s/%s/-/jobs/%d", config.GitlabURL, pathWithNamespace, jobID)
+}
+
 func (g *gitlabRetreiver) GetUserURL(username string) string {
 	config := g.p.getConfiguration()
 	return fmt.Sprintf("%s/%s", config.GitlabURL, username)
@@ -113,6 +118,11 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
 		handlers, errHandler = p.WebhookHandler.HandlePipeline(ctx, event)
+	case *gitlabLib.JobEvent:
+		repoPrivate = event.Repository.Visibility == gitlabLib.PrivateVisibility
+		pathWithNamespace = event.Repository.PathWithNamespace
+		fromUser = event.User.Name
+		handlers, errHandler = p.WebhookHandler.HandleJobs(ctx, event)
 	case *gitlabLib.TagEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
@@ -132,7 +142,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if errHandler != nil {
-		p.API.LogDebug("Error when handling webhook event", "err", err)
+		p.API.LogDebug("Error when handling webhook event", "err", errHandler)
 		return
 	}
 

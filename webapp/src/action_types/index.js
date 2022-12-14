@@ -8,4 +8,5 @@ export default {
     RECEIVED_UNREADS: `${id}_received_unreads`,
     RECEIVED_CONNECTED: `${id}_received_connected`,
     RECEIVED_GITLAB_USER: `${id}_received_gitlab_user`,
+    RECEIVED_CHANNEL_SUBSCRIPTIONS: `${id}_received_channel_subscriptions`,
 };
