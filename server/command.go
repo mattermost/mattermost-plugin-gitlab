@@ -482,7 +482,7 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 
 func (p *Plugin) subscriptionDelete(info *gitlab.UserInfo, config *configuration, fullPath, channelID string) (string, error) {
 	normalizedPath := normalizePath(fullPath, config.GitlabURL)
-	deleted, err := p.Unsubscribe(channelID, normalizedPath)
+	deleted, updatedSubscriptions, err := p.Unsubscribe(channelID, normalizedPath)
 	if err != nil {
 		p.API.LogError("can't unsubscribe channel in command", "err", err.Error())
 		return "Encountered an error trying to unsubscribe. Please try again.", nil
@@ -492,7 +492,7 @@ func (p *Plugin) subscriptionDelete(info *gitlab.UserInfo, config *configuration
 		return "Subscription not found, please check repository name.", nil
 	}
 
-	p.sendChannelSubscriptionsUpdated(channelID)
+	p.sendChannelSubscriptionsUpdated(updatedSubscriptions, channelID)
 
 	return fmt.Sprintf("Successfully deleted subscription for %s.", normalizedPath), nil
 }
@@ -535,7 +535,8 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		return err.Error()
 	}
 
-	if subscribeErr := p.Subscribe(info, namespace, project, channelID, features); subscribeErr != nil {
+	updatedSubscriptions, subscribeErr := p.Subscribe(info, namespace, project, channelID, features)
+	if subscribeErr != nil {
 		p.API.LogError(
 			"failed to subscribe",
 			"namespace", namespace,
@@ -571,7 +572,7 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		)
 	}
 
-	p.sendChannelSubscriptionsUpdated(channelID)
+	p.sendChannelSubscriptionsUpdated(updatedSubscriptions, channelID)
 
 	return fmt.Sprintf("Successfully subscribed to %s.%s", fullPath, hookStatusMessage)
 }
