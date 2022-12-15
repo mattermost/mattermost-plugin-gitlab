@@ -364,7 +364,6 @@ export function getAssigneeOptions(projectID) {
     };
 }
 
-
 export function getChannelSubscriptions(channelId) {
     return async (dispatch) => {
         if (!channelId) {
@@ -377,7 +376,7 @@ export function getChannelSubscriptions(channelId) {
         } catch (error) {
             return {error};
         }
-        
+
         dispatch({
             type: ActionTypes.RECEIVED_CHANNEL_SUBSCRIPTIONS,
             data: {
