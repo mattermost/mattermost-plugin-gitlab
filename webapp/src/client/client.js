@@ -42,6 +42,10 @@ export default class Client {
         return this.doGet(`${this.url}/mergerequest?owner=${owner}&repo=${repo}&number=${prNumber}`);
     }
 
+    getChannelSubscriptions = async (channelID) => {
+        return this.doGet(`${this.url}/channel/${channelID}/subscriptions`);
+    };
+
     doGet = async (url, body, headers = {}) => {
         headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
 
