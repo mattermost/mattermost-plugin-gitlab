@@ -61,6 +61,9 @@ export default class Client {
     getAssignees = async (projectID) => {
         return this.doGet(`${this.url}/assignees?projectID=${projectID}`);
     }
+    getChannelSubscriptions = async (channelID) => {
+        return this.doGet(`${this.url}/channel/${channelID}/subscriptions`);
+    };
 
     doGet = async (url, body, headers = {}) => {
         headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();

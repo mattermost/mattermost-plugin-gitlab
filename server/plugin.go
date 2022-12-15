@@ -29,17 +29,18 @@ import (
 )
 
 const (
-	GitlabTokenKey       = "_gitlabtoken"
-	GitlabUsernameKey    = "_gitlabusername"
-	GitlabIDUsernameKey  = "_gitlabidusername"
-	WsEventConnect       = "gitlab_connect"
-	WsEventDisconnect    = "gitlab_disconnect"
-	WsEventRefresh       = "gitlab_refresh"
-	wsEventCreateIssue   = "create_issue"
-	SettingNotifications = "notifications"
-	SettingReminders     = "reminders"
-	SettingOn            = "on"
-	SettingOff           = "off"
+	GitlabTokenKey                = "_gitlabtoken"
+	GitlabUsernameKey             = "_gitlabusername"
+	GitlabIDUsernameKey           = "_gitlabidusername"
+	WsEventConnect                = "gitlab_connect"
+	WsEventDisconnect             = "gitlab_disconnect"
+	WsEventRefresh                = "gitlab_refresh"
+	wsEventCreateIssue            = "create_issue"
+	SettingNotifications          = "notifications"
+	SettingReminders              = "reminders"
+	SettingOn                     = "on"
+	SettingOff                    = "off"
+	WsChannelSubscriptionsUpdated = "gitlab_channel_subscriptions_updated"
 
 	chimeraGitLabAppIdentifier = "plugin-gitlab"
 )
@@ -562,6 +563,41 @@ func (p *Plugin) openIssueCreateModal(userID, channelID, title string) {
 			"channel_id": channelID,
 		},
 		&model.WebsocketBroadcast{UserId: userID},
+	)
+}
+
+func (p *Plugin) sendChannelSubscriptionsUpdated(channelID string) {
+	config := p.getConfiguration()
+
+	subscriptions, err := p.GetSubscriptionsByChannel(channelID)
+	if err != nil {
+		p.API.LogWarn(
+			"unable to fetch subscriptions by channel",
+			"err", err.Error(),
+		)
+		return
+	}
+
+	var payload struct {
+		ChannelID     string                 `json:"channel_id"`
+		Subscriptions []SubscriptionResponse `json:"subscriptions"`
+	}
+	payload.ChannelID = channelID
+	payload.Subscriptions = subscriptionsToResponse(config, subscriptions)
+
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		p.API.LogWarn(
+			"unable to marshal payload for updated channel subscriptions",
+			"err", err.Error(),
+		)
+		return
+	}
+
+	p.API.PublishWebSocketEvent(
+		WsChannelSubscriptionsUpdated,
+		map[string]interface{}{"payload": string(payloadJSON)},
+		&model.WebsocketBroadcast{ChannelId: channelID},
 	)
 }
 

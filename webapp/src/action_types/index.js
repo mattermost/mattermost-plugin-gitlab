@@ -14,4 +14,5 @@ export default {
     CLOSE_ATTACH_COMMENT_TO_ISSUE_MODAL: `${id}_close_attach_modal`,
     OPEN_ATTACH_COMMENT_TO_ISSUE_MODAL: `${id}_open_attach_modal`,
     RECEIVED_PROJECTS: `${id}_received_projects`,
+    RECEIVED_CHANNEL_SUBSCRIPTIONS: `${id}_received_channel_subscriptions`,
 };
