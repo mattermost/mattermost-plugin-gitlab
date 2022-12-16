@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  ci:
+  continuous-integration:
     runs-on: ubuntu-latest
 
     steps:
@@ -24,7 +24,7 @@ jobs:
           go-version: "1.19"
           cache: true
 
-      - name: Setup Env
+      - name: ci/setup
         uses: spirosoik/actions/plugin-ci/setup@main
 
       - name: ci/lint
