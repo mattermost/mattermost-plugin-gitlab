@@ -26,3 +26,9 @@ jobs:
 
       - name: Setup Env
         uses: spirosoik/actions/plugin-ci/setup@main
+
+      - name: ci/lint
+        uses: spirosoik/actions/plugin-ci/test@main
+
+      - name: ci/build
+        uses: spirosoik/actions/plugin-ci/build@main
