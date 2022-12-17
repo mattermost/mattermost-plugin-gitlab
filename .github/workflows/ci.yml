@@ -10,4 +10,4 @@ permissions:
 
 jobs:
   plugin-ci:
-    uses: spirosik/actions-workflows/.github/workflows/plugin-ci.yml@main
+    uses: mattermost/actions-workflows/.github/workflows/plugin-ci.yml@main
