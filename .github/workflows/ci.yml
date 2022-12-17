@@ -28,6 +28,9 @@ jobs:
         uses: spirosoik/actions/plugin-ci/setup@main
 
       - name: ci/lint
+        uses: spirosoik/actions/plugin-ci/lint@main
+
+      - name: ci/test
         uses: spirosoik/actions/plugin-ci/test@main
 
       - name: ci/build
