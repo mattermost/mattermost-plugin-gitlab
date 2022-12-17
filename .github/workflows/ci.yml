@@ -9,9 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  continuous-integration:
+  lint:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
@@ -30,8 +29,42 @@ jobs:
       - name: ci/lint
         uses: spirosoik/actions/plugin-ci/lint@main
 
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
+        with:
+          go-version: ${{ inputs.golang-version }}
+          cache: true
+
+      - name: ci/setup
+        uses: spirosoik/actions/plugin-ci/setup@main
+
       - name: ci/test
         uses: spirosoik/actions/plugin-ci/test@main
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@755da8c3cf115ac066823e79a1e1788f8940201b # v3.2.0
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3.5.0
+        with:
+          go-version: ${{ inputs.golang-version }}
+          cache: true
+
+      - name: ci/setup
+        uses: spirosoik/actions/plugin-ci/setup@main
 
       - name: ci/build
         uses: spirosoik/actions/plugin-ci/build@main
