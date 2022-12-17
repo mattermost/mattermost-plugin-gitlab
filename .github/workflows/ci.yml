@@ -1,0 +1,13 @@
+name: ci
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  plugin-ci:
+    uses: spirosik/actions-workflows/.github/workflows/plugin-ci.yml@main
