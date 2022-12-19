@@ -10,4 +10,4 @@ permissions:
 
 jobs:
   plugin-ci:
-    uses: mattermost/actions-workflows/.github/workflows/plugin-ci.yml@cd880acab20708bd9430feb2e0a5aebde2e7e0e6
+    uses: mattermost/actions-workflows/.github/workflows/plugin-ci.yml@fix/move-upload-artifact-to-workflow
