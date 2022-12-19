@@ -10,4 +10,4 @@ permissions:
 
 jobs:
   plugin-ci:
-    uses: mattermost/actions-workflows/.github/workflows/plugin-ci.yml@main
+    uses: mattermost/actions-workflows/.github/workflows/plugin-ci.yml@bf6bccf3f13e6f072d96f59805c9f1d6a2294089
