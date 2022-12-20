@@ -12,5 +12,5 @@ permissions:
 
 jobs:
   plugin-ci:
-    uses: mattermost/actions-workflows/.github/workflows/plugin-ci.yml@11369c571c4a721bfaca5d9c7f3920c201e79a20
+    uses: mattermost/actions-workflows/.github/workflows/plugin-ci.yml@1a3d181953ab3e64bc12d7e3709cb619ab0ddb80
     secrets: inherit
