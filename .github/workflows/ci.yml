@@ -3,6 +3,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
   pull_request:
 
 permissions:
@@ -10,7 +12,5 @@ permissions:
 
 jobs:
   plugin-ci:
-    uses: mattermost/actions-workflows/.github/workflows/plugin-ci.yml@fix/move-upload-artifact-to-workflow
-    secrets:
-      aws-access-key-id: ${{ secrets.PLUGIN_AWS_ACCESS_KEY_ID }}
-      aws-secret-access-key: ${{ secrets.PLUGIN_AWS_SECRET_ACCESS_KEY }}
+    uses: mattermost/actions-workflows/.github/workflows/plugin-ci.yml@feat/plugin-continuous-delivery
+    secrets: inherit
