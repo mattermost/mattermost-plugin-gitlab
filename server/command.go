@@ -655,7 +655,6 @@ func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channel
 	txt += fmt.Sprintf("**Ref**: %s\n", pipelineInfo.Ref)
 	txt += fmt.Sprintf("**Triggered By**: %s\n", pipelineInfo.User)
 	txt += fmt.Sprintf("**Visit pipeline [here](%s)** \n\n", pipelineInfo.WebURL)
-	txt += "*This channel automatically subscribed to pipeline updates*"
 	return txt
 }
 

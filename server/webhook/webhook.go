@@ -165,6 +165,15 @@ func normalizeNamespacedProject(pathWithNamespace string) (namespace string, pro
 	return strings.Join(splits[:len(splits)-1], "/"), splits[len(splits)-1]
 }
 
+// normalizeNamespacedProjectByHomepage converts data from web hooks to format expected by our plugin.
+func normalizeNamespacedProjectByHomepage(homapge string) (namespace string, project string) {
+	splits := strings.Split(homapge, "/")
+	if len(splits) < 2 {
+		return "", ""
+	}
+	return strings.Join(splits[len(splits)-2:4], "/"), splits[len(splits)-1]
+}
+
 func sanitizeDescription(description string) string {
 	var policy = bluemonday.StrictPolicy()
 	policy.SkipElementsContent("details")

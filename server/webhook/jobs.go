@@ -38,11 +38,12 @@ func (w *webhook) handleChannelJob(ctx context.Context, event *gitlab.JobEvent) 
 	default:
 		return res, nil
 	}
-	message += fmt.Sprintf("**Repository**: [%s](%s)\n", event.ProjectName, event.Repository.GitHTTPURL)
+	namespace, project := normalizeNamespacedProjectByHomepage(event.Repository.Homepage)
+	fullNamespacePath := fmt.Sprintf("%s/%s", namespace, project)
+	message += fmt.Sprintf("**Repository**: [%s](%s)\n", fullNamespacePath, event.Repository.GitHTTPURL)
 	message += fmt.Sprintf("**Triggered By**: %s\n", senderGitlabUsername)
-	message += fmt.Sprintf("**Visit job [here](%s)** \n", w.gitlabRetreiver.GetJobURL(event.ProjectName, event.BuildID))
+	message += fmt.Sprintf("**Visit job [here](%s)** \n", w.gitlabRetreiver.GetJobURL(fullNamespacePath, event.BuildID))
 	toChannels := make([]string, 0)
-	namespace, project := normalizeNamespacedProject(event.ProjectName)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
 		ctx, namespace, project,
 		repo.Visibility == gitlab.PublicVisibility,
