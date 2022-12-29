@@ -28,7 +28,7 @@ import (
 const (
 	APIErrorIDNotConnected = "not_connected"
 
-	requestTimeout = 5 * time.Second
+	requestTimeout = 30 * time.Second
 )
 
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
