@@ -219,7 +219,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 	case "todo":
 		_, text, err := p.GetToDo(ctx, info)
 		if err != nil {
-			p.API.LogError("can't get todo in command", "err", err.Error())
+			p.API.LogWarn("can't get todo in command", "err", err.Error())
 			return p.getCommandResponse(args, "Encountered an error getting your to do items."), nil
 		}
 		return p.getCommandResponse(args, text), nil
@@ -249,15 +249,15 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		case SettingNotifications:
 			if value {
 				if err := p.storeGitlabToUserIDMapping(info.GitlabUsername, info.UserID); err != nil {
-					p.API.LogError("can't store GitLab to user id mapping", "err", err.Error())
+					p.API.LogWarn("can't store GitLab to user id mapping", "err", err.Error())
 					return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 				}
 				if err := p.storeGitlabIDToUserIDMapping(info.GitlabUsername, info.GitlabUserID); err != nil {
-					p.API.LogError("can't store GitLab to GitLab id mapping", "err", err.Error())
+					p.API.LogWarn("can't store GitLab to GitLab id mapping", "err", err.Error())
 					return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 				}
 			} else if err := p.deleteGitlabToUserIDMapping(info.GitlabUsername); err != nil {
-				p.API.LogError("can't delete GitLab username in kvstore", "err", err.Error())
+				p.API.LogWarn("can't delete GitLab username in kvstore", "err", err.Error())
 				return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 			}
 			info.Settings.Notifications = value
@@ -268,7 +268,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		}
 
 		if err := p.storeGitlabUserInfo(info); err != nil {
-			p.API.LogError("can't store user info after update by command", "err", err.Error())
+			p.API.LogWarn("can't store user info after update by command", "err", err.Error())
 			return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 		}
 
@@ -484,7 +484,7 @@ func (p *Plugin) subscriptionDelete(info *gitlab.UserInfo, config *configuration
 	normalizedPath := normalizePath(fullPath, config.GitlabURL)
 	deleted, err := p.Unsubscribe(channelID, normalizedPath)
 	if err != nil {
-		p.API.LogError("can't unsubscribe channel in command", "err", err.Error())
+		p.API.LogWarn("can't unsubscribe channel in command", "err", err.Error())
 		return "Encountered an error trying to unsubscribe. Please try again.", nil
 	}
 
@@ -528,7 +528,7 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		} else if errors.Is(err, gitlab.ErrPrivateResource) {
 			return "Requested resource is private."
 		}
-		p.API.LogError(
+		p.API.LogWarn(
 			"unable to resolve subscription namespace and project name",
 			"err", err.Error(),
 		)
@@ -536,7 +536,7 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 	}
 
 	if subscribeErr := p.Subscribe(info, namespace, project, channelID, features); subscribeErr != nil {
-		p.API.LogError(
+		p.API.LogWarn(
 			"failed to subscribe",
 			"namespace", namespace,
 			"project", project,

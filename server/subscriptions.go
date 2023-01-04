@@ -88,7 +88,7 @@ func (p *Plugin) GetSubscriptions() (*Subscriptions, error) {
 
 	value, err := p.API.KVGet(SubscriptionsKey)
 	if err != nil {
-		p.API.LogError("can't get subscriptions from kvstore", "err", err.DetailedError)
+		p.API.LogWarn("can't get subscriptions from kvstore", "err", err.DetailedError)
 		return nil, err
 	}
 
@@ -107,7 +107,7 @@ func (p *Plugin) StoreSubscriptions(s *Subscriptions) error {
 		return err
 	}
 	if err := p.API.KVSet(SubscriptionsKey, b); err != nil {
-		p.API.LogError("can't set subscriptions in kvstore", "err", err.DetailedError)
+		p.API.LogWarn("can't set subscriptions in kvstore", "err", err.DetailedError)
 	}
 	return nil
 }
@@ -122,7 +122,7 @@ func (p *Plugin) GetSubscribedChannelsForProject(
 
 	subs, err := p.GetSubscriptions()
 	if err != nil {
-		p.API.LogError("can't retrieve subscriptions", "err", err.Error())
+		p.API.LogWarn("can't retrieve subscriptions", "err", err.Error())
 		return nil
 	}
 
