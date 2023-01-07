@@ -29,7 +29,7 @@ import (
 const (
 	APIErrorIDNotConnected = "not_connected"
 
-	requestTimeout = 5 * time.Second
+	requestTimeout = 30 * time.Second
 )
 
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
@@ -138,7 +138,7 @@ func (p *Plugin) withRecovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if x := recover(); x != nil {
-				p.API.LogError("Recovered from a panic",
+				p.API.LogWarn("Recovered from a panic",
 					"url", r.URL.String(),
 					"error", x,
 					"stack", string(debug.Stack()))
@@ -172,7 +172,7 @@ func (p *Plugin) checkAuth(handler http.HandlerFunc, responseType ResponseType) 
 			case ResponseTypePlain:
 				http.Error(w, "Not authorized", http.StatusUnauthorized)
 			default:
-				p.API.LogError("Unknown ResponseType detected")
+				p.API.LogDebug("Unknown ResponseType detected")
 			}
 			return
 		}
@@ -205,18 +205,18 @@ func (p *Plugin) writeAPIError(w http.ResponseWriter, err *APIErrorResponse) {
 	b, _ := json.Marshal(err)
 	w.WriteHeader(err.StatusCode)
 	if _, err := w.Write(b); err != nil {
-		p.API.LogError("can't write api error http response", "err", err.Error())
+		p.API.LogWarn("can't write api error http response", "err", err.Error())
 	}
 }
 
 func (p *Plugin) writeAPIResponse(w http.ResponseWriter, resp interface{}) {
 	b, jsonErr := json.Marshal(resp)
 	if jsonErr != nil {
-		p.API.LogError("Error encoding JSON response", "err", jsonErr.Error())
+		p.API.LogWarn("Error encoding JSON response", "err", jsonErr.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
 	}
 	if _, err := w.Write(b); err != nil {
-		p.API.LogError("can't write response user to http", "err", err.Error())
+		p.API.LogWarn("can't write response user to http", "err", err.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
 	}
 }
@@ -690,7 +690,7 @@ func (p *Plugin) getChannelSubscriptions(c *UserContext, w http.ResponseWriter, 
 	config := p.getConfiguration()
 	subscriptions, err := p.GetSubscriptionsByChannel(channelID)
 	if err != nil {
-		p.API.LogError("unable to get subscriptions by channel", "err", err.Error())
+		p.API.LogWarn("unable to get subscriptions by channel", "err", err.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get subscriptions by channel.", StatusCode: http.StatusInternalServerError})
 		return
 	}
@@ -699,9 +699,9 @@ func (p *Plugin) getChannelSubscriptions(c *UserContext, w http.ResponseWriter, 
 
 	b, err := json.Marshal(resp)
 	if err != nil {
-		p.API.LogError("failed to marshal channel subscriptions response", "err", err.Error())
+		p.API.LogWarn("failed to marshal channel subscriptions response", "err", err.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
 	} else if _, err := w.Write(b); err != nil {
-		p.API.LogError("can't write api error http response", "err", err.Error())
+		p.API.LogWarn("can't write api error http response", "err", err.Error())
 	}
 }
