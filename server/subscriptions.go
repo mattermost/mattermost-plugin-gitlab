@@ -19,30 +19,36 @@ type Subscriptions struct {
 	Repositories map[string][]*subscription.Subscription
 }
 
-func (p *Plugin) Subscribe(info *gitlab.UserInfo, namespace, project, channelID, features string) error {
+func (p *Plugin) Subscribe(info *gitlab.UserInfo, namespace, project, channelID, features string) (*Subscriptions, error) {
 	if err := p.isNamespaceAllowed(namespace); err != nil {
-		return err
+		return nil, err
 	}
 
 	fullPath := fullPathFromNamespaceAndProject(namespace, project)
 	sub, err := subscription.New(channelID, info.UserID, features, fullPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := p.AddSubscription(fullPath, sub); err != nil {
-		return err
+	subs, err := p.AddSubscription(fullPath, sub)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil
+	return subs, nil
 }
 
 func (p *Plugin) GetSubscriptionsByChannel(channelID string) ([]*subscription.Subscription, error) {
-	var filteredSubs []*subscription.Subscription
 	subs, err := p.GetSubscriptions()
 	if err != nil {
 		return nil, err
 	}
+
+	return filterSubscriptionsByChannel(subs, channelID), nil
+}
+
+func filterSubscriptionsByChannel(subs *Subscriptions, channelID string) []*subscription.Subscription {
+	var filteredSubs []*subscription.Subscription
 
 	for _, v := range subs.Repositories {
 		for _, s := range v {
@@ -52,13 +58,13 @@ func (p *Plugin) GetSubscriptionsByChannel(channelID string) ([]*subscription.Su
 		}
 	}
 
-	return filteredSubs, nil
+	return filteredSubs
 }
 
-func (p *Plugin) AddSubscription(fullPath string, sub *subscription.Subscription) error {
+func (p *Plugin) AddSubscription(fullPath string, sub *subscription.Subscription) (*Subscriptions, error) {
 	subs, err := p.GetSubscriptions()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	repoSubs := subs.Repositories[fullPath]
@@ -80,7 +86,7 @@ func (p *Plugin) AddSubscription(fullPath string, sub *subscription.Subscription
 	}
 
 	subs.Repositories[fullPath] = repoSubs
-	return p.StoreSubscriptions(subs)
+	return subs, p.StoreSubscriptions(subs)
 }
 
 func (p *Plugin) GetSubscriptions() (*Subscriptions, error) {
@@ -155,14 +161,14 @@ func (p *Plugin) GetSubscribedChannelsForProject(
 
 // Unsubscribe deletes the link between namespace/project and channelID.
 // Returns true if subscription was found, false otherwise.
-func (p *Plugin) Unsubscribe(channelID string, fullPath string) (bool, error) {
+func (p *Plugin) Unsubscribe(channelID string, fullPath string) (bool, *Subscriptions, error) {
 	if fullPath == "" {
-		return false, errors.New("invalid repository")
+		return false, nil, errors.New("invalid repository")
 	}
 
 	subs, err := p.GetSubscriptions()
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 
 	var removed bool
@@ -194,7 +200,7 @@ func (p *Plugin) Unsubscribe(channelID string, fullPath string) (bool, error) {
 	}
 
 	if !removed {
-		return false, nil
+		return false, subs, nil
 	}
-	return true, p.StoreSubscriptions(subs)
+	return true, subs, p.StoreSubscriptions(subs)
 }
