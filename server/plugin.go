@@ -554,17 +554,10 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 	)
 }
 
-func (p *Plugin) sendChannelSubscriptionsUpdated(channelID string) {
+func (p *Plugin) sendChannelSubscriptionsUpdated(subs *Subscriptions, channelID string) {
 	config := p.getConfiguration()
 
-	subscriptions, err := p.GetSubscriptionsByChannel(channelID)
-	if err != nil {
-		p.API.LogWarn(
-			"unable to fetch subscriptions by channel",
-			"err", err.Error(),
-		)
-		return
-	}
+	subscriptions := filterSubscriptionsByChannel(subs, channelID)
 
 	var payload struct {
 		ChannelID     string                 `json:"channel_id"`
