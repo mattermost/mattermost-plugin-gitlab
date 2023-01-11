@@ -83,13 +83,13 @@ function SidebarRight({theme}: {theme: Theme}) {
         if (yourPrs && (!prevPrs || shouldUpdateDetails(yourPrs, prevPrs, RHSStates.PRS, rhsState))) {
             dispatch(getYourPrDetails(yourPrs));
         }
-    }, [yourPrs, rhsState]);
+    }, [yourPrs, rhsState, prevPrs]);
 
     useEffect(() => {
         if (reviews && (!prevReviews || shouldUpdateDetails(reviews, prevReviews, RHSStates.REVIEWS, rhsState))) {
             dispatch(getReviewDetails(reviews));
         }
-    }, [reviews, rhsState]);
+    }, [reviews, rhsState, prevReviews]);
 
     const style = getStyle(theme);
     const baseURL = gitlabURL || 'https://gitlab.com';
