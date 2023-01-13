@@ -120,7 +120,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		handlers, errHandler = p.WebhookHandler.HandlePipeline(ctx, event)
 	case *gitlabLib.JobEvent:
 		repoPrivate = event.Repository.Visibility == gitlabLib.PrivateVisibility
-		pathWithNamespace = event.Repository.PathWithNamespace
+		pathWithNamespace = event.ProjectName
 		fromUser = event.User.Name
 		handlers, errHandler = p.WebhookHandler.HandleJobs(ctx, event)
 	case *gitlabLib.TagEvent:
@@ -155,12 +155,12 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			if len(userTo) > 0 && len(res.Message) > 0 {
 				info, err := p.getGitlabUserInfoByMattermostID(userTo)
 				if err != nil {
-					p.API.LogError("can't get user info to know if user wants to receive notifications", "err", err.Message)
+					p.API.LogWarn("can't get user info to know if user wants to receive notifications", "err", err.Message)
 					continue
 				}
 				if info.Settings.Notifications {
 					if err := p.CreateBotDMPost(userTo, res.Message, "custom_git_review_request"); err != nil {
-						p.API.LogError("can't send dm post", "err", err.Error())
+						p.API.LogWarn("can't send dm post", "err", err.Error())
 					}
 				}
 			}
@@ -173,7 +173,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 					ChannelId: to,
 				}
 				if _, err := p.API.CreatePost(post); err != nil {
-					p.API.LogError("can't create post for webhook event", "err", err.Error())
+					p.API.LogWarn("can't create post for webhook event", "err", err.Error())
 				}
 			}
 		}
@@ -209,7 +209,7 @@ func (p *Plugin) permissionToProject(ctx context.Context, userID, namespace, pro
 
 	if result, err := p.GitlabClient.GetProject(ctx, info, namespace, project); result == nil || err != nil {
 		if err != nil {
-			p.API.LogError("can't get project in webhook", "err", err.Error(), "project", namespace+"/"+project)
+			p.API.LogWarn("can't get project in webhook", "err", err.Error(), "project", namespace+"/"+project)
 		}
 		return false
 	}

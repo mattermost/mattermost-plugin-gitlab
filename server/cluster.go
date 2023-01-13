@@ -38,8 +38,6 @@ func (p *Plugin) sendMessageToCluster(id string, v interface{}) {
 }
 
 func (p *Plugin) HandleClusterEvent(ev model.PluginClusterEvent) {
-	p.API.LogError("received cluster event", "id", ev.Id)
-
 	switch ev.Id {
 	case oauthCompleteEventID:
 		var event OAuthCompleteEvent

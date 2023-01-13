@@ -1,6 +1,8 @@
 // Copyright (c) 2017-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
+import {getConfig} from 'mattermost-redux/selectors/entities/general';
+
 import SidebarHeader from './components/sidebar_header';
 import TeamSidebar from './components/team_sidebar';
 import RHSSidebar from './components/rhs_sidebar';
@@ -82,7 +84,9 @@ class PluginClass {
 
         // App Bar icon
         if (registry.registerAppBarComponent) {
-            const iconURL = `/plugins/${id}/public/app-bar-icon.png`;
+            const config = getConfig(store.getState());
+            const siteUrl = (config && config.SiteURL) || '';
+            const iconURL = `${siteUrl}/plugins/${id}/public/app-bar-icon.png`;
             registry.registerAppBarComponent(iconURL, boundToggleRHSAction, 'GitLab');
         }
     }
