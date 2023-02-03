@@ -574,8 +574,8 @@ func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Requ
 	var issue *gitlab.IssueRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&issue); err != nil {
-		c.Log.WithError(err).Warnf("error decoding the JSON body to create issue")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("please provide a valid JSON object. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
+		c.Log.WithError(err).Warnf("There was an error while creating the issue")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("There was an error while creating the issue. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
 		return
 	}
 
@@ -638,8 +638,8 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 	var issue *gitlab.IssueRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&issue); err != nil {
-		c.Log.WithError(err).Warnf("error decoding JSON body for attach comment to issue")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("error decoding JSON body for attach comment to issue. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
+		c.Log.WithError(err).Warnf("There was an error while attaching a comment to the issue")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("There was an error while attaching a comment to the issue. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
 		return
 	}
 
