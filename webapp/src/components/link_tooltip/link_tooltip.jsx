@@ -4,8 +4,9 @@ import ReactMarkdown from 'react-markdown';
 import Octicon, {GitMerge, GitPullRequest, IssueClosed, IssueOpened} from '@primer/octicons-react';
 
 import Client from '../../client';
-import './tooltip.css';
 import {validateGitlabURL} from '../../utils/regex_utils';
+import {isValidUrl} from '../../utils/url_utils';
+import './tooltip.css';
 
 const STATE_COLOR_MAP = {
     OPENED_COLOR: '#28a745',
@@ -23,13 +24,17 @@ const LINK_TYPES = {
     ISSUES: 'issues',
 };
 
-export const LinkTooltip = ({href, connected}) => {
+export const LinkTooltip = ({href, connected, gitlabURL}) => {
     const [data, setData] = useState(null);
     useEffect(() => {
+        if (!isValidUrl(href)) {
+            return;
+        }
+
         const url = new URL(href);
         const init = async () => {
-            if (url.hostname === 'gitlab.com' && validateGitlabURL(href)) {
-                const [owner, repo, , type, number] = href.split('gitlab.com/')[1].split('/');
+            if (url.origin === gitlabURL && validateGitlabURL(href)) {
+                const [owner, repo, , type, number] = href.split(`${url.hostname}/`)[1].split('/');
                 let res;
                 switch (type) {
                 case LINK_TYPES.ISSUES:
@@ -45,9 +50,11 @@ export const LinkTooltip = ({href, connected}) => {
                 setData(res);
             }
         };
+
         if (data) {
             return;
         }
+
         if (connected) {
             init();
         }
@@ -180,4 +187,5 @@ export const LinkTooltip = ({href, connected}) => {
 LinkTooltip.propTypes = {
     href: PropTypes.string.isRequired,
     connected: PropTypes.bool.isRequired,
+    gitlabURL: PropTypes.string.isRequired,
 };
