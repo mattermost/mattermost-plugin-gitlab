@@ -38,15 +38,25 @@ func (p *Plugin) checkAndPerformOAuthTokenMigration() error {
 		return nil
 	}
 
-	_, _ = p.client.KV.Set(oauthMigrationStoreKey, oauthMigrationStatusInProgress)
+	_, err = p.client.KV.Set(oauthMigrationStoreKey, oauthMigrationStatusInProgress)
+	if err != nil {
+		p.client.Log.Warn("error setting migration status to "+oauthMigrationStatusInProgress, "error", err.Error())
+	}
 
 	err = p.notifyAllConnectedUsersToReconnect()
 	if err != nil {
-		_, _ = p.client.KV.Set(oauthMigrationStoreKey, oauthMigrationStatusError)
+		_, kvErr := p.client.KV.Set(oauthMigrationStoreKey, oauthMigrationStatusError)
+		if kvErr != nil {
+			p.client.Log.Warn("error setting migration status to "+oauthMigrationStatusError, "error", err.Error())
+		}
+
 		return err
 	}
 
-	_, _ = p.client.KV.Set(oauthMigrationStoreKey, oauthMigrationStatusComplete)
+	_, err = p.client.KV.Set(oauthMigrationStoreKey, oauthMigrationStatusComplete)
+	if err != nil {
+		p.client.Log.Warn("error setting migration status to "+oauthMigrationStatusComplete, "error", err.Error())
+	}
 
 	return nil
 }
