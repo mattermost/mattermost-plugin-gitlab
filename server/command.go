@@ -43,14 +43,14 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	 * |*| - or missing defaults to all with SSL verification enabled
 	 * *noSSL - all triggers with SSL verification not enabled.
 	 * PushEvents
-	 * TagPushEvents 
-	 * Comments 
-	 * ConfidentialComments 
+	 * TagPushEvents
+	 * Comments
+	 * ConfidentialComments
 	 * IssuesEvents
-	 * ConfidentialIssuesEvents 
-	 * MergeRequestsEvents 
-	 * JobEvents 
-	 * PipelineEvents 
+	 * ConfidentialIssuesEvents
+	 * MergeRequestsEvents
+	 * JobEvents
+	 * PipelineEvents
 	 * WikiPageEvents
 	 * SSLverification
   * |url| is the URL that will be called when triggered. Defaults to this plugins URL
@@ -64,6 +64,7 @@ const (
 	unknownActionMessage              = "Unknown action, please use `/gitlab help` to see all actions available."
 	newWebhookEmptySiteURLmessage     = "Unable to create webhook. The Mattermot Site URL is not set. " +
 		"Set it in the Admin Console or rerun /gitlab webhook add group/project URL including the desired URL."
+	gitlabConnectMessage = "[Click here to link your GitLab account.](%s/plugins/%s/oauth/connect)"
 )
 
 const (
@@ -175,7 +176,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 			return p.getCommandResponse(args, "Encountered an error connecting to GitLab."), nil
 		}
 
-		resp := p.getCommandResponse(args, fmt.Sprintf("[Click here to link your GitLab account.](%s/plugins/%s/oauth/connect)", *config.ServiceSettings.SiteURL, manifest.Id))
+		resp := p.getCommandResponse(args, fmt.Sprintf(gitlabConnectMessage, *config.ServiceSettings.SiteURL, manifest.Id))
 		return resp, nil
 	}
 

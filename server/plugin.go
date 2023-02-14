@@ -122,6 +122,11 @@ func (p *Plugin) OnActivate() error {
 	p.poster = poster.NewPoster(&p.client.Post, p.BotUserID)
 	p.flowManager = p.NewFlowManager()
 
+	err = p.checkAndPerformOAuthTokenMigration()
+	if err != nil {
+		p.API.LogWarn("error performing oauth token migration", "error", err.Error())
+	}
+
 	return nil
 }
 
