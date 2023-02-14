@@ -86,7 +86,7 @@ func (p *Plugin) notifyAllConnectedUsersToReconnect() error {
 	numErrors := 0
 	for _, key := range allKeys {
 		index := strings.Index(key, GitlabTokenKey)
-		userID := key[0:index]
+		userID := key[:index]
 
 		var logError = func(msg string, err error) {
 			numErrors++
