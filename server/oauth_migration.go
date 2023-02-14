@@ -25,23 +25,20 @@ func (p *Plugin) checkAndPerformOAuthTokenMigration() error {
 	}
 
 	mutex.Lock()
+	defer mutex.Unlock()
 
 	var status string
 	err = p.client.KV.Get(oauthMigrationStoreKey, &status)
 	if err != nil {
-		mutex.Unlock()
 		return err
 	}
 
 	// Migration is in progress or already completed
 	if status != "" {
-		mutex.Unlock()
 		return nil
 	}
 
 	_, _ = p.client.KV.Set(oauthMigrationStoreKey, oauthMigrationStatusInProgress)
-
-	mutex.Unlock()
 
 	err = p.notifyAllConnectedUsersToReconnect()
 	if err != nil {
