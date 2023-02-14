@@ -79,10 +79,6 @@ func (p *Plugin) notifyAllConnectedUsersToReconnect() error {
 			if strings.HasSuffix(key, GitlabTokenKey) {
 				keysToAdd = append(keysToAdd, key)
 			}
-
-			if strings.HasSuffix(key, GitlabUsernameKey) || strings.HasSuffix(key, GitlabIDUsernameKey) {
-				_ = p.client.KV.Delete(key)
-			}
 		}
 
 		allKeys = append(allKeys, keysToAdd...)

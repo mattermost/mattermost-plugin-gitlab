@@ -25,8 +25,6 @@ func TestNotifyAllConnectedUsersToReconnect(t *testing.T) {
 	dmChannelID := "dm_channel_id"
 
 	tokenKey := userID + "_gitlabtoken"
-	usernameKey := "myusername_gitlabusername"
-	gitlabIDKey := "myid_gitlabidusername"
 
 	keys := []string{
 		"invalid",
@@ -52,8 +50,6 @@ func TestNotifyAllConnectedUsersToReconnect(t *testing.T) {
 	}).Return(&model.Post{}, nil)
 
 	testAPI.On("KVSetWithOptions", tokenKey, []byte(nil), mock.Anything).Return(true, nil)
-	testAPI.On("KVSetWithOptions", usernameKey, []byte(nil), mock.Anything).Return(true, nil)
-	testAPI.On("KVSetWithOptions", gitlabIDKey, []byte(nil), mock.Anything).Return(true, nil)
 
 	p.SetAPI(testAPI)
 
