@@ -38,7 +38,6 @@ func TestNotifyAllConnectedUsersToReconnect(t *testing.T) {
 	)
 
 	testAPI.On("KVList", 0, 100).Return(keys, nil)
-	testAPI.On("KVList", 1, 100).Return([]string{}, nil)
 
 	testAPI.On("GetDirectChannel", botID, userID).Return(&model.Channel{Id: dmChannelID}, nil)
 

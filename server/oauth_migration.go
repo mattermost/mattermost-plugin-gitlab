@@ -63,9 +63,10 @@ func (p *Plugin) checkAndPerformOAuthTokenMigration() error {
 
 func (p *Plugin) notifyAllConnectedUsersToReconnect() error {
 	allKeys := []string{}
+	perPage := 100
 	page := 0
 	for {
-		keys, err := p.client.KV.ListKeys(page, 100)
+		keys, err := p.client.KV.ListKeys(page, perPage)
 		if err != nil {
 			return errors.Wrap(err, "error listing keys for connected users")
 		}
@@ -82,6 +83,11 @@ func (p *Plugin) notifyAllConnectedUsersToReconnect() error {
 		}
 
 		allKeys = append(allKeys, keysToAdd...)
+
+		if len(keys) < perPage {
+			break
+		}
+
 		page++
 	}
 
