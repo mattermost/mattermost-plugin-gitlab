@@ -7,7 +7,7 @@
     "release_notes_url": "https://github.com/mattermost/mattermost-plugin-gitlab/releases/tag/v1.6.0",
     "icon_path": "assets/icon.svg",
     "version": "1.6.0",
-    "min_server_version": "6.5.0",
+    "min_server_version": "7.1.0",
     "server": {
         "executables": {
             "darwin-amd64": "server/dist/plugin-darwin-amd64",

@@ -108,6 +108,7 @@ func (p *Plugin) OnActivate() error {
 	p.oauthBroker = NewOAuthBroker(p.sendOAuthCompleteEvent)
 
 	botID, err := p.client.Bot.EnsureBot(&model.Bot{
+		OwnerId:     manifest.Id, // Workaround to support older server version affected by https://github.com/mattermost/mattermost-server/pull/21560
 		Username:    "gitlab",
 		DisplayName: "GitLab Plugin",
 		Description: "A bot account created by the plugin GitLab.",
