@@ -24,12 +24,12 @@ function mapDispatchToProps(dispatch) {
             {
                 getGitlabUser,
             },
-            dispatch
+            dispatch,
         ),
     };
 }
 
 export default connect(
     mapStateToProps,
-    mapDispatchToProps
+    mapDispatchToProps,
 )(UserAttribute);
