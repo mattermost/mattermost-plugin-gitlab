@@ -84,3 +84,36 @@ func TestNormalizeNamespacedProject(t *testing.T) {
 		})
 	}
 }
+
+var testDataNormalizeNamespacedProjectByHomepage = []testDataNormalizeNamespacedProjectStr{
+	{
+		Title:                  "homepage with group",
+		InputPathWithNamespace: "http://test.url/group/project",
+		ExpectedNamespace:      "group",
+		ExpectedProject:        "project",
+	},
+	{
+		Title:                  "homepage with subgroup",
+		InputPathWithNamespace: "http://test.url/group/subgroup/project",
+		ExpectedNamespace:      "group/subgroup",
+		ExpectedProject:        "project",
+	},
+	{
+		Title:                  "homepage with subgroup of a subgroup",
+		InputPathWithNamespace: "http://test.url/group/subgroup/subgroup/project",
+		ExpectedNamespace:      "group/subgroup/subgroup",
+		ExpectedProject:        "project",
+	},
+}
+
+func TestNormalizeNamespacedProjectByHomePate(t *testing.T) {
+	t.Parallel()
+	for _, test := range testDataNormalizeNamespacedProjectByHomepage {
+		t.Run(test.Title, func(t *testing.T) {
+			namespaceMetadata, err := normalizeNamespacedProjectByHomepage(test.InputPathWithNamespace)
+			assert.NoError(t, err)
+			assert.Equal(t, test.ExpectedNamespace, namespaceMetadata.Namespace)
+			assert.Equal(t, test.ExpectedProject, namespaceMetadata.Project)
+		})
+	}
+}

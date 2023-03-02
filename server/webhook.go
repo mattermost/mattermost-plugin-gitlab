@@ -120,7 +120,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		handlers, errHandler = p.WebhookHandler.HandlePipeline(ctx, event)
 	case *gitlabLib.JobEvent:
 		repoPrivate = event.Repository.Visibility == gitlabLib.PrivateVisibility
-		pathWithNamespace = event.Repository.PathWithNamespace
+		pathWithNamespace = event.ProjectName
 		fromUser = event.User.Name
 		handlers, errHandler = p.WebhookHandler.HandleJobs(ctx, event)
 	case *gitlabLib.TagEvent:
