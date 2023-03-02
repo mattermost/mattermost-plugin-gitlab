@@ -11,7 +11,7 @@ import SignIcon from 'src/images/icons/sign';
 import {formatTimeSince} from 'src/utils/date_utils';
 import {GitlabItemsProps, Label} from 'src/types/gitlab_items';
 
-export const notificationReasons: Record<string, string> = {
+export const notificationReasons: Record<string | symbol, string> = {
     assigned: 'You were assigned to the issue/merge request.',
     review_requested: 'You were requested to review a merge request.',
     mentioned: 'You were @mentioned in the content.',
@@ -43,7 +43,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
         number = (
             <strong>
                 <span style={{...style.icon}}>{icon}</span>
-                {`#${item.iid}`}
+                {`#${item.iid} `}
             </strong>
         );
     }
