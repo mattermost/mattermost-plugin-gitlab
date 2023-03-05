@@ -33,6 +33,8 @@ import (
 const (
 	GitlabUserInfoKey             = "_userinfo"
 	GitlabUserTokenKey            = "_usertoken"
+	GitlabMigrationTokenKey       = "_gitlabtoken"
+	TokenMutexKey                 = "-oauth-token"
 	GitlabUsernameKey             = "_gitlabusername"
 	GitlabIDUsernameKey           = "_gitlabidusername"
 	WsEventConnect                = "gitlab_connect"
@@ -280,13 +282,74 @@ func (p *Plugin) deleteGitlabUserToken(userID string) error {
 func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInfo, *APIErrorResponse) {
 	var userInfo gitlab.UserInfo
 
-	if infoBytes, err := p.API.KVGet(userID + GitlabUserInfoKey); err != nil || infoBytes == nil {
-		return nil, &APIErrorResponse{ID: APIErrorIDNotConnected, Message: "Must connect user account to GitLab first.", StatusCode: http.StatusBadRequest}
+	infoBytes, err := p.API.KVGet(userID + GitlabUserInfoKey)
+
+	if err != nil || infoBytes == nil {
+		gitlabTokenBytes, err := p.API.KVGet(userID + GitlabMigrationTokenKey)
+		if err != nil || gitlabTokenBytes == nil {
+			return nil, &APIErrorResponse{ID: APIErrorIDNotConnected, Message: "Must connect user account to GitLab first.", StatusCode: http.StatusBadRequest}
+		} else {
+			return p.migrateGitlabToken(userID)
+		}
 	} else if err := json.Unmarshal(infoBytes, &userInfo); err != nil {
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to parse user info.", StatusCode: http.StatusInternalServerError}
 	}
 
 	return &userInfo, nil
+}
+
+func (p *Plugin) migrateGitlabToken(userID string) (*gitlab.UserInfo, *APIErrorResponse) {
+	config := p.getConfiguration()
+
+	var userInfo struct {
+		gitlab.UserInfo
+		Token *oauth2.Token
+	}
+
+	mutex, err := cluster.NewMutex(p.API, userID+TokenMutexKey)
+	if err != nil {
+		return nil, &APIErrorResponse{ID: "", Message: "Unable to obtain mutex for KV migration.", StatusCode: http.StatusInternalServerError}
+	}
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	gitlabTokenBytes, appErr := p.API.KVGet(userID + GitlabMigrationTokenKey)
+	if appErr != nil {
+		return nil, &APIErrorResponse{ID: "", Message: "Unable load user info for KV migration.", StatusCode: http.StatusInternalServerError}
+	}
+
+	if err = json.Unmarshal(gitlabTokenBytes, &userInfo); err != nil {
+		return nil, &APIErrorResponse{ID: "", Message: "Unable to parse user info for KV migration.", StatusCode: http.StatusInternalServerError}
+	}
+
+	unencryptedToken, err := decrypt([]byte(config.EncryptionKey), userInfo.Token.AccessToken)
+	if err != nil {
+		return nil, &APIErrorResponse{ID: "", Message: "Unable to decrypt token for KV migration.", StatusCode: http.StatusInternalServerError}
+	}
+
+	userInfo.Token.AccessToken = unencryptedToken
+
+	var userInfoWithoutToken = &gitlab.UserInfo{
+		UserID:         userInfo.UserID,
+		GitlabUserID:   userInfo.GitlabUserID,
+		GitlabUsername: userInfo.GitlabUsername,
+		LastToDoPostAt: userInfo.LastToDoPostAt,
+		Settings:       userInfo.Settings,
+	}
+
+	if err = p.storeGitlabUserInfo(userInfoWithoutToken); err != nil {
+		return nil, &APIErrorResponse{ID: "", Message: "Unable to store user info for KV migration.", StatusCode: http.StatusInternalServerError}
+	}
+
+	if err = p.storeGitlabUserToken(userInfo.UserID, userInfo.Token); err != nil {
+		return nil, &APIErrorResponse{ID: "", Message: "Unable to store token for KV migration.", StatusCode: http.StatusInternalServerError}
+	}
+
+	if appErr = p.API.KVDelete(userInfo.UserID + GitlabMigrationTokenKey); err != nil {
+		return nil, &APIErrorResponse{ID: "", Message: "Unable to delete KV entry for migration.", StatusCode: http.StatusInternalServerError}
+	}
+
+	return userInfoWithoutToken, nil
 }
 
 func (p *Plugin) getGitlabUserTokenByMattermostID(userID string) (*oauth2.Token, *APIErrorResponse) {
@@ -751,7 +814,7 @@ func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo) (*oauth2.Toke
 		return token, nil
 	}
 
-	mutex, err := cluster.NewMutex(p.API, info.UserID+"-refresh-token")
+	mutex, err := cluster.NewMutex(p.API, info.UserID+TokenMutexKey)
 	if err != nil {
 		return nil, err
 	}
