@@ -3,7 +3,10 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 
@@ -15,7 +18,8 @@ import (
 type GitlabRetreiver interface {
 	// GetPipelineURL return the url of this pipeline depending on the instance and project path
 	GetPipelineURL(pathWithNamespace string, pipelineID int) string
-	// GetUserURL return the url of this GitLab user depending on domain instance (e.g. https://gitlab.com/username)
+	GetJobURL(pathWithNamespace string, jobID int) string
+	// GetUserURL return the url of this GitLab user depending on domain3 instance (e.g. https://gitlab.com/username)
 	GetUserURL(username string) string
 	// GetUsernameById return a username by GitLab id
 	GetUsernameByID(id int) string
@@ -40,6 +44,7 @@ type Webhook interface {
 	HandlePipeline(ctx context.Context, event *gitlab.PipelineEvent) ([]*HandleWebhook, error)
 	HandleTag(ctx context.Context, event *gitlab.TagEvent) ([]*HandleWebhook, error)
 	HandlePush(ctx context.Context, event *gitlab.PushEvent) ([]*HandleWebhook, error)
+	HandleJobs(ctx context.Context, event *gitlab.JobEvent) ([]*HandleWebhook, error)
 }
 
 type webhook struct {
@@ -161,6 +166,28 @@ func normalizeNamespacedProject(pathWithNamespace string) (namespace string, pro
 		return "", ""
 	}
 	return strings.Join(splits[:len(splits)-1], "/"), splits[len(splits)-1]
+}
+
+type namespaceProjectMetadata struct {
+	Namespace string
+	Project   string
+}
+
+// normalizeNamespacedProjectByHomepage converts data from web hooks to format expected by our plugin.
+func normalizeNamespacedProjectByHomepage(homepage string) (*namespaceProjectMetadata, error) {
+	u, err := url.Parse(homepage)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse homepage URL")
+	}
+	splits := strings.Split(u.Path, "/")
+	if len(splits) < 2 {
+		return nil, errors.New("")
+	}
+
+	return &namespaceProjectMetadata{
+		Namespace: strings.Join(splits[1:len(splits)-1], "/"),
+		Project:   splits[len(splits)-1],
+	}, nil
 }
 
 func sanitizeDescription(description string) string {

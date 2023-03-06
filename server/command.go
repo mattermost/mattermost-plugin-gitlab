@@ -21,16 +21,18 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 * |/gitlab subscriptions add owner[/repo] [features]| - Subscribe the current channel to receive notifications about opened merge requests and issues for a group or repository
   * |features| is a comma-delimited list of one or more the following:
     * issues - includes new and closed issues
+	* jobs - includes jobs status updates
 	* merges - includes new and closed merge requests
     * pushes - includes pushes
 	* issue_comments - includes new issue comments
 	* merge_request_comments - include new merge-request comments
-	* pipeline - include pipeline
+	* pipeline - includes pipeline runs
 	* tag - include tag creation
     * pull_reviews - includes merge request reviews
 	* label:"<labelname>" - must include "merges" or "issues" in feature list when using a label
     * Defaults to "merges,issues,tag"
 * |/gitlab subscriptions delete owner/repo| - Unsubscribe the current channel from a repository
+* |/gitlab pipeline run [owner]/repo [ref]| - Run a pipeline for specific repository and ref (branch/tag)
 * |/gitlab me| - Display the connected GitLab account
 * |/gitlab settings [setting] [value]| - Update your user settings
   * |setting| can be "notifications" or "reminders"
@@ -53,13 +55,15 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	 * SSLverification
   * |url| is the URL that will be called when triggered. Defaults to this plugins URL
   * |token| Secret token. Defaults to secret token used in plugin's settings.
+* |/gitlab about| - Display build information about the plugin
 `
 const (
-	webhookHowToURL               = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
-	inboundWebhookURL             = "plugins/com.github.manland.mattermost-plugin-gitlab/webhook"
-	specifyRepositoryMessage      = "Please specify a repository."
-	unknownActionMessage          = "Unknown action, please use `/gitlab help` to see all actions available."
-	newWebhookEmptySiteURLmessage = "Unable to create webhook. The Mattermot Site URL is not set. " +
+	webhookHowToURL                   = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
+	inboundWebhookURL                 = "plugins/com.github.manland.mattermost-plugin-gitlab/webhook"
+	specifyRepositoryMessage          = "Please specify a repository."
+	specifyRepositoryAndBranchMessage = "Please specify a repository and a branch."
+	unknownActionMessage              = "Unknown action, please use `/gitlab help` to see all actions available."
+	newWebhookEmptySiteURLmessage     = "Unable to create webhook. The Mattermot Site URL is not set. " +
 		"Set it in the Admin Console or rerun /gitlab webhook add group/project URL including the desired URL."
 )
 
@@ -71,12 +75,16 @@ const (
 	projectNotFoundMessage = "Unable to find project with namespace: "
 
 	invalidSubscribeSubCommand = "Invalid subscribe command. Available commands are add, delete, and list"
+
+	invalidPipelinesSubCommand = "Invalid pipelines command. Available commands are run, list"
 )
 
 const (
 	commandAdd    = "add"
 	commandDelete = "delete"
 	commandList   = "list"
+
+	commandRun = "run"
 )
 
 const (
@@ -92,7 +100,7 @@ func (p *Plugin) getCommand(config *configuration) (*model.Command, error) {
 	return &model.Command{
 		Trigger:              "gitlab",
 		AutoComplete:         true,
-		AutoCompleteDesc:     "Available commands: connect, disconnect, todo, me, settings, subscriptions, webhook, and help",
+		AutoCompleteDesc:     "Available commands: connect, disconnect, todo, subscriptions, me, pipelines, settings, webhook, setup, help, about",
 		AutoCompleteHint:     "[command]",
 		AutocompleteData:     getAutocompleteData(config),
 		AutocompleteIconData: iconData,
@@ -118,7 +126,7 @@ func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string) *model
 func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
 	var (
 		split      = strings.Fields(args.Command)
-		command    = split[0]
+		cmd        = split[0]
 		action     string
 		parameters []string
 	)
@@ -128,12 +136,21 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 	if len(split) > 2 {
 		parameters = split[2:]
 	}
-	if command != "/gitlab" {
+	if cmd != "/gitlab" {
 		return &model.CommandResponse{}, nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 	defer cancel()
+
+	if action == "about" {
+		text, err := command.BuildInfo(manifest)
+		if err != nil {
+			text = errors.Wrap(err, "failed to get build info").Error()
+		}
+		p.postCommandResponse(args, text)
+		return &model.CommandResponse{}, nil
+	}
 
 	if action == "setup" {
 		message := p.handleSetup(c, args, parameters)
@@ -212,7 +229,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 	case "todo":
 		_, text, err := p.GetToDo(ctx, info)
 		if err != nil {
-			p.API.LogError("can't get todo in command", "err", err.Error())
+			p.API.LogWarn("can't get todo in command", "err", err.Error())
 			return p.getCommandResponse(args, "Encountered an error getting your to do items."), nil
 		}
 		return p.getCommandResponse(args, text), nil
@@ -242,15 +259,15 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		case SettingNotifications:
 			if value {
 				if err := p.storeGitlabToUserIDMapping(info.GitlabUsername, info.UserID); err != nil {
-					p.API.LogError("can't store GitLab to user id mapping", "err", err.Error())
+					p.API.LogWarn("can't store GitLab to user id mapping", "err", err.Error())
 					return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 				}
 				if err := p.storeGitlabIDToUserIDMapping(info.GitlabUsername, info.GitlabUserID); err != nil {
-					p.API.LogError("can't store GitLab to GitLab id mapping", "err", err.Error())
+					p.API.LogWarn("can't store GitLab to GitLab id mapping", "err", err.Error())
 					return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 				}
 			} else if err := p.deleteGitlabToUserIDMapping(info.GitlabUsername); err != nil {
-				p.API.LogError("can't delete GitLab username in kvstore", "err", err.Error())
+				p.API.LogWarn("can't delete GitLab username in kvstore", "err", err.Error())
 				return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 			}
 			info.Settings.Notifications = value
@@ -261,7 +278,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		}
 
 		if err := p.storeGitlabUserInfo(info); err != nil {
-			p.API.LogError("can't store user info after update by command", "err", err.Error())
+			p.API.LogWarn("can't store user info after update by command", "err", err.Error())
 			return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 		}
 
@@ -271,7 +288,10 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		message := p.webhookCommand(ctx, parameters, info, config.EnablePrivateRepo)
 		response := p.getCommandResponse(args, message)
 		return response, nil
-
+	case "pipelines":
+		message := p.pipelinesCommand(ctx, parameters, args.ChannelId, info)
+		response := p.getCommandResponse(args, message)
+		return response, nil
 	default:
 		return p.getCommandResponse(args, unknownActionMessage), nil
 	}
@@ -472,15 +492,17 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 
 func (p *Plugin) subscriptionDelete(info *gitlab.UserInfo, config *configuration, fullPath, channelID string) (string, error) {
 	normalizedPath := normalizePath(fullPath, config.GitlabURL)
-	deleted, err := p.Unsubscribe(channelID, normalizedPath)
+	deleted, updatedSubscriptions, err := p.Unsubscribe(channelID, normalizedPath)
 	if err != nil {
-		p.API.LogError("can't unsubscribe channel in command", "err", err.Error())
+		p.API.LogWarn("can't unsubscribe channel in command", "err", err.Error())
 		return "Encountered an error trying to unsubscribe. Please try again.", nil
 	}
 
 	if !deleted {
 		return "Subscription not found, please check repository name.", nil
 	}
+
+	p.sendChannelSubscriptionsUpdated(updatedSubscriptions, channelID)
 
 	return fmt.Sprintf("Successfully deleted subscription for %s.", normalizedPath), nil
 }
@@ -516,15 +538,16 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		} else if errors.Is(err, gitlab.ErrPrivateResource) {
 			return "Requested resource is private."
 		}
-		p.API.LogError(
+		p.API.LogWarn(
 			"unable to resolve subscription namespace and project name",
 			"err", err.Error(),
 		)
 		return err.Error()
 	}
 
-	if subscribeErr := p.Subscribe(info, namespace, project, channelID, features); subscribeErr != nil {
-		p.API.LogError(
+	updatedSubscriptions, subscribeErr := p.Subscribe(info, namespace, project, channelID, features)
+	if subscribeErr != nil {
+		p.API.LogWarn(
 			"failed to subscribe",
 			"namespace", namespace,
 			"project", project,
@@ -558,6 +581,9 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 			fullPath,
 		)
 	}
+
+	p.sendChannelSubscriptionsUpdated(updatedSubscriptions, channelID)
+
 	return fmt.Sprintf("Successfully subscribed to %s.%s", fullPath, hookStatusMessage)
 }
 
@@ -596,6 +622,52 @@ func (p *Plugin) subscribeCommand(ctx context.Context, parameters []string, chan
 		return invalidSubscribeSubCommand
 	}
 }
+func (p *Plugin) pipelinesCommand(ctx context.Context, parameters []string, channelID string, info *gitlab.UserInfo) string {
+	if len(parameters) == 0 {
+		return invalidPipelinesSubCommand
+	}
+	subcommand := parameters[0]
+	switch subcommand {
+	case commandRun:
+		if len(parameters) < 3 {
+			return specifyRepositoryAndBranchMessage
+		}
+		namespace := parameters[1]
+		ref := parameters[2]
+		return p.pipelineRunCommand(ctx, namespace, ref, channelID, info)
+	default:
+		return unknownActionMessage
+	}
+}
+
+// pipelineRunCommand run a pipeline in a project
+func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channelID string, info *gitlab.UserInfo) string {
+	group, projectName, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, namespace, true)
+	if err != nil {
+		return err.Error()
+	}
+	project, err := p.GitlabClient.GetProject(ctx, info, group, projectName)
+	if err != nil {
+		return err.Error()
+	}
+	projectID := fmt.Sprintf("%d", project.ID)
+	pipelineInfo, err := p.GitlabClient.TriggerProjectPipeline(info, projectID, ref)
+	if err != nil {
+		return errors.Wrapf(err, "failed to run pipeline for Project: :%s", projectName).Error()
+	}
+	var txt string
+	if pipelineInfo == nil {
+		txt = "Currently there is no pipeline info"
+		return txt
+	}
+	txt = "### Pipeline info\n"
+	txt += fmt.Sprintf("**Status**: %s\n", pipelineInfo.Status)
+	txt += fmt.Sprintf("**SHA**: %s\n", pipelineInfo.SHA)
+	txt += fmt.Sprintf("**Ref**: %s\n", pipelineInfo.Ref)
+	txt += fmt.Sprintf("**Triggered By**: %s\n", pipelineInfo.User)
+	txt += fmt.Sprintf("**Visit pipeline [here](%s)** \n\n", pipelineInfo.WebURL)
+	return txt
+}
 
 func (p *Plugin) isAuthorizedSysAdmin(userID string) (bool, error) {
 	user, appErr := p.API.GetUser(userID)
@@ -610,15 +682,18 @@ func (p *Plugin) isAuthorizedSysAdmin(userID string) (bool, error) {
 
 func getAutocompleteData(config *configuration) *model.AutocompleteData {
 	if !config.IsOAuthConfigured() {
-		gitlab := model.NewAutocompleteData("gitlab", "[command]", "Available commands: setup")
+		gitlab := model.NewAutocompleteData("gitlab", "[command]", "Available commands: setup, about")
 
 		setup := model.NewAutocompleteData("setup", "", "Set up the GitLab plugin")
 		gitlab.AddCommand(setup)
 
+		about := command.BuildInfoAutocomplete("about")
+		gitlab.AddCommand(about)
+
 		return gitlab
 	}
 
-	gitlab := model.NewAutocompleteData("gitlab", "[command]", "Available commands: connect, disconnect, todo, subscribe, unsubscribe, me, settings, webhook, setup")
+	gitlab := model.NewAutocompleteData("gitlab", "[command]", "Available commands: connect, disconnect, todo, subscriptions, me, pipelines, settings, webhook, setup, help, about")
 
 	connect := model.NewAutocompleteData("connect", "", "Connect your GitLab account")
 	gitlab.AddCommand(connect)
@@ -647,6 +722,13 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 
 	me := model.NewAutocompleteData("me", "", "Displays the connected GitLab account")
 	gitlab.AddCommand(me)
+
+	pipelines := model.NewAutocompleteData("pipelines", "[command]", "Available commands: Run, Trigger")
+	pipelineRun := model.NewAutocompleteData(commandRun, "owner[/repo] [ref]", "Run a pipeline for the provided project")
+	pipelineRun.AddTextArgument("Project path: includes user or group name with optional slash project name", "", "owner[/repo] [ref]")
+	pipelines.AddCommand(pipelineRun)
+
+	gitlab.AddCommand(pipelines)
 
 	settings := model.NewAutocompleteData("settings", "[setting]", "Update your user settings")
 	settingOptions := []model.AutocompleteListItem{{
@@ -682,15 +764,18 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 
 	gitlab.AddCommand(webhook)
 
-	help := model.NewAutocompleteData("help", "", "Display GiLab Plug Help.")
-	gitlab.AddCommand(help)
-
 	setup := model.NewAutocompleteData("setup", "[command]", "Available commands: oauth, webhook, announcement")
 	setup.RoleID = model.SystemAdminRoleId
 	setup.AddCommand(model.NewAutocompleteData("oauth", "", "Set up the OAuth2 Application in GitLab"))
 	setup.AddCommand(model.NewAutocompleteData("webhook", "", "Create a webhook from GitLab to Mattermost"))
 	setup.AddCommand(model.NewAutocompleteData("announcement", "", "Announce to your team that they can use GitLab integration"))
 	gitlab.AddCommand(setup)
+
+	help := model.NewAutocompleteData("help", "", "Display GiLab Plug Help.")
+	gitlab.AddCommand(help)
+
+	about := command.BuildInfoAutocomplete("about")
+	gitlab.AddCommand(about)
 
 	return gitlab
 }
