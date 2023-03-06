@@ -24,6 +24,10 @@ func (*fakeWebhook) GetPipelineURL(pathWithNamespace string, pipelineID int) str
 	return fmt.Sprintf("http://my.gitlab.com/%s/-/pipelines/%d", pathWithNamespace, pipelineID)
 }
 
+func (*fakeWebhook) GetJobURL(pathWithNamespace string, jobID int) string {
+	return fmt.Sprintf("http://my.gitlab.com/%s/-/jobs/%d", pathWithNamespace, jobID)
+}
+
 func (*fakeWebhook) GetUserURL(username string) string {
 	return fmt.Sprintf("http://my.gitlab.com/%s", username)
 }
@@ -77,6 +81,39 @@ func TestNormalizeNamespacedProject(t *testing.T) {
 			namespace, project := normalizeNamespacedProject(test.InputPathWithNamespace)
 			assert.Equal(t, test.ExpectedNamespace, namespace)
 			assert.Equal(t, test.ExpectedProject, project)
+		})
+	}
+}
+
+var testDataNormalizeNamespacedProjectByHomepage = []testDataNormalizeNamespacedProjectStr{
+	{
+		Title:                  "homepage with group",
+		InputPathWithNamespace: "http://test.url/group/project",
+		ExpectedNamespace:      "group",
+		ExpectedProject:        "project",
+	},
+	{
+		Title:                  "homepage with subgroup",
+		InputPathWithNamespace: "http://test.url/group/subgroup/project",
+		ExpectedNamespace:      "group/subgroup",
+		ExpectedProject:        "project",
+	},
+	{
+		Title:                  "homepage with subgroup of a subgroup",
+		InputPathWithNamespace: "http://test.url/group/subgroup/subgroup/project",
+		ExpectedNamespace:      "group/subgroup/subgroup",
+		ExpectedProject:        "project",
+	},
+}
+
+func TestNormalizeNamespacedProjectByHomePate(t *testing.T) {
+	t.Parallel()
+	for _, test := range testDataNormalizeNamespacedProjectByHomepage {
+		t.Run(test.Title, func(t *testing.T) {
+			namespaceMetadata, err := normalizeNamespacedProjectByHomepage(test.InputPathWithNamespace)
+			assert.NoError(t, err)
+			assert.Equal(t, test.ExpectedNamespace, namespaceMetadata.Namespace)
+			assert.Equal(t, test.ExpectedProject, namespaceMetadata.Project)
 		})
 	}
 }

@@ -18,6 +18,10 @@ export default class Client {
         return this.doGet(`${this.url}/yourprs`);
     };
 
+    getPrsDetails = async (prList) => {
+        return this.doPost(`${this.url}/prdetails`, prList);
+    }
+
     getYourAssignments = async () => {
         return this.doGet(`${this.url}/yourassignments`);
     };
@@ -32,6 +36,10 @@ export default class Client {
 
     getGitlabUser = async (userID) => {
         return this.doPost(`${this.url}/user`, {user_id: userID});
+    };
+
+    getChannelSubscriptions = async (channelID) => {
+        return this.doGet(`${this.url}/channel/${channelID}/subscriptions`);
     };
 
     doGet = async (url, body, headers = {}) => {
