@@ -46,7 +46,7 @@ export function handleReconnect(store, reminder = false) {
     return async () => {
         const {data} = await getConnected(reminder)(
             store.dispatch,
-            store.getState
+            store.getState,
         );
         if (data && data.connected) {
             getReviews()(store.dispatch, store.getState);
@@ -67,3 +67,21 @@ export function handleRefresh(store) {
         }
     };
 }
+
+export function handleChannelSubscriptionsUpdated(store) {
+    return (msg) => {
+        if (!msg.data) {
+            return;
+        }
+
+        const data = JSON.parse(msg.data.payload);
+        store.dispatch({
+            type: ActionTypes.RECEIVED_CHANNEL_SUBSCRIPTIONS,
+            data: {
+                channelId: data.channel_id,
+                subscriptions: data.subscriptions,
+            },
+        });
+    };
+}
+
