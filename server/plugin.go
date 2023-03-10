@@ -34,7 +34,7 @@ const (
 	GitlabUserInfoKey             = "_userinfo"
 	GitlabUserTokenKey            = "_usertoken"
 	GitlabMigrationTokenKey       = "_gitlabtoken"
-	TokenMutexKey                 = "-oauth-token"
+	TokenMutexKey                 = "-oauth-token" //#nosec G101 -- False positive
 	GitlabUsernameKey             = "_gitlabusername"
 	GitlabIDUsernameKey           = "_gitlabidusername"
 	WsEventConnect                = "gitlab_connect"
@@ -115,6 +115,7 @@ func (p *Plugin) OnActivate() error {
 	p.oauthBroker = NewOAuthBroker(p.sendOAuthCompleteEvent)
 
 	botID, err := p.client.Bot.EnsureBot(&model.Bot{
+		OwnerId:     manifest.Id, // Workaround to support older server version affected by https://github.com/mattermost/mattermost-server/pull/21560
 		Username:    "gitlab",
 		DisplayName: "GitLab Plugin",
 		Description: "A bot account created by the plugin GitLab.",
@@ -288,9 +289,8 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 		gitlabTokenBytes, err := p.API.KVGet(userID + GitlabMigrationTokenKey)
 		if err != nil || gitlabTokenBytes == nil {
 			return nil, &APIErrorResponse{ID: APIErrorIDNotConnected, Message: "Must connect user account to GitLab first.", StatusCode: http.StatusBadRequest}
-		} else {
-			return p.migrateGitlabToken(userID)
 		}
+		return p.migrateGitlabToken(userID)
 	} else if err := json.Unmarshal(infoBytes, &userInfo); err != nil {
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to parse user info.", StatusCode: http.StatusInternalServerError}
 	}
@@ -345,7 +345,7 @@ func (p *Plugin) migrateGitlabToken(userID string) (*gitlab.UserInfo, *APIErrorR
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to store token for KV migration.", StatusCode: http.StatusInternalServerError}
 	}
 
-	if appErr = p.API.KVDelete(userInfo.UserID + GitlabMigrationTokenKey); err != nil {
+	if appErr = p.API.KVDelete(userInfo.UserID + GitlabMigrationTokenKey); appErr != nil {
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to delete KV entry for migration.", StatusCode: http.StatusInternalServerError}
 	}
 
@@ -548,7 +548,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 
 	reviewText := ""
 	g.Go(func() error {
-		var reviews []*gitlabLib.MergeRequest
+		var reviews []*gitlab.MergeRequest
 		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 			resp, err := p.GitlabClient.GetReviews(ctx, info, token)
 			if err != nil {
@@ -578,7 +578,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 
 	assignmentText := ""
 	g.Go(func() error {
-		var yourAssignments []*gitlabLib.Issue
+		var yourAssignments []*gitlab.Issue
 		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 			resp, err := p.GitlabClient.GetYourAssignments(ctx, info, token)
 			if err != nil {
@@ -608,7 +608,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 
 	mergeRequestText := ""
 	g.Go(func() error {
-		var mergeRequests []*gitlabLib.MergeRequest
+		var mergeRequests []*gitlab.MergeRequest
 		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 			resp, err := p.GitlabClient.GetYourPrs(ctx, info, token)
 			if err != nil {
@@ -672,17 +672,10 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 	)
 }
 
-func (p *Plugin) sendChannelSubscriptionsUpdated(channelID string) {
+func (p *Plugin) sendChannelSubscriptionsUpdated(subs *Subscriptions, channelID string) {
 	config := p.getConfiguration()
 
-	subscriptions, err := p.GetSubscriptionsByChannel(channelID)
-	if err != nil {
-		p.API.LogWarn(
-			"unable to fetch subscriptions by channel",
-			"err", err.Error(),
-		)
-		return
-	}
+	subscriptions := filterSubscriptionsByChannel(subs, channelID)
 
 	var payload struct {
 		ChannelID     string                 `json:"channel_id"`

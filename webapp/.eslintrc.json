@@ -32,7 +32,10 @@
     "beforeEach": true
   },
   "settings": {
-    "import/resolver": "webpack"
+    "import/resolver": "webpack",
+    "react": {
+      "version": "detect"
+    }
   },
   "rules": {
     "array-bracket-spacing": [
@@ -505,7 +508,7 @@
         "ignoreCase": false
       }
     ],
-    "react/jsx-no-literals": 1,
+    "react/jsx-no-literals": 2,
     "react/jsx-no-target-blank": 2,
     "react/jsx-no-undef": 2,
     "react/jsx-pascal-case": 2,
@@ -632,5 +635,50 @@
         "onlyEquality": false
       }
     ]
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/*.tsx",
+        "**/*.ts"
+      ],
+      "extends": [
+        "plugin:@typescript-eslint/recommended",
+        "plugin:import/typescript"
+      ],
+      "rules": {
+        "@typescript-eslint/ban-ts-ignore": 0,
+        "@typescript-eslint/ban-types": 1,
+        "@typescript-eslint/ban-ts-comment": 0,
+        "@typescript-eslint/no-var-requires": 0,
+        "@typescript-eslint/prefer-interface": 0,
+        "@typescript-eslint/explicit-function-return-type": 0,
+        "@typescript-eslint/explicit-module-boundary-types": 0,
+        "@typescript-eslint/indent": [
+          2,
+          4,
+          {
+            "SwitchCase": 0
+          }
+        ],
+        "@typescript-eslint/no-use-before-define": [
+          2,
+          {
+            "classes": false,
+            "functions": false,
+            "variables": false
+          }
+        ],
+        "react/jsx-filename-extension": [
+          1,
+          {
+            "extensions": [
+              ".jsx",
+              ".tsx"
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

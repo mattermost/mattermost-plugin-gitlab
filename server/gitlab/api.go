@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
+
+	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
 
 	"github.com/pkg/errors"
 	internGitlab "github.com/xanzy/go-gitlab"
@@ -16,6 +19,24 @@ const (
 	stateOpened = "opened"
 	scopeAll    = "all"
 )
+
+type PRDetails struct {
+	IID          int                           `json:"iid"`
+	Status       *internGitlab.BuildStateValue `json:"status"`
+	SHA          string                        `json:"sha"`
+	NumApprovers int                           `json:"num_approvers"`
+	ProjectID    int                           `json:"project_id"`
+}
+
+type MergeRequest struct {
+	*internGitlab.MergeRequest
+	LabelsWithDetails []*internGitlab.Label `json:"labels_with_details,omitempty"`
+}
+
+type Issue struct {
+	*internGitlab.Issue
+	LabelsWithDetails []*internGitlab.Label `json:"labels_with_details,omitempty"`
+}
 
 // NewGroupHook creates a webhook associated with a GitLab group
 func (g *gitlab) NewGroupHook(ctx context.Context, user *UserInfo, token *oauth2.Token, groupName string, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
@@ -247,7 +268,7 @@ func (g *gitlab) GetProject(ctx context.Context, user *UserInfo, token *oauth2.T
 	return result, nil
 }
 
-func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.MergeRequest, error) {
+func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*MergeRequest, error) {
 	client, err := g.gitlabConnect(*token)
 	if err != nil {
 		return nil, err
@@ -260,7 +281,7 @@ func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo, token *oauth2.T
 
 	if g.gitlabGroup == "" {
 		result, _, err = client.MergeRequests.ListMergeRequests(&internGitlab.ListMergeRequestsOptions{
-			AssigneeID: internGitlab.AssigneeID(user.GitlabUserID),
+			ReviewerID: internGitlab.ReviewerID(user.GitlabUserID),
 			State:      &opened,
 			Scope:      &scope,
 		},
@@ -268,7 +289,7 @@ func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo, token *oauth2.T
 		)
 	} else {
 		result, _, err = client.MergeRequests.ListGroupMergeRequests(g.gitlabGroup, &internGitlab.ListGroupMergeRequestsOptions{
-			AssigneeID: internGitlab.AssigneeID(user.GitlabUserID),
+			ReviewerID: internGitlab.ReviewerID(user.GitlabUserID),
 			State:      &opened,
 			Scope:      &scope,
 		},
@@ -276,10 +297,26 @@ func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo, token *oauth2.T
 		)
 	}
 
-	return result, err
+	mergeRequests := []*MergeRequest{}
+	for _, res := range result {
+		if res.Labels != nil {
+			var labelsWithDetails []*internGitlab.Label
+			labelsWithDetails, err = g.GetLabelDetails(client, res.ProjectID, res.Labels)
+			if err != nil {
+				return nil, err
+			}
+			mergeRequest := &MergeRequest{
+				MergeRequest:      res,
+				LabelsWithDetails: labelsWithDetails,
+			}
+			mergeRequests = append(mergeRequests, mergeRequest)
+		}
+	}
+
+	return mergeRequests, err
 }
 
-func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.MergeRequest, error) {
+func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*MergeRequest, error) {
 	client, err := g.gitlabConnect(*token)
 	if err != nil {
 		return nil, err
@@ -315,15 +352,123 @@ func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo, token *oauth2.T
 		return nil, err
 	}
 
-	return result, nil
+	mergeRequests := []*MergeRequest{}
+	for _, res := range result {
+		if res.Labels != nil {
+			var labelsWithDetails []*internGitlab.Label
+			labelsWithDetails, err = g.GetLabelDetails(client, res.ProjectID, res.Labels)
+			if err != nil {
+				return nil, err
+			}
+			mergeRequest := &MergeRequest{
+				MergeRequest:      res,
+				LabelsWithDetails: labelsWithDetails,
+			}
+			mergeRequests = append(mergeRequests, mergeRequest)
+		}
+	}
+	return mergeRequests, nil
 }
 
-func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.Issue, error) {
+func (g *gitlab) GetLabelDetails(client *internGitlab.Client, pid int, labels internGitlab.Labels) ([]*internGitlab.Label, error) {
+	// Get list of all labels.
+	labelList, resp, err := client.Labels.ListLabels(pid, nil)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "can't get list of labels in GitLab")
+	}
+
+	allLabels := map[string]*internGitlab.Label{}
+	for _, label := range labelList {
+		allLabels[label.Name] = label
+	}
+
+	labelsWithDetails := []*internGitlab.Label{}
+	for _, label := range labels {
+		if allLabels[label] == nil {
+			return nil, errors.Wrap(err, "can't get label in GitLab api")
+		}
+		labelsWithDetails = append(labelsWithDetails, allLabels[label])
+	}
+
+	return labelsWithDetails, nil
+}
+
+func (g *gitlab) GetYourPrDetails(ctx context.Context, log logger.Logger, user *UserInfo, token *oauth2.Token, prList []*PRDetails) ([]*PRDetails, error) {
 	client, err := g.gitlabConnect(*token)
 	if err != nil {
 		return nil, err
 	}
 
+	result := []*PRDetails{}
+	var wg sync.WaitGroup
+	for _, pr := range prList {
+		wg.Add(1)
+		go func(pid, iid int, sha string) {
+			defer wg.Done()
+			res := g.fetchYourPrDetails(ctx, log, client, pid, iid, sha)
+			if res != nil {
+				result = append(result, res)
+			}
+		}(pr.ProjectID, pr.IID, pr.SHA)
+	}
+	wg.Wait()
+	return result, nil
+}
+
+func (g *gitlab) fetchYourPrDetails(c context.Context, log logger.Logger, client *internGitlab.Client, pid, iid int, sha string) *PRDetails {
+	var commitDetails *internGitlab.Commit
+	var approvalDetails *internGitlab.MergeRequestApprovals
+	var err error
+	var resp *internGitlab.Response
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		commitDetails, resp, err = client.Commits.GetCommit(pid, sha, internGitlab.WithContext(c))
+		if respErr := checkResponse(resp); respErr != nil {
+			log.WithError(respErr).Warnf("Failed to fetch commit details for PR with project_id %d", pid)
+			return
+		}
+		if err != nil {
+			log.WithError(err).Warnf("Failed to fetch commit details for PR with project_id %d", pid)
+			return
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		approvalDetails, resp, err = client.MergeRequestApprovals.GetConfiguration(pid, iid, internGitlab.WithContext(c))
+		if respErr := checkResponse(resp); respErr != nil {
+			log.WithError(respErr).Warnf("Failed to fetch approval details for PR with project_id %d", pid)
+			return
+		}
+		if err != nil {
+			log.WithError(err).Warnf("Failed to fetch approval details for PR with project_id %d", pid)
+			return
+		}
+	}()
+
+	wg.Wait()
+	if commitDetails != nil && approvalDetails != nil {
+		return &PRDetails{
+			ProjectID:    pid,
+			SHA:          sha,
+			Status:       commitDetails.Status,
+			NumApprovers: len(approvalDetails.ApprovedBy),
+		}
+	}
+	return nil
+}
+
+func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*Issue, error) {
+	client, err := g.gitlabConnect(*token)
+	if err != nil {
+		return nil, err
+	}
 	opened := stateOpened
 	scope := scopeAll
 
@@ -354,7 +499,22 @@ func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo, token *
 		return nil, err
 	}
 
-	return result, nil
+	issues := []*Issue{}
+	for _, res := range result {
+		if res.Labels != nil {
+			var labelsWithDetails []*internGitlab.Label
+			labelsWithDetails, err = g.GetLabelDetails(client, res.ProjectID, res.Labels)
+			if err != nil {
+				return nil, err
+			}
+			issue := &Issue{
+				Issue:             res,
+				LabelsWithDetails: labelsWithDetails,
+			}
+			issues = append(issues, issue)
+		}
+	}
+	return issues, nil
 }
 
 func (g *gitlab) GetUnreads(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.Todo, error) {

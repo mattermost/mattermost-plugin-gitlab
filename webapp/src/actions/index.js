@@ -49,7 +49,7 @@ export function getReviews() {
 
         const connected = await checkAndHandleNotConnected(data)(
             dispatch,
-            getState
+            getState,
         );
         if (!connected) {
             return {error: data};
@@ -57,6 +57,29 @@ export function getReviews() {
 
         dispatch({
             type: ActionTypes.RECEIVED_REVIEWS,
+            data,
+        });
+
+        return {data};
+    };
+}
+
+export function getReviewDetails(prList) {
+    return async (dispatch, getState) => {
+        let data;
+        try {
+            data = await Client.getPrsDetails(prList);
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        if (!connected) {
+            return {error: data};
+        }
+
+        dispatch({
+            type: ActionTypes.RECEIVED_REVIEW_DETAILS,
             data,
         });
 
@@ -75,7 +98,7 @@ export function getYourPrs() {
 
         const connected = await checkAndHandleNotConnected(data)(
             dispatch,
-            getState
+            getState,
         );
         if (!connected) {
             return {error: data};
@@ -83,6 +106,29 @@ export function getYourPrs() {
 
         dispatch({
             type: ActionTypes.RECEIVED_YOUR_PRS,
+            data,
+        });
+
+        return {data};
+    };
+}
+
+export function getYourPrDetails(prList) {
+    return async (dispatch, getState) => {
+        let data;
+        try {
+            data = await Client.getPrsDetails(prList);
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        if (!connected) {
+            return {error: data};
+        }
+
+        dispatch({
+            type: ActionTypes.RECEIVED_YOUR_PR_DETAILS,
             data,
         });
 
@@ -101,7 +147,7 @@ export function getYourAssignments() {
 
         const connected = await checkAndHandleNotConnected(data)(
             dispatch,
-            getState
+            getState,
         );
         if (!connected) {
             return {error: data};
@@ -127,7 +173,7 @@ export function getMentions() {
 
         const connected = await checkAndHandleNotConnected(data)(
             dispatch,
-            getState
+            getState,
         );
         if (!connected) {
             return {error: data};
@@ -153,7 +199,7 @@ export function getUnreads() {
 
         const connected = await checkAndHandleNotConnected(data)(
             dispatch,
-            getState
+            getState,
         );
         if (!connected) {
             return {error: data};
@@ -168,6 +214,24 @@ export function getUnreads() {
     };
 }
 
+/**
+ * Stores "showRHSPlugin" action returned by
+ * "registerRightHandSidebarComponent" in plugin initialization.
+ */
+export function setShowRHSAction(showRHSPluginAction) {
+    return {
+        type: ActionTypes.RECEIVED_SHOW_RHS_ACTION,
+        showRHSPluginAction,
+    };
+}
+
+export function updateRHSState(rhsState) {
+    return {
+        type: ActionTypes.UPDATE_RHS_STATE,
+        state: rhsState,
+    };
+}
+
 const GITLAB_USER_GET_TIMEOUT_MILLISECONDS = 1000 * 60 * 60; // 1 hour
 
 export function getGitlabUser(userID) {
@@ -179,8 +243,8 @@ export function getGitlabUser(userID) {
         const user = getState()[`plugins-${id}`].gitlabUsers[userID];
         if (
             user &&
-      user.last_try &&
-      Date.now() - user.last_try < GITLAB_USER_GET_TIMEOUT_MILLISECONDS
+            user.last_try &&
+            Date.now() - user.last_try < GITLAB_USER_GET_TIMEOUT_MILLISECONDS
         ) {
             return {};
         }

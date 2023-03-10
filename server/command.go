@@ -57,6 +57,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	 * SSLverification
   * |url| is the URL that will be called when triggered. Defaults to this plugins URL
   * |token| Secret token. Defaults to secret token used in plugin's settings.
+* |/gitlab about| - Display build information about the plugin
 `
 const (
 	webhookHowToURL                   = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
@@ -101,7 +102,7 @@ func (p *Plugin) getCommand(config *configuration) (*model.Command, error) {
 	return &model.Command{
 		Trigger:              "gitlab",
 		AutoComplete:         true,
-		AutoCompleteDesc:     "Available commands: connect, disconnect, todo, me, settings, subscriptions, webhook, pipeline and help",
+		AutoCompleteDesc:     "Available commands: connect, disconnect, todo, subscriptions, me, pipelines, settings, webhook, setup, help, about",
 		AutoCompleteHint:     "[command]",
 		AutocompleteData:     getAutocompleteData(config),
 		AutocompleteIconData: iconData,
@@ -127,7 +128,7 @@ func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string) *model
 func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
 	var (
 		split      = strings.Fields(args.Command)
-		command    = split[0]
+		cmd        = split[0]
 		action     string
 		parameters []string
 	)
@@ -137,12 +138,21 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 	if len(split) > 2 {
 		parameters = split[2:]
 	}
-	if command != "/gitlab" {
+	if cmd != "/gitlab" {
 		return &model.CommandResponse{}, nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 	defer cancel()
+
+	if action == "about" {
+		text, err := command.BuildInfo(manifest)
+		if err != nil {
+			text = errors.Wrap(err, "failed to get build info").Error()
+		}
+		p.postCommandResponse(args, text)
+		return &model.CommandResponse{}, nil
+	}
 
 	if action == "setup" {
 		message := p.handleSetup(c, args, parameters)
@@ -526,7 +536,7 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 
 func (p *Plugin) subscriptionDelete(info *gitlab.UserInfo, config *configuration, fullPath, channelID string) (string, error) {
 	normalizedPath := normalizePath(fullPath, config.GitlabURL)
-	deleted, err := p.Unsubscribe(channelID, normalizedPath)
+	deleted, updatedSubscriptions, err := p.Unsubscribe(channelID, normalizedPath)
 	if err != nil {
 		p.API.LogWarn("can't unsubscribe channel in command", "err", err.Error())
 		return "Encountered an error trying to unsubscribe. Please try again.", nil
@@ -536,7 +546,7 @@ func (p *Plugin) subscriptionDelete(info *gitlab.UserInfo, config *configuration
 		return "Subscription not found, please check repository name.", nil
 	}
 
-	p.sendChannelSubscriptionsUpdated(channelID)
+	p.sendChannelSubscriptionsUpdated(updatedSubscriptions, channelID)
 
 	return fmt.Sprintf("Successfully deleted subscription for %s.", normalizedPath), nil
 }
@@ -585,7 +595,8 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		return err.Error()
 	}
 
-	if subscribeErr := p.Subscribe(info, namespace, project, channelID, features); subscribeErr != nil {
+	updatedSubscriptions, subscribeErr := p.Subscribe(info, namespace, project, channelID, features)
+	if subscribeErr != nil {
 		p.API.LogWarn(
 			"failed to subscribe",
 			"namespace", namespace,
@@ -621,7 +632,7 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		)
 	}
 
-	p.sendChannelSubscriptionsUpdated(channelID)
+	p.sendChannelSubscriptionsUpdated(updatedSubscriptions, channelID)
 
 	return fmt.Sprintf("Successfully subscribed to %s.%s", fullPath, hookStatusMessage)
 }
@@ -712,7 +723,6 @@ func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channel
 	txt += fmt.Sprintf("**Ref**: %s\n", pipelineInfo.Ref)
 	txt += fmt.Sprintf("**Triggered By**: %s\n", pipelineInfo.User)
 	txt += fmt.Sprintf("**Visit pipeline [here](%s)** \n\n", pipelineInfo.WebURL)
-	txt += "*This channel automatically subscribed to pipeline updates*"
 	return txt
 }
 
@@ -729,15 +739,18 @@ func (p *Plugin) isAuthorizedSysAdmin(userID string) (bool, error) {
 
 func getAutocompleteData(config *configuration) *model.AutocompleteData {
 	if !config.IsOAuthConfigured() {
-		gitlab := model.NewAutocompleteData("gitlab", "[command]", "Available commands: setup")
+		gitlab := model.NewAutocompleteData("gitlab", "[command]", "Available commands: setup, about")
 
 		setup := model.NewAutocompleteData("setup", "", "Set up the GitLab plugin")
 		gitlab.AddCommand(setup)
 
+		about := command.BuildInfoAutocomplete("about")
+		gitlab.AddCommand(about)
+
 		return gitlab
 	}
 
-	gitlab := model.NewAutocompleteData("gitlab", "[command]", "Available commands: connect, disconnect, todo, subscribe, unsubscribe, me, settings, webhook, setup")
+	gitlab := model.NewAutocompleteData("gitlab", "[command]", "Available commands: connect, disconnect, todo, subscriptions, me, pipelines, settings, webhook, setup, help, about")
 
 	connect := model.NewAutocompleteData("connect", "", "Connect your GitLab account")
 	gitlab.AddCommand(connect)
@@ -808,15 +821,18 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 
 	gitlab.AddCommand(webhook)
 
-	help := model.NewAutocompleteData("help", "", "Display GiLab Plug Help.")
-	gitlab.AddCommand(help)
-
 	setup := model.NewAutocompleteData("setup", "[command]", "Available commands: oauth, webhook, announcement")
 	setup.RoleID = model.SystemAdminRoleId
 	setup.AddCommand(model.NewAutocompleteData("oauth", "", "Set up the OAuth2 Application in GitLab"))
 	setup.AddCommand(model.NewAutocompleteData("webhook", "", "Create a webhook from GitLab to Mattermost"))
 	setup.AddCommand(model.NewAutocompleteData("announcement", "", "Announce to your team that they can use GitLab integration"))
 	gitlab.AddCommand(setup)
+
+	help := model.NewAutocompleteData("help", "", "Display GiLab Plug Help.")
+	gitlab.AddCommand(help)
+
+	about := command.BuildInfoAutocomplete("about")
+	gitlab.AddCommand(about)
 
 	return gitlab
 }

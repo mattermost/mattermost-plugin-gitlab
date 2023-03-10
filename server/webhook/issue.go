@@ -77,9 +77,9 @@ func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEve
 	case actionOpen:
 		message = fmt.Sprintf("#### %s\n##### [%s#%v](%s)\n###### new issue by [%s](%s) on [%s](%s)\n\n%s", issue.Title, repo.PathWithNamespace, issue.IID, issue.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), issue.CreatedAt, issue.URL, sanitizeDescription(issue.Description))
 	case actionClose:
-		message = fmt.Sprintf("[%s] Issue [%s](%s) closed by [%s](%s)", repo.PathWithNamespace, issue.Title, issue.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
+		message = fmt.Sprintf("[%s](%s) Issue [%s](%s) closed by [%s](%s)", repo.PathWithNamespace, repo.WebURL, issue.Title, issue.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
 	case actionReopen:
-		message = fmt.Sprintf("[%s] Issue [%s](%s) reopened by [%s](%s)", repo.PathWithNamespace, issue.Title, issue.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
+		message = fmt.Sprintf("[%s](%s) Issue [%s](%s) reopened by [%s](%s)", repo.PathWithNamespace, repo.WebURL, issue.Title, issue.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
 	case actionUpdate:
 		if len(event.Changes.Labels.Current) > 0 && !sameLabels(event.Changes.Labels.Current, event.Changes.Labels.Previous) {
 			message = fmt.Sprintf("#### %s\n##### [%s#%v](%s)\n###### issue labeled `%s` by [%s](%s) on [%s](%s)\n\n%s", issue.Title, repo.PathWithNamespace, issue.IID, issue.URL, labelToString(event.Changes.Labels.Current), event.User.Username, w.gitlabRetreiver.GetUserURL(event.User.Username), issue.UpdatedAt, issue.URL, sanitizeDescription(issue.Description))
