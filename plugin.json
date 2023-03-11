@@ -4,16 +4,16 @@
     "description": "GitLab plugin for Mattermost.",
     "homepage_url": "https://github.com/mattermost/mattermost-plugin-gitlab",
     "support_url": "https://github.com/mattermost/mattermost-plugin-gitlab/issues",
-    "release_notes_url": "https://github.com/mattermost/mattermost-plugin-gitlab/releases/tag/v1.4.0",
+    "release_notes_url": "https://github.com/mattermost/mattermost-plugin-gitlab/releases/tag/v1.6.0",
     "icon_path": "assets/icon.svg",
-    "version": "1.4.0",
-    "min_server_version": "6.5.0",
+    "version": "1.6.0",
+    "min_server_version": "7.1.0",
     "server": {
         "executables": {
-            "linux-amd64": "server/dist/plugin-linux-amd64",
-            "linux-arm64": "server/dist/plugin-linux-arm64",
             "darwin-amd64": "server/dist/plugin-darwin-amd64",
             "darwin-arm64": "server/dist/plugin-darwin-arm64",
+            "linux-amd64": "server/dist/plugin-linux-amd64",
+            "linux-arm64": "server/dist/plugin-linux-arm64",
             "windows-amd64": "server/dist/plugin-windows-amd64.exe"
         },
         "executable": ""
