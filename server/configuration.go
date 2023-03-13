@@ -180,13 +180,13 @@ func (p *Plugin) OnConfigurationChange() error {
 	var configuration = new(configuration)
 
 	// Load the public configuration fields from the Mattermost server configuration.
-	if err := p.API.LoadPluginConfiguration(configuration); err != nil {
+	if err := p.client.Configuration.LoadPluginConfiguration(configuration); err != nil {
 		return errors.Wrap(err, "failed to load plugin configuration")
 	}
 
 	configuration.sanitize()
 
-	serverConfiguration := p.API.GetConfig()
+	serverConfiguration := p.client.Configuration.GetConfig()
 
 	p.setConfiguration(configuration, serverConfiguration)
 
@@ -195,19 +195,19 @@ func (p *Plugin) OnConfigurationChange() error {
 		return errors.Wrap(err, "failed to get command")
 	}
 
-	err = p.API.RegisterCommand(command)
+	err = p.client.SlashCommand.Register(command)
 	if err != nil {
 		return errors.Wrap(err, "failed to register command")
 	}
 
 	enableDiagnostics := false
-	if config := p.API.GetConfig(); config != nil {
+	if config := p.client.Configuration.GetConfig(); config != nil {
 		if configValue := config.LogSettings.EnableDiagnostics; configValue != nil {
 			enableDiagnostics = *configValue
 		}
 	}
 
-	p.tracker = telemetry.NewTracker(p.telemetryClient, p.API.GetDiagnosticId(), p.API.GetServerVersion(), manifest.Id, manifest.Version, "gitlab", enableDiagnostics)
+	p.tracker = telemetry.NewTracker(p.telemetryClient, p.client.System.GetDiagnosticID(), p.client.System.GetServerVersion(), manifest.Id, manifest.Version, "gitlab", enableDiagnostics)
 
 	p.GitlabClient = gitlab.New(configuration.GitlabURL, configuration.GitlabGroup, p.isNamespaceAllowed)
 
