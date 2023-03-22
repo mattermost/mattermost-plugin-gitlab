@@ -66,7 +66,7 @@ func cleanWebhookHandlers(handlers []*HandleWebhook) []*HandleWebhook {
 func cleanWebhookHandlerTo(handler *HandleWebhook) *HandleWebhook {
 	users := map[string]bool{}
 	for _, v := range handler.ToUsers {
-		if handler.From != v && v != "" { // don't send message to author or unknown user
+		if handler.From != v && v != "" { // don't send message to webhook sender or unknown user
 			users[v] = true
 		}
 	}
