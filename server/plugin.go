@@ -286,11 +286,13 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 	infoBytes, err := p.API.KVGet(userID + GitlabUserInfoKey)
 
 	if err != nil || infoBytes == nil {
-		gitlabTokenBytes, err := p.API.KVGet(userID + GitlabMigrationTokenKey)
-		if err != nil || gitlabTokenBytes == nil {
+		gitlabTokenBytes, appErr := p.API.KVGet(userID + GitlabMigrationTokenKey)
+		if appErr != nil || gitlabTokenBytes == nil {
 			return nil, &APIErrorResponse{ID: APIErrorIDNotConnected, Message: "Must connect user account to GitLab first.", StatusCode: http.StatusBadRequest}
 		}
-		return p.migrateGitlabToken(userID)
+		if err := json.Unmarshal(gitlabTokenBytes, &userInfo); err != nil {
+			return nil, &APIErrorResponse{ID: "", Message: "Unable to parse user info from migration key.", StatusCode: http.StatusInternalServerError}
+		}
 	} else if err := json.Unmarshal(infoBytes, &userInfo); err != nil {
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to parse user info.", StatusCode: http.StatusInternalServerError}
 	}
@@ -298,7 +300,7 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 	return &userInfo, nil
 }
 
-func (p *Plugin) migrateGitlabToken(userID string) (*gitlab.UserInfo, *APIErrorResponse) {
+func (p *Plugin) migrateGitlabToken(userID string) (*oauth2.Token, *APIErrorResponse) {
 	config := p.getConfiguration()
 
 	var userInfo struct {
@@ -314,8 +316,8 @@ func (p *Plugin) migrateGitlabToken(userID string) (*gitlab.UserInfo, *APIErrorR
 	defer mutex.Unlock()
 
 	gitlabTokenBytes, appErr := p.API.KVGet(userID + GitlabMigrationTokenKey)
-	if appErr != nil {
-		return nil, &APIErrorResponse{ID: "", Message: "Unable load user info for KV migration.", StatusCode: http.StatusInternalServerError}
+	if appErr != nil || gitlabTokenBytes == nil {
+		return p.getGitlabUserTokenByMattermostID(userID)
 	}
 
 	if err = json.Unmarshal(gitlabTokenBytes, &userInfo); err != nil {
@@ -349,7 +351,7 @@ func (p *Plugin) migrateGitlabToken(userID string) (*gitlab.UserInfo, *APIErrorR
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to delete KV entry for migration.", StatusCode: http.StatusInternalServerError}
 	}
 
-	return userInfoWithoutToken, nil
+	return userInfo.Token, nil
 }
 
 func (p *Plugin) getGitlabUserTokenByMattermostID(userID string) (*oauth2.Token, *APIErrorResponse) {
@@ -799,8 +801,12 @@ func (p *Plugin) handleRevokedToken(info *gitlab.UserInfo) {
 
 func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo) (*oauth2.Token, error) {
 	token, apiErr := p.getGitlabUserTokenByMattermostID(info.UserID)
+
 	if apiErr != nil {
-		return nil, apiErr
+		token, apiErr = p.migrateGitlabToken(info.UserID)
+		if apiErr != nil {
+			return nil, apiErr
+		}
 	}
 
 	if time.Until(token.Expiry) > 1*time.Minute {
