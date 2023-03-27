@@ -92,7 +92,7 @@ const (
 )
 
 func (p *Plugin) getCommand(config *configuration) (*model.Command, error) {
-	iconData, err := command.GetIconData(p.API, "assets/icon.svg")
+	iconData, err := command.GetIconData(&p.client.System, "assets/icon.svg")
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get icon data")
 	}
@@ -123,7 +123,7 @@ func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string) *model
 }
 
 // ExecuteCommand is the entrypoint for /gitlab commands. It returns a message to display to the user or an error.
-func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, error) {
+func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
 	var (
 		split      = strings.Fields(args.Command)
 		cmd        = split[0]
@@ -512,8 +512,7 @@ func (p *Plugin) subscriptionsListCommand(channelID string) string {
 	var txt string
 	subs, err := p.GetSubscriptionsByChannel(channelID)
 	if err != nil {
-		txt = err.Error()
-		return txt
+		return err.Error()
 	}
 	if len(subs) == 0 {
 		txt = "Currently there are no subscriptions in this channel"

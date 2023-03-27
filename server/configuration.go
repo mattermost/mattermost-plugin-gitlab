@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 
+	pluginapi "github.com/mattermost/mattermost-plugin-api"
 	"github.com/mattermost/mattermost-plugin-api/experimental/telemetry"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/pkg/errors"
@@ -177,6 +178,10 @@ func (p *Plugin) setConfiguration(configuration *configuration, serverConfigurat
 
 // OnConfigurationChange is invoked when configuration changes may have been made.
 func (p *Plugin) OnConfigurationChange() error {
+	if p.client == nil {
+		p.client = pluginapi.NewClient(p.API, p.Driver)
+	}
+
 	var configuration = new(configuration)
 
 	// Load the public configuration fields from the Mattermost server configuration.

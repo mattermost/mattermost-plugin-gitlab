@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 
 	"github.com/pkg/errors"
 
@@ -92,28 +90,21 @@ func (p *Plugin) AddSubscription(fullPath string, sub *subscription.Subscription
 func (p *Plugin) GetSubscriptions() (*Subscriptions, error) {
 	var subscriptions *Subscriptions
 
-	var value []byte
-	err := p.client.KV.Get(SubscriptionsKey, &value)
+	err := p.client.KV.Get(SubscriptionsKey, &subscriptions)
 	if err != nil {
 		p.client.Log.Warn("can't get subscriptions from kvstore", "err", err.Error())
 		return nil, err
 	}
 
-	if value == nil {
+	if subscriptions == nil {
 		subscriptions = &Subscriptions{Repositories: map[string][]*subscription.Subscription{}}
-	} else if err := json.NewDecoder(bytes.NewReader(value)).Decode(&subscriptions); err != nil {
-		return nil, err
 	}
 
 	return subscriptions, nil
 }
 
 func (p *Plugin) StoreSubscriptions(s *Subscriptions) error {
-	b, err := json.Marshal(s)
-	if err != nil {
-		return err
-	}
-	if _, err := p.client.KV.Set(SubscriptionsKey, b); err != nil {
+	if _, err := p.client.KV.Set(SubscriptionsKey, s); err != nil {
 		p.client.Log.Warn("can't set subscriptions in kvstore", "err", err.Error())
 	}
 	return nil

@@ -77,8 +77,6 @@ type Plugin struct {
 }
 
 func (p *Plugin) OnActivate() error {
-	p.client = pluginapi.NewClient(p.API, p.Driver)
-
 	siteURL := p.client.Configuration.GetConfig().ServiceSettings.SiteURL
 	if siteURL == nil || *siteURL == "" {
 		return errors.New("siteURL is not set. Please set it and restart the plugin")
@@ -259,11 +257,8 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 	config := p.getConfiguration()
 
 	var userInfo gitlab.UserInfo
-	var infoBytes []byte
-	if err := p.client.KV.Get(userID+GitlabTokenKey, &infoBytes); err != nil || infoBytes == nil {
+	if err := p.client.KV.Get(userID+GitlabTokenKey, &userInfo); err != nil || userInfo.Token == nil {
 		return nil, &APIErrorResponse{ID: APIErrorIDNotConnected, Message: "Must connect user account to GitLab first.", StatusCode: http.StatusBadRequest}
-	} else if err := json.Unmarshal(infoBytes, &userInfo); err != nil {
-		return nil, &APIErrorResponse{ID: "", Message: "Unable to parse token.", StatusCode: http.StatusInternalServerError}
 	}
 
 	unencryptedToken, err := decrypt([]byte(config.EncryptionKey), userInfo.Token.AccessToken)
