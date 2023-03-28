@@ -6,6 +6,7 @@ import {
     getUnreads,
     getYourPrs,
     getYourAssignments,
+    updateRHSState,
 } from '../../actions';
 
 import {id} from '../../manifest';
@@ -26,6 +27,7 @@ function mapStateToProps(state) {
         gitlabURL: state[`plugins-${id}`].gitlabURL,
         org: state[`plugins-${id}`].organization,
         pluginServerRoute: getPluginServerRoute(state),
+        showRHSPlugin: state[`plugins-${id}`].rhsPluginAction,
     };
 }
 
@@ -37,13 +39,14 @@ function mapDispatchToProps(dispatch) {
                 getUnreads,
                 getYourPrs,
                 getYourAssignments,
+                updateRHSState,
             },
-            dispatch
+            dispatch,
         ),
     };
 }
 
 export default connect(
     mapStateToProps,
-    mapDispatchToProps
+    mapDispatchToProps,
 )(SidebarButtons);

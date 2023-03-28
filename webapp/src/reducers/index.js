@@ -51,7 +51,7 @@ function settings(
         daily_reminder: true,
         notifications: true,
     },
-    action
+    action,
 ) {
     switch (action.type) {
     case ActionTypes.RECEIVED_CONNECTED:
@@ -79,9 +79,27 @@ function reviews(state = [], action) {
     }
 }
 
+function reviewDetails(state = [], action) {
+    switch (action.type) {
+    case ActionTypes.RECEIVED_REVIEW_DETAILS:
+        return action.data;
+    default:
+        return state;
+    }
+}
+
 function yourPrs(state = [], action) {
     switch (action.type) {
     case ActionTypes.RECEIVED_YOUR_PRS:
+        return action.data;
+    default:
+        return state;
+    }
+}
+
+function yourPrDetails(state = [], action) {
+    switch (action.type) {
+    case ActionTypes.RECEIVED_YOUR_PR_DETAILS:
         return action.data;
     default:
         return state;
@@ -115,11 +133,42 @@ function unreads(state = [], action) {
     }
 }
 
+function rhsPluginAction(state = null, action) {
+    switch (action.type) {
+    case ActionTypes.RECEIVED_SHOW_RHS_ACTION:
+        return action.showRHSPluginAction;
+    default:
+        return state;
+    }
+}
+
+function rhsState(state = null, action) {
+    switch (action.type) {
+    case ActionTypes.UPDATE_RHS_STATE:
+        return action.state;
+    default:
+        return state;
+    }
+}
+
 function gitlabUsers(state = {}, action) {
     switch (action.type) {
     case ActionTypes.RECEIVED_GITLAB_USER: {
         const nextState = {...state};
         nextState[action.userID] = action.data;
+        return nextState;
+    }
+    default:
+        return state;
+    }
+}
+
+function subscriptions(state = {}, action) {
+    switch (action.type) {
+    case ActionTypes.RECEIVED_CHANNEL_SUBSCRIPTIONS: {
+        const nextState = {...state};
+        nextState[action.data.channelId] = action.data.subscriptions;
+
         return nextState;
     }
     default:
@@ -140,4 +189,9 @@ export default combineReducers({
     mentions,
     unreads,
     gitlabUsers,
+    rhsPluginAction,
+    rhsState,
+    yourPrDetails,
+    reviewDetails,
+    subscriptions,
 });

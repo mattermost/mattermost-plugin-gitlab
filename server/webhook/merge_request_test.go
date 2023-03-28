@@ -66,7 +66,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			ToChannels: []string{},
 			From:       "manland",
 		}, {
-			Message:    "[manland/webhook] Merge request [!4 Master](http://localhost:3000/manland/webhook/merge_requests/4) was closed by [manland](http://my.gitlab.com/manland)",
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Merge request [!4 Master](http://localhost:3000/manland/webhook/merge_requests/4) was closed by [manland](http://my.gitlab.com/manland)",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "manland",
@@ -83,7 +83,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			ToChannels: []string{},
 			From:       "manland",
 		}, {
-			Message:    "[manland/webhook] Merge request [!1 Update README.md](http://localhost:3000/manland/webhook/merge_requests/1) was reopened by [manland](http://my.gitlab.com/manland)",
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Merge request [!1 Update README.md](http://localhost:3000/manland/webhook/merge_requests/1) was reopened by [manland](http://my.gitlab.com/manland)",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "manland",
@@ -110,7 +110,41 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			ToChannels: []string{},
 			From:       "manland",
 		}, {
-			Message:    "[manland/webhook] Merge request [!4 Master](http://localhost:3000/manland/webhook/merge_requests/4) was merged by [manland](http://my.gitlab.com/manland)",
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Merge request [!4 Master](http://localhost:3000/manland/webhook/merge_requests/4) was merged by [manland](http://my.gitlab.com/manland)",
+			ToUsers:    []string{},
+			ToChannels: []string{"channel1"},
+			From:       "manland",
+		}},
+	}, {
+		testTitle: "manland approve root merge-request and display in channel1",
+		fixture:   ApproveMergeRequest,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
+		}),
+		res: []*HandleWebhook{{
+			Message:    "[manland](http://my.gitlab.com/manland) approved your merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			ToUsers:    []string{"root"},
+			ToChannels: []string{},
+			From:       "manland",
+		}, {
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Merge request [!4 Master](http://localhost:3000/manland/webhook/merge_requests/4) was approved by [manland](http://my.gitlab.com/manland)",
+			ToUsers:    []string{},
+			ToChannels: []string{"channel1"},
+			From:       "manland",
+		}},
+	}, {
+		testTitle: "manland unapprove root merge-request and display in channel1",
+		fixture:   strings.ReplaceAll(ApproveMergeRequest, "approved", "unapproved"),
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
+		}),
+		res: []*HandleWebhook{{
+			Message:    "[manland](http://my.gitlab.com/manland) requested changes to your merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			ToUsers:    []string{"root"},
+			ToChannels: []string{},
+			From:       "manland",
+		}, {
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Merge request [!4 Master](http://localhost:3000/manland/webhook/merge_requests/4) changes were requested by [manland](http://my.gitlab.com/manland)",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "manland",
@@ -127,7 +161,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			ToChannels: []string{},
 			From:       "root",
 		}, {
-			Message:    "[manland/webhook] Merge request [!1 Update README.md](http://localhost:3000/manland/webhook/merge_requests/1) was closed by [root](http://my.gitlab.com/root)",
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Merge request [!1 Update README.md](http://localhost:3000/manland/webhook/merge_requests/1) was closed by [root](http://my.gitlab.com/root)",
 			ToUsers:    []string{},
 			ToChannels: []string{"channel1"},
 			From:       "root",

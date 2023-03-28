@@ -3,6 +3,8 @@ import {Tooltip, OverlayTrigger} from 'react-bootstrap';
 import PropTypes from 'prop-types';
 import {makeStyleFromTheme, changeOpacity} from 'mattermost-redux/utils/theme_utils';
 
+import {RHSStates} from 'src/constants';
+
 export default class SidebarButtons extends React.PureComponent {
     static propTypes = {
         theme: PropTypes.object.isRequired,
@@ -17,11 +19,13 @@ export default class SidebarButtons extends React.PureComponent {
         yourAssignments: PropTypes.arrayOf(PropTypes.object),
         isTeamSidebar: PropTypes.bool,
         pluginServerRoute: PropTypes.string.isRequired,
+        showRHSPlugin: PropTypes.func.isRequired,
         actions: PropTypes.shape({
             getReviews: PropTypes.func.isRequired,
             getUnreads: PropTypes.func.isRequired,
             getYourPrs: PropTypes.func.isRequired,
             getYourAssignments: PropTypes.func.isRequired,
+            updateRHSState: PropTypes.func.isRequired,
         }).isRequired,
     };
 
@@ -62,12 +66,17 @@ export default class SidebarButtons extends React.PureComponent {
             this.props.actions.getYourAssignments(),
         ]);
         this.setState({refreshing: false});
-    }
+    };
 
     openConnectWindow = (e) => {
         e.preventDefault();
         window.open(`${this.props.pluginServerRoute}/oauth/connect`, 'Connect Mattermost to GitLab', 'height=570,width=520');
-    }
+    };
+
+    openRHS = (rhsState) => {
+        this.props.actions.updateRHSState(rhsState);
+        this.props.showRHSPlugin();
+    };
 
     render() {
         const style = getStyle(this.props.theme);
@@ -88,7 +97,7 @@ export default class SidebarButtons extends React.PureComponent {
                     <OverlayTrigger
                         key='gitlabConnectLink'
                         placement={placement}
-                        overlay={<Tooltip id='reviewTooltip'>Connect to your GitLab</Tooltip>}
+                        overlay={<Tooltip id='reviewTooltip'>{'Connect to your GitLab instance'}</Tooltip>}
                     >
                         <a
                             href={`${this.props.pluginServerRoute}/oauth/connect`}
@@ -110,11 +119,6 @@ export default class SidebarButtons extends React.PureComponent {
         const yourAssignments = this.props.yourAssignments || [];
         const refreshClass = this.state.refreshing ? ' fa-spin' : '';
 
-        let orgQuery = '/dashboard';//default == all orgs
-        if (this.props.org) {
-            orgQuery = `/groups/${this.props.org}/-`;
-        }
-
         return (
             <div style={container}>
                 <a
@@ -129,12 +133,10 @@ export default class SidebarButtons extends React.PureComponent {
                 <OverlayTrigger
                     key='gitlabYourPrsLink'
                     placement={placement}
-                    overlay={<Tooltip id='yourPrsTooltip'>Your open merge requests</Tooltip>}
+                    overlay={<Tooltip id='yourPrsTooltip'>{'Your open merge requests'}</Tooltip>}
                 >
                     <a
-                        href={baseURL + orgQuery + '/merge_requests?state=opened&author_username=' + this.props.username}
-                        target='_blank'
-                        rel='noopener noreferrer'
+                        onClick={() => this.openRHS(RHSStates.PRS)}
                         style={button}
                     >
                         <i className='fa fa-compress'/>
@@ -144,12 +146,10 @@ export default class SidebarButtons extends React.PureComponent {
                 <OverlayTrigger
                     key='gitlabReviewsLink'
                     placement={placement}
-                    overlay={<Tooltip id='reviewTooltip'>Merge requests needing review</Tooltip>}
+                    overlay={<Tooltip id='reviewTooltip'>{'Merge requests that need review'}</Tooltip>}
                 >
                     <a
-                        href={baseURL + orgQuery + '/merge_requests?reviewer_username=' + this.props.username}
-                        target='_blank'
-                        rel='noopener noreferrer'
+                        onClick={() => this.openRHS(RHSStates.REVIEWS)}
                         style={button}
                     >
                         <i className='fa fa-code-fork'/>
@@ -159,12 +159,10 @@ export default class SidebarButtons extends React.PureComponent {
                 <OverlayTrigger
                     key='gitlabAssignmentsLink'
                     placement={placement}
-                    overlay={<Tooltip id='reviewTooltip'>Your assignments</Tooltip>}
+                    overlay={<Tooltip id='reviewTooltip'>{'Your assignments'}</Tooltip>}
                 >
                     <a
-                        href={baseURL + orgQuery + '/issues?assignee_username=' + this.props.username}
-                        target='_blank'
-                        rel='noopener noreferrer'
+                        onClick={() => this.openRHS(RHSStates.ASSIGNMENTS)}
                         style={button}
                     >
                         <i className='fa fa-list-ol'/>
@@ -174,12 +172,10 @@ export default class SidebarButtons extends React.PureComponent {
                 <OverlayTrigger
                     key='gitlabUnreadsLink'
                     placement={placement}
-                    overlay={<Tooltip id='unreadsTooltip'>Unread messages</Tooltip>}
+                    overlay={<Tooltip id='unreadsTooltip'>{'Unread messages'}</Tooltip>}
                 >
                     <a
-                        href={baseURL + '/dashboard/todos'}
-                        target='_blank'
-                        rel='noopener noreferrer'
+                        onClick={() => this.openRHS(RHSStates.UNREADS)}
                         style={button}
                     >
                         <i className='fa fa-envelope'/>
@@ -189,7 +185,7 @@ export default class SidebarButtons extends React.PureComponent {
                 <OverlayTrigger
                     key='gitlabRefreshButton'
                     placement={placement}
-                    overlay={<Tooltip id='refreshTooltip'>Refresh</Tooltip>}
+                    overlay={<Tooltip id='refreshTooltip'>{'Refresh'}</Tooltip>}
                 >
                     <a
                         href='#'
@@ -224,8 +220,6 @@ const getStyle = makeStyleFromTheme((theme) => {
             alignItems: 'center',
             justifyContent: 'space-around',
             padding: '0 10px',
-        },
-        containerTeam: {
         },
     };
 });
