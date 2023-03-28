@@ -334,15 +334,15 @@ func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo) ([]*MergeReques
 	}
 
 	mergeRequests := []*MergeRequest{}
-	for _, res := range mrs {
-		if res.Labels != nil {
+	for _, mr := range mrs {
+		if mr.Labels != nil {
 			var labelsWithDetails []*internGitlab.Label
-			labelsWithDetails, err = g.GetLabelDetails(client, res.ProjectID, res.Labels)
+			labelsWithDetails, err = g.GetLabelDetails(client, mr.ProjectID, mr.Labels)
 			if err != nil {
 				return nil, err
 			}
 			mergeRequest := &MergeRequest{
-				MergeRequest:      res,
+				MergeRequest:      mr,
 				LabelsWithDetails: labelsWithDetails,
 			}
 			mergeRequests = append(mergeRequests, mergeRequest)
@@ -361,7 +361,7 @@ func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo) ([]*MergeReques
 	opened := stateOpened
 	scope := scopeAll
 
-	var result []*internGitlab.MergeRequest
+	var mrs []*internGitlab.MergeRequest
 
 	if g.gitlabGroup == "" {
 		opt := &internGitlab.ListMergeRequestsOptions{
@@ -377,7 +377,7 @@ func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo) ([]*MergeReques
 			if err != nil {
 				return nil, err
 			}
-			result = append(result, current...)
+			mrs = append(mrs, current...)
 			if resp.NextPage == 0 {
 				break
 			}
@@ -397,7 +397,7 @@ func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo) ([]*MergeReques
 			if err != nil {
 				return nil, err
 			}
-			result = append(result, current...)
+			mrs = append(mrs, current...)
 			if resp.NextPage == 0 {
 				break
 			}
@@ -406,15 +406,15 @@ func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo) ([]*MergeReques
 	}
 
 	mergeRequests := []*MergeRequest{}
-	for _, res := range result {
-		if res.Labels != nil {
+	for _, mr := range mrs {
+		if mr.Labels != nil {
 			var labelsWithDetails []*internGitlab.Label
-			labelsWithDetails, err = g.GetLabelDetails(client, res.ProjectID, res.Labels)
+			labelsWithDetails, err = g.GetLabelDetails(client, mr.ProjectID, mr.Labels)
 			if err != nil {
 				return nil, err
 			}
 			mergeRequest := &MergeRequest{
-				MergeRequest:      res,
+				MergeRequest:      mr,
 				LabelsWithDetails: labelsWithDetails,
 			}
 			mergeRequests = append(mergeRequests, mergeRequest)
@@ -455,7 +455,7 @@ func (g *gitlab) GetYourPrDetails(ctx context.Context, log logger.Logger, user *
 		return nil, err
 	}
 
-	result := []*PRDetails{}
+	var result []*PRDetails
 	var wg sync.WaitGroup
 	for _, pr := range prList {
 		wg.Add(1)
@@ -525,7 +525,7 @@ func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo) ([]*Iss
 	opened := stateOpened
 	scope := scopeAll
 
-	var result []*internGitlab.Issue
+	var issues []*internGitlab.Issue
 
 	if g.gitlabGroup == "" {
 		opt := &internGitlab.ListIssuesOptions{
@@ -541,7 +541,7 @@ func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo) ([]*Iss
 			if err != nil {
 				return nil, err
 			}
-			result = append(result, current...)
+			issues = append(issues, current...)
 			if resp.NextPage == 0 {
 				break
 			}
@@ -561,7 +561,7 @@ func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo) ([]*Iss
 			if err != nil {
 				return nil, err
 			}
-			result = append(result, current...)
+			issues = append(issues, current...)
 			if resp.NextPage == 0 {
 				break
 			}
@@ -569,22 +569,22 @@ func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo) ([]*Iss
 		}
 	}
 
-	issues := []*Issue{}
-	for _, res := range result {
-		if res.Labels != nil {
+	var result []*Issue
+	for _, issue := range issues {
+		if issue.Labels != nil {
 			var labelsWithDetails []*internGitlab.Label
-			labelsWithDetails, err = g.GetLabelDetails(client, res.ProjectID, res.Labels)
+			labelsWithDetails, err = g.GetLabelDetails(client, issue.ProjectID, issue.Labels)
 			if err != nil {
 				return nil, err
 			}
 			issue := &Issue{
-				Issue:             res,
+				Issue:             issue,
 				LabelsWithDetails: labelsWithDetails,
 			}
-			issues = append(issues, issue)
+			result = append(result, issue)
 		}
 	}
-	return issues, nil
+	return result, nil
 }
 
 func (g *gitlab) GetUnreads(ctx context.Context, user *UserInfo) ([]*internGitlab.Todo, error) {
