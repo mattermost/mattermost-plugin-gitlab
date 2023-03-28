@@ -400,6 +400,8 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		}
 	}
 
+	p.TrackUserEvent("account_connected", userID, nil)
+
 	p.API.PublishWebSocketEvent(
 		WsEventConnect,
 		map[string]interface{}{
