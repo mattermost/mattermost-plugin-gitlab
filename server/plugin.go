@@ -77,6 +77,9 @@ type Plugin struct {
 }
 
 func (p *Plugin) OnActivate() error {
+	if p.client == nil {
+		p.client = pluginapi.NewClient(p.API, p.Driver)
+	}
 	siteURL := p.client.Configuration.GetConfig().ServiceSettings.SiteURL
 	if siteURL == nil || *siteURL == "" {
 		return errors.New("siteURL is not set. Please set it and restart the plugin")
