@@ -461,7 +461,7 @@ func (g *gitlab) GetMilestones(ctx context.Context, user *UserInfo, projectID st
 	return result, nil
 }
 
-func (g *gitlab) GetAssignees(ctx context.Context, user *UserInfo, projectID string) ([]*internGitlab.ProjectMember, error) {
+func (g *gitlab) GetProjectMembers(ctx context.Context, user *UserInfo, projectID string) ([]*internGitlab.ProjectMember, error) {
 	client, err := g.gitlabConnect(*user.Token)
 	if err != nil {
 		return nil, err

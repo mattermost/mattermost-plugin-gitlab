@@ -33,7 +33,7 @@ type Gitlab interface {
 	GetUnreads(ctx context.Context, user *UserInfo) ([]*internGitlab.Todo, error)
 	GetYourProjects(ctx context.Context, user *UserInfo) ([]*internGitlab.Project, error)
 	GetLabels(ctx context.Context, user *UserInfo, projectID string) ([]*internGitlab.Label, error)
-	GetAssignees(ctx context.Context, user *UserInfo, projectID string) ([]*internGitlab.ProjectMember, error)
+	GetProjectMembers(ctx context.Context, user *UserInfo, projectID string) ([]*internGitlab.ProjectMember, error)
 	GetMilestones(ctx context.Context, user *UserInfo, projectID string) ([]*internGitlab.Milestone, error)
 	GetProjectHooks(ctx context.Context, user *UserInfo, owner string, repo string) ([]*WebhookInfo, error)
 	GetGroupHooks(ctx context.Context, user *UserInfo, owner string) ([]*WebhookInfo, error)

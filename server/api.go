@@ -765,7 +765,7 @@ func (p *Plugin) getMilestones(c *UserContext, w http.ResponseWriter, r *http.Re
 
 func (p *Plugin) getAssignees(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	projectID := r.URL.Query().Get(queryParamProjectID)
-	result, err := p.GitlabClient.GetAssignees(c.Ctx, c.GitlabInfo, projectID)
+	result, err := p.GitlabClient.GetProjectMembers(c.Ctx, c.GitlabInfo, projectID)
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't list assignees of the project in GitLab")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list assignees in GitLab.", StatusCode: http.StatusInternalServerError})

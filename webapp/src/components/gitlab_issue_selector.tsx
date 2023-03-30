@@ -75,7 +75,7 @@ const GitlabIssueSelector = ({name, required, theme, onChange, error, value, add
                 let prefix = '';
                 // Extract "username/projectName" from the issueURL parts
                 if (projectParts.length >= 5) {
-                    prefix = `${projectParts[projectParts.length - 5]}/${projectParts[projectParts.length - 4]}`;
+                    prefix = `${projectParts[3]}/${projectParts[4]}`;
                 }
                 return ({value: issue, label: `${prefix}, #${issue.iid}: ${issue.title}`});
             });

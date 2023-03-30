@@ -1,9 +1,5 @@
 export default class Validator {
-    components: Map<string, () => boolean>
-    constructor() {
-        // Our list of components we have to validate before allowing a submit action.
-        this.components = new Map();
-    }
+    components: Map<string, () => boolean> = new Map();
 
     addComponent = (key: string, validateField: () => boolean) => {
         this.components.set(key, validateField);
