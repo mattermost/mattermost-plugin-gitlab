@@ -293,7 +293,7 @@ func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo) ([]*MergeReques
 	var mrs []*internGitlab.MergeRequest
 	if g.gitlabGroup == "" {
 		opt := &internGitlab.ListMergeRequestsOptions{
-			AssigneeID:  internGitlab.AssigneeID(user.GitlabUserID),
+			ReviewerID:  internGitlab.ReviewerID(user.GitlabUserID),
 			State:       &opened,
 			Scope:       &scope,
 			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: perPage},
@@ -313,7 +313,7 @@ func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo) ([]*MergeReques
 		}
 	} else {
 		opt := &internGitlab.ListGroupMergeRequestsOptions{
-			AssigneeID:  internGitlab.AssigneeID(user.GitlabUserID),
+			ReviewerID:  internGitlab.ReviewerID(user.GitlabUserID),
 			State:       &opened,
 			Scope:       &scope,
 			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: perPage},
