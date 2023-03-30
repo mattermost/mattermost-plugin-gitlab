@@ -3,7 +3,10 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 
@@ -63,7 +66,7 @@ func cleanWebhookHandlers(handlers []*HandleWebhook) []*HandleWebhook {
 func cleanWebhookHandlerTo(handler *HandleWebhook) *HandleWebhook {
 	users := map[string]bool{}
 	for _, v := range handler.ToUsers {
-		if handler.From != v && v != "" { // don't send message to author or unknown user
+		if handler.From != v && v != "" { // don't send message to webhook sender or unknown user
 			users[v] = true
 		}
 	}
@@ -163,6 +166,28 @@ func normalizeNamespacedProject(pathWithNamespace string) (namespace string, pro
 		return "", ""
 	}
 	return strings.Join(splits[:len(splits)-1], "/"), splits[len(splits)-1]
+}
+
+type namespaceProjectMetadata struct {
+	Namespace string
+	Project   string
+}
+
+// normalizeNamespacedProjectByHomepage converts data from web hooks to format expected by our plugin.
+func normalizeNamespacedProjectByHomepage(homepage string) (*namespaceProjectMetadata, error) {
+	u, err := url.Parse(homepage)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse homepage URL")
+	}
+	splits := strings.Split(u.Path, "/")
+	if len(splits) < 2 {
+		return nil, errors.New("")
+	}
+
+	return &namespaceProjectMetadata{
+		Namespace: strings.Join(splits[1:len(splits)-1], "/"),
+		Project:   splits[len(splits)-1],
+	}, nil
 }
 
 func sanitizeDescription(description string) string {

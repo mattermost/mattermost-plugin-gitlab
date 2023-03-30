@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import PropTypes from 'prop-types';
 import ReactMarkdown from 'react-markdown';
-import Octicon, {GitMerge, GitPullRequest, IssueClosed, IssueOpened} from '@primer/octicons-react';
+import Octicon, {GitMergeIcon, GitPullRequestIcon, IssueClosedIcon, IssueOpenedIcon} from '@primer/octicons-react';
 
 import Client from '../../client';
 import {validateGitlabURL} from '../../utils/regex_utils';
@@ -68,11 +68,11 @@ export const LinkTooltip = ({href, connected, gitlabURL}) => {
         switch (data.type) {
         case LINK_TYPES.MERGE_REQUESTS:
             color = OPENED_COLOR;
-            iconType = GitPullRequest;
+            iconType = GitPullRequestIcon;
             if (data.state === STATE_TYPES.CLOSED) {
                 if (data.merged) {
                     color = MERGED_COLOR;
-                    iconType = GitMerge;
+                    iconType = GitMergeIcon;
                 } else {
                     color = CLOSED_COLOR;
                 }
@@ -80,7 +80,7 @@ export const LinkTooltip = ({href, connected, gitlabURL}) => {
             break;
         case LINK_TYPES.ISSUES:
             color = data.state === STATE_TYPES.OPENED ? OPENED_COLOR : CLOSED_COLOR;
-            iconType = data.state === STATE_TYPES.OPENED ? IssueOpened : IssueClosed;
+            iconType = data.state === STATE_TYPES.OPENED ? IssueOpenedIcon : IssueClosedIcon;
             break;
         }
         const icon = (
@@ -123,7 +123,7 @@ export const LinkTooltip = ({href, connected, gitlabURL}) => {
                     <div className='tooltip-info mt-1'>
                         <a href={href}>
                             <h5 className='mr-1'>{data.title}</h5>
-                            <span className='mr-number'>#{data.iid}</span>
+                            <span className='mr-number'>{`#${data.iid}`}</span>
                         </a>
                         <div className='markdown-text mt-1 mb-1'>
                             <ReactMarkdown
@@ -141,7 +141,7 @@ export const LinkTooltip = ({href, connected, gitlabURL}) => {
                                 >
                                     {data.target_branch}
                                 </span>
-                                <span className='mx-1'>←</span>
+                                <span className='mx-1'>{'←'}</span>
                                 <span
                                     title={data.source_branch}
                                     className='commit-ref'

@@ -1,12 +1,15 @@
 // Copyright (c) 2017-present Mattermost, Inc. All Rights Reserved.
 // See License.txt for license information.
 
+import {getConfig} from 'mattermost-redux/selectors/entities/general';
+
 import SidebarHeader from './components/sidebar_header';
 import TeamSidebar from './components/team_sidebar';
 import RHSSidebar from './components/rhs_sidebar';
 import UserAttribute from './components/user_attribute';
 import Reducer from './reducers';
-import {getConnected} from './actions';
+import SidebarRight from './components/sidebar_right';
+import {getConnected, setShowRHSAction} from './actions';
 import {
     handleConnect,
     handleDisconnect,
@@ -37,21 +40,24 @@ class PluginClass {
         registry.registerPopoverUserAttributesComponent(UserAttribute);
         registry.registerLinkTooltipComponent(LinkTooltip);
 
+        const {showRHSPlugin} = registry.registerRightHandSidebarComponent(SidebarRight, 'GitLab Plugin');
+        store.dispatch(setShowRHSAction(() => store.dispatch(showRHSPlugin)));
+
         registry.registerWebSocketEventHandler(
             `custom_${id}_gitlab_connect`,
-            handleConnect(store)
+            handleConnect(store),
         );
         registry.registerWebSocketEventHandler(
             `custom_${id}_gitlab_disconnect`,
-            handleDisconnect(store)
+            handleDisconnect(store),
         );
         registry.registerWebSocketEventHandler(
             `custom_${id}_gitlab_refresh`,
-            handleRefresh(store)
+            handleRefresh(store),
         );
         registry.registerWebSocketEventHandler(
             `custom_${id}_gitlab_channel_subscriptions_updated`,
-            handleChannelSubscriptionsUpdated(store)
+            handleChannelSubscriptionsUpdated(store),
         );
         registry.registerReconnectHandler(handleReconnect(store));
 
@@ -71,7 +77,9 @@ class PluginClass {
 
         // App Bar icon
         if (registry.registerAppBarComponent) {
-            const iconURL = `/plugins/${id}/public/app-bar-icon.png`;
+            const config = getConfig(store.getState());
+            const siteUrl = (config && config.SiteURL) || '';
+            const iconURL = `${siteUrl}/plugins/${id}/public/app-bar-icon.png`;
             registry.registerAppBarComponent(iconURL, boundToggleRHSAction, 'GitLab');
         }
     }

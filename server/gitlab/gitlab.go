@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
+
 	"github.com/pkg/errors"
 	internGitlab "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
@@ -24,9 +26,10 @@ type Gitlab interface {
 	GetCurrentUser(ctx context.Context, userID string, token oauth2.Token) (*UserInfo, error)
 	GetUserDetails(ctx context.Context, user *UserInfo) (*internGitlab.User, error)
 	GetProject(ctx context.Context, user *UserInfo, owner, repo string) (*internGitlab.Project, error)
-	GetReviews(ctx context.Context, user *UserInfo) ([]*internGitlab.MergeRequest, error)
-	GetYourPrs(ctx context.Context, user *UserInfo) ([]*internGitlab.MergeRequest, error)
-	GetYourAssignments(ctx context.Context, user *UserInfo) ([]*internGitlab.Issue, error)
+	GetYourPrDetails(ctx context.Context, log logger.Logger, user *UserInfo, prList []*PRDetails) ([]*PRDetails, error)
+	GetReviews(ctx context.Context, user *UserInfo) ([]*MergeRequest, error)
+	GetYourPrs(ctx context.Context, user *UserInfo) ([]*MergeRequest, error)
+	GetYourAssignments(ctx context.Context, user *UserInfo) ([]*Issue, error)
 	GetUnreads(ctx context.Context, user *UserInfo) ([]*internGitlab.Todo, error)
 	GetProjectHooks(ctx context.Context, user *UserInfo, owner string, repo string) ([]*WebhookInfo, error)
 	GetGroupHooks(ctx context.Context, user *UserInfo, owner string) ([]*WebhookInfo, error)

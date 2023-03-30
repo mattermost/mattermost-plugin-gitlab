@@ -1,5 +1,7 @@
 import {getConfig} from 'mattermost-redux/selectors/entities/general';
 
+import {createSelector} from 'reselect';
+
 import {id as PluginId} from '../manifest';
 
 export const getPluginServerRoute = (state) => {
@@ -16,3 +18,43 @@ export const getPluginServerRoute = (state) => {
 
     return basePath + '/plugins/' + PluginId;
 };
+
+function mapPrsToDetails(prs, details) {
+    if (!prs || !prs.length) {
+        return [];
+    }
+
+    return prs.map((pr) => {
+        const foundDetails = details && details.find((prDetails) => pr.project_id === prDetails.project_id && pr.sha === prDetails.sha);
+        if (!foundDetails) {
+            return pr;
+        }
+
+        return {
+            ...pr,
+            status: foundDetails.status,
+            num_approvers: foundDetails.num_approvers,
+            total_reviewers: pr.reviewers.length,
+        };
+    });
+}
+
+export const getPluginState = (state) => state[`plugins-${PluginId}`];
+
+export const getSidebarData = createSelector(
+    getPluginState,
+    (pluginState) => {
+        return {
+            username: pluginState.username,
+            reviewDetails: pluginState.reviewDetails,
+            reviews: mapPrsToDetails(pluginState.reviews, pluginState.reviewDetails),
+            yourPrs: mapPrsToDetails(pluginState.yourPrs, pluginState.yourPrDetails),
+            yourPrDetails: pluginState.yourPrDetails,
+            yourAssignments: pluginState.yourAssignments,
+            unreads: pluginState.unreads,
+            org: pluginState.organization,
+            gitlabURL: pluginState.gitlabURL,
+            rhsState: pluginState.rhsState,
+        };
+    },
+);

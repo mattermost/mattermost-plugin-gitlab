@@ -99,15 +99,12 @@ func (p *Plugin) OnActivate() error {
 	}
 
 	p.initializeAPI()
-
-	p.telemetryClient, err = telemetry.NewRudderClient()
-	if err != nil {
-		p.API.LogWarn("Telemetry client not started", "error", err.Error())
-	}
+	p.initializeTelemetry()
 
 	p.oauthBroker = NewOAuthBroker(p.sendOAuthCompleteEvent)
 
 	botID, err := p.client.Bot.EnsureBot(&model.Bot{
+		OwnerId:     manifest.Id, // Workaround to support older server version affected by https://github.com/mattermost/mattermost-server/pull/21560
 		Username:    "gitlab",
 		DisplayName: "GitLab Plugin",
 		Description: "A bot account created by the plugin GitLab.",
@@ -127,6 +124,10 @@ func (p *Plugin) OnActivate() error {
 
 func (p *Plugin) OnDeactivate() error {
 	p.oauthBroker.Close()
+
+	if err := p.telemetryClient.Close(); err != nil {
+		p.client.Log.Warn("Telemetry client failed to close", "error", err.Error())
+	}
 
 	return nil
 }
@@ -267,7 +268,7 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 
 	unencryptedToken, err := decrypt([]byte(config.EncryptionKey), userInfo.Token.AccessToken)
 	if err != nil {
-		p.API.LogError("can't decrypt token", "err", err.Error())
+		p.API.LogWarn("can't decrypt token", "err", err.Error())
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to decrypt access token.", StatusCode: http.StatusInternalServerError}
 	}
 
@@ -321,7 +322,7 @@ func (p *Plugin) deleteGitlabIDToUserIDMapping(gitlabID int) error {
 func (p *Plugin) getGitlabToUserIDMapping(gitlabUsername string) string {
 	userID, err := p.API.KVGet(gitlabUsername + GitlabUsernameKey)
 	if err != nil {
-		p.API.LogError("can't get userId from store with username", "err", err.DetailedError, "username", gitlabUsername)
+		p.API.LogWarn("can't get userId from store with username", "err", err.DetailedError, "username", gitlabUsername)
 	}
 	return string(userID)
 }
@@ -329,7 +330,7 @@ func (p *Plugin) getGitlabToUserIDMapping(gitlabUsername string) string {
 func (p *Plugin) getGitlabIDToUsernameMapping(gitlabUserID string) string {
 	gitlabUsername, err := p.API.KVGet(gitlabUserID + GitlabIDUsernameKey)
 	if err != nil {
-		p.API.LogError("can't get user id by login", "err", err.DetailedError)
+		p.API.LogWarn("can't get user id by login", "err", err.DetailedError)
 	}
 	return string(gitlabUsername)
 }
@@ -337,7 +338,7 @@ func (p *Plugin) getGitlabIDToUsernameMapping(gitlabUserID string) string {
 func (p *Plugin) disconnectGitlabAccount(userID string) {
 	userInfo, err := p.getGitlabUserInfoByMattermostID(userID)
 	if err != nil {
-		p.API.LogError("can't get GitLab user info from mattermost id", "err", err.Message)
+		p.API.LogWarn("can't get GitLab user info from mattermost id", "err", err.Message)
 		return
 	}
 	if userInfo == nil {
@@ -345,19 +346,19 @@ func (p *Plugin) disconnectGitlabAccount(userID string) {
 	}
 
 	if err := p.deleteGitlabUserInfo(userID); err != nil {
-		p.API.LogError("can't delete token in store", "err", err.Error, "userId", userID)
+		p.API.LogWarn("can't delete token in store", "err", err.Error, "userId", userID)
 	}
 	if err := p.deleteGitlabToUserIDMapping(userInfo.GitlabUsername); err != nil {
-		p.API.LogError("can't delete username in store", "err", err.Error, "username", userInfo.GitlabUsername)
+		p.API.LogWarn("can't delete username in store", "err", err.Error, "username", userInfo.GitlabUsername)
 	}
 	if err := p.deleteGitlabIDToUserIDMapping(userInfo.GitlabUserID); err != nil {
-		p.API.LogError("can't delete user id in store", "err", err.Error, "id", userInfo.GitlabUserID)
+		p.API.LogWarn("can't delete user id in store", "err", err.Error, "id", userInfo.GitlabUserID)
 	}
 
 	if user, err := p.API.GetUser(userID); err == nil && user.Props != nil && len(user.Props["git_user"]) > 0 {
 		delete(user.Props, "git_user")
 		if _, err := p.API.UpdateUser(user); err != nil {
-			p.API.LogError("can't update user after delete git account", "err", err.DetailedError)
+			p.API.LogWarn("can't update user after delete git account", "err", err.DetailedError)
 		}
 	}
 
@@ -383,7 +384,7 @@ func (p *Plugin) registerChimeraURL() {
 func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppError {
 	channel, err := p.API.GetDirectChannel(userID, p.BotUserID)
 	if err != nil {
-		p.API.LogError("Couldn't get bot's DM channel", "user_id", userID)
+		p.API.LogWarn("Couldn't get bot's DM channel", "user_id", userID)
 		return err
 	}
 
@@ -395,7 +396,7 @@ func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppErr
 	}
 
 	if _, err := p.API.CreatePost(post); err != nil {
-		p.API.LogError("can't post DM", "err", err.DetailedError)
+		p.API.LogWarn("can't post DM", "err", err.DetailedError)
 		return err
 	}
 
@@ -405,7 +406,7 @@ func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppErr
 func (p *Plugin) PostToDo(ctx context.Context, info *gitlab.UserInfo) {
 	hasTodo, text, err := p.GetToDo(ctx, info)
 	if err != nil {
-		p.API.LogError("can't post todo", "err", err.Error())
+		p.API.LogWarn("can't post todo", "err", err.Error())
 		return
 	}
 	if !hasTodo {
@@ -413,7 +414,7 @@ func (p *Plugin) PostToDo(ctx context.Context, info *gitlab.UserInfo) {
 	}
 
 	if err := p.CreateBotDMPost(info.UserID, text, "custom_git_todo"); err != nil {
-		p.API.LogError("can't create dm post in post todo", "err", err.DetailedError)
+		p.API.LogWarn("can't create dm post in post todo", "err", err.DetailedError)
 	}
 }
 
@@ -554,17 +555,10 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 	)
 }
 
-func (p *Plugin) sendChannelSubscriptionsUpdated(channelID string) {
+func (p *Plugin) sendChannelSubscriptionsUpdated(subs *Subscriptions, channelID string) {
 	config := p.getConfiguration()
 
-	subscriptions, err := p.GetSubscriptionsByChannel(channelID)
-	if err != nil {
-		p.API.LogWarn(
-			"unable to fetch subscriptions by channel",
-			"err", err.Error(),
-		)
-		return
-	}
+	subscriptions := filterSubscriptionsByChannel(subs, channelID)
 
 	var payload struct {
 		ChannelID     string                 `json:"channel_id"`
