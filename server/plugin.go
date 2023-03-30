@@ -100,11 +100,7 @@ func (p *Plugin) OnActivate() error {
 	}
 
 	p.initializeAPI()
-
-	p.telemetryClient, err = telemetry.NewRudderClient()
-	if err != nil {
-		p.client.Log.Warn("Telemetry client not started", "error", err.Error())
-	}
+	p.initializeTelemetry()
 
 	p.oauthBroker = NewOAuthBroker(p.sendOAuthCompleteEvent)
 
@@ -129,6 +125,10 @@ func (p *Plugin) OnActivate() error {
 
 func (p *Plugin) OnDeactivate() error {
 	p.oauthBroker.Close()
+
+	if err := p.telemetryClient.Close(); err != nil {
+		p.client.Log.Warn("Telemetry client failed to close", "error", err.Error())
+	}
 
 	return nil
 }
