@@ -79,9 +79,27 @@ function reviews(state = [], action) {
     }
 }
 
+function reviewDetails(state = [], action) {
+    switch (action.type) {
+    case ActionTypes.RECEIVED_REVIEW_DETAILS:
+        return action.data;
+    default:
+        return state;
+    }
+}
+
 function yourPrs(state = [], action) {
     switch (action.type) {
     case ActionTypes.RECEIVED_YOUR_PRS:
+        return action.data;
+    default:
+        return state;
+    }
+}
+
+function yourPrDetails(state = [], action) {
+    switch (action.type) {
+    case ActionTypes.RECEIVED_YOUR_PR_DETAILS:
         return action.data;
     default:
         return state;
@@ -110,6 +128,24 @@ function unreads(state = [], action) {
     switch (action.type) {
     case ActionTypes.RECEIVED_UNREADS:
         return action.data;
+    default:
+        return state;
+    }
+}
+
+function rhsPluginAction(state = null, action) {
+    switch (action.type) {
+    case ActionTypes.RECEIVED_SHOW_RHS_ACTION:
+        return action.showRHSPluginAction;
+    default:
+        return state;
+    }
+}
+
+function rhsState(state = null, action) {
+    switch (action.type) {
+    case ActionTypes.UPDATE_RHS_STATE:
+        return action.state;
     default:
         return state;
     }
@@ -218,5 +254,9 @@ export default combineReducers({
     createIssueModal,
     postIdForAttachCommentToIssueModal,
     attachCommentToIssueModalVisible,
+    rhsPluginAction,
+    rhsState,
+    yourPrDetails,
+    reviewDetails,
     subscriptions,
 });

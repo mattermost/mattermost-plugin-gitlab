@@ -11,8 +11,9 @@ import CreateIssuePostMenuAction from './components/post_options/create_issue';
 import AttachCommentToIssuePostMenuAction from './components/post_options/attach_comment_to_issue';
 import CreateIssueModal from './components/modals/create_issue';
 import Reducer from './reducers';
-import {getConnected} from './actions';
 import AttachCommentToIssueModal from './components/modals/attach_comment_to_issue';
+import SidebarRight from './components/sidebar_right';
+import {getConnected, setShowRHSAction} from './actions';
 import {
     handleConnect,
     handleDisconnect,
@@ -45,6 +46,9 @@ class PluginClass {
         registry.registerPostDropdownMenuComponent(CreateIssuePostMenuAction);
         registry.registerRootComponent(AttachCommentToIssueModal);
         registry.registerPostDropdownMenuComponent(AttachCommentToIssuePostMenuAction);
+
+        const {showRHSPlugin} = registry.registerRightHandSidebarComponent(SidebarRight, 'GitLab Plugin');
+        store.dispatch(setShowRHSAction(() => store.dispatch(showRHSPlugin)));
 
         registry.registerWebSocketEventHandler(
             `custom_${id}_gitlab_connect`,

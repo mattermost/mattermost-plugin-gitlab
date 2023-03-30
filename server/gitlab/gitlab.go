@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
+
 	"github.com/pkg/errors"
 	internGitlab "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
@@ -25,11 +27,12 @@ type Gitlab interface {
 	GetUserDetails(ctx context.Context, user *UserInfo) (*internGitlab.User, error)
 	GetProject(ctx context.Context, user *UserInfo, owner, repo string) (*internGitlab.Project, error)
 	CreateIssue(ctx context.Context, user *UserInfo, issue *IssueRequest) (*internGitlab.Issue, error)
-	GetReviews(ctx context.Context, user *UserInfo) ([]*internGitlab.MergeRequest, error)
-	GetYourPrs(ctx context.Context, user *UserInfo) ([]*internGitlab.MergeRequest, error)
-	GetYourAssignments(ctx context.Context, user *UserInfo) ([]*internGitlab.Issue, error)
 	AttachCommentToIssue(ctx context.Context, user *UserInfo, issue *IssueRequest, permalink, commentUsername string) (*internGitlab.Note, error)
 	SearchIssues(ctx context.Context, user *UserInfo, search string) ([]*internGitlab.Issue, error)
+	GetYourPrDetails(ctx context.Context, log logger.Logger, user *UserInfo, prList []*PRDetails) ([]*PRDetails, error)
+	GetReviews(ctx context.Context, user *UserInfo) ([]*MergeRequest, error)
+	GetYourPrs(ctx context.Context, user *UserInfo) ([]*MergeRequest, error)
+	GetYourAssignments(ctx context.Context, user *UserInfo) ([]*Issue, error)
 	GetUnreads(ctx context.Context, user *UserInfo) ([]*internGitlab.Todo, error)
 	GetYourProjects(ctx context.Context, user *UserInfo) ([]*internGitlab.Project, error)
 	GetLabels(ctx context.Context, user *UserInfo, projectID string) ([]*internGitlab.Label, error)

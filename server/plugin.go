@@ -100,15 +100,12 @@ func (p *Plugin) OnActivate() error {
 	}
 
 	p.initializeAPI()
-
-	p.telemetryClient, err = telemetry.NewRudderClient()
-	if err != nil {
-		p.API.LogWarn("Telemetry client not started", "error", err.Error())
-	}
+	p.initializeTelemetry()
 
 	p.oauthBroker = NewOAuthBroker(p.sendOAuthCompleteEvent)
 
 	botID, err := p.client.Bot.EnsureBot(&model.Bot{
+		OwnerId:     manifest.Id, // Workaround to support older server version affected by https://github.com/mattermost/mattermost-server/pull/21560
 		Username:    "gitlab",
 		DisplayName: "GitLab Plugin",
 		Description: "A bot account created by the plugin GitLab.",
@@ -128,6 +125,10 @@ func (p *Plugin) OnActivate() error {
 
 func (p *Plugin) OnDeactivate() error {
 	p.oauthBroker.Close()
+
+	if err := p.telemetryClient.Close(); err != nil {
+		p.client.Log.Warn("Telemetry client failed to close", "error", err.Error())
+	}
 
 	return nil
 }
