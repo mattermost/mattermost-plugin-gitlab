@@ -768,22 +768,6 @@ func (g *gitlab) GetMergeRequestByID(ctx context.Context, user *UserInfo, owner,
 	return gitlabMergeRequest, nil
 }
 
-// func (g *gitlab) GetLabelDetails(client *internGitlab.Client, projectPath string, labels internGitlab.Labels) ([]*internGitlab.Label, error) {
-// 	var labelsWithDetails []*internGitlab.Label
-// 	for _, label := range labels {
-// 		labelWithDetails, resp, err := client.Labels.GetLabel(projectPath, label)
-// 		if respErr := checkResponse(resp); respErr != nil {
-// 			return nil, respErr
-// 		}
-// 		if err != nil {
-// 			return nil, errors.Wrap(err, "can't get label in GitLab api")
-// 		}
-// 		labelsWithDetails = append(labelsWithDetails, labelWithDetails)
-// 	}
-
-// 	return labelsWithDetails, nil
-// }
-
 // TriggerProjectPipeline runs a pipeline in a specific project
 func (g *gitlab) TriggerProjectPipeline(userInfo *UserInfo, projectID string, ref string) (*PipelineInfo, error) {
 	client, err := g.gitlabConnect(*userInfo.Token)

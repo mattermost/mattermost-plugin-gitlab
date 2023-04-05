@@ -3,9 +3,14 @@ import PropTypes from 'prop-types';
 import ReactMarkdown from 'react-markdown';
 import Octicon, {GitMergeIcon, GitPullRequestIcon, IssueClosedIcon, IssueOpenedIcon} from '@primer/octicons-react';
 
+import {useDispatch} from 'react-redux';
+
+import {logError} from 'mattermost-redux/actions/errors';
+
 import Client from '../../client';
 import {validateGitlabURL} from '../../utils/regex_utils';
 import {isValidUrl} from '../../utils/url_utils';
+
 import './tooltip.css';
 
 const STATE_COLOR_MAP = {
@@ -24,10 +29,22 @@ const LINK_TYPES = {
     ISSUES: 'issues',
 };
 
-export const getInfoAboutLink = (href, hostname) => href.split(`${hostname}/`)[1].split('/');
+export const getInfoAboutLink = (href, hostname) => {
+    const linkInfo = href.split(`${hostname}/`)[1].split('/');
+    if (linkInfo.length >= 5) {
+        return {
+            owner: linkInfo[0],
+            repo: linkInfo[1],
+            type: linkInfo[3],
+            number: linkInfo[4],
+        };
+    }
+    return {};
+};
 
 export const LinkTooltip = ({href, connected, gitlabURL}) => {
     const [data, setData] = useState(null);
+    const dispatch = useDispatch();
     useEffect(() => {
         if (!isValidUrl(href)) {
             return;
@@ -36,19 +53,21 @@ export const LinkTooltip = ({href, connected, gitlabURL}) => {
         const url = new URL(href);
         const init = async () => {
             if (url.origin === gitlabURL && validateGitlabURL(href)) {
-                const [owner, repo, , type, number] = getInfoAboutLink(href, url.hostname);
+                const linkInfo = getInfoAboutLink(href, url.hostname);
                 let res;
-                switch (type) {
+                switch (linkInfo?.type) {
                 case LINK_TYPES.ISSUES:
-                    res = await Client.getIssue(owner, repo, number);
+                    res = await Client.getIssue(linkInfo.owner, linkInfo.repo, linkInfo.number);
                     break;
                 case LINK_TYPES.MERGE_REQUESTS:
-                    res = await Client.getPullRequest(owner, repo, number);
+                    res = await Client.getPullRequest(linkInfo.owner, linkInfo.repo, linkInfo.number);
                     break;
+                default:
+                    dispatch(logError(`link type ${data.type} is not supported to display a tooltip`));
                 }
 
                 if (res) {
-                    res = {...res, owner, repo, type};
+                    res = {...res, owner: linkInfo.owner, repo: linkInfo.repo, type: linkInfo.type};
                     setData(res);
                 }
             }
@@ -82,6 +101,8 @@ export const LinkTooltip = ({href, connected, gitlabURL}) => {
             color = data.state === STATE_TYPES.OPENED ? OPENED_COLOR : CLOSED_COLOR;
             iconType = data.state === STATE_TYPES.OPENED ? IssueOpenedIcon : IssueClosedIcon;
             break;
+        default:
+            dispatch(logError(`link type ${data.type} is not supported to display a tooltip`));
         }
         const icon = (
             <span style={{color}}>
