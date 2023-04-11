@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import PropTypes from 'prop-types';
 import ReactMarkdown from 'react-markdown';
-import Octicon, {GitMergeIcon, GitPullRequestIcon, IssueClosedIcon, IssueOpenedIcon} from '@primer/octicons-react';
+import {GitMergeIcon, GitPullRequestIcon, IssueClosedIcon, IssueOpenedIcon} from '@primer/octicons-react';
 
 import {useDispatch} from 'react-redux';
 
@@ -63,7 +63,8 @@ export const LinkTooltip = ({href, connected, gitlabURL}) => {
                     res = await Client.getPullRequest(linkInfo.owner, linkInfo.repo, linkInfo.number);
                     break;
                 default:
-                    dispatch(logError(`link type ${data.type} is not supported to display a tooltip`));
+                    dispatch(logError(`link type ${linkInfo?.type} is not supported to display a tooltip`));
+                    return;
                 }
 
                 if (res) {
@@ -81,17 +82,22 @@ export const LinkTooltip = ({href, connected, gitlabURL}) => {
     }, [connected, href]);
 
     const getIconElement = () => {
+        const iconProps = {
+            size: 'small',
+            verticalAlign: 'text-bottom',
+        };
+
         let color;
-        let iconType;
+        let icon;
         const {OPENED_COLOR, CLOSED_COLOR, MERGED_COLOR} = STATE_COLOR_MAP;
         switch (data.type) {
         case LINK_TYPES.MERGE_REQUESTS:
             color = OPENED_COLOR;
-            iconType = GitPullRequestIcon;
+            icon = <GitPullRequestIcon {...iconProps}/>;
             if (data.state === STATE_TYPES.CLOSED) {
                 if (data.merged) {
                     color = MERGED_COLOR;
-                    iconType = GitMergeIcon;
+                    icon = <GitMergeIcon {...iconProps}/>;
                 } else {
                     color = CLOSED_COLOR;
                 }
@@ -99,21 +105,17 @@ export const LinkTooltip = ({href, connected, gitlabURL}) => {
             break;
         case LINK_TYPES.ISSUES:
             color = data.state === STATE_TYPES.OPENED ? OPENED_COLOR : CLOSED_COLOR;
-            iconType = data.state === STATE_TYPES.OPENED ? IssueOpenedIcon : IssueClosedIcon;
+            icon = data.state === STATE_TYPES.OPENED ? <IssueOpenedIcon {...iconProps}/> : <IssueClosedIcon {...iconProps}/>;
             break;
         default:
             dispatch(logError(`link type ${data.type} is not supported to display a tooltip`));
         }
-        const icon = (
+
+        return (
             <span style={{color}}>
-                <Octicon
-                    icon={iconType}
-                    size='small'
-                    verticalAlign='middle'
-                />
+                {icon}
             </span>
         );
-        return icon;
     };
 
     if (!data) {
