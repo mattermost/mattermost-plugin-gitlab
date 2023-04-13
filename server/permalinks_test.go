@@ -242,6 +242,9 @@ func TestGetReplacements(t *testing.T) {
 
 func TestMakeReplacements(t *testing.T) {
 	p := NewPlugin()
+	p.configuration = &configuration{
+		EnableCodePreview: "privateAndPublic",
+	}
 	mockPluginAPI := &plugintest.API{}
 	mockPluginAPI.On("LogDebug", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	mockPluginAPI.On("LogWarn", mock.Anything, mock.Anything)
