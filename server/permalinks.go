@@ -99,7 +99,7 @@ func (p *Plugin) processReplacement(r replacement, glClient *gitlab.Client, wg *
 	}
 	projectPath := fmt.Sprintf("%s/%s", r.permalinkData.user, r.permalinkData.repo)
 
-	// Check if project is public
+	// Check if the project is public
 	if p.getConfiguration().EnableCodePreview == "public" {
 		repo, _, err := glClient.Projects.GetProject(projectPath, &gitlab.GetProjectOptions{})
 		if err != nil {
