@@ -158,7 +158,7 @@ func (p *Plugin) OnPluginClusterEvent(c *plugin.Context, ev model.PluginClusterE
 
 func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*model.Post, string) {
 	// If not enabled in config, ignore.
-	if !p.getConfiguration().EnableCodePreview {
+	if p.getConfiguration().EnableCodePreview == "disable" {
 		return nil, ""
 	}
 

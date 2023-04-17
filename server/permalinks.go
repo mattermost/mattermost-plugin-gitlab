@@ -98,6 +98,20 @@ func (p *Plugin) processReplacement(r replacement, glClient *gitlab.Client, wg *
 		Ref: &r.permalinkData.commit,
 	}
 	projectPath := fmt.Sprintf("%s/%s", r.permalinkData.user, r.permalinkData.repo)
+
+	// Check if the project is public
+	if p.getConfiguration().EnableCodePreview == "public" {
+		repo, _, err := glClient.Projects.GetProject(projectPath, &gitlab.GetProjectOptions{})
+		if err != nil {
+			p.API.LogError("Error while fetching project information", "error", err.Error())
+			return
+		}
+
+		if repo.Visibility == gitlab.PrivateVisibility {
+			return
+		}
+	}
+
 	_, cancel := context.WithTimeout(context.Background(), permalinkReqTimeout)
 	file, _, err := glClient.RepositoryFiles.GetFile(projectPath, r.permalinkData.path, &opts)
 	defer cancel()
