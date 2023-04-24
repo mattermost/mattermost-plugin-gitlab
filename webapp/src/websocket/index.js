@@ -42,6 +42,21 @@ export function handleDisconnect(store) {
     };
 }
 
+const wait = async () => {
+    return new Promise(r => setTimeout(r, 100));
+};
+
+const fetchLHSCounts = () => async (dispatch, getState) => {
+    await wait();
+    getReviews()(store.dispatch, store.getState);
+    await wait();
+    getUnreads()(store.dispatch, store.getState);
+    await wait();
+    getYourPrs()(store.dispatch, store.getState);
+    await wait();
+    getYourAssignments()(store.dispatch, store.getState);
+}
+
 export function handleReconnect(store, reminder = false) {
     return async () => {
         const {data} = await getConnected(reminder)(
@@ -49,10 +64,7 @@ export function handleReconnect(store, reminder = false) {
             store.getState,
         );
         if (data && data.connected) {
-            getReviews()(store.dispatch, store.getState);
-            getUnreads()(store.dispatch, store.getState);
-            getYourPrs()(store.dispatch, store.getState);
-            getYourAssignments()(store.dispatch, store.getState);
+            fetchLHSCounts(store.dispatch, store.getState);
         }
     };
 }
@@ -60,10 +72,7 @@ export function handleReconnect(store, reminder = false) {
 export function handleRefresh(store) {
     return () => {
         if (store.getState()[`plugins-${id}`].connected) {
-            getReviews()(store.dispatch, store.getState);
-            getUnreads()(store.dispatch, store.getState);
-            getYourPrs()(store.dispatch, store.getState);
-            getYourAssignments()(store.dispatch, store.getState);
+            fetchLHSCounts(store.dispatch, store.getState);
         }
     };
 }
@@ -84,4 +93,3 @@ export function handleChannelSubscriptionsUpdated(store) {
         });
     };
 }
-
