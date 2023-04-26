@@ -1,0 +1,211 @@
+.gitlab-rhs-NotSignedInDiv {
+    margin: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.gitlab-rhs-Welcome {
+    font-family: 'Metropolis';
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 24px;
+    color: var(--center-channel-color);
+}
+
+.gitlab-rhs-Hr {
+    width: 244px;
+    border-top: 1px solid rgba(var(--center-channel-color-rgb), 0.08);
+    margin: 24px 0 0 0;
+}
+
+.gitlab-rhs-MattermostGitLab {
+    width: 217px;
+    height: 72px;
+    margin-top: 24px;
+}
+
+.gitlab-rhs-ConnectPrompt {
+    font-family: 'Metropolis';
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 28px;
+    margin-top: 16px;
+    color: var(--center-channel-color);
+}
+
+.gitlab-rhs-Connect.gitlab-rhs-Connect.gitlab-rhs-Connect {
+    background-color: var(--button-bg);
+    color: var(--button-color);
+    font-family: 'Open Sans';
+    font-weight: 600;
+    padding: 12px 16px 12px 16px;
+    border-radius: 4px;
+    margin-top: 24px;
+    text-decoration: none;
+}
+
+.gitlab-rhs-Connect.gitlab-rhs-Connect.gitlab-rhs-Connect:active {
+    color: var(--button-color);
+    text-decoration: none;
+}
+
+.gitlab-rhs-Connect.gitlab-rhs-Connect.gitlab-rhs-Connect:visited {
+    color: var(--button-color);
+    text-decoration: none;
+}
+
+.gitlab-rhs-Connect.gitlab-rhs-Connect.gitlab-rhs-Connect:hover {
+    color: var(--button-color);
+    text-decoration: none;
+}
+
+.gitlab-rhs-UserHeaderContainer {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    background-color: rgba(var(--center-channel-color-rgb), 0.04);
+    padding: 12px 20px;
+}
+
+.gitlab-rhs-UserProfile {
+    margin: 0 8px 0 0;
+}
+
+.gitlab-rhs-UserDetails {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: left;
+    font-family: 'Open Sans';
+    line-height: 16px;
+    text-align: left;
+    color: var(--center-channel-color);
+}
+
+.gitlab-rhs-Description {
+    font-size: 12px;
+    font-weight: 400;
+    letterSpacing: 0;
+}
+
+.gitlab-rhs-Username {
+    font-size: 11px;
+    font-weight: 600;
+    letterSpacing: 0.02em;
+}
+
+.gitlab-rhs-GitLabURL {
+    display: flex;
+    margin-left: auto;
+    padding: 10px 16px;
+    gap: 10px;
+    border: 1px solid var(--button-bg);
+    border-radius: 4px;
+    font-family: 'Open Sans';
+    font-weight: 600;
+    font-size: 12px;
+    line-height: 10px;
+    color: var(--button-bg);
+}
+
+.gitlab-rhs-SubscriptionContainer {
+    background-color: var(--center-channel-bg);
+    padding: 14px 16px 14px 16px;
+    border: 1px solid rgba(var(--center-channel-color-rgb), 0.04);
+    box-shadow: 0px 2px 3px 0px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 0.3s ease-in-out;
+    border-radius: 4px;
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.gitlab-rhs-SubscriptionContainer:hover {
+    box-shadow: 0px 4px 6px 0px rgba(0, 0, 0, 0.12);
+}
+
+.gitlab-rhs-SubscriptionHeader {
+    font-family: 'Open Sans';
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
+    letterSpacing: 0.02em;
+    textTransform: uppercase;
+    margin: 0 0 4px 0;
+    color: rgba(var(--center-channel-color-rgb), 0.72);
+}
+
+.gitlab-rhs-SubscriptionDetails {
+    font-family: 'Open Sans';
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 20px;
+    color: var(--button-bg);
+}
+
+.gitlab-rhs-Features {
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-content: flex-start;
+    gap: 4px;
+}
+
+.gitlab-rhs-Features span {
+    font-family: 'Open Sans';
+    font-weight: 600;
+    font-size: 12px;
+    background-color: rgba(var(--center-channel-color-rgb), 0.08);
+    color: var(--center-channel-color);
+    padding: 2px 5px;
+    border-radius: 4px;
+    line-height: 16px;
+}
+
+.gitlab-rhs-Container {
+    margin: 24px;
+}
+
+.gitlab-rhs-NoSubscriptionsContainer {
+    margin: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.gitlab-rhs-NoSubscriptionsImg {
+    width: 264px;
+    margin: 10px 0 30px 0;
+}
+
+.gitlab-rhs-NoSubscriptions {
+    font-family: 'Metropolis';
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 24px;
+    text-align: center;
+    color: var(--center-channel-color);
+}
+
+.gitlab-rhs-UseGitLabSlashCommand {
+    font-family: 'Open Sans';
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 20px;
+    text-align: center;
+    color: var(--center-channel-color);
+    margin: 8px 0 0 0;
+}
+
+.gitlab-rhs-Header {
+    font-family: 'Metropolis';
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 24px;
+    color: var(--center-channel-color);
+}

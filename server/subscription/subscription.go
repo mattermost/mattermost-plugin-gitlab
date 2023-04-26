@@ -8,6 +8,7 @@ import (
 
 var allFeatures = map[string]bool{
 	"merges":                 true,
+	"jobs":                   true,
 	"issues":                 true,
 	"pushes":                 true,
 	"issue_comments":         true,
@@ -15,7 +16,7 @@ var allFeatures = map[string]bool{
 	"pipeline":               true,
 	"tag":                    true,
 	"pull_reviews":           true,
-	// "label:":                 true,//particular case for label:XXX
+	// "label:":              true,//particular case for label:XXX
 }
 
 type Subscription struct {
@@ -52,6 +53,10 @@ func New(channelID, creatorID, features, repository string) (*Subscription, erro
 
 func (s *Subscription) Merges() bool {
 	return strings.Contains(s.Features, "merges")
+}
+
+func (s *Subscription) Jobs() bool {
+	return strings.Contains(s.Features, "jobs")
 }
 
 func (s *Subscription) Issues() bool {

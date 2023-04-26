@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"path"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -20,12 +22,13 @@ import (
 	"github.com/mattermost/mattermost-server/v6/plugin"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
+	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
 
 const (
 	APIErrorIDNotConnected = "not_connected"
 
-	requestTimeout = 5 * time.Second
+	requestTimeout = 30 * time.Second
 )
 
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
@@ -53,10 +56,12 @@ func (p *Plugin) initializeAPI() {
 	apiRouter.HandleFunc("/todo", p.checkAuth(p.attachUserContext(p.postToDo), ResponseTypeJSON)).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/reviews", p.checkAuth(p.attachUserContext(p.getReviews), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/yourprs", p.checkAuth(p.attachUserContext(p.getYourPrs), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/prdetails", p.checkAuth(p.attachUserContext(p.getPrDetails), ResponseTypePlain)).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/yourassignments", p.checkAuth(p.attachUserContext(p.getYourAssignments), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/unreads", p.checkAuth(p.attachUserContext(p.getUnreads), ResponseTypePlain)).Methods(http.MethodGet)
-
 	apiRouter.HandleFunc("/settings", p.checkAuth(p.attachUserContext(p.updateSettings), ResponseTypePlain)).Methods(http.MethodPost)
+
+	apiRouter.HandleFunc("/channel/{channel_id:[A-Za-z0-9]+}/subscriptions", p.checkAuth(p.attachUserContext(p.getChannelSubscriptions), ResponseTypeJSON)).Methods(http.MethodGet)
 }
 
 type Context struct {
@@ -132,7 +137,7 @@ func (p *Plugin) withRecovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if x := recover(); x != nil {
-				p.API.LogError("Recovered from a panic",
+				p.client.Log.Warn("Recovered from a panic",
 					"url", r.URL.String(),
 					"error", x,
 					"stack", string(debug.Stack()))
@@ -166,7 +171,7 @@ func (p *Plugin) checkAuth(handler http.HandlerFunc, responseType ResponseType) 
 			case ResponseTypePlain:
 				http.Error(w, "Not authorized", http.StatusUnauthorized)
 			default:
-				p.API.LogError("Unknown ResponseType detected")
+				p.client.Log.Debug("Unknown ResponseType detected")
 			}
 			return
 		}
@@ -199,18 +204,18 @@ func (p *Plugin) writeAPIError(w http.ResponseWriter, err *APIErrorResponse) {
 	b, _ := json.Marshal(err)
 	w.WriteHeader(err.StatusCode)
 	if _, err := w.Write(b); err != nil {
-		p.API.LogError("can't write api error http response", "err", err.Error())
+		p.client.Log.Warn("can't write api error http response", "err", err.Error())
 	}
 }
 
 func (p *Plugin) writeAPIResponse(w http.ResponseWriter, resp interface{}) {
 	b, jsonErr := json.Marshal(resp)
 	if jsonErr != nil {
-		p.API.LogError("Error encoding JSON response", "err", jsonErr.Error())
+		p.client.Log.Warn("Error encoding JSON response", "err", jsonErr.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
 	}
 	if _, err := w.Write(b); err != nil {
-		p.API.LogError("can't write response user to http", "err", err.Error())
+		p.client.Log.Warn("can't write response user to http", "err", err.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
 	}
 }
@@ -226,7 +231,7 @@ func (p *Plugin) connectUserToGitlab(c *Context, w http.ResponseWriter, r *http.
 
 	state := fmt.Sprintf("%v_%v", model.NewId()[0:15], userID)
 
-	if err := p.API.KVSet(state, []byte(state)); err != nil {
+	if _, err := p.client.KV.Set(state, []byte(state)); err != nil {
 		c.Log.WithError(err).Warnf("Can't store state oauth2")
 		http.Error(w, "can't store state oauth2", http.StatusInternalServerError)
 		return
@@ -291,20 +296,21 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 
 	state := r.URL.Query().Get("state")
 
-	storedState, appErr := p.API.KVGet(state)
-	if appErr != nil {
-		c.Log.WithError(appErr).Warnf("Can't get state from store")
+	var storedState []byte
+	err := p.client.KV.Get(state, &storedState)
+	if err != nil {
+		c.Log.WithError(err).Warnf("Can't get state from store")
 
-		rErr = errors.Wrap(appErr, "missing stored state")
+		rErr = errors.Wrap(err, "missing stored state")
 		http.Error(w, rErr.Error(), http.StatusBadRequest)
 		return
 	}
 
-	appErr = p.API.KVDelete(state)
-	if appErr != nil {
-		c.Log.WithError(appErr).Warnf("Failed to delete state token")
+	err = p.client.KV.Delete(state)
+	if err != nil {
+		c.Log.WithError(err).Warnf("Failed to delete state token")
 
-		rErr = errors.Wrap(appErr, "error deleting stored state")
+		rErr = errors.Wrap(err, "error deleting stored state")
 		http.Error(w, rErr.Error(), http.StatusBadRequest)
 	}
 
@@ -395,7 +401,9 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		}
 	}
 
-	p.API.PublishWebSocketEvent(
+	p.TrackUserEvent("account_connected", userID, nil)
+
+	p.client.Frontend.PublishWebSocketEvent(
 		WsEventConnect,
 		map[string]interface{}{
 			"connected":        true,
@@ -546,6 +554,23 @@ func (p *Plugin) getYourPrs(c *UserContext, w http.ResponseWriter, r *http.Reque
 	p.writeAPIResponse(w, result)
 }
 
+func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	var prList []*gitlab.PRDetails
+	if err := json.NewDecoder(r.Body).Decode(&prList); err != nil {
+		c.Log.WithError(err).Warnf("Error decoding PRDetails JSON body")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Error decoding PRDetails JSON body. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
+		return
+	}
+	result, err := p.GitlabClient.GetYourPrDetails(c.Ctx, c.Log, c.GitlabInfo, prList)
+	if err != nil {
+		c.Log.WithError(err).Warnf("Can't list merge-request details in GitLab API")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Can't list merge-request details in GitLab API. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	p.writeAPIResponse(w, result)
+}
+
 func (p *Plugin) getYourAssignments(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	result, err := p.GitlabClient.GetYourAssignments(c.Ctx, c.GitlabInfo)
 	if err != nil {
@@ -565,7 +590,7 @@ func (p *Plugin) postToDo(c *UserContext, w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if appErr := p.CreateBotDMPost(c.UserID, text, "custom_git_todo"); appErr != nil {
+	if err := p.CreateBotDMPost(c.UserID, text, "custom_git_todo"); err != nil {
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an error posting the to do items.", StatusCode: http.StatusUnauthorized})
 	}
 
@@ -594,4 +619,64 @@ func (p *Plugin) updateSettings(c *UserContext, w http.ResponseWriter, r *http.R
 	}
 
 	p.writeAPIResponse(w, info.Settings)
+}
+
+type SubscriptionResponse struct {
+	RepositoryName string   `json:"repository_name"`
+	RepositoryURL  string   `json:"repository_url"`
+	Features       []string `json:"features"`
+	CreatorID      string   `json:"creator_id"`
+}
+
+func subscriptionsToResponse(config *configuration, subscriptions []*subscription.Subscription) []SubscriptionResponse {
+	gitlabURL, _ := url.Parse(config.GitlabURL)
+
+	subscriptionResponses := make([]SubscriptionResponse, 0, len(subscriptions))
+
+	for _, subscription := range subscriptions {
+		features := []string{}
+		if len(subscription.Features) > 0 {
+			features = strings.Split(subscription.Features, ",")
+		}
+
+		repositoryURL := *gitlabURL
+		repositoryURL.Path = path.Join(gitlabURL.EscapedPath(), subscription.Repository)
+
+		subscriptionResponses = append(subscriptionResponses, SubscriptionResponse{
+			RepositoryName: subscription.Repository,
+			RepositoryURL:  repositoryURL.String(),
+			Features:       features,
+			CreatorID:      subscription.CreatorID,
+		})
+	}
+
+	return subscriptionResponses
+}
+
+func (p *Plugin) getChannelSubscriptions(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	channelID := vars["channel_id"]
+
+	if !p.client.User.HasPermissionToChannel(c.UserID, channelID, model.PermissionReadChannel) {
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Not authorized.", StatusCode: http.StatusUnauthorized})
+		return
+	}
+
+	config := p.getConfiguration()
+	subscriptions, err := p.GetSubscriptionsByChannel(channelID)
+	if err != nil {
+		p.client.Log.Warn("unable to get subscriptions by channel", "err", err.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get subscriptions by channel.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	resp := subscriptionsToResponse(config, subscriptions)
+
+	b, err := json.Marshal(resp)
+	if err != nil {
+		p.client.Log.Warn("failed to marshal channel subscriptions response", "err", err.Error())
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
+	} else if _, err := w.Write(b); err != nil {
+		p.client.Log.Warn("can't write api error http response", "err", err.Error())
+	}
 }
