@@ -74,7 +74,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	event, err := gitlabLib.ParseWebhook(gitlabLib.WebhookEventType(r), body)
 	if err != nil {
-		p.API.LogDebug("Can't parse webhook", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"), "event", string(body))
+		p.client.Log.Debug("Can't parse webhook", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"), "event", string(body))
 		http.Error(w, "Unable to handle request", http.StatusBadRequest)
 		return
 	}
@@ -130,7 +130,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		fromUser = event.UserName
 		handlers, errHandler = p.WebhookHandler.HandleTag(ctx, event)
 	default:
-		p.API.LogDebug("Event type not implemented", "type", string(gitlabLib.WebhookEventType(r)))
+		p.client.Log.Debug("Event type not implemented", "type", string(gitlabLib.WebhookEventType(r)))
 		return
 	}
 
@@ -143,25 +143,25 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if errHandler != nil {
-		p.API.LogDebug("Error when handling webhook event", "err", errHandler)
+		p.client.Log.Debug("Error when handling webhook event", "err", errHandler)
 		return
 	}
 
 	alreadySentRefresh := make(map[string]bool)
 	p.sendRefreshIfNotAlreadySent(alreadySentRefresh, fromUser)
 	for _, res := range handlers {
-		p.API.LogInfo("new msg", "message", res.Message, "from", res.From)
+		p.client.Log.Info("new msg", "message", res.Message, "from", res.From)
 		for _, to := range res.ToUsers {
 			userTo := p.sendRefreshIfNotAlreadySent(alreadySentRefresh, to)
 			if len(userTo) > 0 && len(res.Message) > 0 {
 				info, err := p.getGitlabUserInfoByMattermostID(userTo)
 				if err != nil {
-					p.API.LogWarn("can't get user info to know if user wants to receive notifications", "err", err.Message)
+					p.client.Log.Warn("can't get user info to know if user wants to receive notifications", "err", err.Message)
 					continue
 				}
 				if info.Settings.Notifications {
 					if err := p.CreateBotDMPost(userTo, res.Message, "custom_git_review_request"); err != nil {
-						p.API.LogWarn("can't send dm post", "err", err.Error())
+						p.client.Log.Warn("can't send dm post", "err", err.Error())
 					}
 				}
 			}
@@ -173,8 +173,8 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 					Message:   res.Message,
 					ChannelId: to,
 				}
-				if _, err := p.API.CreatePost(post); err != nil {
-					p.API.LogWarn("can't create post for webhook event", "err", err.Error())
+				if err := p.client.Post.CreatePost(post); err != nil {
+					p.client.Log.Warn("can't create post for webhook event", "err", err.Error())
 				}
 			}
 		}
@@ -219,7 +219,7 @@ func (p *Plugin) permissionToProject(ctx context.Context, userID, namespace, pro
 	})
 	if result == nil || err != nil {
 		if err != nil {
-			p.API.LogWarn("can't get project in webhook", "err", err.Error(), "project", namespace+"/"+project)
+			p.client.Log.Warn("can't get project in webhook", "err", err.Error(), "project", namespace+"/"+project)
 		}
 		return false
 	}

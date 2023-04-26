@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	pluginapi "github.com/mattermost/mattermost-plugin-api"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin/plugintest"
 	"github.com/stretchr/testify/assert"
@@ -40,6 +41,7 @@ func TestGetChannelSubscriptions(t *testing.T) {
 
 		mock := &plugintest.API{}
 		plugin.SetAPI(mock)
+		plugin.client = pluginapi.NewClient(plugin.API, plugin.Driver)
 
 		mock.On("KVGet", "user_id_userinfo").Return(jsonInfo, nil).Once()
 

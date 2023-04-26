@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	pluginapi "github.com/mattermost/mattermost-plugin-api"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin/plugintest"
 	"github.com/pkg/errors"
@@ -252,10 +253,12 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.We
 	api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
 	api.On("KVGet", mock.Anything).Return(subVal, nil)
 	api.On("KVSet", mock.Anything, mock.Anything).Return(nil)
-	api.On("KVSetWithOptions", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil)
 	api.On("PublishWebSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
 	return p
 }
 
@@ -388,6 +391,7 @@ func TestAddWebhookCommand(t *testing.T) {
 			api.On("GetConfig", mock.Anything).Return(conf)
 			api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
 			p.SetAPI(api)
+			p.client = pluginapi.NewClient(api, p.Driver)
 
 			got := p.webhookCommand(context.Background(), test.parameters, &gitlab.UserInfo{}, true)
 

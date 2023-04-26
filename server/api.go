@@ -138,7 +138,7 @@ func (p *Plugin) withRecovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if x := recover(); x != nil {
-				p.API.LogWarn("Recovered from a panic",
+				p.client.Log.Warn("Recovered from a panic",
 					"url", r.URL.String(),
 					"error", x,
 					"stack", string(debug.Stack()))
@@ -172,7 +172,7 @@ func (p *Plugin) checkAuth(handler http.HandlerFunc, responseType ResponseType) 
 			case ResponseTypePlain:
 				http.Error(w, "Not authorized", http.StatusUnauthorized)
 			default:
-				p.API.LogDebug("Unknown ResponseType detected")
+				p.client.Log.Debug("Unknown ResponseType detected")
 			}
 			return
 		}
@@ -205,18 +205,18 @@ func (p *Plugin) writeAPIError(w http.ResponseWriter, err *APIErrorResponse) {
 	b, _ := json.Marshal(err)
 	w.WriteHeader(err.StatusCode)
 	if _, err := w.Write(b); err != nil {
-		p.API.LogWarn("can't write api error http response", "err", err.Error())
+		p.client.Log.Warn("can't write api error http response", "err", err.Error())
 	}
 }
 
 func (p *Plugin) writeAPIResponse(w http.ResponseWriter, resp interface{}) {
 	b, jsonErr := json.Marshal(resp)
 	if jsonErr != nil {
-		p.API.LogWarn("Error encoding JSON response", "err", jsonErr.Error())
+		p.client.Log.Warn("Error encoding JSON response", "err", jsonErr.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
 	}
 	if _, err := w.Write(b); err != nil {
-		p.API.LogWarn("can't write response user to http", "err", err.Error())
+		p.client.Log.Warn("can't write response user to http", "err", err.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
 	}
 }
@@ -232,7 +232,7 @@ func (p *Plugin) connectUserToGitlab(c *Context, w http.ResponseWriter, r *http.
 
 	state := fmt.Sprintf("%v_%v", model.NewId()[0:15], userID)
 
-	if err := p.API.KVSet(state, []byte(state)); err != nil {
+	if _, err := p.client.KV.Set(state, []byte(state)); err != nil {
 		c.Log.WithError(err).Warnf("Can't store state oauth2")
 		http.Error(w, "can't store state oauth2", http.StatusInternalServerError)
 		return
@@ -297,20 +297,21 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 
 	state := r.URL.Query().Get("state")
 
-	storedState, appErr := p.API.KVGet(state)
-	if appErr != nil {
-		c.Log.WithError(appErr).Warnf("Can't get state from store")
+	var storedState []byte
+	err := p.client.KV.Get(state, &storedState)
+	if err != nil {
+		c.Log.WithError(err).Warnf("Can't get state from store")
 
-		rErr = errors.Wrap(appErr, "missing stored state")
+		rErr = errors.Wrap(err, "missing stored state")
 		http.Error(w, rErr.Error(), http.StatusBadRequest)
 		return
 	}
 
-	appErr = p.API.KVDelete(state)
-	if appErr != nil {
-		c.Log.WithError(appErr).Warnf("Failed to delete state token")
+	err = p.client.KV.Delete(state)
+	if err != nil {
+		c.Log.WithError(err).Warnf("Failed to delete state token")
 
-		rErr = errors.Wrap(appErr, "error deleting stored state")
+		rErr = errors.Wrap(err, "error deleting stored state")
 		http.Error(w, rErr.Error(), http.StatusBadRequest)
 	}
 
@@ -411,7 +412,7 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 
 	p.TrackUserEvent("account_connected", userID, nil)
 
-	p.API.PublishWebSocketEvent(
+	p.client.Frontend.PublishWebSocketEvent(
 		WsEventConnect,
 		map[string]interface{}{
 			"connected":        true,
@@ -642,7 +643,7 @@ func (p *Plugin) postToDo(c *UserContext, w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if appErr := p.CreateBotDMPost(c.UserID, text, "custom_git_todo"); appErr != nil {
+	if err := p.CreateBotDMPost(c.UserID, text, "custom_git_todo"); err != nil {
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an error posting the to do items.", StatusCode: http.StatusUnauthorized})
 	}
 
@@ -709,7 +710,7 @@ func (p *Plugin) getChannelSubscriptions(c *UserContext, w http.ResponseWriter, 
 	vars := mux.Vars(r)
 	channelID := vars["channel_id"]
 
-	if !p.API.HasPermissionToChannel(c.UserID, channelID, model.PermissionReadChannel) {
+	if !p.client.User.HasPermissionToChannel(c.UserID, channelID, model.PermissionReadChannel) {
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Not authorized.", StatusCode: http.StatusUnauthorized})
 		return
 	}
@@ -717,7 +718,7 @@ func (p *Plugin) getChannelSubscriptions(c *UserContext, w http.ResponseWriter, 
 	config := p.getConfiguration()
 	subscriptions, err := p.GetSubscriptionsByChannel(channelID)
 	if err != nil {
-		p.API.LogWarn("unable to get subscriptions by channel", "err", err.Error())
+		p.client.Log.Warn("unable to get subscriptions by channel", "err", err.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get subscriptions by channel.", StatusCode: http.StatusInternalServerError})
 		return
 	}
@@ -726,9 +727,9 @@ func (p *Plugin) getChannelSubscriptions(c *UserContext, w http.ResponseWriter, 
 
 	b, err := json.Marshal(resp)
 	if err != nil {
-		p.API.LogWarn("failed to marshal channel subscriptions response", "err", err.Error())
+		p.client.Log.Warn("failed to marshal channel subscriptions response", "err", err.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
 	} else if _, err := w.Write(b); err != nil {
-		p.API.LogWarn("can't write api error http response", "err", err.Error())
+		p.client.Log.Warn("can't write api error http response", "err", err.Error())
 	}
 }

@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"testing"
 
+	pluginapi "github.com/mattermost/mattermost-plugin-api"
 	"github.com/mattermost/mattermost-server/v6/plugin/plugintest"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
@@ -100,11 +102,12 @@ func TestSubscribe(t *testing.T) {
 				require.NoError(t, err)
 
 				m.On("KVGet", SubscriptionsKey).Return(initialSubscriptions, nil).Once()
-				m.On("KVSet", SubscriptionsKey, expectedSubscriptions).Return(nil).Once()
+				m.On("KVSetWithOptions", SubscriptionsKey, expectedSubscriptions, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
 			}
 
 			p := &Plugin{configuration: &configuration{}}
 			p.SetAPI(m)
+			p.client = pluginapi.NewClient(m, p.Driver)
 
 			updatedSubscriptions, err := p.Subscribe(test.info, test.namespace, test.project, test.channelID, test.features)
 			if test.expectedError == nil {
@@ -137,7 +140,7 @@ func TestUnsubscribe(t *testing.T) {
 				kvget := `{"Repositories":{"owner/project":[{"ChannelID":"1","CreatorID":"1","Features":"all","Repository":"owner/project"}]}}`
 				kvset := `{"Repositories":{}}`
 				m.On("KVGet", SubscriptionsKey).Return([]byte(kvget), nil).Once()
-				m.On("KVSet", SubscriptionsKey, []byte(kvset)).Return(nil).Once()
+				m.On("KVSetWithOptions", SubscriptionsKey, []byte(kvset), mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
 				return m
 			},
 			shouldDelete: true,
@@ -154,7 +157,7 @@ func TestUnsubscribe(t *testing.T) {
 				kvget := `{"Repositories":{"owner/project":[{"ChannelID":"1","CreatorID":"1","Features":"all","Repository":"owner/project"},{"ChannelID":"2","CreatorID":"1","Features":"all","Repository":"owner/project"}]}}`
 				kvset := `{"Repositories":{"owner/project":[{"ChannelID":"2","CreatorID":"1","Features":"all","Repository":"owner/project"}]}}`
 				m.On("KVGet", SubscriptionsKey).Return([]byte(kvget), nil).Once()
-				m.On("KVSet", SubscriptionsKey, []byte(kvset)).Return(nil).Once()
+				m.On("KVSetWithOptions", SubscriptionsKey, []byte(kvset), mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
 				return m
 			},
 			shouldDelete: true,
@@ -204,7 +207,7 @@ func TestUnsubscribe(t *testing.T) {
 				kvget := `{"Repositories":{"owner/":[{"ChannelID":"1","CreatorID":"1","Features":"all","Repository":"owner/"}]}}`
 				kvset := `{"Repositories":{}}`
 				m.On("KVGet", SubscriptionsKey).Return([]byte(kvget), nil).Once()
-				m.On("KVSet", SubscriptionsKey, []byte(kvset)).Return(nil).Once()
+				m.On("KVSetWithOptions", SubscriptionsKey, []byte(kvset), mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
 				return m
 			},
 			shouldDelete: true,
@@ -221,6 +224,7 @@ func TestUnsubscribe(t *testing.T) {
 			m := test.initMock()
 			p := &Plugin{configuration: &configuration{}}
 			p.SetAPI(m)
+			p.client = pluginapi.NewClient(m, p.Driver)
 			res, updatedSubscriptions, err := p.Unsubscribe(test.channelID, test.repoName)
 			assert.Equal(t, test.shouldDelete, res)
 			assert.Equal(t, test.shouldError, err != nil)
