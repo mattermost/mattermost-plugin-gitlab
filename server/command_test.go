@@ -206,6 +206,7 @@ func TestListWebhookCommand(t *testing.T) {
 			api := &plugintest.API{}
 			api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
 			p.SetAPI(api)
+			p.client = pluginapi.NewClient(api, p.Driver)
 
 			if test.scope == "project" {
 				mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, nil)

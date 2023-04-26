@@ -240,7 +240,7 @@ func (p *Plugin) storeGitlabUserInfo(info *gitlab.UserInfo) error {
 		return err
 	}
 
-	if err := p.API.KVSet(info.UserID+GitlabUserInfoKey, jsonInfo); err != nil {
+	if _, err := p.client.KV.Set(info.UserID+GitlabUserInfoKey, jsonInfo); err != nil {
 		return err
 	}
 
@@ -275,7 +275,7 @@ func (p *Plugin) deleteGitlabUserInfo(userID string) error {
 }
 
 func (p *Plugin) deleteGitlabUserToken(userID string) error {
-	if err := p.API.KVDelete(userID + GitlabUserTokenKey); err != nil {
+	if err := p.client.KV.Delete(userID + GitlabUserTokenKey); err != nil {
 		return errors.Wrap(err, "encountered error deleting GitLab user token")
 	}
 	return nil
@@ -284,10 +284,12 @@ func (p *Plugin) deleteGitlabUserToken(userID string) error {
 func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInfo, *APIErrorResponse) {
 	var userInfo gitlab.UserInfo
 
-	infoBytes, err := p.API.KVGet(userID + GitlabUserInfoKey)
+	var infoBytes []byte
+	err := p.client.KV.Get(userID+GitlabUserInfoKey, &infoBytes)
 
 	if err != nil || infoBytes == nil {
-		gitlabTokenBytes, appErr := p.API.KVGet(userID + GitlabMigrationTokenKey)
+		var gitlabTokenBytes []byte
+		appErr := p.client.KV.Get(userID+GitlabMigrationTokenKey, &gitlabTokenBytes)
 		if appErr != nil || gitlabTokenBytes == nil {
 			return nil, &APIErrorResponse{ID: APIErrorIDNotConnected, Message: "Must connect user account to GitLab first.", StatusCode: http.StatusBadRequest}
 		}
@@ -316,8 +318,9 @@ func (p *Plugin) migrateGitlabToken(userID string) (*oauth2.Token, *APIErrorResp
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	gitlabTokenBytes, appErr := p.API.KVGet(userID + GitlabMigrationTokenKey)
-	if appErr != nil || gitlabTokenBytes == nil {
+	var gitlabTokenBytes []byte
+	err = p.client.KV.Get(userID+GitlabMigrationTokenKey, &gitlabTokenBytes)
+	if err != nil || gitlabTokenBytes == nil {
 		return p.getGitlabUserTokenByMattermostID(userID)
 	}
 
@@ -348,7 +351,7 @@ func (p *Plugin) migrateGitlabToken(userID string) (*oauth2.Token, *APIErrorResp
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to store token for KV migration.", StatusCode: http.StatusInternalServerError}
 	}
 
-	if appErr = p.API.KVDelete(userInfo.UserID + GitlabMigrationTokenKey); appErr != nil {
+	if err = p.client.KV.Delete(userInfo.UserID + GitlabMigrationTokenKey); err != nil {
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to delete KV entry for migration.", StatusCode: http.StatusInternalServerError}
 	}
 
@@ -359,8 +362,9 @@ func (p *Plugin) getGitlabUserTokenByMattermostID(userID string) (*oauth2.Token,
 	config := p.getConfiguration()
 	var token oauth2.Token
 
-	tokenBytes, appErr := p.API.KVGet(userID + GitlabUserTokenKey)
-	if appErr != nil || tokenBytes == nil {
+	var tokenBytes []byte
+	err := p.client.KV.Get(userID+GitlabUserTokenKey, &tokenBytes)
+	if err != nil || tokenBytes == nil {
 		return nil, &APIErrorResponse{ID: APIErrorIDNotConnected, Message: "Must connect user account to GitLab first.", StatusCode: http.StatusBadRequest}
 	}
 
