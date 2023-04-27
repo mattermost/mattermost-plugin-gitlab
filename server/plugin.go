@@ -84,9 +84,10 @@ func NewPlugin() *Plugin {
 }
 
 func (p *Plugin) OnActivate() error {
-	p.client = pluginapi.NewClient(p.API, p.Driver)
-
-	siteURL := p.API.GetConfig().ServiceSettings.SiteURL
+	if p.client == nil {
+		p.client = pluginapi.NewClient(p.API, p.Driver)
+	}
+	siteURL := p.client.Configuration.GetConfig().ServiceSettings.SiteURL
 	if siteURL == nil || *siteURL == "" {
 		return errors.New("siteURL is not set. Please set it and restart the plugin")
 	}
@@ -106,11 +107,7 @@ func (p *Plugin) OnActivate() error {
 	}
 
 	p.initializeAPI()
-
-	p.telemetryClient, err = telemetry.NewRudderClient()
-	if err != nil {
-		p.API.LogWarn("Telemetry client not started", "error", err.Error())
-	}
+	p.initializeTelemetry()
 
 	p.oauthBroker = NewOAuthBroker(p.sendOAuthCompleteEvent)
 
@@ -135,6 +132,10 @@ func (p *Plugin) OnActivate() error {
 
 func (p *Plugin) OnDeactivate() error {
 	p.oauthBroker.Close()
+
+	if err := p.telemetryClient.Close(); err != nil {
+		p.client.Log.Warn("Telemetry client failed to close", "error", err.Error())
+	}
 
 	return nil
 }
@@ -192,7 +193,7 @@ func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*mode
 func (p *Plugin) setDefaultConfiguration() error {
 	config := p.getConfiguration()
 
-	changed, err := config.setDefaults(pluginapi.IsCloud(p.API.GetLicense()))
+	changed, err := config.setDefaults(pluginapi.IsCloud(p.client.System.GetLicense()))
 	if err != nil {
 		return err
 	}
@@ -203,9 +204,9 @@ func (p *Plugin) setDefaultConfiguration() error {
 			return err
 		}
 
-		appErr := p.API.SavePluginConfig(configMap)
-		if appErr != nil {
-			return appErr
+		err = p.client.Configuration.SavePluginConfig(configMap)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -220,10 +221,10 @@ func (p *Plugin) getOAuthConfig() *oauth2.Config {
 	config := p.getConfiguration()
 
 	scopes := []string{"api", "read_user"}
-	redirectURL := fmt.Sprintf("%s/plugins/%s/oauth/complete", *p.API.GetConfig().ServiceSettings.SiteURL, manifest.Id)
+	redirectURL := fmt.Sprintf("%s/plugins/%s/oauth/complete", *p.client.Configuration.GetConfig().ServiceSettings.SiteURL, manifest.Id)
 
 	if config.UsePreregisteredApplication {
-		p.API.LogDebug("Using Chimera Proxy OAuth configuration")
+		p.client.Log.Debug("Using Chimera Proxy OAuth configuration")
 		return p.getOAuthConfigForChimeraApp(scopes, redirectURL)
 	}
 
@@ -281,7 +282,7 @@ func (p *Plugin) storeGitlabUserInfo(info *gitlab.UserInfo) error {
 		return err
 	}
 
-	if err := p.API.KVSet(info.UserID+GitlabTokenKey, jsonInfo); err != nil {
+	if _, err := p.client.KV.Set(info.UserID+GitlabTokenKey, jsonInfo); err != nil {
 		return err
 	}
 
@@ -289,7 +290,7 @@ func (p *Plugin) storeGitlabUserInfo(info *gitlab.UserInfo) error {
 }
 
 func (p *Plugin) deleteGitlabUserInfo(userID string) error {
-	if err := p.API.KVDelete(userID + GitlabTokenKey); err != nil {
+	if err := p.client.KV.Delete(userID + GitlabTokenKey); err != nil {
 		return errors.Wrap(err, "encountered error deleting GitLab user info")
 	}
 	return nil
@@ -299,16 +300,13 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 	config := p.getConfiguration()
 
 	var userInfo gitlab.UserInfo
-
-	if infoBytes, err := p.API.KVGet(userID + GitlabTokenKey); err != nil || infoBytes == nil {
+	if err := p.client.KV.Get(userID+GitlabTokenKey, &userInfo); err != nil || userInfo.Token == nil {
 		return nil, &APIErrorResponse{ID: APIErrorIDNotConnected, Message: "Must connect user account to GitLab first.", StatusCode: http.StatusBadRequest}
-	} else if err := json.Unmarshal(infoBytes, &userInfo); err != nil {
-		return nil, &APIErrorResponse{ID: "", Message: "Unable to parse token.", StatusCode: http.StatusInternalServerError}
 	}
 
 	unencryptedToken, err := decrypt([]byte(config.EncryptionKey), userInfo.Token.AccessToken)
 	if err != nil {
-		p.API.LogWarn("can't decrypt token", "err", err.Error())
+		p.client.Log.Warn("can't decrypt token", "err", err.Error())
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to decrypt access token.", StatusCode: http.StatusInternalServerError}
 	}
 
@@ -319,7 +317,7 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 	}
 
 	if newToken != nil {
-		p.API.LogDebug("Gitlab token refreshed.", "UserID", userInfo.UserID, "Gitlab Username", userInfo.GitlabUsername)
+		p.client.Log.Debug("Gitlab token refreshed.", "UserID", userInfo.UserID, "Gitlab Username", userInfo.GitlabUsername)
 		userInfo.Token = newToken
 		unencryptedToken = newToken.AccessToken // needed because the storeGitlabUserInfo method changes its value to an encrypted value
 		if err := p.storeGitlabUserInfo(&userInfo); err != nil {
@@ -332,45 +330,47 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 }
 
 func (p *Plugin) storeGitlabToUserIDMapping(gitlabUsername, userID string) error {
-	if err := p.API.KVSet(gitlabUsername+GitlabUsernameKey, []byte(userID)); err != nil {
+	if _, err := p.client.KV.Set(gitlabUsername+GitlabUsernameKey, []byte(userID)); err != nil {
 		return errors.Wrap(err, "encountered error saving GitLab username mapping")
 	}
 	return nil
 }
 
 func (p *Plugin) storeGitlabIDToUserIDMapping(gitlabUsername string, gitlabID int) error {
-	if err := p.API.KVSet(fmt.Sprintf("%d%s", gitlabID, GitlabIDUsernameKey), []byte(gitlabUsername)); err != nil {
+	if _, err := p.client.KV.Set(fmt.Sprintf("%d%s", gitlabID, GitlabIDUsernameKey), []byte(gitlabUsername)); err != nil {
 		return errors.Wrap(err, "encountered error saving GitLab id mapping")
 	}
 	return nil
 }
 
 func (p *Plugin) deleteGitlabToUserIDMapping(gitlabUsername string) error {
-	if err := p.API.KVDelete(gitlabUsername + GitlabUsernameKey); err != nil {
+	if err := p.client.KV.Delete(gitlabUsername + GitlabUsernameKey); err != nil {
 		return errors.Wrap(err, "encountered error deleting GitLab username mapping")
 	}
 	return nil
 }
 
 func (p *Plugin) deleteGitlabIDToUserIDMapping(gitlabID int) error {
-	if err := p.API.KVDelete(fmt.Sprintf("%d%s", gitlabID, GitlabIDUsernameKey)); err != nil {
+	if err := p.client.KV.Delete(fmt.Sprintf("%d%s", gitlabID, GitlabIDUsernameKey)); err != nil {
 		return errors.Wrap(err, "encountered error deleting GitLab id mapping")
 	}
 	return nil
 }
 
 func (p *Plugin) getGitlabToUserIDMapping(gitlabUsername string) string {
-	userID, err := p.API.KVGet(gitlabUsername + GitlabUsernameKey)
+	var userID []byte
+	err := p.client.KV.Get(gitlabUsername+GitlabUsernameKey, &userID)
 	if err != nil {
-		p.API.LogWarn("can't get userId from store with username", "err", err.DetailedError, "username", gitlabUsername)
+		p.client.Log.Warn("can't get userId from store with username", "err", err.Error(), "username", gitlabUsername)
 	}
 	return string(userID)
 }
 
 func (p *Plugin) getGitlabIDToUsernameMapping(gitlabUserID string) string {
-	gitlabUsername, err := p.API.KVGet(gitlabUserID + GitlabIDUsernameKey)
+	var gitlabUsername []byte
+	err := p.client.KV.Get(gitlabUserID+GitlabIDUsernameKey, &gitlabUsername)
 	if err != nil {
-		p.API.LogWarn("can't get user id by login", "err", err.DetailedError)
+		p.client.Log.Warn("can't get user id by login", "err", err.Error())
 	}
 	return string(gitlabUsername)
 }
@@ -378,7 +378,7 @@ func (p *Plugin) getGitlabIDToUsernameMapping(gitlabUserID string) string {
 func (p *Plugin) disconnectGitlabAccount(userID string) {
 	userInfo, err := p.getGitlabUserInfoByMattermostID(userID)
 	if err != nil {
-		p.API.LogWarn("can't get GitLab user info from mattermost id", "err", err.Message)
+		p.client.Log.Warn("can't get GitLab user info from mattermost id", "err", err.Message)
 		return
 	}
 	if userInfo == nil {
@@ -386,23 +386,23 @@ func (p *Plugin) disconnectGitlabAccount(userID string) {
 	}
 
 	if err := p.deleteGitlabUserInfo(userID); err != nil {
-		p.API.LogWarn("can't delete token in store", "err", err.Error, "userId", userID)
+		p.client.Log.Warn("can't delete token in store", "err", err.Error, "userId", userID)
 	}
 	if err := p.deleteGitlabToUserIDMapping(userInfo.GitlabUsername); err != nil {
-		p.API.LogWarn("can't delete username in store", "err", err.Error, "username", userInfo.GitlabUsername)
+		p.client.Log.Warn("can't delete username in store", "err", err.Error, "username", userInfo.GitlabUsername)
 	}
 	if err := p.deleteGitlabIDToUserIDMapping(userInfo.GitlabUserID); err != nil {
-		p.API.LogWarn("can't delete user id in store", "err", err.Error, "id", userInfo.GitlabUserID)
+		p.client.Log.Warn("can't delete user id in store", "err", err.Error, "id", userInfo.GitlabUserID)
 	}
 
-	if user, err := p.API.GetUser(userID); err == nil && user.Props != nil && len(user.Props["git_user"]) > 0 {
+	if user, err := p.client.User.Get(userID); err == nil && user.Props != nil && len(user.Props["git_user"]) > 0 {
 		delete(user.Props, "git_user")
-		if _, err := p.API.UpdateUser(user); err != nil {
-			p.API.LogWarn("can't update user after delete git account", "err", err.DetailedError)
+		if err := p.client.User.Update(user); err != nil {
+			p.client.Log.Warn("can't update user after delete git account", "err", err.Error())
 		}
 	}
 
-	p.API.PublishWebSocketEvent(
+	p.client.Frontend.PublishWebSocketEvent(
 		WsEventDisconnect,
 		nil,
 		&model.WebsocketBroadcast{UserId: userID},
@@ -411,7 +411,7 @@ func (p *Plugin) disconnectGitlabAccount(userID string) {
 
 // registerChimeraURL fetches the Chimera URL from server settings or env var and sets it in the plugin object.
 func (p *Plugin) registerChimeraURL() {
-	chimeraURLSetting := p.API.GetConfig().PluginSettings.ChimeraOAuthProxyURL
+	chimeraURLSetting := p.client.Configuration.GetConfig().PluginSettings.ChimeraOAuthProxyURL
 	if chimeraURLSetting != nil && *chimeraURLSetting != "" {
 		p.chimeraURL = *chimeraURLSetting
 		return
@@ -421,10 +421,10 @@ func (p *Plugin) registerChimeraURL() {
 	p.chimeraURL = os.Getenv("MM_PLUGINSETTINGS_CHIMERAOAUTHPROXYURL")
 }
 
-func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppError {
-	channel, err := p.API.GetDirectChannel(userID, p.BotUserID)
+func (p *Plugin) CreateBotDMPost(userID, message, postType string) error {
+	channel, err := p.client.Channel.GetDirect(userID, p.BotUserID)
 	if err != nil {
-		p.API.LogWarn("Couldn't get bot's DM channel", "user_id", userID)
+		p.client.Log.Warn("Couldn't get bot's DM channel", "user_id", userID)
 		return err
 	}
 
@@ -435,8 +435,8 @@ func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppErr
 		Type:      postType,
 	}
 
-	if _, err := p.API.CreatePost(post); err != nil {
-		p.API.LogWarn("can't post DM", "err", err.DetailedError)
+	if err := p.client.Post.CreatePost(post); err != nil {
+		p.client.Log.Warn("can't post DM", "err", err.Error())
 		return err
 	}
 
@@ -446,7 +446,7 @@ func (p *Plugin) CreateBotDMPost(userID, message, postType string) *model.AppErr
 func (p *Plugin) PostToDo(ctx context.Context, info *gitlab.UserInfo) {
 	hasTodo, text, err := p.GetToDo(ctx, info)
 	if err != nil {
-		p.API.LogWarn("can't post todo", "err", err.Error())
+		p.client.Log.Warn("can't post todo", "err", err.Error())
 		return
 	}
 	if !hasTodo {
@@ -454,7 +454,7 @@ func (p *Plugin) PostToDo(ctx context.Context, info *gitlab.UserInfo) {
 	}
 
 	if err := p.CreateBotDMPost(info.UserID, text, "custom_git_todo"); err != nil {
-		p.API.LogWarn("can't create dm post in post todo", "err", err.DetailedError)
+		p.client.Log.Warn("can't create dm post in post todo", "err", err.Error())
 	}
 }
 
@@ -588,7 +588,7 @@ func (p *Plugin) isNamespaceAllowed(namespace string) error {
 }
 
 func (p *Plugin) sendRefreshEvent(userID string) {
-	p.API.PublishWebSocketEvent(
+	p.client.Frontend.PublishWebSocketEvent(
 		WsEventRefresh,
 		nil,
 		&model.WebsocketBroadcast{UserId: userID},
@@ -609,14 +609,14 @@ func (p *Plugin) sendChannelSubscriptionsUpdated(subs *Subscriptions, channelID 
 
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
-		p.API.LogWarn(
+		p.client.Log.Warn(
 			"unable to marshal payload for updated channel subscriptions",
 			"err", err.Error(),
 		)
 		return
 	}
 
-	p.API.PublishWebSocketEvent(
+	p.client.Frontend.PublishWebSocketEvent(
 		WsChannelSubscriptionsUpdated,
 		map[string]interface{}{"payload": string(payloadJSON)},
 		&model.WebsocketBroadcast{ChannelId: channelID},
@@ -638,7 +638,7 @@ func (p *Plugin) HasProjectHook(ctx context.Context, user *gitlab.UserInfo, name
 		return true, err
 	}
 
-	siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
+	siteURL := *p.client.Configuration.GetConfig().ServiceSettings.SiteURL
 
 	found := false
 	for _, hook := range hooks {
@@ -657,7 +657,7 @@ func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namesp
 		return false, errors.New("unable to connect to GitLab")
 	}
 
-	siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
+	siteURL := *p.client.Configuration.GetConfig().ServiceSettings.SiteURL
 
 	found := false
 	for _, hook := range hooks {

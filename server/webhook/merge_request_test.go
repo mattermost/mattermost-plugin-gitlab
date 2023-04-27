@@ -116,6 +116,40 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			From:       "manland",
 		}},
 	}, {
+		testTitle: "manland approve root merge-request and display in channel1",
+		fixture:   ApproveMergeRequest,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
+		}),
+		res: []*HandleWebhook{{
+			Message:    "[manland](http://my.gitlab.com/manland) approved your merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			ToUsers:    []string{"root"},
+			ToChannels: []string{},
+			From:       "manland",
+		}, {
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Merge request [!4 Master](http://localhost:3000/manland/webhook/merge_requests/4) was approved by [manland](http://my.gitlab.com/manland)",
+			ToUsers:    []string{},
+			ToChannels: []string{"channel1"},
+			From:       "manland",
+		}},
+	}, {
+		testTitle: "manland unapprove root merge-request and display in channel1",
+		fixture:   strings.ReplaceAll(ApproveMergeRequest, "approved", "unapproved"),
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
+		}),
+		res: []*HandleWebhook{{
+			Message:    "[manland](http://my.gitlab.com/manland) requested changes to your merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			ToUsers:    []string{"root"},
+			ToChannels: []string{},
+			From:       "manland",
+		}, {
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Merge request [!4 Master](http://localhost:3000/manland/webhook/merge_requests/4) changes were requested by [manland](http://my.gitlab.com/manland)",
+			ToUsers:    []string{},
+			ToChannels: []string{"channel1"},
+			From:       "manland",
+		}},
+	}, {
 		testTitle: "root close its own MR without assignee and display in channel1",
 		fixture:   CloseMergeRequestByCreator,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
