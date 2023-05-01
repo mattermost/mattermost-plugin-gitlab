@@ -643,20 +643,41 @@ func (g *gitlab) GetYourProjects(ctx context.Context, user *UserInfo) ([]*intern
 	}
 	owned := true
 
-	result, resp, err := client.Projects.ListProjects(
-		&internGitlab.ListProjectsOptions{
-			Owned: &owned,
-		},
-		internGitlab.WithContext(ctx),
-	)
-	if respErr := checkResponse(resp); respErr != nil {
-		return nil, respErr
-	}
-	if err != nil {
-		return nil, err
+	var projects []*internGitlab.Project
+	if g.gitlabGroup == "" {
+		result, resp, err := client.Projects.ListProjects(
+			&internGitlab.ListProjectsOptions{
+				Owned: &owned,
+			},
+			internGitlab.WithContext(ctx),
+		)
+		if respErr := checkResponse(resp); respErr != nil {
+			return nil, respErr
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		projects = append(projects, result...)
+	} else {
+		result, resp, err := client.Groups.ListGroupProjects(
+			g.gitlabGroup,
+			&internGitlab.ListGroupProjectsOptions{
+				Owned: &owned,
+			},
+			internGitlab.WithContext(ctx),
+		)
+		if respErr := checkResponse(resp); respErr != nil {
+			return nil, respErr
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		projects = append(projects, result...)
 	}
 
-	return result, nil
+	return projects, nil
 }
 
 func (g *gitlab) GetLabels(ctx context.Context, user *UserInfo, projectID string) ([]*internGitlab.Label, error) {
@@ -778,19 +799,39 @@ func (g *gitlab) SearchIssues(ctx context.Context, user *UserInfo, search string
 		return nil, err
 	}
 
-	result, resp, err := client.Search.Issues(
-		search,
-		&internGitlab.SearchOptions{},
-		internGitlab.WithContext(ctx),
-	)
-	if respErr := checkResponse(resp); respErr != nil {
-		return nil, respErr
-	}
-	if err != nil {
-		return nil, errors.Wrap(err, "can't search issues in GitLab api")
+	var issues []*internGitlab.Issue
+	if g.gitlabGroup == "" {
+		result, resp, err := client.Search.Issues(
+			search,
+			&internGitlab.SearchOptions{},
+			internGitlab.WithContext(ctx),
+		)
+		if respErr := checkResponse(resp); respErr != nil {
+			return nil, respErr
+		}
+		if err != nil {
+			return nil, errors.Wrap(err, "can't search issues in GitLab api")
+		}
+
+		issues = append(issues, result...)
+	} else {
+		result, resp, err := client.Search.IssuesByGroup(
+			g.gitlabGroup,
+			search,
+			&internGitlab.SearchOptions{},
+			internGitlab.WithContext(ctx),
+		)
+		if respErr := checkResponse(resp); respErr != nil {
+			return nil, respErr
+		}
+		if err != nil {
+			return nil, errors.Wrap(err, "can't search issues in GitLab api")
+		}
+
+		issues = append(issues, result...)
 	}
 
-	return result, nil
+	return issues, nil
 }
 
 func (g *gitlab) ResolveNamespaceAndProject(

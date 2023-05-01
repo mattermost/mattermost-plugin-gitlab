@@ -17,7 +17,7 @@ import {closeCreateIssueModal, createIssue} from 'src/actions';
 import {GlobalState} from 'src/types/global_state';
 import {usePrevious} from 'src/hooks/use_previous';
 
-const MAX_TITLE_LENGTH = 256;
+const MAX_TITLE_LENGTH = 255;
 
 type PropTypes = {
     theme: Theme;
