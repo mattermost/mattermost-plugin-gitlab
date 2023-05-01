@@ -38,7 +38,7 @@ const CreateIssuePostMenuAction = ({postId}: PropTypes) => {
 
     const content = (
         <button
-            className='style-none'
+            className='style--none'
             role='presentation'
             onClick={handleClick}
         >
