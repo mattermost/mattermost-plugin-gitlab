@@ -21,6 +21,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 * |/gitlab subscriptions add owner[/repo] [features]| - Subscribe the current channel to receive notifications about opened merge requests and issues for a group or repository
   * |features| is a comma-delimited list of one or more the following:
     * issues - includes new and closed issues
+	* confidential_issues - includes new and closed confidential issues
 	* jobs - includes jobs status updates
 	* merges - includes new and closed merge requests
     * pushes - includes pushes
@@ -514,6 +515,7 @@ func (p *Plugin) subscriptionsListCommand(channelID string) string {
 	if err != nil {
 		return err.Error()
 	}
+
 	if len(subs) == 0 {
 		txt = "Currently there are no subscriptions in this channel"
 	} else {
@@ -542,6 +544,11 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 			"err", err.Error(),
 		)
 		return err.Error()
+	}
+
+	if hasPermission := p.permissionToProject(ctx, info.UserID, namespace, project); !hasPermission {
+		p.API.LogWarn("You don't have the permission to create subscription for this project")
+		return "You don't have the permission to create subscription for this project."
 	}
 
 	updatedSubscriptions, subscribeErr := p.Subscribe(info, namespace, project, channelID, features)
@@ -710,7 +717,7 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 
 	subscriptionsAdd := model.NewAutocompleteData(commandAdd, "owner[/repo] [features]", "Subscribe the current channel to receive notifications from a project")
 	subscriptionsAdd.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
-	subscriptionsAdd.AddTextArgument("comma-delimited list of features to subscribe to: issues, merges, pushes, issue_comments, merge_request_comments, pipeline, tag, pull_reviews, label:<labelName>", "[features] (optional)", `/[^,-\s]+(,[^,-\s]+)*/`)
+	subscriptionsAdd.AddTextArgument("comma-delimited list of features to subscribe to: issues, confidential_issues, merges, pushes, issue_comments, merge_request_comments, pipeline, tag, pull_reviews, label:<labelName>", "[features] (optional)", `/[^,-\s]+(,[^,-\s]+)*/`)
 	subscriptions.AddCommand(subscriptionsAdd)
 
 	subscriptionsDelete := model.NewAutocompleteData(commandDelete, "owner[/repo]", "Unsubscribe the current channel from a repository")

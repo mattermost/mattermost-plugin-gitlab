@@ -18,7 +18,7 @@ import (
 
 type fakeWebhookHandler struct{}
 
-func (fakeWebhookHandler) HandleIssue(_ context.Context, _ *gitlabLib.IssueEvent) ([]*webhook.HandleWebhook, error) {
+func (fakeWebhookHandler) HandleIssue(_ context.Context, _ *gitlabLib.IssueEvent, _ gitlabLib.EventType) ([]*webhook.HandleWebhook, error) {
 	return []*webhook.HandleWebhook{{
 		Message: "hello",
 		From:    "test",
