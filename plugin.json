@@ -85,7 +85,7 @@
                 "key": "EnablePrivateRepo",
                 "display_name": "Enable Private Repositories:",
                 "type": "bool",
-                "help_text": "(Optional) Allow the plugin to work with private repositories.",
+                "help_text": "(Optional) Allow the plugin to work with private repositories for subscriptions.",
                 "placeholder": "",
                 "default": null
             },
