@@ -211,8 +211,12 @@ func (p *Plugin) permissionToProject(ctx context.Context, userID, namespace, pro
 	result, err := p.GitlabClient.GetProject(ctx, info, namespace, project)
 	if result == nil || err != nil {
 		if err != nil {
-			p.API.LogWarn("Can't get project in webhook", "err", err.Error(), "project", namespace+"/"+project)
+			p.client.Log.Warn("Can't get project in webhook", "err", err.Error(), "project", namespace+"/"+project)
 		}
+		return false
+	}
+
+	if result.Permissions.ProjectAccess == nil {
 		return false
 	}
 

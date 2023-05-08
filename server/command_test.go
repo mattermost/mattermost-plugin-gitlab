@@ -55,7 +55,7 @@ var subscribeCommandTests = []subscribeCommandTest{
 		testName:      "No Repository permissions",
 		parameters:    []string{"add", "group/project"},
 		mockGitlab:    true,
-		want:          "You don't have the permission to create subscription for this project.",
+		want:          "You don't have the permissions to create subscriptions for this project",
 		webhookInfo:   []*gitlab.WebhookInfo{{URL: "example.com/somewebhookURL"}},
 		noAccess:      true,
 		mattermostURL: "example.com",
@@ -65,7 +65,7 @@ var subscribeCommandTests = []subscribeCommandTest{
 		testName:      "Guest permissions only",
 		parameters:    []string{"add", "group/project"},
 		mockGitlab:    true,
-		want:          "You don't have the permission to create subscription for this project.",
+		want:          "You don't have the permissions to create subscriptions for this project",
 		webhookInfo:   []*gitlab.WebhookInfo{{URL: "example.com/somewebhookURL"}},
 		noAccess:      true,
 		mattermostURL: "example.com",
@@ -283,6 +283,7 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.We
 
 	api := &plugintest.API{}
 	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
 
 	conf := &model.Config{}
 	conf.ServiceSettings.SiteURL = &mattermostURL
@@ -323,8 +324,6 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.We
 		mock.AnythingOfTypeArgument("string"),
 		mock.AnythingOfTypeArgument("string"),
 		mock.AnythingOfTypeArgument("string"))
-
-	p.client = pluginapi.NewClient(api, p.Driver)
 
 	return p
 }
