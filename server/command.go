@@ -88,7 +88,7 @@ const (
 )
 
 const (
-	commandTimeout = 6 * time.Second
+	commandTimeout = 30 * time.Second
 )
 
 func (p *Plugin) getCommand(config *configuration) (*model.Command, error) {
