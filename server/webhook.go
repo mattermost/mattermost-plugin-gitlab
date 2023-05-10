@@ -8,6 +8,7 @@ import (
 	"time"
 
 	gitlabLib "github.com/xanzy/go-gitlab"
+	"golang.org/x/oauth2"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
@@ -207,7 +208,16 @@ func (p *Plugin) permissionToProject(ctx context.Context, userID, namespace, pro
 		return false
 	}
 
-	if result, err := p.GitlabClient.GetProject(ctx, info, namespace, project); result == nil || err != nil {
+	var result *gitlabLib.Project
+	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetProject(ctx, info, token, namespace, project)
+		if err != nil {
+			return err
+		}
+		result = resp
+		return nil
+	})
+	if result == nil || err != nil {
 		if err != nil {
 			p.client.Log.Warn("can't get project in webhook", "err", err.Error(), "project", namespace+"/"+project)
 		}
@@ -216,22 +226,47 @@ func (p *Plugin) permissionToProject(ctx context.Context, userID, namespace, pro
 	return true
 }
 
-func CreateHook(ctx context.Context, gitlabClient gitlab.Gitlab, info *gitlab.UserInfo, group, project string, hookOptions *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error) {
+func (p *Plugin) createHook(ctx context.Context, gitlabClient gitlab.Gitlab, info *gitlab.UserInfo, group, project string, hookOptions *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error) {
 	// If project scope
 	if project != "" {
-		project, err := gitlabClient.GetProject(ctx, info, group, project)
-		if err != nil {
-			return nil, err
+		var gitProject *gitlabLib.Project
+		getProjectErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+			resp, err := p.GitlabClient.GetProject(ctx, info, token, group, project)
+			if err != nil {
+				return err
+			}
+			gitProject = resp
+			return nil
+		})
+		if getProjectErr != nil {
+			return nil, getProjectErr
 		}
-		newWebhook, err := gitlabClient.NewProjectHook(ctx, info, project.ID, hookOptions)
-		if err != nil {
-			return nil, err
+		var newWebhook *gitlab.WebhookInfo
+		getGroupErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+			resp, err := p.GitlabClient.NewProjectHook(ctx, info, token, gitProject.ID, hookOptions)
+			if err != nil {
+				return err
+			}
+			newWebhook = resp
+			return nil
+		})
+		if getGroupErr != nil {
+			return nil, getGroupErr
 		}
 		return newWebhook, nil
 	}
 
 	// If webhook is group scoped
-	newWebhook, err := gitlabClient.NewGroupHook(ctx, info, group, hookOptions)
+	var newWebhook *gitlab.WebhookInfo
+	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.NewGroupHook(ctx, info, token, group, hookOptions)
+		if err != nil {
+			return err
+		}
+		newWebhook = resp
+		return nil
+	})
+
 	if err != nil {
 		return nil, err
 	}
