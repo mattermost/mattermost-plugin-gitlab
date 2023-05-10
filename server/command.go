@@ -10,6 +10,8 @@ import (
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin"
 	"github.com/pkg/errors"
+	gitlabLib "github.com/xanzy/go-gitlab"
+	"golang.org/x/oauth2"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 )
@@ -88,11 +90,11 @@ const (
 )
 
 const (
-	commandTimeout = 6 * time.Second
+	commandTimeout = 30 * time.Second
 )
 
 func (p *Plugin) getCommand(config *configuration) (*model.Command, error) {
-	iconData, err := command.GetIconData(p.API, "assets/icon.svg")
+	iconData, err := command.GetIconData(&p.client.System, "assets/icon.svg")
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get icon data")
 	}
@@ -114,7 +116,7 @@ func (p *Plugin) postCommandResponse(args *model.CommandArgs, text string) {
 		RootId:    args.RootId,
 		Message:   text,
 	}
-	_ = p.API.SendEphemeralPost(args.UserId, post)
+	p.client.Post.SendEphemeralPost(args.UserId, post)
 }
 
 func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string) *model.CommandResponse {
@@ -168,7 +170,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		switch {
 		case err != nil:
 			text = "Error checking user's permissions"
-			p.API.LogWarn(text, "error", err.Error())
+			p.client.Log.Warn(text, "error", err.Error())
 		case isSysAdmin:
 			text = "Before using this plugin, you'll need to configure it by running `/gitlab setup`"
 		default:
@@ -180,7 +182,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 	}
 
 	if action == "connect" {
-		config := p.API.GetConfig()
+		config := p.client.Configuration.GetConfig()
 		if config.ServiceSettings.SiteURL == nil {
 			return p.getCommandResponse(args, "Encountered an error connecting to GitLab."), nil
 		}
@@ -229,7 +231,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 	case "todo":
 		_, text, err := p.GetToDo(ctx, info)
 		if err != nil {
-			p.API.LogWarn("can't get todo in command", "err", err.Error())
+			p.client.Log.Warn("can't get todo in command", "err", err.Error())
 			return p.getCommandResponse(args, "Encountered an error getting your to do items."), nil
 		}
 		return p.getCommandResponse(args, text), nil
@@ -240,7 +242,16 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		}
 		return &model.CommandResponse{}, nil
 	case "me":
-		gitUser, err := p.GitlabClient.GetUserDetails(ctx, info)
+		var gitUser *gitlabLib.User
+		err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+			resp, err := p.GitlabClient.GetUserDetails(ctx, info, token)
+			if err != nil {
+				return err
+			}
+			gitUser = resp
+			return nil
+		})
+
 		if err != nil {
 			return p.getCommandResponse(args, "Encountered an error getting your GitLab profile."), nil
 		}
@@ -265,15 +276,15 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		case SettingNotifications:
 			if value {
 				if err := p.storeGitlabToUserIDMapping(info.GitlabUsername, info.UserID); err != nil {
-					p.API.LogWarn("can't store GitLab to user id mapping", "err", err.Error())
+					p.client.Log.Warn("can't store GitLab to user id mapping", "err", err.Error())
 					return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 				}
 				if err := p.storeGitlabIDToUserIDMapping(info.GitlabUsername, info.GitlabUserID); err != nil {
-					p.API.LogWarn("can't store GitLab to GitLab id mapping", "err", err.Error())
+					p.client.Log.Warn("can't store GitLab to GitLab id mapping", "err", err.Error())
 					return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 				}
 			} else if err := p.deleteGitlabToUserIDMapping(info.GitlabUsername); err != nil {
-				p.API.LogWarn("can't delete GitLab username in kvstore", "err", err.Error())
+				p.client.Log.Warn("can't delete GitLab username in kvstore", "err", err.Error())
 				return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 			}
 			info.Settings.Notifications = value
@@ -284,7 +295,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		}
 
 		if err := p.storeGitlabUserInfo(info); err != nil {
-			p.API.LogWarn("can't store user info after update by command", "err", err.Error())
+			p.client.Log.Warn("can't store user info after update by command", "err", err.Error())
 			return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
 		}
 
@@ -307,7 +318,7 @@ func (p *Plugin) handleSetup(c *plugin.Context, args *model.CommandArgs, paramet
 	userID := args.UserId
 	isSysAdmin, err := p.isAuthorizedSysAdmin(userID)
 	if err != nil {
-		p.API.LogWarn("Failed to check if user is System Admin", "error", err.Error())
+		p.client.Log.Warn("Failed to check if user is System Admin", "error", err.Error())
 
 		return "Error checking user's permissions"
 	}
@@ -371,14 +382,31 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		}
 
 		namespace := parameters[1]
-		group, project, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, namespace, enablePrivateRepo)
+		var group, project string
+		err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+			respGroup, respProject, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
+			if err != nil {
+				return err
+			}
+			group = respGroup
+			project = respProject
+			return nil
+		})
+
 		if err != nil {
 			return err.Error()
 		}
 
 		var webhookInfo []*gitlab.WebhookInfo
 		if project != "" {
-			webhookInfo, err = p.GitlabClient.GetProjectHooks(ctx, info, group, project)
+			err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+				resp, err := p.GitlabClient.GetProjectHooks(ctx, info, token, group, project)
+				if err != nil {
+					return err
+				}
+				webhookInfo = resp
+				return nil
+			})
 			if err != nil {
 				if strings.Contains(err.Error(), projectNotFoundError) {
 					return projectNotFoundMessage + namespace
@@ -386,7 +414,14 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 				return err.Error()
 			}
 		} else {
-			webhookInfo, err = p.GitlabClient.GetGroupHooks(ctx, info, group)
+			err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+				resp, err := p.GitlabClient.GetGroupHooks(ctx, info, token, group)
+				if err != nil {
+					return err
+				}
+				webhookInfo = resp
+				return nil
+			})
 			if err != nil {
 				if strings.Contains(err.Error(), groupNotFoundError) {
 					return groupNotFoundMessage + group
@@ -408,7 +443,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 			return unknownActionMessage
 		}
 
-		siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
+		siteURL := *p.client.Configuration.GetConfig().ServiceSettings.SiteURL
 		if siteURL == "" {
 			return newWebhookEmptySiteURLmessage
 		}
@@ -433,12 +468,21 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		}
 
 		namespace := parameters[1]
-		group, project, namespaceErr := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, namespace, enablePrivateRepo)
+		var group, project string
+		namespaceErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+			respGroup, respProject, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
+			if err != nil {
+				return err
+			}
+			group = respGroup
+			project = respProject
+			return nil
+		})
 		if namespaceErr != nil {
 			return namespaceErr.Error()
 		}
 
-		newWebhook, err := CreateHook(ctx, p.GitlabClient, info, group, project, hookOptions)
+		newWebhook, err := p.createHook(ctx, p.GitlabClient, info, group, project, hookOptions)
 		if err != nil {
 			return err.Error()
 		}
@@ -517,7 +561,7 @@ func (p *Plugin) subscriptionDelete(info *gitlab.UserInfo, config *configuration
 	normalizedPath := normalizePath(fullPath, config.GitlabURL)
 	deleted, updatedSubscriptions, err := p.Unsubscribe(channelID, normalizedPath)
 	if err != nil {
-		p.API.LogWarn("can't unsubscribe channel in command", "err", err.Error())
+		p.client.Log.Warn("can't unsubscribe channel in command", "err", err.Error())
 		return "Encountered an error trying to unsubscribe. Please try again.", nil
 	}
 
@@ -535,8 +579,7 @@ func (p *Plugin) subscriptionsListCommand(channelID string) string {
 	var txt string
 	subs, err := p.GetSubscriptionsByChannel(channelID)
 	if err != nil {
-		txt = err.Error()
-		return txt
+		return err.Error()
 	}
 	if len(subs) == 0 {
 		txt = "Currently there are no subscriptions in this channel"
@@ -551,17 +594,23 @@ func (p *Plugin) subscriptionsListCommand(channelID string) string {
 
 // subscriptionsAddCommand subscripes to A GitLab Project
 func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserInfo, config *configuration, fullPath, channelID, features string) string {
-	var err error
-	namespace, project, err := p.GitlabClient.ResolveNamespaceAndProject(
-		ctx, info, fullPath, config.EnablePrivateRepo)
-
+	var namespace, project string
+	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		respGroup, respProject, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, token, fullPath, config.EnablePrivateRepo)
+		if err != nil {
+			return err
+		}
+		namespace = respGroup
+		project = respProject
+		return nil
+	})
 	if err != nil {
 		if errors.Is(err, gitlab.ErrNotFound) {
 			return "Resource with such path is not found."
 		} else if errors.Is(err, gitlab.ErrPrivateResource) {
 			return "Requested resource is private."
 		}
-		p.API.LogWarn(
+		p.client.Log.Warn(
 			"unable to resolve subscription namespace and project name",
 			"err", err.Error(),
 		)
@@ -570,7 +619,7 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 
 	updatedSubscriptions, subscribeErr := p.Subscribe(info, namespace, project, channelID, features)
 	if subscribeErr != nil {
-		p.API.LogWarn(
+		p.client.Log.Warn(
 			"failed to subscribe",
 			"namespace", namespace,
 			"project", project,
@@ -665,18 +714,25 @@ func (p *Plugin) pipelinesCommand(ctx context.Context, parameters []string, chan
 
 // pipelineRunCommand run a pipeline in a project
 func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channelID string, info *gitlab.UserInfo) string {
-	group, projectName, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, namespace, true)
+	var pipelineInfo *gitlab.PipelineInfo
+	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		groupName, projectName, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, true)
+		if err != nil {
+			return err
+		}
+		project, err := p.GitlabClient.GetProject(ctx, info, token, groupName, projectName)
+		if err != nil {
+			return err
+		}
+		projectID := fmt.Sprintf("%d", project.ID)
+		pipelineInfo, err = p.GitlabClient.TriggerProjectPipeline(info, token, projectID, ref)
+		if err != nil {
+			return errors.Wrapf(err, "failed to run pipeline for Project: :%s", projectName)
+		}
+		return nil
+	})
 	if err != nil {
 		return err.Error()
-	}
-	project, err := p.GitlabClient.GetProject(ctx, info, group, projectName)
-	if err != nil {
-		return err.Error()
-	}
-	projectID := fmt.Sprintf("%d", project.ID)
-	pipelineInfo, err := p.GitlabClient.TriggerProjectPipeline(info, projectID, ref)
-	if err != nil {
-		return errors.Wrapf(err, "failed to run pipeline for Project: :%s", projectName).Error()
 	}
 	var txt string
 	if pipelineInfo == nil {
@@ -693,9 +749,9 @@ func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channel
 }
 
 func (p *Plugin) isAuthorizedSysAdmin(userID string) (bool, error) {
-	user, appErr := p.API.GetUser(userID)
-	if appErr != nil {
-		return false, appErr
+	user, err := p.client.User.Get(userID)
+	if err != nil {
+		return false, err
 	}
 	if !strings.Contains(user.Roles, "system_admin") {
 		return false, nil

@@ -24,25 +24,25 @@ var (
 // Gitlab is a client to call GitLab api see New() to build one
 type Gitlab interface {
 	GetCurrentUser(ctx context.Context, userID string, token oauth2.Token) (*UserInfo, error)
-	GetUserDetails(ctx context.Context, user *UserInfo) (*internGitlab.User, error)
-	GetProject(ctx context.Context, user *UserInfo, owner, repo string) (*internGitlab.Project, error)
-	CreateIssue(ctx context.Context, user *UserInfo, issue *IssueRequest) (*internGitlab.Issue, error)
-	AttachCommentToIssue(ctx context.Context, user *UserInfo, issue *IssueRequest, permalink, commentUsername string) (*internGitlab.Note, error)
-	SearchIssues(ctx context.Context, user *UserInfo, search string) ([]*internGitlab.Issue, error)
-	GetYourPrDetails(ctx context.Context, log logger.Logger, user *UserInfo, prList []*PRDetails) ([]*PRDetails, error)
-	GetReviews(ctx context.Context, user *UserInfo) ([]*MergeRequest, error)
-	GetYourPrs(ctx context.Context, user *UserInfo) ([]*MergeRequest, error)
-	GetYourAssignments(ctx context.Context, user *UserInfo) ([]*Issue, error)
-	GetUnreads(ctx context.Context, user *UserInfo) ([]*internGitlab.Todo, error)
-	GetYourProjects(ctx context.Context, user *UserInfo) ([]*internGitlab.Project, error)
-	GetLabels(ctx context.Context, user *UserInfo, projectID string) ([]*internGitlab.Label, error)
-	GetProjectMembers(ctx context.Context, user *UserInfo, projectID string) ([]*internGitlab.ProjectMember, error)
-	GetMilestones(ctx context.Context, user *UserInfo, projectID string) ([]*internGitlab.Milestone, error)
-	GetProjectHooks(ctx context.Context, user *UserInfo, owner string, repo string) ([]*WebhookInfo, error)
-	GetGroupHooks(ctx context.Context, user *UserInfo, owner string) ([]*WebhookInfo, error)
-	NewProjectHook(ctx context.Context, user *UserInfo, projectID interface{}, projectHookOptions *AddWebhookOptions) (*WebhookInfo, error)
-	NewGroupHook(ctx context.Context, user *UserInfo, groupName string, groupHookOptions *AddWebhookOptions) (*WebhookInfo, error)
-	TriggerProjectPipeline(userInfo *UserInfo, projectID string, ref string) (*PipelineInfo, error)
+	CreateIssue(ctx context.Context, user *UserInfo, issue *IssueRequest, token *oauth2.Token) (*internGitlab.Issue, error)
+	AttachCommentToIssue(ctx context.Context, user *UserInfo, issue *IssueRequest, permalink, commentUsername string, token *oauth2.Token) (*internGitlab.Note, error)
+	SearchIssues(ctx context.Context, user *UserInfo, search string, token *oauth2.Token) ([]*internGitlab.Issue, error)
+	GetYourProjects(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.Project, error)
+	GetLabels(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.Label, error)
+	GetProjectMembers(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.ProjectMember, error)
+	GetMilestones(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.Milestone, error)
+	GetUserDetails(ctx context.Context, user *UserInfo, token *oauth2.Token) (*internGitlab.User, error)
+	GetProject(ctx context.Context, user *UserInfo, token *oauth2.Token, owner, repo string) (*internGitlab.Project, error)
+	GetYourPrDetails(ctx context.Context, log logger.Logger, user *UserInfo, token *oauth2.Token, prList []*PRDetails) ([]*PRDetails, error)
+	GetReviews(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*MergeRequest, error)
+	GetYourPrs(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*MergeRequest, error)
+	GetYourAssignments(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*Issue, error)
+	GetUnreads(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.Todo, error)
+	GetProjectHooks(ctx context.Context, user *UserInfo, token *oauth2.Token, owner string, repo string) ([]*WebhookInfo, error)
+	GetGroupHooks(ctx context.Context, user *UserInfo, token *oauth2.Token, owner string) ([]*WebhookInfo, error)
+	NewProjectHook(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID interface{}, projectHookOptions *AddWebhookOptions) (*WebhookInfo, error)
+	NewGroupHook(ctx context.Context, user *UserInfo, token *oauth2.Token, groupName string, groupHookOptions *AddWebhookOptions) (*WebhookInfo, error)
+	TriggerProjectPipeline(userInfo *UserInfo, token *oauth2.Token, projectID string, ref string) (*PipelineInfo, error)
 	// ResolveNamespaceAndProject accepts full path to User, Group or namespaced Project and returns corresponding
 	// namespace and project name.
 	//
@@ -51,6 +51,7 @@ type Gitlab interface {
 	ResolveNamespaceAndProject(
 		ctx context.Context,
 		userInfo *UserInfo,
+		token *oauth2.Token,
 		fullPath string,
 		allowPrivate bool,
 	) (namespace string, project string, err error)
