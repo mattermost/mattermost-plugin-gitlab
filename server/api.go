@@ -14,6 +14,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	gitlabLib "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
 
 	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
@@ -140,7 +141,7 @@ func (p *Plugin) withRecovery(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if x := recover(); x != nil {
-				p.API.LogWarn("Recovered from a panic",
+				p.client.Log.Warn("Recovered from a panic",
 					"url", r.URL.String(),
 					"error", x,
 					"stack", string(debug.Stack()))
@@ -174,7 +175,7 @@ func (p *Plugin) checkAuth(handler http.HandlerFunc, responseType ResponseType) 
 			case ResponseTypePlain:
 				http.Error(w, "Not authorized", http.StatusUnauthorized)
 			default:
-				p.API.LogDebug("Unknown ResponseType detected")
+				p.client.Log.Debug("Unknown ResponseType detected")
 			}
 			return
 		}
@@ -207,18 +208,18 @@ func (p *Plugin) writeAPIError(w http.ResponseWriter, err *APIErrorResponse) {
 	b, _ := json.Marshal(err)
 	w.WriteHeader(err.StatusCode)
 	if _, err := w.Write(b); err != nil {
-		p.API.LogWarn("can't write api error http response", "err", err.Error())
+		p.client.Log.Warn("can't write api error http response", "err", err.Error())
 	}
 }
 
 func (p *Plugin) writeAPIResponse(w http.ResponseWriter, resp interface{}) {
 	b, jsonErr := json.Marshal(resp)
 	if jsonErr != nil {
-		p.API.LogWarn("Error encoding JSON response", "err", jsonErr.Error())
+		p.client.Log.Warn("Error encoding JSON response", "err", jsonErr.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
 	}
 	if _, err := w.Write(b); err != nil {
-		p.API.LogWarn("can't write response user to http", "err", err.Error())
+		p.client.Log.Warn("can't write response user to http", "err", err.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
 	}
 }
@@ -234,7 +235,7 @@ func (p *Plugin) connectUserToGitlab(c *Context, w http.ResponseWriter, r *http.
 
 	state := fmt.Sprintf("%v_%v", model.NewId()[0:15], userID)
 
-	if err := p.API.KVSet(state, []byte(state)); err != nil {
+	if _, err := p.client.KV.Set(state, []byte(state)); err != nil {
 		c.Log.WithError(err).Warnf("Can't store state oauth2")
 		http.Error(w, "can't store state oauth2", http.StatusInternalServerError)
 		return
@@ -299,20 +300,21 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 
 	state := r.URL.Query().Get("state")
 
-	storedState, appErr := p.API.KVGet(state)
-	if appErr != nil {
-		c.Log.WithError(appErr).Warnf("Can't get state from store")
+	var storedState []byte
+	err := p.client.KV.Get(state, &storedState)
+	if err != nil {
+		c.Log.WithError(err).Warnf("Can't get state from store")
 
-		rErr = errors.Wrap(appErr, "missing stored state")
+		rErr = errors.Wrap(err, "missing stored state")
 		http.Error(w, rErr.Error(), http.StatusBadRequest)
 		return
 	}
 
-	appErr = p.API.KVDelete(state)
-	if appErr != nil {
-		c.Log.WithError(appErr).Warnf("Failed to delete state token")
+	err = p.client.KV.Delete(state)
+	if err != nil {
+		c.Log.WithError(err).Warnf("Failed to delete state token")
 
-		rErr = errors.Wrap(appErr, "error deleting stored state")
+		rErr = errors.Wrap(err, "error deleting stored state")
 		http.Error(w, rErr.Error(), http.StatusBadRequest)
 	}
 
@@ -350,6 +352,14 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 
 	if err = p.storeGitlabUserInfo(userInfo); err != nil {
 		c.Log.WithError(err).Warnf("Can't store user info")
+
+		rErr = errors.Wrap(err, "Unable to connect user to GitLab")
+		http.Error(w, rErr.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err = p.storeGitlabUserToken(userInfo.UserID, tok); err != nil {
+		c.Log.WithError(err).Warnf("Can't store user token")
 
 		rErr = errors.Wrap(err, "Unable to connect user to GitLab")
 		http.Error(w, rErr.Error(), http.StatusInternalServerError)
@@ -405,7 +415,7 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 
 	p.TrackUserEvent("account_connected", userID, nil)
 
-	p.API.PublishWebSocketEvent(
+	p.client.Frontend.PublishWebSocketEvent(
 		WsEventConnect,
 		map[string]interface{}{
 			"connected":        true,
@@ -493,7 +503,7 @@ func (p *Plugin) getConnected(c *Context, w http.ResponseWriter, r *http.Request
 	}
 
 	info, _ := p.getGitlabUserInfoByMattermostID(c.UserID)
-	if info != nil && info.Token != nil {
+	if info != nil {
 		resp.Connected = true
 		resp.GitlabUsername = info.GitlabUsername
 		resp.GitlabClientID = config.GitlabOAuthClientID
@@ -524,7 +534,16 @@ func (p *Plugin) getConnected(c *Context, w http.ResponseWriter, r *http.Request
 }
 
 func (p *Plugin) getUnreads(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	result, err := p.GitlabClient.GetUnreads(c.Ctx, c.GitlabInfo)
+	var result []*gitlabLib.Todo
+	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetUnreads(c.Ctx, info, token)
+		if err != nil {
+			return err
+		}
+		result = resp
+		return nil
+	})
+
 	if err != nil {
 		c.Log.WithError(err).Warnf("Unable to list unreads in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list unreads in GitLab API.", StatusCode: http.StatusInternalServerError})
@@ -535,7 +554,16 @@ func (p *Plugin) getUnreads(c *UserContext, w http.ResponseWriter, r *http.Reque
 }
 
 func (p *Plugin) getReviews(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	result, err := p.GitlabClient.GetReviews(c.Ctx, c.GitlabInfo)
+	var result []*gitlab.MergeRequest
+	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetReviews(c.Ctx, info, token)
+		if err != nil {
+			return err
+		}
+		result = resp
+		return nil
+	})
+
 	if err != nil {
 		c.Log.WithError(err).Warnf("Unable to list merge-request where assignee in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
@@ -546,7 +574,16 @@ func (p *Plugin) getReviews(c *UserContext, w http.ResponseWriter, r *http.Reque
 }
 
 func (p *Plugin) getYourPrs(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	result, err := p.GitlabClient.GetYourPrs(c.Ctx, c.GitlabInfo)
+	var result []*gitlab.MergeRequest
+	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetYourPrs(c.Ctx, info, token)
+		if err != nil {
+			return err
+		}
+		result = resp
+		return nil
+	})
+
 	if err != nil {
 		c.Log.WithError(err).Warnf("Can't list merge-request where author in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
@@ -563,7 +600,15 @@ func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Req
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Error decoding PRDetails JSON body. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
 		return
 	}
-	result, err := p.GitlabClient.GetYourPrDetails(c.Ctx, c.Log, c.GitlabInfo, prList)
+	var result []*gitlab.PRDetails
+	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetYourPrDetails(c.Ctx, c.Log, info, token, prList)
+		if err != nil {
+			return err
+		}
+		result = resp
+		return nil
+	})
 	if err != nil {
 		c.Log.WithError(err).Warnf("Can't list merge-request details in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Can't list merge-request details in GitLab API. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
@@ -574,7 +619,16 @@ func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Req
 }
 
 func (p *Plugin) getYourAssignments(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	result, err := p.GitlabClient.GetYourAssignments(c.Ctx, c.GitlabInfo)
+	var result []*gitlab.Issue
+	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetYourAssignments(c.Ctx, info, token)
+		if err != nil {
+			return err
+		}
+		result = resp
+		return nil
+	})
+
 	if err != nil {
 		c.Log.WithError(err).Warnf("Unable to list issue where assignee in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list issue in GitLab API.", StatusCode: http.StatusInternalServerError})
@@ -592,7 +646,7 @@ func (p *Plugin) postToDo(c *UserContext, w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if appErr := p.CreateBotDMPost(c.UserID, text, "custom_git_todo"); appErr != nil {
+	if err := p.CreateBotDMPost(c.UserID, text, "custom_git_todo"); err != nil {
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an error posting the to do items.", StatusCode: http.StatusUnauthorized})
 	}
 
@@ -633,14 +687,21 @@ func (p *Plugin) getIssueByNumber(c *UserContext, w http.ResponseWriter, r *http
 		return
 	}
 
-	issue, err := p.GitlabClient.GetIssueByID(c.Ctx, c.GitlabInfo, owner, repo, issueID)
-	if err != nil {
-		c.Log.WithError(err).Warnf("Unable to get issue in GitLab API")
+	var result *gitlab.Issue
+	if cErr := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		issue, err := p.GitlabClient.GetIssueByID(c.Ctx, c.GitlabInfo, owner, repo, issueID, token)
+		if err != nil {
+			return err
+		}
+		result = issue
+		return nil
+	}); cErr != nil {
+		c.Log.WithError(cErr).Warnf("Unable to get issue in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get issue in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 
-	p.writeAPIResponse(w, issue)
+	p.writeAPIResponse(w, result)
 }
 
 func (p *Plugin) getMergeRequestByNumber(c *UserContext, w http.ResponseWriter, r *http.Request) {
@@ -653,14 +714,21 @@ func (p *Plugin) getMergeRequestByNumber(c *UserContext, w http.ResponseWriter, 
 		return
 	}
 
-	mergeRequest, err := p.GitlabClient.GetMergeRequestByID(c.Ctx, c.GitlabInfo, owner, repo, mergeRequestID)
-	if err != nil {
-		c.Log.WithError(err).Warnf("Unable to get merge request in GitLab API")
+	var result *gitlab.MergeRequest
+	if cErr := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		mergeRequest, err := p.GitlabClient.GetMergeRequestByID(c.Ctx, c.GitlabInfo, owner, repo, mergeRequestID, token)
+		if err != nil {
+			return err
+		}
+		result = mergeRequest
+		return nil
+	}); cErr != nil {
+		c.Log.WithError(cErr).Warnf("Unable to get merge request in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get merge request in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 
-	p.writeAPIResponse(w, mergeRequest)
+	p.writeAPIResponse(w, result)
 }
 
 type SubscriptionResponse struct {
@@ -699,7 +767,7 @@ func (p *Plugin) getChannelSubscriptions(c *UserContext, w http.ResponseWriter, 
 	vars := mux.Vars(r)
 	channelID := vars["channel_id"]
 
-	if !p.API.HasPermissionToChannel(c.UserID, channelID, model.PermissionReadChannel) {
+	if !p.client.User.HasPermissionToChannel(c.UserID, channelID, model.PermissionReadChannel) {
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Not authorized.", StatusCode: http.StatusUnauthorized})
 		return
 	}
@@ -707,7 +775,7 @@ func (p *Plugin) getChannelSubscriptions(c *UserContext, w http.ResponseWriter, 
 	config := p.getConfiguration()
 	subscriptions, err := p.GetSubscriptionsByChannel(channelID)
 	if err != nil {
-		p.API.LogWarn("unable to get subscriptions by channel", "err", err.Error())
+		p.client.Log.Warn("unable to get subscriptions by channel", "err", err.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get subscriptions by channel.", StatusCode: http.StatusInternalServerError})
 		return
 	}
@@ -716,9 +784,9 @@ func (p *Plugin) getChannelSubscriptions(c *UserContext, w http.ResponseWriter, 
 
 	b, err := json.Marshal(resp)
 	if err != nil {
-		p.API.LogWarn("failed to marshal channel subscriptions response", "err", err.Error())
+		p.client.Log.Warn("failed to marshal channel subscriptions response", "err", err.Error())
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
 	} else if _, err := w.Write(b); err != nil {
-		p.API.LogWarn("can't write api error http response", "err", err.Error())
+		p.client.Log.Warn("can't write api error http response", "err", err.Error())
 	}
 }
