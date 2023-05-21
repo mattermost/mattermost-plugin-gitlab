@@ -611,9 +611,10 @@ func (g *gitlab) GetUnreads(ctx context.Context, user *UserInfo, token *oauth2.T
 		}
 		opt.Page = resp.NextPage
 	}
+
 	notifications := make([]*internGitlab.Todo, 0, len(todos))
 	for _, todo := range todos {
-		if g.checkGroup(strings.TrimSuffix(todo.Project.PathWithNamespace, "/"+todo.Project.Path)) != nil {
+		if todo.Project != nil && g.checkGroup(strings.TrimSuffix(todo.Project.PathWithNamespace, "/"+todo.Project.Path)) != nil {
 			continue
 		}
 		notifications = append(notifications, todo)
