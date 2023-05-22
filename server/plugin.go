@@ -536,6 +536,10 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 		notificationContent := ""
 
 		for _, n := range unreads {
+			if n == nil {
+				continue
+			}
+
 			if n.Project != nil && p.isNamespaceAllowed(n.Project.NameWithNamespace) != nil {
 				continue
 			}
