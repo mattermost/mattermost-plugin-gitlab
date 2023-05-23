@@ -58,3 +58,25 @@ func TestNormalizePath(t *testing.T) {
 		assert.Equal(t, tc.Expected, normalizePath(tc.Full, tc.BaseURL))
 	}
 }
+
+func TestLastN(t *testing.T) {
+	tcs := []struct {
+		Text     string
+		N        int
+		Expected string
+	}{
+		{Text: "", N: -99, Expected: ""},
+		{Text: "", N: -1, Expected: ""},
+		{Text: "", N: 0, Expected: ""},
+		{Text: "", N: 1, Expected: ""},
+		{Text: "", N: 99, Expected: ""},
+		{Text: "abcdef", N: 4, Expected: "**cdef"},
+		{Text: "abcdefghi", N: 2, Expected: "***hi"},
+		{Text: "abcdefghi", N: 0, Expected: "***"},
+		{Text: "abcdefghi", N: 99, Expected: "abcdefghi"},
+	}
+
+	for _, tc := range tcs {
+		assert.Equal(t, tc.Expected, lastN(tc.Text, tc.N))
+	}
+}
