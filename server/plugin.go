@@ -148,8 +148,14 @@ func (p *Plugin) OnDeactivate() error {
 }
 
 func (p *Plugin) OnInstall(c *plugin.Context, event model.OnInstallEvent) error {
+	conf := p.getConfiguration()
+
 	// Don't start wizard if OAuth is configured
-	if p.getConfiguration().IsOAuthConfigured() {
+	if conf.IsOAuthConfigured() {
+		p.client.Log.Debug("OAuth is configured, skipping setup wizard",
+			"GitlabOAuthClientID", lastN(conf.GitlabOAuthClientID, 4),
+			"GitlabOAuthClientSecret", lastN(conf.GitlabOAuthClientSecret, 4),
+			"UsePreregisteredApplication", conf.UsePreregisteredApplication)
 		return nil
 	}
 
