@@ -12,7 +12,6 @@ const SettingButtonsTeam = "team"
 
 type UserInfo struct {
 	UserID              string
-	Token               *oauth2.Token
 	GitlabUsername      string
 	GitlabUserID        int
 	LastToDoPostAt      int64
@@ -43,7 +42,6 @@ func (g *gitlab) GetCurrentUser(ctx context.Context, userID string, token oauth2
 	return &UserInfo{
 		UserID:         userID,
 		GitlabUserID:   gitUser.ID,
-		Token:          &token,
 		GitlabUsername: gitUser.Username,
 		LastToDoPostAt: model.GetMillis(),
 		Settings: &UserSettings{
@@ -54,8 +52,8 @@ func (g *gitlab) GetCurrentUser(ctx context.Context, userID string, token oauth2
 	}, nil
 }
 
-func (g *gitlab) GetUserDetails(ctx context.Context, user *UserInfo) (*internGitlab.User, error) {
-	client, err := g.gitlabConnect(*user.Token)
+func (g *gitlab) GetUserDetails(ctx context.Context, user *UserInfo, token *oauth2.Token) (*internGitlab.User, error) {
+	client, err := g.gitlabConnect(*token)
 	if err != nil {
 		return nil, err
 	}
