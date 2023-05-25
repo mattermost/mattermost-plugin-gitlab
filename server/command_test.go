@@ -4,13 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
 	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin/plugintest"
-	"golang.org/x/oauth2"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -271,11 +269,11 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.We
 
 	mockedClient := mocks.NewMockGitlab(mockCtrl)
 	if mockGitlab {
-		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("group", "project", nil)
+		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("group", "project", nil)
 		if getProjectErr != nil {
-			mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, getProjectErr)
+			mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, getProjectErr)
 		} else {
-			mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&gitLabAPI.Project{
+			mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&gitLabAPI.Project{
 				Permissions: &gitLabAPI.Permissions{
 					ProjectAccess: &gitLabAPI.ProjectAccess{
 						AccessLevel: accessLevel,
@@ -285,26 +283,15 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.We
 		}
 
 		if !noAccess {
-			mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
+			mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
 			if projectHookErr == nil {
-				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
+				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
 			}
-		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("group", "project", nil)
-		mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
-		if projectHookErr == nil {
-			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
 		}
 	}
 
 	p.GitlabClient = mockedClient
 
-	api := &plugintest.API{}
-	p.SetAPI(api)
-	p.client = pluginapi.NewClient(api, p.Driver)
-
-	conf := &model.Config{}
-	conf.ServiceSettings.SiteURL = &mattermostURL
-	api.On("GetConfig", mock.Anything).Return(conf)
 	conf := &model.Config{}
 	conf.ServiceSettings.SiteURL = &mattermostURL
 
@@ -314,48 +301,35 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.We
 		EncryptionKey: testEncryptionKey,
 	}
 
-	var subVal []byte
-
-	api := &plugintest.API{}
-	api.On("GetConfig", mock.Anything).Return(conf)
-	api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
-	api.On("KVGet", mock.Anything).Return(subVal, nil)
-	api.On("KVSet", mock.Anything, mock.Anything).Return(nil)
-	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil)
-	api.On("PublishWebSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-
-	config := getTestConfig()
-	p.configuration = config
-	p.initializeAPI()
-
-	token := oauth2.Token{
-		AccessToken: "access_token",
-		Expiry:      time.Now().Add(1 * time.Hour),
-	}
-
 	info := gitlab.UserInfo{
 		UserID:         "user_id",
-		Token:          &token,
 		GitlabUsername: "gitlab_username",
 	}
-
-	encryptedToken, err := encrypt([]byte(config.EncryptionKey), info.Token.AccessToken)
-	require.NoError(t, err)
-
-	info.Token.AccessToken = encryptedToken
 
 	jsonInfo, err := json.Marshal(info)
 	require.NoError(t, err)
 
-	api.On("KVGet", "user_id_gitlabtoken").Return(jsonInfo, nil)
 	var subVal []byte
+
+	api := &plugintest.API{}
+	api.On("GetConfig", mock.Anything).Return(conf)
+	api.On("KVGet", "user_id_usertoken").Return([]byte(encryptedToken), nil)
+	api.On("KVGet", "user_id_userinfo").Return(subVal, nil).Once()
+	api.On("KVGet", "user_id_gitlabtoken").Return(jsonInfo, nil).Once()
 	api.On("KVGet", "subscriptions").Return(subVal, nil)
+
+	api.On("KVSet", mock.Anything, mock.Anything).Return(nil)
+	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil)
+	api.On("PublishWebSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	api.On("LogWarn",
 		mock.AnythingOfTypeArgument("string"),
 		mock.AnythingOfTypeArgument("string"),
 		mock.AnythingOfTypeArgument("string"),
 		mock.AnythingOfTypeArgument("string"),
 		mock.AnythingOfTypeArgument("string"))
+
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
 
 	return p
 }
