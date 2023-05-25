@@ -32,15 +32,6 @@ type subscribeCommandTest struct {
 	mockGitlab     bool
 }
 
-func getTestConfig() *configuration {
-	return &configuration{
-		GitlabURL:               "https://example.com",
-		GitlabOAuthClientID:     "client_id",
-		GitlabOAuthClientSecret: "secret",
-		EncryptionKey:           "encryption___key",
-	}
-}
-
 const subscribeSuccessMessage = "Successfully subscribed to group/project.\nA Webhook is needed, run ```/gitlab webhook add group/project``` to create one now."
 const testGitlabToken = `{"access_token":"6328a1014b19f741489b48cdc4291d93aa2957b0cea67335a34dcdadaf212139","token_type":"Bearer","refresh_token":"e6453b621e8979214c9f8a1b0e1e39723df8af11cef5e0d613a2cb2e39bdfeb7","expiry":"3022-10-23T15:14:43.623638795-05:00"}`
 const testEncryptionKey = `shD-LC2DElnQzUO50cbvlOvjsNnzfEbk`
