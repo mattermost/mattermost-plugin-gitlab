@@ -230,7 +230,7 @@ func (p *Plugin) permissionToProject(ctx context.Context, userID, namespace, pro
 	}
 
 	// Check for guest level permissions
-	if result.Permissions.ProjectAccess != nil && result.Permissions.ProjectAccess.AccessLevel == gitlabLib.GuestPermissions {
+	if result.Permissions.ProjectAccess.AccessLevel == gitlabLib.GuestPermissions {
 		return false
 	}
 
