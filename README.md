@@ -173,7 +173,6 @@ For Questions, suggestions, and help - please find us on our forum at [https://f
 
 Alternatively, join our public Mattermost server and join the [Integrations and Apps channel](https://community-daily.mattermost.com/core/channels/integrations).
 
-To contribute to the Mattermost project see [https://www.mattermost.org/contribute-to-mattermost/](https://www.mattermost.org/contribute-to-mattermost/).
 
 ## Feedback and Feature Requests
 
