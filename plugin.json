@@ -85,9 +85,30 @@
                 "key": "EnablePrivateRepo",
                 "display_name": "Enable Private Repositories:",
                 "type": "bool",
-                "help_text": "(Optional) Allow the plugin to work with private repositories.",
+                "help_text": "(Optional) Allow the plugin to work with private repositories for subscriptions.",
                 "placeholder": "",
                 "default": null
+            },
+            {
+                "key": "EnableCodePreview",
+                "display_name": "Enable Code Previews:",
+                "type": "dropdown",
+                "help_text": "Allow the plugin to expand permalinks to GitLab files with an actual preview of the linked file.",
+                "default": "public",
+                "options": [
+                    {
+                        "display_name": "Enable for public projects",
+                        "value": "public"
+                    },
+                    {
+                        "display_name": "Enable for public and private projects. This might leak confidential code into public channels",
+                        "value": "privateAndPublic"
+                    },
+                    {
+                        "display_name": "Disable",
+                        "value": "disable"
+                    }
+                ]
             }
         ]
     }
