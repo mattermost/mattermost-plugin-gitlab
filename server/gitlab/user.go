@@ -26,7 +26,7 @@ type UserSettings struct {
 }
 
 func (g *gitlab) GetCurrentUser(ctx context.Context, userID string, token oauth2.Token) (*UserInfo, error) {
-	client, err := g.gitlabConnect(token)
+	client, err := g.GitlabConnect(token)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +53,7 @@ func (g *gitlab) GetCurrentUser(ctx context.Context, userID string, token oauth2
 }
 
 func (g *gitlab) GetUserDetails(ctx context.Context, user *UserInfo, token *oauth2.Token) (*internGitlab.User, error) {
-	client, err := g.gitlabConnect(*token)
+	client, err := g.GitlabConnect(*token)
 	if err != nil {
 		return nil, err
 	}
