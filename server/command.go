@@ -34,7 +34,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	* label:"<labelname>" - must include "merges" or "issues" in feature list when using a label
     * Defaults to "merges,issues,tag"
 * |/gitlab subscriptions delete owner/repo| - Unsubscribe the current channel from a repository
-* |/gitlab pipeline run [owner]/repo [ref]| - Run a pipeline for specific repository and ref (branch/tag)
+* |/gitlab pipelines run [owner]/repo [ref]| - Run a pipeline for specific repository and ref (branch/tag)
 * |/gitlab me| - Display the connected GitLab account
 * |/gitlab settings [setting] [value]| - Update your user settings
   * |setting| can be "notifications" or "reminders"
