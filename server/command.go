@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -125,7 +127,7 @@ func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string) *model
 }
 
 // ExecuteCommand is the entrypoint for /gitlab commands. It returns a message to display to the user or an error.
-func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res *model.CommandResponse, err *model.AppError) {
 	var (
 		split      = strings.Fields(args.Command)
 		cmd        = split[0]
@@ -144,6 +146,20 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 
 	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 	defer cancel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			p.client.Log.Warn("Recovered from a panic",
+				"Command", args.Command,
+				"UserId", args.UserId,
+				"error", r,
+				"stack", string(debug.Stack()))
+			err = model.NewAppError("ExecuteCommand", "plugin_gitlab.command.execute_command.panic", nil, "", http.StatusInternalServerError)
+			res = &model.CommandResponse{}
+			res.Text = "An unexpected error occurred. Please try again later."
+			res.Username = p.BotUserID
+		}
+	}()
 
 	if action == "about" {
 		text, err := command.BuildInfo(manifest)
