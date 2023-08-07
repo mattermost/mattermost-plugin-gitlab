@@ -156,8 +156,10 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 				"stack", string(debug.Stack()))
 			err = model.NewAppError("ExecuteCommand", "plugin_gitlab.command.execute_command.panic", nil, "", http.StatusInternalServerError)
 			res = &model.CommandResponse{}
-			res.Text = "An unexpected error occurred. Please try again later."
-			res.Username = p.BotUserID
+			p.postCommandResponse(args, "An unexpected error occurred. Please try again later.")
+			if *p.client.Configuration.GetConfig().ServiceSettings.EnableDeveloper {
+				p.postCommandResponse(args, r.(string))
+			}
 		}
 	}()
 
