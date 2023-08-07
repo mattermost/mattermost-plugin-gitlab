@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -154,11 +153,10 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 				"UserId", args.UserId,
 				"error", r,
 				"stack", string(debug.Stack()))
-			err = model.NewAppError("ExecuteCommand", "plugin_gitlab.command.execute_command.panic", nil, "", http.StatusInternalServerError)
 			res = &model.CommandResponse{}
 			p.postCommandResponse(args, "An unexpected error occurred. Please try again later.")
 			if *p.client.Configuration.GetConfig().ServiceSettings.EnableDeveloper {
-				p.postCommandResponse(args, r.(string))
+				p.postCommandResponse(args, fmt.Sprintf("error: %v, \n stack: %s", r, string(debug.Stack())))
 			}
 		}
 	}()
