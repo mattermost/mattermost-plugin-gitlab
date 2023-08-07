@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -51,9 +52,7 @@ const (
 	invalidTokenError = "401 {error: invalid_token}" //#nosec G101 -- False positive
 )
 
-var (
-	manifest model.Manifest = root.Manifest
-)
+var manifest model.Manifest = root.Manifest
 
 type Plugin struct {
 	plugin.MattermostPlugin
@@ -81,6 +80,14 @@ type Plugin struct {
 
 	WebhookHandler webhook.Webhook
 	GitlabClient   gitlab.Gitlab
+}
+
+// gitlabPermalinkRegex is used to parse gitlab permalinks in post messages.
+var gitlabPermalinkRegex = regexp.MustCompile(`https?://(?P<haswww>www\.)?gitlab\.com/(?P<user>[\w/.?-]+)/(?P<repo>[\w-]+)/-/blob/(?P<commit>\w+)/(?P<path>[\w-/.]+)#(?P<line>[\w-]+)?`)
+
+// NewPlugin returns an instance of a Plugin.
+func NewPlugin() *Plugin {
+	return &Plugin{}
 }
 
 func (p *Plugin) OnActivate() error {
@@ -161,6 +168,49 @@ func (p *Plugin) OnSendDailyTelemetry() {
 
 func (p *Plugin) OnPluginClusterEvent(c *plugin.Context, ev model.PluginClusterEvent) {
 	p.HandleClusterEvent(ev)
+}
+
+func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*model.Post, string) {
+	// If not enabled in config, ignore.
+	if p.getConfiguration().EnableCodePreview == "disable" {
+		return nil, ""
+	}
+
+	if post.UserId == "" {
+		return nil, ""
+	}
+
+	msg := post.Message
+	replacements := p.getPermalinkReplacements(msg)
+	if len(replacements) == 0 {
+		return nil, ""
+	}
+	info, err := p.getGitlabUserInfoByMattermostID(post.UserId)
+	if err != nil {
+		if err.ID == APIErrorIDNotConnected {
+			p.API.LogDebug("Error while processing permalinks in the post", "Error", err.Error())
+		} else {
+			p.API.LogDebug("Error in getting user info", "Error", err.Error())
+		}
+		return nil, ""
+	}
+
+	var glClient *gitlabLib.Client
+	if cErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GitlabConnect(*token)
+		if err != nil {
+			return err
+		}
+
+		glClient = resp
+		return nil
+	}); cErr != nil {
+		p.API.LogDebug("Error in getting GitLab client", "Error", cErr.Error())
+		return nil, ""
+	}
+
+	post.Message = p.makeReplacements(msg, replacements, glClient)
+	return post, ""
 }
 
 func (p *Plugin) setDefaultConfiguration() error {
@@ -542,7 +592,11 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 		notificationContent := ""
 
 		for _, n := range unreads {
-			if p.isNamespaceAllowed(n.Project.NameWithNamespace) != nil {
+			if n == nil {
+				continue
+			}
+
+			if n.Project != nil && p.isNamespaceAllowed(n.Project.NameWithNamespace) != nil {
 				continue
 			}
 			notificationCount++

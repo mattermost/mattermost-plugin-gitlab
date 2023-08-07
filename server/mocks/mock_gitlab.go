@@ -188,6 +188,21 @@ func (mr *MockGitlabMockRecorder) GetYourPrs(arg0, arg1, arg2 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetYourPrs", reflect.TypeOf((*MockGitlab)(nil).GetYourPrs), arg0, arg1, arg2)
 }
 
+// GitlabConnect mocks base method.
+func (m *MockGitlab) GitlabConnect(arg0 oauth2.Token) (*gitlab0.Client, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GitlabConnect", arg0)
+	ret0, _ := ret[0].(*gitlab0.Client)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GitlabConnect indicates an expected call of GitlabConnect.
+func (mr *MockGitlabMockRecorder) GitlabConnect(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GitlabConnect", reflect.TypeOf((*MockGitlab)(nil).GitlabConnect), arg0)
+}
+
 // NewGroupHook mocks base method.
 func (m *MockGitlab) NewGroupHook(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token, arg3 string, arg4 *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error) {
 	m.ctrl.T.Helper()
