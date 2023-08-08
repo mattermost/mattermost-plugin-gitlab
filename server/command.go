@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -125,7 +126,7 @@ func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string) *model
 }
 
 // ExecuteCommand is the entrypoint for /gitlab commands. It returns a message to display to the user or an error.
-func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res *model.CommandResponse, appErr *model.AppError) {
 	var (
 		split      = strings.Fields(args.Command)
 		cmd        = split[0]
@@ -144,6 +145,21 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 
 	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 	defer cancel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			p.client.Log.Warn("Recovered from a panic",
+				"Command", args.Command,
+				"UserId", args.UserId,
+				"error", r,
+				"stack", string(debug.Stack()))
+			res = &model.CommandResponse{}
+			p.postCommandResponse(args, "An unexpected error occurred. Please try again later.")
+			if *p.client.Configuration.GetConfig().ServiceSettings.EnableDeveloper {
+				p.postCommandResponse(args, fmt.Sprintf("error: %v, \nstack:\n```\n%s\n```", r, string(debug.Stack())))
+			}
+		}
+	}()
 
 	if action == "about" {
 		text, err := command.BuildInfo(manifest)
