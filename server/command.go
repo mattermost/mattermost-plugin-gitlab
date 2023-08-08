@@ -126,7 +126,7 @@ func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string) *model
 }
 
 // ExecuteCommand is the entrypoint for /gitlab commands. It returns a message to display to the user or an error.
-func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res *model.CommandResponse, err *model.AppError) {
+func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res *model.CommandResponse, appErr *model.AppError) {
 	var (
 		split      = strings.Fields(args.Command)
 		cmd        = split[0]
