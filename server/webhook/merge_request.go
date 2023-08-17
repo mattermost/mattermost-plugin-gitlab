@@ -33,8 +33,15 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 		case actionReopen:
 			message = fmt.Sprintf("[%s](%s) reopen your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 		case actionUpdate:
-			// TODO not enough check (opened/update) to say assigned to you...
-			message = fmt.Sprintf("[%s](%s) assigned you to merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+			if event.ObjectAttributes.OldRev != "" {
+				message = fmt.Sprintf("[%s](%s) pushed a new commit to merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+			} else {
+				prevAssignees := event.Changes.Assignees.Previous
+				currAssignees := event.Changes.Assignees.Current
+				if len(prevAssignees) != len(currAssignees) || !compareAssignees(prevAssignees, currAssignees) {
+					message = fmt.Sprintf("[%s](%s) updated the assignees of merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+				}
+			}
 		case actionApproved:
 			message = fmt.Sprintf("[%s](%s) approved your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 		case actionUnapproved:
@@ -123,4 +130,17 @@ func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.M
 	}
 
 	return res, nil
+}
+
+func compareAssignees(prev, curr []*gitlab.EventUser) bool {
+	m := make(map[int]bool)
+	for _, assignee := range prev {
+		m[assignee.ID] = true
+	}
+	for _, assignee := range curr {
+		if !m[assignee.ID] {
+			return false
+		}
+	}
+	return true
 }
