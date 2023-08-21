@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.8.0
-	github.com/mattermost/mattermost/server/public v0.0.8-0.20230821092930-95b76e42ad62
+	github.com/mattermost/mattermost/server/public v0.0.8
 	github.com/microcosm-cc/bluemonday v1.0.19
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.4
