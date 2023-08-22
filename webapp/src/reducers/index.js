@@ -88,9 +88,9 @@ function reviewDetails(state = [], action) {
     }
 }
 
-function yourPrs(state = [], action) {
+function yourAssignedPrs(state = [], action) {
     switch (action.type) {
-    case ActionTypes.RECEIVED_YOUR_PRS:
+    case ActionTypes.RECEIVED_YOUR_ASSIGNED_PRS:
         return action.data;
     default:
         return state;
@@ -106,9 +106,9 @@ function yourPrDetails(state = [], action) {
     }
 }
 
-function yourAssignments(state = [], action) {
+function yourAssignedIssues(state = [], action) {
     switch (action.type) {
-    case ActionTypes.RECEIVED_YOUR_ASSIGNMENTS:
+    case ActionTypes.RECEIVED_YOUR_ASSIGNED_ISSUES:
         return action.data;
     default:
         return state;
@@ -124,9 +124,9 @@ function mentions(state = [], action) {
     }
 }
 
-function unreads(state = [], action) {
+function todos(state = [], action) {
     switch (action.type) {
-    case ActionTypes.RECEIVED_UNREADS:
+    case ActionTypes.RECEIVED_TODOS:
         return action.data;
     default:
         return state;
@@ -184,10 +184,10 @@ export default combineReducers({
     settings,
     clientId,
     reviews,
-    yourPrs,
-    yourAssignments,
+    yourAssignedPrs,
+    yourAssignedIssues,
     mentions,
-    unreads,
+    todos,
     gitlabUsers,
     rhsPluginAction,
     rhsState,

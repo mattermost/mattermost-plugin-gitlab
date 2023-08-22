@@ -56,10 +56,10 @@ func (p *Plugin) initializeAPI() {
 	apiRouter.HandleFunc("/user", p.checkAuth(p.attachContext(p.getGitlabUser), ResponseTypeJSON)).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/todo", p.checkAuth(p.attachUserContext(p.postToDo), ResponseTypeJSON)).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/reviews", p.checkAuth(p.attachUserContext(p.getReviews), ResponseTypePlain)).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/yourprs", p.checkAuth(p.attachUserContext(p.getYourPrs), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/assignedprs", p.checkAuth(p.attachUserContext(p.getYourAssignedPrs), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/prdetails", p.checkAuth(p.attachUserContext(p.getPrDetails), ResponseTypePlain)).Methods(http.MethodPost)
-	apiRouter.HandleFunc("/yourassignments", p.checkAuth(p.attachUserContext(p.getYourAssignments), ResponseTypePlain)).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/unreads", p.checkAuth(p.attachUserContext(p.getUnreads), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/assignedissues", p.checkAuth(p.attachUserContext(p.getYourAssignedIssues), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/todolist", p.checkAuth(p.attachUserContext(p.getToDoList), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/settings", p.checkAuth(p.attachUserContext(p.updateSettings), ResponseTypePlain)).Methods(http.MethodPost)
 
 	apiRouter.HandleFunc("/channel/{channel_id:[A-Za-z0-9]+}/subscriptions", p.checkAuth(p.attachUserContext(p.getChannelSubscriptions), ResponseTypeJSON)).Methods(http.MethodGet)
@@ -396,10 +396,10 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 			"Turn off notifications with `/gitlab settings notifications off`.\n\n"+
 			"##### Sidebar Buttons\n"+
 			"Check out the buttons in the left-hand sidebar of Mattermost.\n"+
-			"* The first button tells you how many merge requests you have submitted.\n"+
+			"* The first button tells you how many merge requests you are assigned to.\n"+
 			"* The second shows the number of merge requests that are awaiting your review.\n"+
-			"* The third shows the number of merge requests and issues you are assigned to.\n"+
-			"* The fourth tracks the number of unread messages you have.\n"+
+			"* The third shows the number of issues you are assigned to.\n"+
+			"* The fourth tracks the number of todos you have.\n"+
 			"* The fifth will refresh the numbers.\n\n"+
 			"Click on them!\n\n"+
 			"##### Slash Commands\n"+
@@ -530,10 +530,10 @@ func (p *Plugin) getConnected(c *Context, w http.ResponseWriter, r *http.Request
 	p.writeAPIResponse(w, resp)
 }
 
-func (p *Plugin) getUnreads(c *UserContext, w http.ResponseWriter, r *http.Request) {
+func (p *Plugin) getToDoList(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	var result []*gitlabLib.Todo
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetUnreads(c.Ctx, info, token)
+		resp, err := p.GitlabClient.GetToDoList(c.Ctx, info, token)
 		if err != nil {
 			return err
 		}
@@ -542,8 +542,8 @@ func (p *Plugin) getUnreads(c *UserContext, w http.ResponseWriter, r *http.Reque
 	})
 
 	if err != nil {
-		c.Log.WithError(err).Warnf("Unable to list unreads in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list unreads in GitLab API.", StatusCode: http.StatusInternalServerError})
+		c.Log.WithError(err).Warnf("Unable to list todos in GitLab API")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list todos in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 
@@ -570,24 +570,23 @@ func (p *Plugin) getReviews(c *UserContext, w http.ResponseWriter, r *http.Reque
 	p.writeAPIResponse(w, result)
 }
 
-func (p *Plugin) getYourPrs(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	var result []*gitlab.MergeRequest
+func (p *Plugin) getYourAssignedPrs(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	var assignedPRs []*gitlab.MergeRequest
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetYourPrs(c.Ctx, info, token)
+		resp, err := p.GitlabClient.GetYourAssignedPrs(c.Ctx, info, token)
 		if err != nil {
 			return err
 		}
-		result = resp
+		assignedPRs = resp
 		return nil
 	})
-
 	if err != nil {
 		c.Log.WithError(err).Warnf("Can't list merge-request where author in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 
-	p.writeAPIResponse(w, result)
+	p.writeAPIResponse(w, assignedPRs)
 }
 
 func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Request) {
@@ -615,10 +614,10 @@ func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Req
 	p.writeAPIResponse(w, result)
 }
 
-func (p *Plugin) getYourAssignments(c *UserContext, w http.ResponseWriter, r *http.Request) {
+func (p *Plugin) getYourAssignedIssues(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	var result []*gitlab.Issue
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetYourAssignments(c.Ctx, info, token)
+		resp, err := p.GitlabClient.GetYourAssignedIssues(c.Ctx, info, token)
 		if err != nil {
 			return err
 		}

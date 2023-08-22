@@ -353,7 +353,7 @@ func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo, token *oauth2.T
 	return mergeRequests, err
 }
 
-func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*MergeRequest, error) {
+func (g *gitlab) GetYourAssignedPrs(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*MergeRequest, error) {
 	client, err := g.GitlabConnect(*token)
 	if err != nil {
 		return nil, err
@@ -366,7 +366,7 @@ func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo, token *oauth2.T
 
 	if g.gitlabGroup == "" {
 		opt := &internGitlab.ListMergeRequestsOptions{
-			AuthorID:    &user.GitlabUserID,
+			AssigneeID:  internGitlab.AssigneeID(user.GitlabUserID),
 			State:       &opened,
 			Scope:       &scope,
 			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: perPage},
@@ -386,7 +386,7 @@ func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo, token *oauth2.T
 		}
 	} else {
 		opt := &internGitlab.ListGroupMergeRequestsOptions{
-			AuthorID:    &user.GitlabUserID,
+			AssigneeID:  internGitlab.AssigneeID(user.GitlabUserID),
 			State:       &opened,
 			Scope:       &scope,
 			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: perPage},
@@ -518,7 +518,7 @@ func (g *gitlab) fetchYourPrDetails(c context.Context, log logger.Logger, client
 	return nil
 }
 
-func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*Issue, error) {
+func (g *gitlab) GetYourAssignedIssues(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*Issue, error) {
 	client, err := g.GitlabConnect(*token)
 	if err != nil {
 		return nil, err
@@ -588,7 +588,7 @@ func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo, token *
 	return result, nil
 }
 
-func (g *gitlab) GetUnreads(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.Todo, error) {
+func (g *gitlab) GetToDoList(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.Todo, error) {
 	client, err := g.GitlabConnect(*token)
 	if err != nil {
 		return nil, err

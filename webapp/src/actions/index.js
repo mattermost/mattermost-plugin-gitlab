@@ -87,11 +87,11 @@ export function getReviewDetails(prList) {
     };
 }
 
-export function getYourPrs() {
+export function getYourAssignedPrs() {
     return async (dispatch, getState) => {
         let data;
         try {
-            data = await Client.getYourPrs();
+            data = await Client.getYourAssignedPrs();
         } catch (error) {
             return {error};
         }
@@ -105,7 +105,7 @@ export function getYourPrs() {
         }
 
         dispatch({
-            type: ActionTypes.RECEIVED_YOUR_PRS,
+            type: ActionTypes.RECEIVED_YOUR_ASSIGNED_PRS,
             data,
         });
 
@@ -136,11 +136,11 @@ export function getYourPrDetails(prList) {
     };
 }
 
-export function getYourAssignments() {
+export function getYourAssignedIssues() {
     return async (dispatch, getState) => {
         let data;
         try {
-            data = await Client.getYourAssignments();
+            data = await Client.getYourAssignedIssues();
         } catch (error) {
             return {error};
         }
@@ -154,7 +154,7 @@ export function getYourAssignments() {
         }
 
         dispatch({
-            type: ActionTypes.RECEIVED_YOUR_ASSIGNMENTS,
+            type: ActionTypes.RECEIVED_YOUR_ASSIGNED_ISSUES,
             data,
         });
 
@@ -188,11 +188,11 @@ export function getMentions() {
     };
 }
 
-export function getUnreads() {
+export function getTodos() {
     return async (dispatch, getState) => {
         let data;
         try {
-            data = await Client.getUnreads();
+            data = await Client.getTodos();
         } catch (error) {
             return {error};
         }
@@ -206,7 +206,7 @@ export function getUnreads() {
         }
 
         dispatch({
-            type: ActionTypes.RECEIVED_UNREADS,
+            type: ActionTypes.RECEIVED_TODOS,
             data,
         });
 

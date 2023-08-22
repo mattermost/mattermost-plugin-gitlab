@@ -575,13 +575,13 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 
 	notificationText := ""
 	g.Go(func() error {
-		var unreads []*gitlabLib.Todo
+		var todos []*gitlabLib.Todo
 		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetUnreads(ctx, info, token)
+			resp, err := p.GitlabClient.GetToDoList(ctx, info, token)
 			if err != nil {
 				return err
 			}
-			unreads = resp
+			todos = resp
 			return nil
 		})
 		if err != nil {
@@ -591,7 +591,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 		notificationCount := 0
 		notificationContent := ""
 
-		for _, n := range unreads {
+		for _, n := range todos {
 			if n == nil {
 				continue
 			}
@@ -604,9 +604,9 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 		}
 
 		if notificationCount == 0 {
-			notificationText += "You don't have any unread messages.\n"
+			notificationText += "You don't have any todos.\n"
 		} else {
-			notificationText += fmt.Sprintf("You have %v unread messages:\n", notificationCount)
+			notificationText += fmt.Sprintf("You have %v todos:\n", notificationCount)
 			notificationText += notificationContent
 
 			hasTodo = true
@@ -647,25 +647,25 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 
 	assignmentText := ""
 	g.Go(func() error {
-		var yourAssignments []*gitlab.Issue
+		var yourAssignedIssues []*gitlab.Issue
 		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetYourAssignments(ctx, info, token)
+			resp, err := p.GitlabClient.GetYourAssignedIssues(ctx, info, token)
 			if err != nil {
 				return err
 			}
-			yourAssignments = resp
+			yourAssignedIssues = resp
 			return nil
 		})
 		if err != nil {
 			return err
 		}
 
-		if len(yourAssignments) == 0 {
+		if len(yourAssignedIssues) == 0 {
 			assignmentText += "You don't have any issues awaiting your dev.\n"
 		} else {
-			assignmentText += fmt.Sprintf("You have %v issues awaiting dev:\n", len(yourAssignments))
+			assignmentText += fmt.Sprintf("You have %v issues awaiting dev:\n", len(yourAssignedIssues))
 
-			for _, pr := range yourAssignments {
+			for _, pr := range yourAssignedIssues {
 				assignmentText += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
 			}
 
@@ -679,7 +679,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 	g.Go(func() error {
 		var mergeRequests []*gitlab.MergeRequest
 		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetYourPrs(ctx, info, token)
+			resp, err := p.GitlabClient.GetYourAssignedPrs(ctx, info, token)
 			if err != nil {
 				return err
 			}
@@ -691,9 +691,9 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 		}
 
 		if len(mergeRequests) == 0 {
-			mergeRequestText += "You don't have any open merge requests.\n"
+			mergeRequestText += "You don't have any merge requests assigned.\n"
 		} else {
-			mergeRequestText += fmt.Sprintf("You have %v open merge requests:\n", len(mergeRequests))
+			mergeRequestText += fmt.Sprintf("You have %v merge requests assigned:\n", len(mergeRequests))
 
 			for _, pr := range mergeRequests {
 				mergeRequestText += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
@@ -709,16 +709,16 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 		return false, "", err
 	}
 
-	text := "##### Unread Messages\n"
+	text := "##### To-Do list\n"
 	text += notificationText
 
 	text += "##### Review Requests\n"
 	text += reviewText
 
-	text += "##### Assignments\n"
+	text += "##### Issues\n"
 	text += assignmentText
 
-	text += "##### Your Open Merge Requests\n"
+	text += "##### Merge Requests Assigned\n"
 	text += mergeRequestText
 
 	return hasTodo, text, nil

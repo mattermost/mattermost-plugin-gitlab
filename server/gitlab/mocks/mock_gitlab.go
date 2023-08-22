@@ -113,19 +113,19 @@ func (mr *MockGitlabMockRecorder) GetReviews(arg0, arg1, arg2 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReviews", reflect.TypeOf((*MockGitlab)(nil).GetReviews), arg0, arg1, arg2)
 }
 
-// GetUnreads mocks base method.
-func (m *MockGitlab) GetUnreads(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token) ([]*gitlab0.Todo, error) {
+// GetToDoList mocks base method.
+func (m *MockGitlab) GetToDoList(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token) ([]*gitlab0.Todo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUnreads", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetToDoList", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]*gitlab0.Todo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetUnreads indicates an expected call of GetUnreads.
-func (mr *MockGitlabMockRecorder) GetUnreads(arg0, arg1, arg2 interface{}) *gomock.Call {
+// GetToDoList indicates an expected call of GetToDoList.
+func (mr *MockGitlabMockRecorder) GetToDoList(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUnreads", reflect.TypeOf((*MockGitlab)(nil).GetUnreads), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetToDoList", reflect.TypeOf((*MockGitlab)(nil).GetToDoList), arg0, arg1, arg2)
 }
 
 // GetUserDetails mocks base method.
@@ -143,19 +143,34 @@ func (mr *MockGitlabMockRecorder) GetUserDetails(arg0, arg1, arg2 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserDetails", reflect.TypeOf((*MockGitlab)(nil).GetUserDetails), arg0, arg1, arg2)
 }
 
-// GetYourAssignments mocks base method.
-func (m *MockGitlab) GetYourAssignments(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token) ([]*gitlab.Issue, error) {
+// GetYourAssignedIssues mocks base method.
+func (m *MockGitlab) GetYourAssignedIssues(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token) ([]*gitlab.Issue, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetYourAssignments", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetYourAssignedIssues", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]*gitlab.Issue)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetYourAssignments indicates an expected call of GetYourAssignments.
-func (mr *MockGitlabMockRecorder) GetYourAssignments(arg0, arg1, arg2 interface{}) *gomock.Call {
+// GetYourAssignedIssues indicates an expected call of GetYourAssignedIssues.
+func (mr *MockGitlabMockRecorder) GetYourAssignedIssues(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetYourAssignments", reflect.TypeOf((*MockGitlab)(nil).GetYourAssignments), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetYourAssignedIssues", reflect.TypeOf((*MockGitlab)(nil).GetYourAssignedIssues), arg0, arg1, arg2)
+}
+
+// GetYourAssignedPrs mocks base method.
+func (m *MockGitlab) GetYourAssignedPrs(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token) ([]*gitlab.MergeRequest, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetYourAssignedPrs", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]*gitlab.MergeRequest)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetYourAssignedPrs indicates an expected call of GetYourAssignedPrs.
+func (mr *MockGitlabMockRecorder) GetYourAssignedPrs(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetYourAssignedPrs", reflect.TypeOf((*MockGitlab)(nil).GetYourAssignedPrs), arg0, arg1, arg2)
 }
 
 // GetYourPrDetails mocks base method.
@@ -171,21 +186,6 @@ func (m *MockGitlab) GetYourPrDetails(arg0 context.Context, arg1 logger.Logger, 
 func (mr *MockGitlabMockRecorder) GetYourPrDetails(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetYourPrDetails", reflect.TypeOf((*MockGitlab)(nil).GetYourPrDetails), arg0, arg1, arg2, arg3, arg4)
-}
-
-// GetYourPrs mocks base method.
-func (m *MockGitlab) GetYourPrs(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token) ([]*gitlab.MergeRequest, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetYourPrs", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]*gitlab.MergeRequest)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetYourPrs indicates an expected call of GetYourPrs.
-func (mr *MockGitlabMockRecorder) GetYourPrs(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetYourPrs", reflect.TypeOf((*MockGitlab)(nil).GetYourPrs), arg0, arg1, arg2)
 }
 
 // GitlabConnect mocks base method.

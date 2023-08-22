@@ -40,7 +40,7 @@ Each user in Mattermost is connected with their own personal GitLab account. Use
 
 ### Sidebar buttons
 
-Team members can stay up-to-date with how many reviews, unread messages, assignments, and open merge requests they have by using buttons in the Mattermost sidebar.
+Team members can stay up-to-date with how many reviews, todos, assigned issues, and assigned merge requests they have by using buttons in the Mattermost sidebar.
 
 ## Admin guide
   
@@ -142,7 +142,7 @@ Connect your Mattermost account to your GitLab account using `/gitlab connect` a
 
 ### Get "To Do" items
 
-Use `/gitlab todo` to get a list of unread messages and merge requests awaiting your review.
+Use `/gitlab todo` to get a list of todos, assigned issues, assigned merge requests and merge requests awaiting your review.
 
 ### Update settings
 
