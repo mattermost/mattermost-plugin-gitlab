@@ -82,7 +82,6 @@ func (p *Plugin) NewFlowManager() *FlowManager {
 	fm.oauthFlow = fm.newFlow("oauth").WithSteps(
 		fm.stepInstanceURL(),
 		fm.stepOAuthInfo(),
-		fm.stepOAuthInfo(),
 		fm.stepOAuthInput(),
 		fm.stepOAuthConnect().Terminal(),
 
