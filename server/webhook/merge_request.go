@@ -23,6 +23,11 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 	authorGitlabUsername := w.gitlabRetreiver.GetUsernameByID(event.ObjectAttributes.AuthorID)
 	senderGitlabUsername := event.User.Username
 
+	toUsers := []string{authorGitlabUsername}
+	for _, assigneeID := range event.ObjectAttributes.AssigneeIDs {
+		toUsers = append(toUsers, w.gitlabRetreiver.GetUsernameByID(assigneeID))
+	}
+
 	message := ""
 
 	switch event.ObjectAttributes.State {
@@ -33,7 +38,26 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 		case actionReopen:
 			message = fmt.Sprintf("[%s](%s) reopen your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 		case actionUpdate:
-			// TODO not enough check (opened/update) to say assigned to you...
+			toUsers = []string{}
+
+			// Not going to show notification in case of commit push.
+			if event.ObjectAttributes.OldRev != "" {
+				break
+			}
+
+			for _, currentAssigneeID := range event.ObjectAttributes.AssigneeIDs {
+				assignedInPrevious := false
+				for _, previousAssignee := range event.Changes.Assignees.Previous {
+					if previousAssignee.ID == currentAssigneeID {
+						assignedInPrevious = true
+						break
+					}
+				}
+				if !assignedInPrevious {
+					toUsers = append(toUsers, w.gitlabRetreiver.GetUsernameByID(currentAssigneeID))
+				}
+			}
+
 			message = fmt.Sprintf("[%s](%s) assigned you to merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 		case actionApproved:
 			message = fmt.Sprintf("[%s](%s) approved your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
@@ -51,7 +75,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 	if len(message) > 0 {
 		handlers := []*HandleWebhook{{
 			Message:    message,
-			ToUsers:    []string{w.gitlabRetreiver.GetUsernameByID(event.ObjectAttributes.AssigneeID), authorGitlabUsername},
+			ToUsers:    toUsers,
 			ToChannels: []string{},
 			From:       senderGitlabUsername,
 		}}
