@@ -49,7 +49,7 @@ func (p *Plugin) SendDailyTelemetry() {
 
 func (p *Plugin) getConnectedUserCount() (int64, error) {
 	checker := func(key string) (keep bool, err error) {
-		return strings.HasSuffix(key, GitlabUserInfoKey), nil
+		return strings.HasSuffix(key, GitlabTokenKey), nil
 	}
 
 	var count int64

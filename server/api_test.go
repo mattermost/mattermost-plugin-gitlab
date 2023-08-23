@@ -6,12 +6,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin/plugintest"
 	"github.com/mattermost/mattermost/server/public/pluginapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 )
@@ -30,11 +32,20 @@ func TestGetChannelSubscriptions(t *testing.T) {
 		plugin := Plugin{configuration: &config}
 		plugin.initializeAPI()
 
+		token := oauth2.Token{
+			AccessToken: "access_token",
+			Expiry:      time.Now().Add(1 * time.Hour),
+		}
 		info := gitlab.UserInfo{
 			UserID:         "user_id",
+			Token:          &token,
 			GitlabUsername: "gitlab_username",
 			GitlabUserID:   0,
 		}
+		encryptedToken, err := encrypt([]byte(config.EncryptionKey), info.Token.AccessToken)
+		require.NoError(t, err)
+
+		info.Token.AccessToken = encryptedToken
 
 		jsonInfo, err := json.Marshal(info)
 		require.NoError(t, err)
@@ -43,7 +54,7 @@ func TestGetChannelSubscriptions(t *testing.T) {
 		plugin.SetAPI(mock)
 		plugin.client = pluginapi.NewClient(plugin.API, plugin.Driver)
 
-		mock.On("KVGet", "user_id_userinfo").Return(jsonInfo, nil).Once()
+		mock.On("KVGet", "user_id_gitlabtoken").Return(jsonInfo, nil).Once()
 
 		return &plugin, mock
 	}

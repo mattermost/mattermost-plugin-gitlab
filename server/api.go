@@ -14,7 +14,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	gitlabLib "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
 
 	"github.com/mattermost/mattermost/server/public/model"
@@ -355,14 +354,6 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		return
 	}
 
-	if err = p.storeGitlabUserToken(userInfo.UserID, tok); err != nil {
-		c.Log.WithError(err).Warnf("Can't store user token")
-
-		rErr = errors.Wrap(err, "Unable to connect user to GitLab")
-		http.Error(w, rErr.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	if err = p.storeGitlabToUserIDMapping(userInfo.GitlabUsername, userID); err != nil {
 		c.Log.WithError(err).Warnf("Can't store GitLab to user id mapping")
 	}
@@ -500,7 +491,7 @@ func (p *Plugin) getConnected(c *Context, w http.ResponseWriter, r *http.Request
 	}
 
 	info, _ := p.getGitlabUserInfoByMattermostID(c.UserID)
-	if info != nil {
+	if info != nil && info.Token != nil {
 		resp.Connected = true
 		resp.GitlabUsername = info.GitlabUsername
 		resp.GitlabClientID = config.GitlabOAuthClientID
@@ -531,16 +522,7 @@ func (p *Plugin) getConnected(c *Context, w http.ResponseWriter, r *http.Request
 }
 
 func (p *Plugin) getUnreads(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	var result []*gitlabLib.Todo
-	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetUnreads(c.Ctx, info, token)
-		if err != nil {
-			return err
-		}
-		result = resp
-		return nil
-	})
-
+	result, err := p.GitlabClient.GetUnreads(c.Ctx, c.GitlabInfo)
 	if err != nil {
 		c.Log.WithError(err).Warnf("Unable to list unreads in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list unreads in GitLab API.", StatusCode: http.StatusInternalServerError})
@@ -551,16 +533,7 @@ func (p *Plugin) getUnreads(c *UserContext, w http.ResponseWriter, r *http.Reque
 }
 
 func (p *Plugin) getReviews(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	var result []*gitlab.MergeRequest
-	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetReviews(c.Ctx, info, token)
-		if err != nil {
-			return err
-		}
-		result = resp
-		return nil
-	})
-
+	result, err := p.GitlabClient.GetReviews(c.Ctx, c.GitlabInfo)
 	if err != nil {
 		c.Log.WithError(err).Warnf("Unable to list merge-request where assignee in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
@@ -571,16 +544,7 @@ func (p *Plugin) getReviews(c *UserContext, w http.ResponseWriter, r *http.Reque
 }
 
 func (p *Plugin) getYourPrs(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	var result []*gitlab.MergeRequest
-	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetYourPrs(c.Ctx, info, token)
-		if err != nil {
-			return err
-		}
-		result = resp
-		return nil
-	})
-
+	result, err := p.GitlabClient.GetYourPrs(c.Ctx, c.GitlabInfo)
 	if err != nil {
 		c.Log.WithError(err).Warnf("Can't list merge-request where author in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
@@ -597,15 +561,7 @@ func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Req
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Error decoding PRDetails JSON body. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
 		return
 	}
-	var result []*gitlab.PRDetails
-	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetYourPrDetails(c.Ctx, c.Log, info, token, prList)
-		if err != nil {
-			return err
-		}
-		result = resp
-		return nil
-	})
+	result, err := p.GitlabClient.GetYourPrDetails(c.Ctx, c.Log, c.GitlabInfo, prList)
 	if err != nil {
 		c.Log.WithError(err).Warnf("Can't list merge-request details in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Can't list merge-request details in GitLab API. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
@@ -616,16 +572,7 @@ func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Req
 }
 
 func (p *Plugin) getYourAssignments(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	var result []*gitlab.Issue
-	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetYourAssignments(c.Ctx, info, token)
-		if err != nil {
-			return err
-		}
-		result = resp
-		return nil
-	})
-
+	result, err := p.GitlabClient.GetYourAssignments(c.Ctx, c.GitlabInfo)
 	if err != nil {
 		c.Log.WithError(err).Warnf("Unable to list issue where assignee in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list issue in GitLab API.", StatusCode: http.StatusInternalServerError})

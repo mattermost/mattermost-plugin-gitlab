@@ -28,8 +28,6 @@ type subscribeCommandTest struct {
 }
 
 const subscribeSuccessMessage = "Successfully subscribed to group/project.\nA Webhook is needed, run ```/gitlab webhook add group/project``` to create one now."
-const testGitlabToken = `{"access_token":"6328a1014b19f741489b48cdc4291d93aa2957b0cea67335a34dcdadaf212139","token_type":"Bearer","refresh_token":"e6453b621e8979214c9f8a1b0e1e39723df8af11cef5e0d613a2cb2e39bdfeb7","expiry":"3022-10-23T15:14:43.623638795-05:00"}`
-const testEncryptionKey = `shD-LC2DElnQzUO50cbvlOvjsNnzfEbk`
 
 var subscribeCommandTests = []subscribeCommandTest{
 	{
@@ -197,24 +195,13 @@ func TestListWebhookCommand(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
 			mockedClient := mocks.NewMockGitlab(mockCtrl)
 
-			encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
-
-			p.configuration = &configuration{
-				EncryptionKey: testEncryptionKey,
-			}
-
-			api := &plugintest.API{}
-			api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
-			p.SetAPI(api)
-			p.client = pluginapi.NewClient(api, p.Driver)
-
 			if test.scope == "project" {
-				mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, nil)
-				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "project", nil)
+				mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, nil)
+				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "project", nil)
 				p.GitlabClient = mockedClient
 			} else if test.scope == "group" {
-				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, nil)
-				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "", nil)
+				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, nil)
+				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "", nil)
 				p.GitlabClient = mockedClient
 			}
 
@@ -229,29 +216,22 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.We
 
 	mockedClient := mocks.NewMockGitlab(mockCtrl)
 	if mockGitlab {
-		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("group", "project", nil)
-		mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
+		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("group", "project", nil)
+		mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
 		if projectHookErr == nil {
-			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
+			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
 		}
 	}
 
 	p.GitlabClient = mockedClient
 
+	api := &plugintest.API{}
+
 	conf := &model.Config{}
 	conf.ServiceSettings.SiteURL = &mattermostURL
-
-	encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
-
-	p.configuration = &configuration{
-		EncryptionKey: testEncryptionKey,
-	}
+	api.On("GetConfig", mock.Anything).Return(conf)
 
 	var subVal []byte
-
-	api := &plugintest.API{}
-	api.On("GetConfig", mock.Anything).Return(conf)
-	api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
 	api.On("KVGet", mock.Anything).Return(subVal, nil)
 	api.On("KVSet", mock.Anything, mock.Anything).Return(nil)
 	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil)
@@ -369,28 +349,20 @@ func TestAddWebhookCommand(t *testing.T) {
 			mockedClient := mocks.NewMockGitlab(mockCtrl)
 
 			if test.scope == "group" {
-				mockedClient.EXPECT().NewGroupHook(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhook, nil)
-				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "", nil)
+				mockedClient.EXPECT().NewGroupHook(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhook, nil)
+				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "", nil)
 			} else {
 				project := &gitLabAPI.Project{ID: 4}
-				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "project", nil)
-				mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(project, nil)
-				mockedClient.EXPECT().NewProjectHook(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhook, nil)
+				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "project", nil)
+				mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(project, nil)
+				mockedClient.EXPECT().NewProjectHook(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhook, nil)
 			}
 			p.GitlabClient = mockedClient
 
+			api := &plugintest.API{}
 			conf := &model.Config{}
 			conf.ServiceSettings.SiteURL = &test.siteURL
-
-			encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
-
-			p.configuration = &configuration{
-				EncryptionKey: testEncryptionKey,
-			}
-
-			api := &plugintest.API{}
 			api.On("GetConfig", mock.Anything).Return(conf)
-			api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
 			p.SetAPI(api)
 			p.client = pluginapi.NewClient(api, p.Driver)
 

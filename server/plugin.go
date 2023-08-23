@@ -18,11 +18,9 @@ import (
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin"
 	"github.com/mattermost/mattermost/server/public/pluginapi"
-	"github.com/mattermost/mattermost/server/public/pluginapi/cluster"
 	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/poster"
 	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/telemetry"
 	"github.com/pkg/errors"
-	gitlabLib "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
 	"golang.org/x/sync/errgroup"
 
@@ -32,10 +30,7 @@ import (
 )
 
 const (
-	GitlabUserInfoKey             = "_userinfo"
-	GitlabUserTokenKey            = "_usertoken"
-	GitlabMigrationTokenKey       = "_gitlabtoken"
-	TokenMutexKey                 = "-oauth-token" //#nosec G101 -- False positive
+	GitlabTokenKey                = "_gitlabtoken"
 	GitlabUsernameKey             = "_gitlabusername"
 	GitlabIDUsernameKey           = "_gitlabidusername"
 	WsEventConnect                = "gitlab_connect"
@@ -48,8 +43,6 @@ const (
 	SettingOff                    = "off"
 
 	chimeraGitLabAppIdentifier = "plugin-gitlab"
-
-	invalidTokenError = "401 {error: invalid_token}" //#nosec G101 -- False positive
 )
 
 var manifest model.Manifest = root.Manifest
@@ -195,21 +188,13 @@ func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*mode
 		return nil, ""
 	}
 
-	var glClient *gitlabLib.Client
-	if cErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GitlabConnect(*token)
-		if err != nil {
-			return err
-		}
-
-		glClient = resp
-		return nil
-	}); cErr != nil {
+	client, cErr := p.GitlabClient.GitlabConnect(*info.Token)
+	if cErr != nil {
 		p.API.LogDebug("Error in getting GitLab client", "Error", cErr.Error())
 		return nil, ""
 	}
 
-	post.Message = p.makeReplacements(msg, replacements, glClient)
+	post.Message = p.makeReplacements(msg, replacements, client)
 	return post, ""
 }
 
@@ -291,32 +276,21 @@ func (p *Plugin) getOAuthConfigForChimeraApp(scopes []string, redirectURL string
 }
 
 func (p *Plugin) storeGitlabUserInfo(info *gitlab.UserInfo) error {
+	config := p.getConfiguration()
+
+	encryptedToken, err := encrypt([]byte(config.EncryptionKey), info.Token.AccessToken)
+	if err != nil {
+		return err
+	}
+
+	info.Token.AccessToken = encryptedToken
+
 	jsonInfo, err := json.Marshal(info)
 	if err != nil {
 		return err
 	}
 
-	if _, err := p.client.KV.Set(info.UserID+GitlabUserInfoKey, jsonInfo); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (p *Plugin) storeGitlabUserToken(userID string, token *oauth2.Token) error {
-	config := p.getConfiguration()
-
-	jsonToken, err := json.Marshal(token)
-	if err != nil {
-		return err
-	}
-
-	encryptedToken, err := encrypt([]byte(config.EncryptionKey), string(jsonToken))
-	if err != nil {
-		return err
-	}
-
-	if _, err := p.client.KV.Set(userID+GitlabUserTokenKey, []byte(encryptedToken)); err != nil {
+	if _, err := p.client.KV.Set(info.UserID+GitlabTokenKey, jsonInfo); err != nil {
 		return err
 	}
 
@@ -324,117 +298,43 @@ func (p *Plugin) storeGitlabUserToken(userID string, token *oauth2.Token) error 
 }
 
 func (p *Plugin) deleteGitlabUserInfo(userID string) error {
-	if err := p.client.KV.Delete(userID + GitlabUserInfoKey); err != nil {
+	if err := p.client.KV.Delete(userID + GitlabTokenKey); err != nil {
 		return errors.Wrap(err, "encountered error deleting GitLab user info")
 	}
 	return nil
 }
 
-func (p *Plugin) deleteGitlabUserToken(userID string) error {
-	if err := p.client.KV.Delete(userID + GitlabUserTokenKey); err != nil {
-		return errors.Wrap(err, "encountered error deleting GitLab user token")
-	}
-	return nil
-}
-
 func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInfo, *APIErrorResponse) {
+	config := p.getConfiguration()
+
 	var userInfo gitlab.UserInfo
-
-	var infoBytes []byte
-	err := p.client.KV.Get(userID+GitlabUserInfoKey, &infoBytes)
-
-	if err != nil || infoBytes == nil {
-		var gitlabTokenBytes []byte
-		appErr := p.client.KV.Get(userID+GitlabMigrationTokenKey, &gitlabTokenBytes)
-		if appErr != nil || gitlabTokenBytes == nil {
-			return nil, &APIErrorResponse{ID: APIErrorIDNotConnected, Message: "Must connect user account to GitLab first.", StatusCode: http.StatusBadRequest}
-		}
-		if err := json.Unmarshal(gitlabTokenBytes, &userInfo); err != nil {
-			return nil, &APIErrorResponse{ID: "", Message: "Unable to parse user info from migration key.", StatusCode: http.StatusInternalServerError}
-		}
-	} else if err := json.Unmarshal(infoBytes, &userInfo); err != nil {
-		return nil, &APIErrorResponse{ID: "", Message: "Unable to parse user info.", StatusCode: http.StatusInternalServerError}
-	}
-
-	return &userInfo, nil
-}
-
-func (p *Plugin) migrateGitlabToken(userID string) (*oauth2.Token, *APIErrorResponse) {
-	config := p.getConfiguration()
-
-	var userInfo struct {
-		gitlab.UserInfo
-		Token *oauth2.Token
-	}
-
-	mutex, err := cluster.NewMutex(p.API, userID+TokenMutexKey)
-	if err != nil {
-		return nil, &APIErrorResponse{ID: "", Message: "Unable to obtain mutex for KV migration.", StatusCode: http.StatusInternalServerError}
-	}
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	var gitlabTokenBytes []byte
-	err = p.client.KV.Get(userID+GitlabMigrationTokenKey, &gitlabTokenBytes)
-	if err != nil || gitlabTokenBytes == nil {
-		return p.getGitlabUserTokenByMattermostID(userID)
-	}
-
-	if err = json.Unmarshal(gitlabTokenBytes, &userInfo); err != nil {
-		return nil, &APIErrorResponse{ID: "", Message: "Unable to parse user info for KV migration.", StatusCode: http.StatusInternalServerError}
-	}
-
-	unencryptedToken, err := decrypt([]byte(config.EncryptionKey), userInfo.Token.AccessToken)
-	if err != nil {
-		return nil, &APIErrorResponse{ID: "", Message: "Unable to decrypt token for KV migration.", StatusCode: http.StatusInternalServerError}
-	}
-
-	userInfo.Token.AccessToken = unencryptedToken
-
-	var userInfoWithoutToken = &gitlab.UserInfo{
-		UserID:         userInfo.UserID,
-		GitlabUserID:   userInfo.GitlabUserID,
-		GitlabUsername: userInfo.GitlabUsername,
-		LastToDoPostAt: userInfo.LastToDoPostAt,
-		Settings:       userInfo.Settings,
-	}
-
-	if err = p.storeGitlabUserInfo(userInfoWithoutToken); err != nil {
-		return nil, &APIErrorResponse{ID: "", Message: "Unable to store user info for KV migration.", StatusCode: http.StatusInternalServerError}
-	}
-
-	if err = p.storeGitlabUserToken(userInfo.UserID, userInfo.Token); err != nil {
-		return nil, &APIErrorResponse{ID: "", Message: "Unable to store token for KV migration.", StatusCode: http.StatusInternalServerError}
-	}
-
-	if err = p.client.KV.Delete(userInfo.UserID + GitlabMigrationTokenKey); err != nil {
-		return nil, &APIErrorResponse{ID: "", Message: "Unable to delete KV entry for migration.", StatusCode: http.StatusInternalServerError}
-	}
-
-	return userInfo.Token, nil
-}
-
-func (p *Plugin) getGitlabUserTokenByMattermostID(userID string) (*oauth2.Token, *APIErrorResponse) {
-	config := p.getConfiguration()
-	var token oauth2.Token
-
-	var tokenBytes []byte
-	err := p.client.KV.Get(userID+GitlabUserTokenKey, &tokenBytes)
-	if err != nil || tokenBytes == nil {
+	if err := p.client.KV.Get(userID+GitlabTokenKey, &userInfo); err != nil || userInfo.Token == nil {
 		return nil, &APIErrorResponse{ID: APIErrorIDNotConnected, Message: "Must connect user account to GitLab first.", StatusCode: http.StatusBadRequest}
 	}
 
-	unencryptedToken, err := decrypt([]byte(config.EncryptionKey), string(tokenBytes))
+	unencryptedToken, err := decrypt([]byte(config.EncryptionKey), userInfo.Token.AccessToken)
 	if err != nil {
 		p.client.Log.Warn("can't decrypt token", "err", err.Error())
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to decrypt access token.", StatusCode: http.StatusInternalServerError}
 	}
 
-	if err := json.Unmarshal([]byte(unencryptedToken), &token); err != nil {
-		return nil, &APIErrorResponse{ID: "", Message: "Unable to parse token.", StatusCode: http.StatusInternalServerError}
+	userInfo.Token.AccessToken = unencryptedToken
+	newToken, err := p.checkAndRefreshToken(userInfo.Token)
+	if err != nil {
+		return nil, &APIErrorResponse{ID: "", Message: err.Error(), StatusCode: http.StatusInternalServerError}
 	}
 
-	return &token, nil
+	if newToken != nil {
+		p.client.Log.Debug("Gitlab token refreshed.", "UserID", userInfo.UserID, "Gitlab Username", userInfo.GitlabUsername)
+		userInfo.Token = newToken
+		unencryptedToken = newToken.AccessToken // needed because the storeGitlabUserInfo method changes its value to an encrypted value
+		if err := p.storeGitlabUserInfo(&userInfo); err != nil {
+			return nil, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Unable to store user info. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError}
+		}
+		userInfo.Token.AccessToken = unencryptedToken
+	}
+
+	return &userInfo, nil
 }
 
 func (p *Plugin) storeGitlabToUserIDMapping(gitlabUsername, userID string) error {
@@ -494,9 +394,6 @@ func (p *Plugin) disconnectGitlabAccount(userID string) {
 	}
 
 	if err := p.deleteGitlabUserInfo(userID); err != nil {
-		p.client.Log.Warn("can't delete user info in store", "err", err.Error, "userId", userID)
-	}
-	if err := p.deleteGitlabUserToken(userID); err != nil {
 		p.client.Log.Warn("can't delete token in store", "err", err.Error, "userId", userID)
 	}
 	if err := p.deleteGitlabToUserIDMapping(userInfo.GitlabUsername); err != nil {
@@ -571,19 +468,12 @@ func (p *Plugin) PostToDo(ctx context.Context, info *gitlab.UserInfo) {
 
 func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, string, error) {
 	hasTodo := false
+
 	g, ctx := errgroup.WithContext(ctx)
 
 	notificationText := ""
 	g.Go(func() error {
-		var unreads []*gitlabLib.Todo
-		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetUnreads(ctx, info, token)
-			if err != nil {
-				return err
-			}
-			unreads = resp
-			return nil
-		})
+		unreads, err := p.GitlabClient.GetUnreads(ctx, user)
 		if err != nil {
 			return err
 		}
@@ -617,15 +507,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 
 	reviewText := ""
 	g.Go(func() error {
-		var reviews []*gitlab.MergeRequest
-		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetReviews(ctx, info, token)
-			if err != nil {
-				return err
-			}
-			reviews = resp
-			return nil
-		})
+		reviews, err := p.GitlabClient.GetReviews(ctx, user)
 		if err != nil {
 			return err
 		}
@@ -647,15 +529,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 
 	assignmentText := ""
 	g.Go(func() error {
-		var yourAssignments []*gitlab.Issue
-		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetYourAssignments(ctx, info, token)
-			if err != nil {
-				return err
-			}
-			yourAssignments = resp
-			return nil
-		})
+		yourAssignments, err := p.GitlabClient.GetYourAssignments(ctx, user)
 		if err != nil {
 			return err
 		}
@@ -677,15 +551,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 
 	mergeRequestText := ""
 	g.Go(func() error {
-		var mergeRequests []*gitlab.MergeRequest
-		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetYourPrs(ctx, info, token)
-			if err != nil {
-				return err
-			}
-			mergeRequests = resp
-			return nil
-		})
+		mergeRequests, err := p.GitlabClient.GetYourPrs(ctx, user)
 		if err != nil {
 			return err
 		}
@@ -772,15 +638,7 @@ func (p *Plugin) sendChannelSubscriptionsUpdated(subs *Subscriptions, channelID 
 // HasProjectHook checks if the subscribed GitLab Project or its parrent Group has a webhook
 // with a URL that matches the Mattermost Site URL.
 func (p *Plugin) HasProjectHook(ctx context.Context, user *gitlab.UserInfo, namespace string, project string) (bool, error) {
-	var hooks []*gitlab.WebhookInfo
-	err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetProjectHooks(ctx, info, token, namespace, project)
-		if err != nil {
-			return err
-		}
-		hooks = resp
-		return nil
-	})
+	hooks, err := p.GitlabClient.GetProjectHooks(ctx, user, namespace, project)
 	if err != nil {
 		return false, errors.New("unable to connect to GitLab")
 	}
@@ -806,15 +664,7 @@ func (p *Plugin) HasProjectHook(ctx context.Context, user *gitlab.UserInfo, name
 // HasGroupHook checks if the subscribed GitLab Group has a webhook
 // with a URL that matches the Mattermost Site URL.
 func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namespace string) (bool, error) {
-	var hooks []*gitlab.WebhookInfo
-	err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetGroupHooks(ctx, info, token, namespace)
-		if err != nil {
-			return err
-		}
-		hooks = resp
-		return nil
-	})
+	hooks, err := p.GitlabClient.GetGroupHooks(ctx, user, namespace)
 	if err != nil {
 		return false, errors.New("unable to connect to GitLab")
 	}
@@ -831,91 +681,22 @@ func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namesp
 	return found, err
 }
 
-func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*oauth2.Token, error) {
-	conf := p.getOAuthConfig()
-	src := conf.TokenSource(context.Background(), token)
-
-	newToken, err := src.Token() // this actually goes and renews the tokens
-
-	if err != nil {
-		if strings.Contains(err.Error(), "\"error\":\"invalid_grant\"") {
-			p.handleRevokedToken(userInfo)
+func (p *Plugin) checkAndRefreshToken(token *oauth2.Token) (*oauth2.Token, error) {
+	// If there is only one minute left for the token to expire, we are refreshing the token.
+	// The detailed reason for this can be found here: https://github.com/golang/oauth2/issues/84#issuecomment-831492464
+	// We don't want the token to expire between the time when we decide that the old token is valid
+	// and the time at which we create the request. We are handling that by not letting the token expire.
+	if time.Until(token.Expiry) <= 1*time.Minute {
+		conf := p.getOAuthConfig()
+		src := conf.TokenSource(context.Background(), token)
+		newToken, err := src.Token() // this actually goes and renews the tokens
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to get the new refreshed token")
 		}
-		return nil, errors.Wrap(err, "unable to get the new refreshed token")
-	}
-
-	if newToken.AccessToken != token.AccessToken {
-		p.client.Log.Debug("Gitlab token refreshed.", "UserID", userInfo.UserID)
-
-		if err := p.storeGitlabUserToken(userInfo.UserID, newToken); err != nil {
-			return nil, errors.Wrap(err, "unable to store user info with refreshed token")
-		}
-
-		return newToken, nil
-	}
-
-	return token, nil
-}
-
-func (p *Plugin) handleRevokedToken(info *gitlab.UserInfo) {
-	p.disconnectGitlabAccount(info.UserID)
-	err := p.CreateBotDMPost(info.UserID, "Your GitLab account was disconnected due to an invalid or revoked authorization token. Reconnect your account using the `/gitlab connect` command.", "custom_git_revoked_token")
-
-	if err != nil {
-		p.client.Log.Warn("Error sending revoked token DM post", "err", err.Error())
-	}
-}
-
-func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo) (*oauth2.Token, error) {
-	token, apiErr := p.getGitlabUserTokenByMattermostID(info.UserID)
-
-	if apiErr != nil {
-		token, apiErr = p.migrateGitlabToken(info.UserID)
-		if apiErr != nil {
-			return nil, apiErr
+		if newToken.AccessToken != token.AccessToken {
+			return newToken, nil
 		}
 	}
 
-	if time.Until(token.Expiry) > 1*time.Minute {
-		return token, nil
-	}
-
-	mutex, err := cluster.NewMutex(p.API, info.UserID+TokenMutexKey)
-	if err != nil {
-		return nil, err
-	}
-
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	lockedToken, apiErr := p.getGitlabUserTokenByMattermostID(info.UserID)
-	if apiErr != nil {
-		return nil, apiErr
-	}
-
-	if time.Until(lockedToken.Expiry) > 1*time.Minute {
-		return lockedToken, nil
-	}
-
-	newToken, err := p.refreshToken(info, lockedToken)
-	if err != nil {
-		return nil, err
-	}
-
-	return newToken, nil
-}
-
-func (p *Plugin) useGitlabClient(info *gitlab.UserInfo, toRun func(info *gitlab.UserInfo, token *oauth2.Token) error) error {
-	token, err := p.getOrRefreshTokenWithMutex(info)
-	if err != nil {
-		return err
-	}
-
-	err = toRun(info, token)
-
-	if err != nil && strings.Contains(err.Error(), invalidTokenError) {
-		p.handleRevokedToken(info)
-	}
-
-	return err
+	return nil, nil
 }

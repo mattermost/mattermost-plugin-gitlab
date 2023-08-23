@@ -11,7 +11,6 @@ import (
 	"github.com/mattermost/mattermost/server/public/pluginapi"
 	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/flow"
 	"github.com/pkg/errors"
-	"golang.org/x/oauth2"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 )
@@ -29,8 +28,6 @@ type FlowManager struct {
 	getConfiguration                func() *configuration
 	getGitlabUserInfoByMattermostID func(userID string) (*gitlab.UserInfo, *APIErrorResponse)
 	getGitlabClient                 func() gitlab.Gitlab
-	useGitlabClient                 func(info *gitlab.UserInfo, toRun func(info *gitlab.UserInfo, token *oauth2.Token) error) error
-	createHook                      func(ctx context.Context, gitlabClient gitlab.Gitlab, info *gitlab.UserInfo, group, project string, hookOptions *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error)
 
 	tracker Tracker
 
@@ -49,8 +46,6 @@ func (p *Plugin) NewFlowManager() *FlowManager {
 		getConfiguration:                p.getConfiguration,
 		getGitlabUserInfoByMattermostID: p.getGitlabUserInfoByMattermostID,
 		getGitlabClient:                 p.getGitlabClient,
-		useGitlabClient:                 p.useGitlabClient,
-		createHook:                      p.createHook,
 
 		tracker: p,
 	}
@@ -640,17 +635,7 @@ func (fm *FlowManager) submitWebhook(f *flow.Flow, submitted map[string]interfac
 
 	gitlabClient := fm.getGitlabClient()
 
-	var group, project string
-	err := fm.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		respGroup, respProject, err := gitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, config.EnablePrivateRepo)
-		if err != nil {
-			return err
-		}
-		group = respGroup
-		project = respProject
-		return nil
-	})
-
+	group, project, err := gitlabClient.ResolveNamespaceAndProject(ctx, info, namespace, config.EnablePrivateRepo)
 	if err != nil {
 		if errors.Is(err, gitlab.ErrNotFound) {
 			return "", nil, nil, errors.New("project or group was not found")
@@ -686,7 +671,7 @@ func (fm *FlowManager) submitWebhook(f *flow.Flow, submitted map[string]interfac
 		repoOrGroup = "repository"
 	}
 
-	_, err = fm.createHook(ctx, gitlabClient, info, group, project, hookOptions)
+	_, err = CreateHook(ctx, gitlabClient, info, group, project, hookOptions)
 	if err != nil {
 		if errors.Is(err, gitlab.ErrNotFound) {
 			return "", nil, nil, errors.New("project or group was not found")
