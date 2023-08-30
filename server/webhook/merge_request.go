@@ -3,6 +3,7 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/xanzy/go-gitlab"
 )
@@ -23,6 +24,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 	authorGitlabUsername := w.gitlabRetreiver.GetUsernameByID(event.ObjectAttributes.AuthorID)
 	senderGitlabUsername := event.User.Username
 
+	var added, removed []*gitlab.EventUser
 	message := ""
 
 	switch event.ObjectAttributes.State {
@@ -38,8 +40,14 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 			} else {
 				prevAssignees := event.Changes.Assignees.Previous
 				currAssignees := event.Changes.Assignees.Current
-				if len(prevAssignees) != len(currAssignees) || !compareAssignees(prevAssignees, currAssignees) {
-					message = fmt.Sprintf("[%s](%s) updated the assignees of merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+				added, removed = diffAssignees(prevAssignees, currAssignees)
+
+				if len(added) > 0 && len(removed) > 0 {
+					message = fmt.Sprintf("[%s](%s) updated assignees, added: %s, removed: %s in merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), formatAssignees(added), formatAssignees(removed), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+				} else if len(added) > 0 {
+					message = fmt.Sprintf("[%s](%s) added assignees: %s to merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), formatAssignees(added), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+				} else if len(removed) > 0 {
+					message = fmt.Sprintf("[%s](%s) removed assignees: %s from merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), formatAssignees(removed), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 				}
 			}
 		case actionApproved:
@@ -56,9 +64,16 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 	}
 
 	if len(message) > 0 {
+		toUsers := []string{w.gitlabRetreiver.GetUsernameByID(event.ObjectAttributes.AssigneeID), authorGitlabUsername}
+		for _, u := range added {
+			toUsers = append(toUsers, w.gitlabRetreiver.GetUsernameByID(u.ID))
+		}
+		for _, u := range removed {
+			toUsers = append(toUsers, w.gitlabRetreiver.GetUsernameByID(u.ID))
+		}
 		handlers := []*HandleWebhook{{
 			Message:    message,
-			ToUsers:    []string{w.gitlabRetreiver.GetUsernameByID(event.ObjectAttributes.AssigneeID), authorGitlabUsername},
+			ToUsers:    toUsers,
 			ToChannels: []string{},
 			From:       senderGitlabUsername,
 		}}
@@ -132,15 +147,37 @@ func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.M
 	return res, nil
 }
 
-func compareAssignees(prev, curr []*gitlab.EventUser) bool {
-	m := make(map[int]bool)
-	for _, assignee := range prev {
-		m[assignee.ID] = true
+func diffAssignees(prev, curr []*gitlab.EventUser) (added, removed []*gitlab.EventUser) {
+	prevMap := make(map[int]*gitlab.EventUser)
+	currMap := make(map[int]*gitlab.EventUser)
+
+	for _, user := range prev {
+		prevMap[user.ID] = user
 	}
-	for _, assignee := range curr {
-		if !m[assignee.ID] {
-			return false
+
+	for _, user := range curr {
+		currMap[user.ID] = user
+	}
+
+	for id, user := range prevMap {
+		if _, exists := currMap[id]; !exists {
+			removed = append(removed, user)
 		}
 	}
-	return true
+
+	for id, user := range currMap {
+		if _, exists := prevMap[id]; !exists {
+			added = append(added, user)
+		}
+	}
+
+	return
+}
+
+func formatAssignees(users []*gitlab.EventUser) string {
+	names := []string{}
+	for _, user := range users {
+		names = append(names, user.Username)
+	}
+	return strings.Join(names, ", ")
 }
