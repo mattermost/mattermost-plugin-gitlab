@@ -170,6 +170,12 @@ func (p *Plugin) OnPluginClusterEvent(c *plugin.Context, ev model.PluginClusterE
 	p.HandleClusterEvent(ev)
 }
 
+func (p *Plugin) UserHasBeenDeactivated(c *plugin.Context, user *model.User) {
+	if info, _ := p.getGitlabUserInfoByMattermostID(user.Id); info != nil {
+		p.disconnectGitlabAccount(user.Id)
+	}
+}
+
 func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*model.Post, string) {
 	// If not enabled in config, ignore.
 	if p.getConfiguration().EnableCodePreview == "disable" {
