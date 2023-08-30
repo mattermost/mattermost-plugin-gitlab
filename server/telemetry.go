@@ -3,9 +3,9 @@ package main
 import (
 	"strings"
 
-	pluginapi "github.com/mattermost/mattermost-plugin-api"
-	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
-	"github.com/mattermost/mattermost-plugin-api/experimental/telemetry"
+	"github.com/mattermost/mattermost/server/public/pluginapi"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/logger"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/telemetry"
 	"github.com/pkg/errors"
 
 	root "github.com/mattermost/mattermost-plugin-gitlab"
