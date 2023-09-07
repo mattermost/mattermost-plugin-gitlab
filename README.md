@@ -173,10 +173,10 @@ For Mattermost customers - please open a [support case](https://mattermost.zende
 
 For Questions, suggestions, and help - please find us on our forum at [https://forum.mattermost.org/c/plugins](https://forum.mattermost.org/c/plugins).
 
-Alternatively, join our public Mattermost server and join the [Integrations and Apps channel](https://community-daily.mattermost.com/core/channels/integrations).
+Alternatively, join our public Mattermost server and join the [Integrations and Apps channel](https://community.mattermost.com/core/channels/integrations).
 
 ## Feedback and feature requests
 
 Feel free to create a GitHub issue or [join the GitLab Plugin channel on our community Mattermost instance](https://community.mattermost.com/core/channels/plugin-gitlab) to discuss.
 
-Share your thoughts in the [Plugin: GitLab Channel](https://community-daily.mattermost.com/core/channels/gitlab-plugin) on our Mattermost community!
+Share your thoughts in the [Plugin: GitLab Channel](https://community.mattermost.com/core/channels/gitlab-plugin) on our Mattermost community!
