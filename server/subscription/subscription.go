@@ -20,11 +20,10 @@ var allFeatures = map[string]bool{
 }
 
 type Subscription struct {
-	ChannelID      string
-	CreatorID      string
-	Features       string
-	Repository     string
-	ChannelMembers string
+	ChannelID  string
+	CreatorID  string
+	Features   string
+	Repository string
 }
 
 func New(channelID, creatorID, features, repository string) (*Subscription, error) {
