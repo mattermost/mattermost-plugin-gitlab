@@ -3,6 +3,7 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/xanzy/go-gitlab"
 )
@@ -61,7 +62,7 @@ func (w *webhook) handleChannelIssueComment(ctx context.Context, event *gitlab.I
 	toChannels := make([]string, 0)
 	namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
-		ctx, namespace, project,
+		ctx, namespace, strconv.Itoa(event.User.ID), project,
 		repo.Visibility == gitlab.PublicVisibility,
 	)
 	for _, sub := range subs {
@@ -131,7 +132,7 @@ func (w *webhook) handleChannelMergeRequestComment(ctx context.Context, event *g
 	toChannels := make([]string, 0)
 	namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
-		ctx, namespace, project,
+		ctx, namespace, strconv.Itoa(event.User.ID), project,
 		repo.Visibility == gitlab.PublicVisibility,
 	)
 	for _, sub := range subs {

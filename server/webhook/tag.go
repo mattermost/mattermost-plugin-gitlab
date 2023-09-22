@@ -3,6 +3,7 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/xanzy/go-gitlab"
@@ -53,7 +54,7 @@ func (w *webhook) handleChannelTag(ctx context.Context, event *gitlab.TagEvent) 
 	toChannels := make([]string, 0)
 	namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
-		ctx, namespace, project,
+		ctx, namespace, strconv.Itoa(event.UserID), project,
 		repo.Visibility == gitlab.PublicVisibility,
 	)
 	for _, sub := range subs {

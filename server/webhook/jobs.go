@@ -3,6 +3,7 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/xanzy/go-gitlab"
 )
@@ -48,7 +49,7 @@ func (w *webhook) handleChannelJob(ctx context.Context, event *gitlab.JobEvent) 
 	message += fmt.Sprintf("**Visit job [here](%s)** \n", w.gitlabRetreiver.GetJobURL(fullNamespacePath, event.BuildID))
 	toChannels := make([]string, 0)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
-		ctx, namespaceMetadata.Namespace, namespaceMetadata.Project,
+		ctx, namespaceMetadata.Namespace, strconv.Itoa(event.User.ID), namespaceMetadata.Project,
 		repo.Visibility == gitlab.PublicVisibility,
 	)
 	for _, sub := range subs {

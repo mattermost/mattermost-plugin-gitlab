@@ -51,10 +51,11 @@ func (g *gitlabRetreiver) ParseGitlabUsernamesFromText(text string) []string {
 func (g *gitlabRetreiver) GetSubscribedChannelsForProject(
 	ctx context.Context,
 	namespace string,
+	userid string,
 	project string,
 	isPublicVisibility bool,
 ) []*subscription.Subscription {
-	return g.p.GetSubscribedChannelsForProject(ctx, namespace, project, isPublicVisibility)
+	return g.p.GetSubscribedChannelsForProject(ctx, namespace, userid, project, isPublicVisibility)
 }
 
 func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {

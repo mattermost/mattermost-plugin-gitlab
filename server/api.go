@@ -4,6 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
+	gitlabLib "github.com/xanzy/go-gitlab"
+	"golang.org/x/oauth2"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -11,11 +16,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/gorilla/mux"
-	"github.com/pkg/errors"
-	gitlabLib "github.com/xanzy/go-gitlab"
-	"golang.org/x/oauth2"
 
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin"
@@ -732,4 +732,45 @@ func (p *Plugin) getChannelSubscriptions(c *UserContext, w http.ResponseWriter, 
 	} else if _, err := w.Write(b); err != nil {
 		p.client.Log.Warn("can't write api error http response", "err", err.Error())
 	}
+}
+
+func getChannelMembers(channelid string) ([]*model.ChannelMember, error) {
+
+	// Define the Mattermost API endpoint URL
+	apiURL := "https://mattermost.veevadev.com/api/v4"
+
+	// Set up an HTTP client
+	client := &http.Client{}
+
+	// Create an HTTP request
+	req, err := http.NewRequest("GET", apiURL+"/channels/"+channelid+"/members", nil)
+	if err != nil {
+		fmt.Println("Error creating request:", err)
+		return nil, err
+	}
+
+	// Set the Mattermost API token in the request header for authentication
+	req.Header.Add("Authorization", "Bearer your-api-token")
+
+	// Send the request to the Mattermost server
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Println("Error sending request:", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println("Error reading response:", err)
+		return nil, err
+	}
+
+	var memberData []*model.ChannelMember
+	if err := json.Unmarshal(body, &memberData); err != nil {
+		return nil, err
+	}
+
+	return memberData, nil
 }
