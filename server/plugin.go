@@ -46,9 +46,10 @@ const (
 	SettingReminders              = "reminders"
 	SettingOn                     = "on"
 	SettingOff                    = "off"
-	chimeraGitLabAppIdentifier    = "plugin-gitlab"
 
-	ActionNameMemberAccessRequest = "member_access_requested"
+	chimeraGitLabAppIdentifier = "plugin-gitlab"
+
+	NotificationActionNameMemberAccessRequest = "member_access_requested"
 
 	invalidTokenError = "401 {error: invalid_token}" //#nosec G101 -- False positive
 )
@@ -609,8 +610,8 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 			notificationCount++
 
 			switch n.ActionName {
-			// Handling this cases specifically as the "Title" field is empty in this case
-			case ActionNameMemberAccessRequest:
+			// Handle special cases where the provided "Title" value is blank
+			case NotificationActionNameMemberAccessRequest:
 				notificationContent += fmt.Sprintf("* %v : [%v](%v) has requested access to [%v](%v)\n", n.ActionName, n.Author.Name, n.Author.WebURL, n.Body, n.TargetURL)
 			default:
 				notificationContent += fmt.Sprintf("* %v : [%v](%v)\n", n.ActionName, n.Target.Title, n.TargetURL)
