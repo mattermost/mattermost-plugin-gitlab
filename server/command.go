@@ -746,21 +746,21 @@ func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channel
 	if len(subs) == 0 {
 		txt += "###### Currently there are no subscriptions present in this channel\n"
 		txt += fmt.Sprintf("You can create a subscription for pipeline by running the command `/gitlab subscriptions add %s pipeline`", namespace)
-	} else {
-		var isPipelineSubscriptionPresent bool
-		subscriptionFeatures := "pipeline"
-		for _, sub := range subs {
-			if sub.Repository == namespace {
-				subscriptionFeatures = sub.Features + " ," + subscriptionFeatures
-				if sub.Features == "pipeline" {
-					isPipelineSubscriptionPresent = true
-				}
+		return txt	
+	}
+	var isPipelineSubscriptionPresent bool
+	subscriptionFeatures := "pipeline"
+	for _, sub := range subs {
+		if sub.Repository == namespace {
+			subscriptionFeatures = sub.Features + " ," + subscriptionFeatures
+			if sub.Features == "pipeline" {
+				isPipelineSubscriptionPresent = true
 			}
 		}
-		if !isPipelineSubscriptionPresent {
-			txt += "###### Currently there are no subscriptions for pipeline present in this channel\n"
-			txt += fmt.Sprintf("You can create a subscription for pipline by running the command `/gitlab subscriptions add %s %s`", namespace, subscriptionFeatures)
-		}
+	}
+	if !isPipelineSubscriptionPresent {
+		txt += "###### Currently there are no subscriptions for pipeline present in this channel\n"
+		txt += fmt.Sprintf("You can create a subscription for pipline by running the command `/gitlab subscriptions add %s %s`", namespace, subscriptionFeatures)
 	}
 	return txt
 }
