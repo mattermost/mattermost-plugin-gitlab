@@ -86,8 +86,9 @@ const (
 	commandAdd    = "add"
 	commandDelete = "delete"
 	commandList   = "list"
+	commandRun    = "run"
+
 	featurePipeline = "pipeline"
-	commandRun = "run"
 )
 
 const (
