@@ -86,7 +86,7 @@ const (
 	commandAdd    = "add"
 	commandDelete = "delete"
 	commandList   = "list"
-
+	featurePipeline = "pipeline"
 	commandRun = "run"
 )
 
@@ -748,12 +748,13 @@ func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channel
 		txt += fmt.Sprintf("You can create a subscription for pipeline by running the command `/gitlab subscriptions add %s pipeline`", namespace)
 		return txt
 	}
+
 	var isPipelineSubscriptionPresent bool
-	subscriptionFeatures := "pipeline"
+	subscriptionFeatures := featurePipeline
 	for _, sub := range subs {
 		if sub.Repository == namespace {
 			subscriptionFeatures = sub.Features + " ," + subscriptionFeatures
-			if sub.Features == "pipeline" {
+			if sub.Features == featurePipeline {
 				isPipelineSubscriptionPresent = true
 			}
 		}
