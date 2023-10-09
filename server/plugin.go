@@ -15,12 +15,12 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	pluginapi "github.com/mattermost/mattermost-plugin-api"
-	"github.com/mattermost/mattermost-plugin-api/cluster"
-	"github.com/mattermost/mattermost-plugin-api/experimental/bot/poster"
-	"github.com/mattermost/mattermost-plugin-api/experimental/telemetry"
-	"github.com/mattermost/mattermost-server/v6/model"
-	"github.com/mattermost/mattermost-server/v6/plugin"
+	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/public/plugin"
+	"github.com/mattermost/mattermost/server/public/pluginapi"
+	"github.com/mattermost/mattermost/server/public/pluginapi/cluster"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/poster"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/telemetry"
 	"github.com/pkg/errors"
 	gitlabLib "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
@@ -168,6 +168,12 @@ func (p *Plugin) OnSendDailyTelemetry() {
 
 func (p *Plugin) OnPluginClusterEvent(c *plugin.Context, ev model.PluginClusterEvent) {
 	p.HandleClusterEvent(ev)
+}
+
+func (p *Plugin) UserHasBeenDeactivated(c *plugin.Context, user *model.User) {
+	if info, _ := p.getGitlabUserInfoByMattermostID(user.Id); info != nil {
+		p.disconnectGitlabAccount(user.Id)
+	}
 }
 
 func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*model.Post, string) {

@@ -9,8 +9,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	logger "github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
 	gitlab "github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
+	logger "github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/logger"
 	gitlab0 "github.com/xanzy/go-gitlab"
 	oauth2 "golang.org/x/oauth2"
 )

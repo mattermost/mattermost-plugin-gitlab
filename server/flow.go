@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	pluginapi "github.com/mattermost/mattermost-plugin-api"
-	"github.com/mattermost/mattermost-plugin-api/experimental/flow"
-	"github.com/mattermost/mattermost-server/v6/model"
+	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/public/pluginapi"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/flow"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 
@@ -81,7 +81,6 @@ func (p *Plugin) NewFlowManager() *FlowManager {
 
 	fm.oauthFlow = fm.newFlow("oauth").WithSteps(
 		fm.stepInstanceURL(),
-		fm.stepOAuthInfo(),
 		fm.stepOAuthInfo(),
 		fm.stepOAuthInput(),
 		fm.stepOAuthConnect().Terminal(),

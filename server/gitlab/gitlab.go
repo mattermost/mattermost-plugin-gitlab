@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/logger"
 
 	"github.com/pkg/errors"
 	internGitlab "github.com/xanzy/go-gitlab"
