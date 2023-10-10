@@ -162,6 +162,8 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
         );
     }
 
+    const includeNotificationAuthor = item.action_name == ACTION_NAME_MEMBER_ACCESS_REQUESTED;
+
     return (
         <div
             key={item.id}
@@ -183,7 +185,9 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
                 className='light'
                 style={style.subtitle}
             >
+                {!item.action_name && 'Opened'}
                 {item.created_at && ` ${formatTimeSince(item.created_at)} ago`}
+                {!item.action_name && userName && ` by ${userName}.`}
                 {milestone}
             </div>
             <div
@@ -193,7 +197,8 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
                 {item.action_name && (
                     <>
                         <div>{item.updated_at && `Updated ${formatTimeSince(item.updated_at)} ago.`}</div>
-                        {item.action_name == ACTION_NAME_MEMBER_ACCESS_REQUESTED && <a href={item.author.web_url}>{item.author.name}</a>} {notificationReasons[item.action_name]}
+                        {includeNotificationAuthor && <a href={item.author.web_url}>{item.author.name} </a>}
+                        {notificationReasons[item.action_name]}
                     </>
                 )}
             </div>
