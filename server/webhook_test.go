@@ -151,7 +151,7 @@ func TestHandleWebhookForChildPipelineNotficationDisabled(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
-func TestHandleWebhookForChildPipelineNotficationEnbled(t *testing.T) {
+func TestHandleWebhookForChildPipelineNotficationEnabled(t *testing.T) {
 	p := &Plugin{configuration: &configuration{WebhookSecret: "secret", EnableChildPipelineNotifications: true}, WebhookHandler: fakeWebhookHandler{}}
 
 	mock := &plugintest.API{}
