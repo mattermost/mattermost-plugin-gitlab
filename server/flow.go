@@ -90,7 +90,7 @@ func (p *Plugin) NewFlowManager() *FlowManager {
 	fm.webhokFlow = fm.newFlow("webhook").WithSteps(
 		fm.stepWebhookQuestion(),
 		flow.NewStep(stepWebhookConfirmation).
-			WithText("Use `/gitlab subscriptions add` to subscribe any Mattermost channel to your GitLab repository. [Learn more](https://github.com/mattermost/mattermost-plugin-gitlab/#step-4-subscribe-to-projects-and-groups)").
+			WithText("Use `/gitlab subscriptions add` to subscribe any Mattermost channel to your GitLab repository. [Learn more](https://mattermost.com/pl/mattermost-plugin-gitlab)").
 			Terminal(),
 
 		fm.stepCancel("setup webhook"),
