@@ -90,7 +90,7 @@ func (p *Plugin) NewFlowManager() *FlowManager {
 	fm.webhokFlow = fm.newFlow("webhook").WithSteps(
 		fm.stepWebhookQuestion(),
 		flow.NewStep(stepWebhookConfirmation).
-			WithText("Use `/gitlab subscriptions add` to subscribe any Mattermost channel to your GitLab repository. [Learn more](https://mattermost.gitbook.io/plugin-gitlab/feature-summary#subscribe-to-unsubscribe-from-a-repository)").
+			WithText("Use `/gitlab subscriptions add` to subscribe any Mattermost channel to your GitLab repository. [Learn more](https://github.com/mattermost/mattermost-plugin-gitlab/#step-4-subscribe-to-projects-and-groups)").
 			Terminal(),
 
 		fm.stepCancel("setup webhook"),
@@ -183,7 +183,7 @@ func cancelButton() flow.Button {
 func (fm *FlowManager) stepCancel(command string) flow.Step {
 	return flow.NewStep(stepCancel).
 		Terminal().
-		WithText(fmt.Sprintf("Gitlab integration setup has stopped. Restart setup later by running `/gitlab %s`. Learn more about the plugin [here](https://mattermost.gitbook.io/plugin-gitlab/).", command)).
+		WithText(fmt.Sprintf("Gitlab integration setup has stopped. Restart setup later by running `/gitlab %s`. Learn more about the plugin [here](https://github.com/mattermost/mattermost-plugin-gitlab/#readme).", command)).
 		WithColor(flow.ColorDanger)
 }
 
@@ -264,7 +264,7 @@ func (fm *FlowManager) trackCompleteOauthWizard(userID string) {
 }
 
 func (fm *FlowManager) stepWelcome() flow.Step {
-	welcomePretext := ":wave: Welcome to your GitLab integration! [Learn more](https://mattermost.gitbook.io/plugin-gitlab/)"
+	welcomePretext := ":wave: Welcome to your GitLab integration! [Learn more](https://github.com/mattermost/mattermost-plugin-gitlab/#readme)"
 
 	welcomeText := `
 {{- if .UsePreregisteredApplication -}}
@@ -716,7 +716,7 @@ func (fm *FlowManager) stepWebhookWarning() flow.Step {
 func (fm *FlowManager) stepWebhookConfirmation() flow.Step {
 	return flow.NewStep(stepWebhookConfirmation).
 		WithTitle("Success! :tada: You've successfully set up your Mattermost GitLab integration! ").
-		WithText("Use `/gitlab subscriptions add` to subscribe any Mattermost channel to your GitLab repository. [Learn more](https://mattermost.gitbook.io/plugin-gitlab/feature-summary#subscribe-to-unsubscribe-from-a-repository)").
+		WithText("Use `/gitlab subscriptions add` to subscribe any Mattermost channel to your GitLab repository. [Learn more](https://github.com/mattermost/mattermost-plugin-gitlab/#step-4-subscribe-to-projects-and-groups)").
 		OnRender(func(f *flow.Flow) { fm.trackCompleteWebhookWizard(f.UserID) }).
 		Next("")
 }
@@ -749,7 +749,7 @@ func (fm *FlowManager) trackCompletAnnouncementWizard(userID string) {
 func (fm *FlowManager) stepAnnouncementQuestion() flow.Step {
 	defaultMessage := "Hi team,\n" +
 		"\n" +
-		"We've set up the Mattermost Gitlab plugin to enable notifications from Gitlab in Mattermost. To get started, run the `/gitlab connect` slash command from any channel within Mattermost to connect that channel with GitLab. See the [documentation](https://mattermost.gitbook.io/plugin-gitlab/) for details on using the GitLab plugin."
+		"We've set up the Mattermost Gitlab plugin to enable notifications from Gitlab in Mattermost. To get started, run the `/gitlab connect` slash command from any channel within Mattermost to connect that channel with GitLab. See the [documentation](https://github.com/mattermost/mattermost-plugin-gitlab/#readme) for details on using the GitLab plugin."
 
 	return flow.NewStep(stepAnnouncementQuestion).
 		WithText("Want to let your team know?").
