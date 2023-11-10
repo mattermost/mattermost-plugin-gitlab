@@ -716,7 +716,7 @@ func (fm *FlowManager) stepWebhookWarning() flow.Step {
 func (fm *FlowManager) stepWebhookConfirmation() flow.Step {
 	return flow.NewStep(stepWebhookConfirmation).
 		WithTitle("Success! :tada: You've successfully set up your Mattermost GitLab integration! ").
-		WithText("Use `/gitlab subscriptions add` to subscribe any Mattermost channel to your GitLab repository. [Learn more](https://github.com/mattermost/mattermost-plugin-gitlab/#step-4-subscribe-to-projects-and-groups)").
+		WithText("Use `/gitlab subscriptions add` to subscribe any Mattermost channel to your GitLab repository. [Learn more](https://mattermost.com/pl/mattermost-plugin-gitlab)").
 		OnRender(func(f *flow.Flow) { fm.trackCompleteWebhookWizard(f.UserID) }).
 		Next("")
 }
