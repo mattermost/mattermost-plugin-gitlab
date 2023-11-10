@@ -749,7 +749,7 @@ func (fm *FlowManager) trackCompletAnnouncementWizard(userID string) {
 func (fm *FlowManager) stepAnnouncementQuestion() flow.Step {
 	defaultMessage := "Hi team,\n" +
 		"\n" +
-		"We've set up the Mattermost Gitlab plugin to enable notifications from Gitlab in Mattermost. To get started, run the `/gitlab connect` slash command from any channel within Mattermost to connect that channel with GitLab. See the [documentation](https://github.com/mattermost/mattermost-plugin-gitlab/#readme) for details on using the GitLab plugin."
+		"We've set up the Mattermost Gitlab plugin to enable notifications from Gitlab in Mattermost. To get started, run the `/gitlab connect` slash command from any channel within Mattermost to connect that channel with GitLab. See the [documentation](https://mattermost.com/pl/mattermost-plugin-gitlab) for details on using the GitLab plugin."
 
 	return flow.NewStep(stepAnnouncementQuestion).
 		WithText("Want to let your team know?").
