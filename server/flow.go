@@ -183,7 +183,7 @@ func cancelButton() flow.Button {
 func (fm *FlowManager) stepCancel(command string) flow.Step {
 	return flow.NewStep(stepCancel).
 		Terminal().
-		WithText(fmt.Sprintf("Gitlab integration setup has stopped. Restart setup later by running `/gitlab %s`. Learn more about the plugin [here](https://github.com/mattermost/mattermost-plugin-gitlab/#readme).", command)).
+		WithText(fmt.Sprintf("Gitlab integration setup has stopped. Restart setup later by running `/gitlab %s`. Learn more about the plugin [here](https://mattermost.com/pl/mattermost-plugin-gitlab).", command)).
 		WithColor(flow.ColorDanger)
 }
 
