@@ -264,7 +264,7 @@ func (fm *FlowManager) trackCompleteOauthWizard(userID string) {
 }
 
 func (fm *FlowManager) stepWelcome() flow.Step {
-	welcomePretext := ":wave: Welcome to your GitLab integration! [Learn more](https://github.com/mattermost/mattermost-plugin-gitlab/#readme)"
+	welcomePretext := ":wave: Welcome to your GitLab integration! [Learn more](https://mattermost.com/pl/mattermost-plugin-gitlab)"
 
 	welcomeText := `
 {{- if .UsePreregisteredApplication -}}
