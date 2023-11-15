@@ -1,3 +1,7 @@
+import {getCurrentChannelId} from 'mattermost-redux/selectors/entities/common';
+
+import {PostTypes} from 'mattermost-redux/action_types';
+
 import Client from '../client';
 import ActionTypes from '../action_types';
 import {id} from '../manifest';
@@ -299,5 +303,35 @@ export function getChannelSubscriptions(channelId) {
         });
 
         return {subscriptions};
+    };
+}
+
+export function handleConnectFlow() {
+    return async (dispatch) => {
+        const errMsg = 'Mattermost desktop client does not support authenticating between Gitlab and Mattermost directly. To connect your Gitlab account with Mattermost, please go to Mattermost via your web browser and type `/gitlab connect`.';
+        dispatch(sendEphemeralPost(errMsg));
+    };
+}
+
+export function sendEphemeralPost(message) {
+    return (dispatch, getState) => {
+        const timestamp = Date.now();
+        const post = {
+            id: 'gitlabPlugin' + Date.now(),
+            user_id: getState().entities.users.currentUserId,
+            channel_id: getCurrentChannelId(getState()),
+            message,
+            type: 'system_ephemeral',
+            create_at: timestamp,
+            update_at: timestamp,
+            root_id: '',
+            parent_id: '',
+            props: {},
+        };
+
+        dispatch({
+            type: PostTypes.RECEIVED_NEW_POST,
+            data: post,
+        });
     };
 }
