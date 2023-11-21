@@ -21,11 +21,8 @@ export default class SidebarButtons extends React.PureComponent {
         pluginServerRoute: PropTypes.string.isRequired,
         showRHSPlugin: PropTypes.func.isRequired,
         actions: PropTypes.shape({
-            getReviews: PropTypes.func.isRequired,
-            getUnreads: PropTypes.func.isRequired,
-            getYourPrs: PropTypes.func.isRequired,
-            getYourAssignments: PropTypes.func.isRequired,
             updateRHSState: PropTypes.func.isRequired,
+            getLHSData: PropTypes.func.isRequired,
         }).isRequired,
     };
 
@@ -59,12 +56,7 @@ export default class SidebarButtons extends React.PureComponent {
         }
 
         this.setState({refreshing: true});
-        await Promise.all([
-            this.props.actions.getReviews(),
-            this.props.actions.getUnreads(),
-            this.props.actions.getYourPrs(),
-            this.props.actions.getYourAssignments(),
-        ]);
+        await this.props.actions.getLHSData();
         this.setState({refreshing: false});
     };
 
