@@ -1,6 +1,9 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 
+import {isDesktopApp} from 'src/utils/user_agent';
+import {connectUsingBrowserMessage} from 'src/constants';
+
 import MattermostGitLabSVG from './mattermost_gitlab';
 import NoSubscriptionsSVG from './no_subscriptions';
 
@@ -9,6 +12,10 @@ import './rhs_sidebar.css';
 const NotSignedIn = (props) => {
     const openConnectWindow = (e) => {
         e.preventDefault();
+        if (isDesktopApp()) {
+            props.sendEphemeralPost(connectUsingBrowserMessage);
+            return;
+        }
         window.open(`${props.pluginServerRoute}/oauth/connect`, 'Connect Mattermost to GitLab', 'height=570,width=520');
     };
 
@@ -33,6 +40,7 @@ const NotSignedIn = (props) => {
 
 NotSignedIn.propTypes = {
     pluginServerRoute: PropTypes.string.isRequired,
+    sendEphemeralPost: PropTypes.func.isRequired,
 };
 
 const UserHeader = (props) => (
@@ -140,6 +148,7 @@ export default class RHSSidebar extends React.PureComponent {
         pluginServerRoute: PropTypes.string.isRequired,
         actions: PropTypes.shape({
             getChannelSubscriptions: PropTypes.func.isRequired,
+            sendEphemeralPost: PropTypes.func.isRequired,
         }).isRequired,
     };
 
@@ -182,6 +191,7 @@ export default class RHSSidebar extends React.PureComponent {
             return (
                 <NotSignedIn
                     pluginServerRoute={this.props.pluginServerRoute}
+                    sendEphemeralPost={this.props.actions.sendEphemeralPost}
                 />
             );
         }

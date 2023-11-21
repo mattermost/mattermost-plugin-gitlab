@@ -7,6 +7,7 @@ import {
     getYourPrs,
     getYourAssignments,
     updateRHSState,
+    sendEphemeralPost,
 } from '../../actions';
 
 import {id} from '../../manifest';
@@ -40,6 +41,7 @@ function mapDispatchToProps(dispatch) {
                 getYourPrs,
                 getYourAssignments,
                 updateRHSState,
+                sendEphemeralPost,
             },
             dispatch,
         ),

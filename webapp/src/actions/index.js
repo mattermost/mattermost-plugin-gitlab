@@ -306,13 +306,6 @@ export function getChannelSubscriptions(channelId) {
     };
 }
 
-export function handleConnectFlow() {
-    return async (dispatch) => {
-        const errMsg = 'Mattermost desktop client does not support authenticating between Gitlab and Mattermost directly. To connect your Gitlab account with Mattermost, please go to Mattermost via your web browser and type `/gitlab connect`.';
-        dispatch(sendEphemeralPost(errMsg));
-    };
-}
-
 export function sendEphemeralPost(message) {
     return (dispatch, getState) => {
         const timestamp = Date.now();

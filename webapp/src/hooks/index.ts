@@ -2,7 +2,8 @@
 // See LICENSE.txt for license information.
 
 import { isDesktopApp } from 'src/utils/user_agent';
-import {handleConnectFlow} from '../actions';
+import { connectUsingBrowserMessage } from 'src/constants';
+import {sendEphemeralPost} from '../actions';
 
 type ContextArgs = {channel_id: string};
 
@@ -27,7 +28,7 @@ export default class Hooks {
 
         if (message.startsWith(connectCommand)) {
             if (isDesktopApp()){
-                this.store.dispatch(handleConnectFlow());
+                this.store.dispatch(sendEphemeralPost(connectUsingBrowserMessage));
                 return Promise.resolve({});
             }
         }
