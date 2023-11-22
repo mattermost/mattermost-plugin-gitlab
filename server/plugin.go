@@ -24,7 +24,6 @@ import (
 	"github.com/pkg/errors"
 	gitlabLib "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
-	"golang.org/x/sync/errgroup"
 
 	root "github.com/mattermost/mattermost-plugin-gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
@@ -577,23 +576,15 @@ func (p *Plugin) PostToDo(ctx context.Context, info *gitlab.UserInfo) {
 
 func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, string, error) {
 	hasTodo := false
-	g, ctx := errgroup.WithContext(ctx)
 
-	notificationText := ""
-	g.Go(func() error {
-		var unreads []*gitlabLib.Todo
-		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetUnreads(ctx, info, token)
-			if err != nil {
-				return err
-			}
-			unreads = resp
-			return nil
-		})
+	var notificationText, reviewText, assignmentText, mergeRequestText string
+	err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetLHSData(ctx, info, token)
 		if err != nil {
 			return err
 		}
 
+		unreads := resp.Unreads
 		notificationCount := 0
 		notificationContent := ""
 
@@ -618,24 +609,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 			hasTodo = true
 		}
 
-		return nil
-	})
-
-	reviewText := ""
-	g.Go(func() error {
-		var reviews []*gitlab.MergeRequest
-		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetReviews(ctx, info, token)
-			if err != nil {
-				return err
-			}
-			reviews = resp
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-
+		reviews := resp.Reviews
 		if len(reviews) == 0 {
 			reviewText += "You don't have any merge requests awaiting your review.\n"
 		} else {
@@ -648,23 +622,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 			hasTodo = true
 		}
 
-		return nil
-	})
-
-	assignmentText := ""
-	g.Go(func() error {
-		var yourAssignments []*gitlab.Issue
-		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetYourAssignments(ctx, info, token)
-			if err != nil {
-				return err
-			}
-			yourAssignments = resp
-			return nil
-		})
-		if err != nil {
-			return err
-		}
+		yourAssignments := resp.Assignments
 
 		if len(yourAssignments) == 0 {
 			assignmentText += "You don't have any issues awaiting your dev.\n"
@@ -678,24 +636,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 			hasTodo = true
 		}
 
-		return nil
-	})
-
-	mergeRequestText := ""
-	g.Go(func() error {
-		var mergeRequests []*gitlab.MergeRequest
-		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetYourPrs(ctx, info, token)
-			if err != nil {
-				return err
-			}
-			mergeRequests = resp
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-
+		mergeRequests := resp.PRs
 		if len(mergeRequests) == 0 {
 			mergeRequestText += "You don't have any open merge requests.\n"
 		} else {
@@ -710,8 +651,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 
 		return nil
 	})
-
-	if err := g.Wait(); err != nil {
+	if err != nil {
 		return false, "", err
 	}
 
