@@ -231,10 +231,12 @@ export function getChannelSubscriptions(channelId) {
 export function sendEphemeralPost(message) {
     return (dispatch, getState) => {
         const timestamp = Date.now();
+        const state = getState();
+
         const post = {
             id: 'gitlabPlugin' + Date.now(),
-            user_id: getState().entities.users.currentUserId,
-            channel_id: getCurrentChannelId(getState()),
+            user_id: getCurrentUserId(state),
+            channel_id: getCurrentChannelId(state),
             message,
             type: 'system_ephemeral',
             create_at: timestamp,
