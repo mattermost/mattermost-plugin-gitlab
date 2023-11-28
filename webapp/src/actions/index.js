@@ -1,4 +1,4 @@
-import {getCurrentChannelId} from 'mattermost-redux/selectors/entities/common';
+import {getCurrentChannelId, getCurrentUserId} from 'mattermost-redux/selectors/entities/common';
 
 import {PostTypes} from 'mattermost-redux/action_types';
 
