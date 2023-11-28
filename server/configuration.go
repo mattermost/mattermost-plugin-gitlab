@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"strings"
 
-	pluginapi "github.com/mattermost/mattermost-plugin-api"
-	"github.com/mattermost/mattermost-plugin-api/experimental/telemetry"
-	"github.com/mattermost/mattermost-server/v6/model"
+	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/public/pluginapi"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/telemetry"
 	"github.com/pkg/errors"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
@@ -34,6 +34,7 @@ type configuration struct {
 	EncryptionKey               string `json:"encryptionkey"`
 	GitlabGroup                 string `json:"gitlabgroup"`
 	EnablePrivateRepo           bool   `json:"enableprivaterepo"`
+	EnableCodePreview           string `json:"enablecodepreview"`
 	UsePreregisteredApplication bool   `json:"usepreregisteredapplication"`
 }
 

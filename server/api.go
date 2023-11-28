@@ -14,13 +14,12 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	gitlabLib "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
 
-	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
-	"github.com/mattermost/mattermost-plugin-api/experimental/flow"
-	"github.com/mattermost/mattermost-server/v6/model"
-	"github.com/mattermost/mattermost-server/v6/plugin"
+	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/public/plugin"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/logger"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/flow"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
@@ -55,14 +54,10 @@ func (p *Plugin) initializeAPI() {
 
 	apiRouter.HandleFunc("/user", p.checkAuth(p.attachContext(p.getGitlabUser), ResponseTypeJSON)).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/todo", p.checkAuth(p.attachUserContext(p.postToDo), ResponseTypeJSON)).Methods(http.MethodPost)
-	apiRouter.HandleFunc("/reviews", p.checkAuth(p.attachUserContext(p.getReviews), ResponseTypePlain)).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/yourprs", p.checkAuth(p.attachUserContext(p.getYourPrs), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/lhs-data", p.checkAuth(p.attachUserContext(p.getLHSData), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/prdetails", p.checkAuth(p.attachUserContext(p.getPrDetails), ResponseTypePlain)).Methods(http.MethodPost)
-	apiRouter.HandleFunc("/yourassignments", p.checkAuth(p.attachUserContext(p.getYourAssignments), ResponseTypePlain)).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/unreads", p.checkAuth(p.attachUserContext(p.getUnreads), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/issue", p.checkAuth(p.attachUserContext(p.getIssueByNumber), ResponseTypeJSON)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/mergerequest", p.checkAuth(p.attachUserContext(p.getMergeRequestByNumber), ResponseTypeJSON)).Methods(http.MethodGet)
-
 	apiRouter.HandleFunc("/settings", p.checkAuth(p.attachUserContext(p.updateSettings), ResponseTypePlain)).Methods(http.MethodPost)
 
 	apiRouter.HandleFunc("/channel/{channel_id:[A-Za-z0-9]+}/subscriptions", p.checkAuth(p.attachUserContext(p.getChannelSubscriptions), ResponseTypeJSON)).Methods(http.MethodGet)
@@ -533,66 +528,6 @@ func (p *Plugin) getConnected(c *Context, w http.ResponseWriter, r *http.Request
 	p.writeAPIResponse(w, resp)
 }
 
-func (p *Plugin) getUnreads(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	var result []*gitlabLib.Todo
-	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetUnreads(c.Ctx, info, token)
-		if err != nil {
-			return err
-		}
-		result = resp
-		return nil
-	})
-
-	if err != nil {
-		c.Log.WithError(err).Warnf("Unable to list unreads in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list unreads in GitLab API.", StatusCode: http.StatusInternalServerError})
-		return
-	}
-
-	p.writeAPIResponse(w, result)
-}
-
-func (p *Plugin) getReviews(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	var result []*gitlab.MergeRequest
-	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetReviews(c.Ctx, info, token)
-		if err != nil {
-			return err
-		}
-		result = resp
-		return nil
-	})
-
-	if err != nil {
-		c.Log.WithError(err).Warnf("Unable to list merge-request where assignee in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
-		return
-	}
-
-	p.writeAPIResponse(w, result)
-}
-
-func (p *Plugin) getYourPrs(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	var result []*gitlab.MergeRequest
-	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetYourPrs(c.Ctx, info, token)
-		if err != nil {
-			return err
-		}
-		result = resp
-		return nil
-	})
-
-	if err != nil {
-		c.Log.WithError(err).Warnf("Can't list merge-request where author in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
-		return
-	}
-
-	p.writeAPIResponse(w, result)
-}
-
 func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	var prList []*gitlab.PRDetails
 	if err := json.NewDecoder(r.Body).Decode(&prList); err != nil {
@@ -618,10 +553,10 @@ func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Req
 	p.writeAPIResponse(w, result)
 }
 
-func (p *Plugin) getYourAssignments(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	var result []*gitlab.Issue
+func (p *Plugin) getLHSData(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	var result *gitlab.LHSContent
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetYourAssignments(c.Ctx, info, token)
+		resp, err := p.GitlabClient.GetLHSData(c.Ctx, info, token)
 		if err != nil {
 			return err
 		}

@@ -9,21 +9,21 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
-	pluginapi "github.com/mattermost/mattermost-plugin-api"
-	"github.com/mattermost/mattermost-plugin-api/cluster"
-	"github.com/mattermost/mattermost-plugin-api/experimental/bot/poster"
-	"github.com/mattermost/mattermost-plugin-api/experimental/telemetry"
-	"github.com/mattermost/mattermost-server/v6/model"
-	"github.com/mattermost/mattermost-server/v6/plugin"
+	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/public/plugin"
+	"github.com/mattermost/mattermost/server/public/pluginapi"
+	"github.com/mattermost/mattermost/server/public/pluginapi/cluster"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/poster"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/telemetry"
 	"github.com/pkg/errors"
 	gitlabLib "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
-	"golang.org/x/sync/errgroup"
 
 	root "github.com/mattermost/mattermost-plugin-gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
@@ -51,9 +51,7 @@ const (
 	invalidTokenError = "401 {error: invalid_token}" //#nosec G101 -- False positive
 )
 
-var (
-	manifest model.Manifest = root.Manifest
-)
+var manifest model.Manifest = root.Manifest
 
 type Plugin struct {
 	plugin.MattermostPlugin
@@ -81,6 +79,14 @@ type Plugin struct {
 
 	WebhookHandler webhook.Webhook
 	GitlabClient   gitlab.Gitlab
+}
+
+// gitlabPermalinkRegex is used to parse gitlab permalinks in post messages.
+var gitlabPermalinkRegex = regexp.MustCompile(`https?://(?P<haswww>www\.)?gitlab\.com/(?P<user>[\w/.?-]+)/(?P<repo>[\w-]+)/-/blob/(?P<commit>\w+)/(?P<path>[\w-/.]+)#(?P<line>[\w-]+)?`)
+
+// NewPlugin returns an instance of a Plugin.
+func NewPlugin() *Plugin {
+	return &Plugin{}
 }
 
 func (p *Plugin) OnActivate() error {
@@ -141,8 +147,14 @@ func (p *Plugin) OnDeactivate() error {
 }
 
 func (p *Plugin) OnInstall(c *plugin.Context, event model.OnInstallEvent) error {
+	conf := p.getConfiguration()
+
 	// Don't start wizard if OAuth is configured
-	if p.getConfiguration().IsOAuthConfigured() {
+	if conf.IsOAuthConfigured() {
+		p.client.Log.Debug("OAuth is configured, skipping setup wizard",
+			"GitlabOAuthClientID", lastN(conf.GitlabOAuthClientID, 4),
+			"GitlabOAuthClientSecret", lastN(conf.GitlabOAuthClientSecret, 4),
+			"UsePreregisteredApplication", conf.UsePreregisteredApplication)
 		return nil
 	}
 
@@ -155,6 +167,55 @@ func (p *Plugin) OnSendDailyTelemetry() {
 
 func (p *Plugin) OnPluginClusterEvent(c *plugin.Context, ev model.PluginClusterEvent) {
 	p.HandleClusterEvent(ev)
+}
+
+func (p *Plugin) UserHasBeenDeactivated(c *plugin.Context, user *model.User) {
+	if info, _ := p.getGitlabUserInfoByMattermostID(user.Id); info != nil {
+		p.disconnectGitlabAccount(user.Id)
+	}
+}
+
+func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*model.Post, string) {
+	// If not enabled in config, ignore.
+	if p.getConfiguration().EnableCodePreview == "disable" {
+		return nil, ""
+	}
+
+	if post.UserId == "" {
+		return nil, ""
+	}
+
+	msg := post.Message
+	replacements := p.getPermalinkReplacements(msg)
+	if len(replacements) == 0 {
+		return nil, ""
+	}
+	info, err := p.getGitlabUserInfoByMattermostID(post.UserId)
+	if err != nil {
+		if err.ID == APIErrorIDNotConnected {
+			p.API.LogDebug("Error while processing permalinks in the post", "Error", err.Error())
+		} else {
+			p.API.LogDebug("Error in getting user info", "Error", err.Error())
+		}
+		return nil, ""
+	}
+
+	var glClient *gitlabLib.Client
+	if cErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GitlabConnect(*token)
+		if err != nil {
+			return err
+		}
+
+		glClient = resp
+		return nil
+	}); cErr != nil {
+		p.API.LogDebug("Error in getting GitLab client", "Error", cErr.Error())
+		return nil, ""
+	}
+
+	post.Message = p.makeReplacements(msg, replacements, glClient)
+	return post, ""
 }
 
 func (p *Plugin) setDefaultConfiguration() error {
@@ -515,28 +576,24 @@ func (p *Plugin) PostToDo(ctx context.Context, info *gitlab.UserInfo) {
 
 func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, string, error) {
 	hasTodo := false
-	g, ctx := errgroup.WithContext(ctx)
 
-	notificationText := ""
-	g.Go(func() error {
-		var unreads []*gitlabLib.Todo
-		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetUnreads(ctx, info, token)
-			if err != nil {
-				return err
-			}
-			unreads = resp
-			return nil
-		})
+	var notificationText, reviewText, assignmentText, mergeRequestText string
+	err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetLHSData(ctx, info, token)
 		if err != nil {
 			return err
 		}
 
+		unreads := resp.Unreads
 		notificationCount := 0
 		notificationContent := ""
 
 		for _, n := range unreads {
-			if p.isNamespaceAllowed(n.Project.NameWithNamespace) != nil {
+			if n == nil {
+				continue
+			}
+
+			if n.Project != nil && p.isNamespaceAllowed(n.Project.NameWithNamespace) != nil {
 				continue
 			}
 			notificationCount++
@@ -552,24 +609,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 			hasTodo = true
 		}
 
-		return nil
-	})
-
-	reviewText := ""
-	g.Go(func() error {
-		var reviews []*gitlab.MergeRequest
-		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetReviews(ctx, info, token)
-			if err != nil {
-				return err
-			}
-			reviews = resp
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-
+		reviews := resp.Reviews
 		if len(reviews) == 0 {
 			reviewText += "You don't have any merge requests awaiting your review.\n"
 		} else {
@@ -582,23 +622,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 			hasTodo = true
 		}
 
-		return nil
-	})
-
-	assignmentText := ""
-	g.Go(func() error {
-		var yourAssignments []*gitlab.Issue
-		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetYourAssignments(ctx, info, token)
-			if err != nil {
-				return err
-			}
-			yourAssignments = resp
-			return nil
-		})
-		if err != nil {
-			return err
-		}
+		yourAssignments := resp.Assignments
 
 		if len(yourAssignments) == 0 {
 			assignmentText += "You don't have any issues awaiting your dev.\n"
@@ -612,24 +636,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 			hasTodo = true
 		}
 
-		return nil
-	})
-
-	mergeRequestText := ""
-	g.Go(func() error {
-		var mergeRequests []*gitlab.MergeRequest
-		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetYourPrs(ctx, info, token)
-			if err != nil {
-				return err
-			}
-			mergeRequests = resp
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-
+		mergeRequests := resp.PRs
 		if len(mergeRequests) == 0 {
 			mergeRequestText += "You don't have any open merge requests.\n"
 		} else {
@@ -644,8 +651,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 
 		return nil
 	})
-
-	if err := g.Wait(); err != nil {
+	if err != nil {
 		return false, "", err
 	}
 
