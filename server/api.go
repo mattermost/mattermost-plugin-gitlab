@@ -14,13 +14,13 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	gitlabLib "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
 
-	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
-	"github.com/mattermost/mattermost-plugin-api/experimental/flow"
-	"github.com/mattermost/mattermost-server/v6/model"
-	"github.com/mattermost/mattermost-server/v6/plugin"
+	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/public/plugin"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/logger"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/flow"
+	internGitlab "github.com/xanzy/go-gitlab"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
@@ -57,17 +57,14 @@ func (p *Plugin) initializeAPI() {
 
 	apiRouter.HandleFunc("/user", p.checkAuth(p.attachContext(p.getGitlabUser), ResponseTypeJSON)).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/todo", p.checkAuth(p.attachUserContext(p.postToDo), ResponseTypeJSON)).Methods(http.MethodPost)
-	apiRouter.HandleFunc("/reviews", p.checkAuth(p.attachUserContext(p.getReviews), ResponseTypePlain)).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/yourprs", p.checkAuth(p.attachUserContext(p.getYourPrs), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/issue", p.checkAuth(p.attachUserContext(p.createIssue), ResponseTypePlain)).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/attachcommenttoissue", p.checkAuth(p.attachUserContext(p.attachCommentToIssue), ResponseTypePlain)).Methods(http.MethodPost)
-	apiRouter.HandleFunc("/yourassignments", p.checkAuth(p.attachUserContext(p.getYourAssignments), ResponseTypePlain)).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/unreads", p.checkAuth(p.attachUserContext(p.getUnreads), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/projects", p.checkAuth(p.attachUserContext(p.getYourProjects), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/labels", p.checkAuth(p.attachUserContext(p.getLabels), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/assignees", p.checkAuth(p.attachUserContext(p.getAssignees), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/milestones", p.checkAuth(p.attachUserContext(p.getMilestones), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/searchissues", p.checkAuth(p.attachUserContext(p.searchIssues), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/lhs-data", p.checkAuth(p.attachUserContext(p.getLHSData), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/prdetails", p.checkAuth(p.attachUserContext(p.getPrDetails), ResponseTypePlain)).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/settings", p.checkAuth(p.attachUserContext(p.updateSettings), ResponseTypePlain)).Methods(http.MethodPost)
 
@@ -539,66 +536,6 @@ func (p *Plugin) getConnected(c *Context, w http.ResponseWriter, r *http.Request
 	p.writeAPIResponse(w, resp)
 }
 
-func (p *Plugin) getUnreads(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	var result []*gitlabLib.Todo
-	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetUnreads(c.Ctx, info, token)
-		if err != nil {
-			return err
-		}
-		result = resp
-		return nil
-	})
-
-	if err != nil {
-		c.Log.WithError(err).Warnf("Unable to list unreads in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list unreads in GitLab API.", StatusCode: http.StatusInternalServerError})
-		return
-	}
-
-	p.writeAPIResponse(w, result)
-}
-
-func (p *Plugin) getReviews(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	var result []*gitlab.MergeRequest
-	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetReviews(c.Ctx, info, token)
-		if err != nil {
-			return err
-		}
-		result = resp
-		return nil
-	})
-
-	if err != nil {
-		c.Log.WithError(err).Warnf("Unable to list merge-request where assignee in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
-		return
-	}
-
-	p.writeAPIResponse(w, result)
-}
-
-func (p *Plugin) getYourPrs(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	var result []*gitlab.MergeRequest
-	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetYourPrs(c.Ctx, info, token)
-		if err != nil {
-			return err
-		}
-		result = resp
-		return nil
-	})
-
-	if err != nil {
-		c.Log.WithError(err).Warnf("Can't list merge-request where author in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list merge-request in GitLab API.", StatusCode: http.StatusInternalServerError})
-		return
-	}
-
-	p.writeAPIResponse(w, result)
-}
-
 func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	var prList []*gitlab.PRDetails
 	if err := json.NewDecoder(r.Body).Decode(&prList); err != nil {
@@ -624,10 +561,10 @@ func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Req
 	p.writeAPIResponse(w, result)
 }
 
-func (p *Plugin) getYourAssignments(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	var result []*gitlab.Issue
+func (p *Plugin) getLHSData(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	var result *gitlab.LHSContent
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetYourAssignments(c.Ctx, info, token)
+		resp, err := p.GitlabClient.GetLHSData(c.Ctx, info, token)
 		if err != nil {
 			return err
 		}
@@ -669,7 +606,7 @@ func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Requ
 		permalink = p.getPermalink(issue.PostID)
 	}
 
-	var result *gitlabLib.Issue
+	var result *internGitlab.Issue
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		resp, err := p.GitlabClient.CreateIssue(c.Ctx, c.GitlabInfo, issue, token)
 		if err != nil {
@@ -748,7 +685,7 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 
 	permalink := p.getPermalink(issue.PostID)
 
-	var result *gitlabLib.Note
+	var result *internGitlab.Note
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		resp, err := p.GitlabClient.AttachCommentToIssue(c.Ctx, c.GitlabInfo, issue, permalink, commentUsername, token)
 		if err != nil {
@@ -809,7 +746,7 @@ func (p *Plugin) getPermalink(postID string) string {
 func (p *Plugin) searchIssues(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	search := r.FormValue(queryParamSearch)
 
-	var result []*gitlabLib.Issue
+	var result []*internGitlab.Issue
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		resp, err := p.GitlabClient.SearchIssues(c.Ctx, c.GitlabInfo, search, token)
 		if err != nil {
@@ -828,7 +765,7 @@ func (p *Plugin) searchIssues(c *UserContext, w http.ResponseWriter, r *http.Req
 }
 
 func (p *Plugin) getYourProjects(c *UserContext, w http.ResponseWriter, r *http.Request) {
-	var result []*gitlabLib.Project
+	var result []*internGitlab.Project
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		resp, err := p.GitlabClient.GetYourProjects(c.Ctx, c.GitlabInfo, token)
 		if err != nil {
@@ -848,7 +785,7 @@ func (p *Plugin) getYourProjects(c *UserContext, w http.ResponseWriter, r *http.
 
 func (p *Plugin) getLabels(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	projectID := r.URL.Query().Get(queryParamProjectID)
-	var result []*gitlabLib.Label
+	var result []*internGitlab.Label
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		resp, err := p.GitlabClient.GetLabels(c.Ctx, c.GitlabInfo, projectID, token)
 		if err != nil {
@@ -868,7 +805,7 @@ func (p *Plugin) getLabels(c *UserContext, w http.ResponseWriter, r *http.Reques
 
 func (p *Plugin) getMilestones(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	projectID := r.URL.Query().Get(queryParamProjectID)
-	var result []*gitlabLib.Milestone
+	var result []*internGitlab.Milestone
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		resp, err := p.GitlabClient.GetMilestones(c.Ctx, c.GitlabInfo, projectID, token)
 		if err != nil {
@@ -888,7 +825,7 @@ func (p *Plugin) getMilestones(c *UserContext, w http.ResponseWriter, r *http.Re
 
 func (p *Plugin) getAssignees(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	projectID := r.URL.Query().Get(queryParamProjectID)
-	var result []*gitlabLib.ProjectMember
+	var result []*internGitlab.ProjectMember
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		resp, err := p.GitlabClient.GetProjectMembers(c.Ctx, c.GitlabInfo, projectID, token)
 		if err != nil {

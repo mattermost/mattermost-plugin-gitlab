@@ -2,11 +2,8 @@ import ActionTypes from '../action_types';
 import Constants from '../constants';
 import {
     getConnected,
-    getReviews,
-    getUnreads,
-    getYourPrs,
-    getYourAssignments,
     openCreateIssueModalWithoutPost,
+    getLHSData,
 } from '../actions';
 import {id} from '../manifest';
 
@@ -50,10 +47,7 @@ export function handleReconnect(store, reminder = false) {
             store.getState,
         );
         if (data && data.connected) {
-            getReviews()(store.dispatch, store.getState);
-            getUnreads()(store.dispatch, store.getState);
-            getYourPrs()(store.dispatch, store.getState);
-            getYourAssignments()(store.dispatch, store.getState);
+            getLHSData()(store.dispatch, store.getState);
         }
     };
 }
@@ -61,10 +55,7 @@ export function handleReconnect(store, reminder = false) {
 export function handleRefresh(store) {
     return () => {
         if (store.getState()[`plugins-${id}`].connected) {
-            getReviews()(store.dispatch, store.getState);
-            getUnreads()(store.dispatch, store.getState);
-            getYourPrs()(store.dispatch, store.getState);
-            getYourAssignments()(store.dispatch, store.getState);
+            getLHSData()(store.dispatch, store.getState);
         }
     };
 }

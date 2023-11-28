@@ -70,27 +70,9 @@ function clientId(state = '', action) {
     }
 }
 
-function reviews(state = [], action) {
-    switch (action.type) {
-    case ActionTypes.RECEIVED_REVIEWS:
-        return action.data;
-    default:
-        return state;
-    }
-}
-
 function reviewDetails(state = [], action) {
     switch (action.type) {
     case ActionTypes.RECEIVED_REVIEW_DETAILS:
-        return action.data;
-    default:
-        return state;
-    }
-}
-
-function yourPrs(state = [], action) {
-    switch (action.type) {
-    case ActionTypes.RECEIVED_YOUR_PRS:
         return action.data;
     default:
         return state;
@@ -106,9 +88,9 @@ function yourPrDetails(state = [], action) {
     }
 }
 
-function yourAssignments(state = [], action) {
+function lhsData(state = [], action) {
     switch (action.type) {
-    case ActionTypes.RECEIVED_YOUR_ASSIGNMENTS:
+    case ActionTypes.RECEIVED_LHS_DATA:
         return action.data;
     default:
         return state;
@@ -118,15 +100,6 @@ function yourAssignments(state = [], action) {
 function mentions(state = [], action) {
     switch (action.type) {
     case ActionTypes.RECEIVED_MENTIONS:
-        return action.data;
-    default:
-        return state;
-    }
-}
-
-function unreads(state = [], action) {
-    switch (action.type) {
-    case ActionTypes.RECEIVED_UNREADS:
         return action.data;
     default:
         return state;
@@ -243,11 +216,7 @@ export default combineReducers({
     username,
     settings,
     clientId,
-    reviews,
-    yourPrs,
-    yourAssignments,
     mentions,
-    unreads,
     gitlabUsers,
     isCreateIssueModalVisible,
     yourProjects,
@@ -259,4 +228,5 @@ export default combineReducers({
     yourPrDetails,
     reviewDetails,
     subscriptions,
+    lhsData,
 });

@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"time"
 
-	"github.com/mattermost/mattermost-plugin-api/experimental/command"
-	"github.com/mattermost/mattermost-server/v6/model"
-	"github.com/mattermost/mattermost-server/v6/plugin"
+	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/public/plugin"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/command"
 	"github.com/pkg/errors"
 	gitlabLib "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
@@ -34,7 +35,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	* label:"<labelname>" - must include "merges" or "issues" in feature list when using a label
     * Defaults to "merges,issues,tag"
 * |/gitlab subscriptions delete owner/repo| - Unsubscribe the current channel from a repository
-* |/gitlab pipeline run [owner]/repo [ref]| - Run a pipeline for specific repository and ref (branch/tag)
+* |/gitlab pipelines run [owner]/repo [ref]| - Run a pipeline for specific repository and ref (branch/tag)
 * |/gitlab me| - Display the connected GitLab account
 * |/gitlab settings [setting] [value]| - Update your user settings
   * |setting| can be "notifications" or "reminders"
@@ -125,7 +126,7 @@ func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string) *model
 }
 
 // ExecuteCommand is the entrypoint for /gitlab commands. It returns a message to display to the user or an error.
-func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res *model.CommandResponse, appErr *model.AppError) {
 	var (
 		split      = strings.Fields(args.Command)
 		cmd        = split[0]
@@ -144,6 +145,21 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 
 	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 	defer cancel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			p.client.Log.Warn("Recovered from a panic",
+				"Command", args.Command,
+				"UserId", args.UserId,
+				"error", r,
+				"stack", string(debug.Stack()))
+			res = &model.CommandResponse{}
+			p.postCommandResponse(args, "An unexpected error occurred. Please try again later.")
+			if *p.client.Configuration.GetConfig().ServiceSettings.EnableDeveloper {
+				p.postCommandResponse(args, fmt.Sprintf("error: %v, \nstack:\n```\n%s\n```", r, string(debug.Stack())))
+			}
+		}
+	}()
 
 	if action == "about" {
 		text, err := command.BuildInfo(manifest)
