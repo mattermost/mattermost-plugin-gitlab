@@ -56,6 +56,8 @@ func (p *Plugin) initializeAPI() {
 	apiRouter.HandleFunc("/todo", p.checkAuth(p.attachUserContext(p.postToDo), ResponseTypeJSON)).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/lhs-data", p.checkAuth(p.attachUserContext(p.getLHSData), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/prdetails", p.checkAuth(p.attachUserContext(p.getPrDetails), ResponseTypePlain)).Methods(http.MethodPost)
+	apiRouter.HandleFunc("/issue", p.checkAuth(p.attachUserContext(p.getIssueByNumber), ResponseTypeJSON)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/mergerequest", p.checkAuth(p.attachUserContext(p.getMergeRequestByNumber), ResponseTypeJSON)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/settings", p.checkAuth(p.attachUserContext(p.updateSettings), ResponseTypePlain)).Methods(http.MethodPost)
 
 	apiRouter.HandleFunc("/channel/{channel_id:[A-Za-z0-9]+}/subscriptions", p.checkAuth(p.attachUserContext(p.getChannelSubscriptions), ResponseTypeJSON)).Methods(http.MethodGet)
@@ -608,6 +610,60 @@ func (p *Plugin) updateSettings(c *UserContext, w http.ResponseWriter, r *http.R
 	}
 
 	p.writeAPIResponse(w, info.Settings)
+}
+
+func (p *Plugin) getIssueByNumber(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	owner := r.FormValue("owner")
+	repo := r.FormValue("repo")
+	issueID, err := strconv.Atoi(r.FormValue("number"))
+	if err != nil {
+		c.Log.WithError(err).Warnf("Unable to convert issueID into int")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to convert issueID into int.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	var result *gitlab.Issue
+	if cErr := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		issue, err := p.GitlabClient.GetIssueByID(c.Ctx, c.GitlabInfo, owner, repo, issueID, token)
+		if err != nil {
+			return err
+		}
+		result = issue
+		return nil
+	}); cErr != nil {
+		c.Log.WithError(cErr).Warnf("Unable to get issue in GitLab API")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get issue in GitLab API.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	p.writeAPIResponse(w, result)
+}
+
+func (p *Plugin) getMergeRequestByNumber(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	owner := r.FormValue("owner")
+	repo := r.FormValue("repo")
+	mergeRequestID, err := strconv.Atoi(r.FormValue("number"))
+	if err != nil {
+		c.Log.WithError(err).Warnf("Unable to convert mergeRequestID into int")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to convert mergeRequestID into int.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	var result *gitlab.MergeRequest
+	if cErr := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		mergeRequest, err := p.GitlabClient.GetMergeRequestByID(c.Ctx, c.GitlabInfo, owner, repo, mergeRequestID, token)
+		if err != nil {
+			return err
+		}
+		result = mergeRequest
+		return nil
+	}); cErr != nil {
+		c.Log.WithError(cErr).Warnf("Unable to get merge request in GitLab API")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get merge request in GitLab API.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	p.writeAPIResponse(w, result)
 }
 
 type SubscriptionResponse struct {
