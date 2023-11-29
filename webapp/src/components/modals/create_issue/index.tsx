@@ -129,8 +129,8 @@ const CreateIssueModal = ({theme}: PropTypes) => {
 
     const handleIssueDescriptionChange = useCallback((issueDescription: string) => setIssueDescription(issueDescription), []);
 
-    const issueAttributeSelectors = useMemo(() => {        
-        if (!project) {
+    const issueAttributeSelectors = useMemo(() => {              
+        if (!project || !project?.project_id) {
             return null;
         }
 
