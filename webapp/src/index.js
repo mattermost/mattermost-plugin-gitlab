@@ -25,6 +25,7 @@ import {
 import {id} from './manifest';
 import Client from './client';
 import {getPluginServerRoute} from './selectors';
+import LinkTooltip from './components/link_tooltip';
 
 let activityFunc;
 let lastActivityTime = Number.MAX_SAFE_INTEGER;
@@ -46,6 +47,7 @@ class PluginClass {
         registry.registerPostDropdownMenuComponent(CreateIssuePostMenuAction);
         registry.registerRootComponent(AttachCommentToIssueModal);
         registry.registerPostDropdownMenuComponent(AttachCommentToIssuePostMenuAction);
+        registry.registerLinkTooltipComponent(LinkTooltip);
 
         const {showRHSPlugin} = registry.registerRightHandSidebarComponent(SidebarRight, 'GitLab Plugin');
         store.dispatch(setShowRHSAction(() => store.dispatch(showRHSPlugin)));

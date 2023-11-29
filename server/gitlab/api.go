@@ -945,6 +945,62 @@ func (g *gitlab) ResolveNamespaceAndProject(
 	return "", "", ErrNotFound
 }
 
+func (g *gitlab) GetIssueByID(ctx context.Context, user *UserInfo, owner, repo string, issueID int, token *oauth2.Token) (*Issue, error) {
+	client, err := g.GitlabConnect(*token)
+	if err != nil {
+		return nil, err
+	}
+	projectPath := fmt.Sprintf("%s/%s", owner, repo)
+	issue, resp, err := client.Issues.GetIssue(projectPath, issueID)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "can't get issue in GitLab api")
+	}
+
+	gitlabIssue := &Issue{
+		Issue: issue,
+	}
+	if issue.Labels != nil {
+		labelsWithDetails, err := g.GetLabelDetails(client, issue.ProjectID, issue.Labels)
+		if err != nil {
+			return nil, err
+		}
+		gitlabIssue.LabelsWithDetails = labelsWithDetails
+	}
+
+	return gitlabIssue, nil
+}
+
+func (g *gitlab) GetMergeRequestByID(ctx context.Context, user *UserInfo, owner, repo string, mergeRequestID int, token *oauth2.Token) (*MergeRequest, error) {
+	client, err := g.GitlabConnect(*token)
+	if err != nil {
+		return nil, err
+	}
+	projectPath := fmt.Sprintf("%s/%s", owner, repo)
+	mergeRequest, resp, err := client.MergeRequests.GetMergeRequest(projectPath, mergeRequestID, nil)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "can't get merge request in GitLab api")
+	}
+
+	gitlabMergeRequest := &MergeRequest{
+		MergeRequest: mergeRequest,
+	}
+	if mergeRequest.Labels != nil {
+		labelsWithDetails, err := g.GetLabelDetails(client, mergeRequest.ProjectID, mergeRequest.Labels)
+		if err != nil {
+			return nil, err
+		}
+		gitlabMergeRequest.LabelsWithDetails = labelsWithDetails
+	}
+
+	return gitlabMergeRequest, nil
+}
+
 // TriggerProjectPipeline runs a pipeline in a specific project
 func (g *gitlab) TriggerProjectPipeline(userInfo *UserInfo, token *oauth2.Token, projectID string, ref string) (*PipelineInfo, error) {
 	client, err := g.GitlabConnect(*token)

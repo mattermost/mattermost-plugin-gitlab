@@ -49,6 +49,8 @@ const (
 
 	chimeraGitLabAppIdentifier = "plugin-gitlab"
 
+	NotificationActionNameMemberAccessRequest = "member_access_requested"
+
 	invalidTokenError = "401 {error: invalid_token}" //#nosec G101 -- False positive
 )
 
@@ -598,7 +600,14 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 				continue
 			}
 			notificationCount++
-			notificationContent += fmt.Sprintf("* %v : [%v](%v)\n", n.ActionName, n.Target.Title, n.TargetURL)
+
+			switch n.ActionName {
+			// Handle special cases where the provided "Title" value is blank
+			case NotificationActionNameMemberAccessRequest:
+				notificationContent += fmt.Sprintf("* %v : [%v](%v) has requested access to [%v](%v)\n", n.ActionName, n.Author.Name, n.Author.WebURL, n.Body, n.TargetURL)
+			default:
+				notificationContent += fmt.Sprintf("* %v : [%v](%v)\n", n.ActionName, n.Target.Title, n.TargetURL)
+			}
 		}
 
 		if notificationCount == 0 {

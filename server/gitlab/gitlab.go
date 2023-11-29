@@ -32,6 +32,8 @@ type Gitlab interface {
 	GetLabels(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.Label, error)
 	GetProjectMembers(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.ProjectMember, error)
 	GetMilestones(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.Milestone, error)
+	GetIssueByID(ctx context.Context, user *UserInfo, owner, repo string, issueID int, token *oauth2.Token) (*Issue, error)
+	GetMergeRequestByID(ctx context.Context, user *UserInfo, owner, repo string, mergeRequestID int, token *oauth2.Token) (*MergeRequest, error)
 	GetUserDetails(ctx context.Context, user *UserInfo, token *oauth2.Token) (*internGitlab.User, error)
 	GetProject(ctx context.Context, user *UserInfo, token *oauth2.Token, owner, repo string) (*internGitlab.Project, error)
 	GetYourPrDetails(ctx context.Context, log logger.Logger, user *UserInfo, token *oauth2.Token, prList []*PRDetails) ([]*PRDetails, error)
