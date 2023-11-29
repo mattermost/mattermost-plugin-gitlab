@@ -2,10 +2,7 @@ import ActionTypes from '../action_types';
 import Constants from '../constants';
 import {
     getConnected,
-    getReviews,
-    getTodos,
-    getYourAssignedPrs,
-    getYourAssignedIssues,
+    getLHSData,
 } from '../actions';
 import {id} from '../manifest';
 
@@ -49,10 +46,7 @@ export function handleReconnect(store, reminder = false) {
             store.getState,
         );
         if (data && data.connected) {
-            getReviews()(store.dispatch, store.getState);
-            getTodos()(store.dispatch, store.getState);
-            getYourAssignedPrs()(store.dispatch, store.getState);
-            getYourAssignedIssues()(store.dispatch, store.getState);
+            getLHSData()(store.dispatch, store.getState);
         }
     };
 }
@@ -60,10 +54,7 @@ export function handleReconnect(store, reminder = false) {
 export function handleRefresh(store) {
     return () => {
         if (store.getState()[`plugins-${id}`].connected) {
-            getReviews()(store.dispatch, store.getState);
-            getTodos()(store.dispatch, store.getState);
-            getYourAssignedPrs()(store.dispatch, store.getState);
-            getYourAssignedIssues()(store.dispatch, store.getState);
+            getLHSData()(store.dispatch, store.getState);
         }
     };
 }

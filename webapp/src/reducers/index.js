@@ -70,27 +70,9 @@ function clientId(state = '', action) {
     }
 }
 
-function reviews(state = [], action) {
-    switch (action.type) {
-    case ActionTypes.RECEIVED_REVIEWS:
-        return action.data;
-    default:
-        return state;
-    }
-}
-
 function reviewDetails(state = [], action) {
     switch (action.type) {
     case ActionTypes.RECEIVED_REVIEW_DETAILS:
-        return action.data;
-    default:
-        return state;
-    }
-}
-
-function yourAssignedPrs(state = [], action) {
-    switch (action.type) {
-    case ActionTypes.RECEIVED_YOUR_ASSIGNED_PRS:
         return action.data;
     default:
         return state;
@@ -106,9 +88,9 @@ function yourPrDetails(state = [], action) {
     }
 }
 
-function yourAssignedIssues(state = [], action) {
+function lhsData(state = [], action) {
     switch (action.type) {
-    case ActionTypes.RECEIVED_YOUR_ASSIGNED_ISSUES:
+    case ActionTypes.RECEIVED_LHS_DATA:
         return action.data;
     default:
         return state;
@@ -118,15 +100,6 @@ function yourAssignedIssues(state = [], action) {
 function mentions(state = [], action) {
     switch (action.type) {
     case ActionTypes.RECEIVED_MENTIONS:
-        return action.data;
-    default:
-        return state;
-    }
-}
-
-function todos(state = [], action) {
-    switch (action.type) {
-    case ActionTypes.RECEIVED_TODOS:
         return action.data;
     default:
         return state;
@@ -183,15 +156,12 @@ export default combineReducers({
     username,
     settings,
     clientId,
-    reviews,
-    yourAssignedPrs,
-    yourAssignedIssues,
     mentions,
-    todos,
     gitlabUsers,
     rhsPluginAction,
     rhsState,
     yourPrDetails,
     reviewDetails,
     subscriptions,
+    lhsData,
 });

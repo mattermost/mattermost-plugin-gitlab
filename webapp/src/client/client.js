@@ -10,33 +10,29 @@ export default class Client {
         return this.doGet(`${this.url}/connected?reminder=` + reminder);
     };
 
-    getReviews = async () => {
-        return this.doGet(`${this.url}/reviews`);
-    };
-
-    getYourAssignedPrs = async () => {
-        return this.doGet(`${this.url}/assignedprs`);
-    };
-
     getPrsDetails = async (prList) => {
         return this.doPost(`${this.url}/prdetails`, prList);
     }
 
-    getYourAssignedIssues = async () => {
-        return this.doGet(`${this.url}/assignedissues`);
-    };
+    getLHSData= async () => {
+        return this.doGet(`${this.url}/lhs-data`);
+    }
 
     getMentions = async () => {
         return this.doGet(`${this.url}/mentions`);
     };
 
-    getTodos = async () => {
-        return this.doGet(`${this.url}/todolist`);
-    };
-
     getGitlabUser = async (userID) => {
         return this.doPost(`${this.url}/user`, {user_id: userID});
     };
+
+    getIssue = async (owner, repo, issueNumber) => {
+        return this.doGet(`${this.url}/issue?owner=${owner}&repo=${repo}&number=${issueNumber}`);
+    }
+
+    getPullRequest = async (owner, repo, prNumber) => {
+        return this.doGet(`${this.url}/mergerequest?owner=${owner}&repo=${repo}&number=${prNumber}`);
+    }
 
     getChannelSubscriptions = async (channelID) => {
         return this.doGet(`${this.url}/channel/${channelID}/subscriptions`);

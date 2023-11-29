@@ -38,32 +38,6 @@ function checkAndHandleNotConnected(data) {
     };
 }
 
-export function getReviews() {
-    return async (dispatch, getState) => {
-        let data;
-        try {
-            data = await Client.getReviews();
-        } catch (error) {
-            return {error};
-        }
-
-        const connected = await checkAndHandleNotConnected(data)(
-            dispatch,
-            getState,
-        );
-        if (!connected) {
-            return {error: data};
-        }
-
-        dispatch({
-            type: ActionTypes.RECEIVED_REVIEWS,
-            data,
-        });
-
-        return {data};
-    };
-}
-
 export function getReviewDetails(prList) {
     return async (dispatch, getState) => {
         let data;
@@ -87,32 +61,6 @@ export function getReviewDetails(prList) {
     };
 }
 
-export function getYourAssignedPrs() {
-    return async (dispatch, getState) => {
-        let data;
-        try {
-            data = await Client.getYourAssignedPrs();
-        } catch (error) {
-            return {error};
-        }
-
-        const connected = await checkAndHandleNotConnected(data)(
-            dispatch,
-            getState,
-        );
-        if (!connected) {
-            return {error: data};
-        }
-
-        dispatch({
-            type: ActionTypes.RECEIVED_YOUR_ASSIGNED_PRS,
-            data,
-        });
-
-        return {data};
-    };
-}
-
 export function getYourPrDetails(prList) {
     return async (dispatch, getState) => {
         let data;
@@ -129,32 +77,6 @@ export function getYourPrDetails(prList) {
 
         dispatch({
             type: ActionTypes.RECEIVED_YOUR_PR_DETAILS,
-            data,
-        });
-
-        return {data};
-    };
-}
-
-export function getYourAssignedIssues() {
-    return async (dispatch, getState) => {
-        let data;
-        try {
-            data = await Client.getYourAssignedIssues();
-        } catch (error) {
-            return {error};
-        }
-
-        const connected = await checkAndHandleNotConnected(data)(
-            dispatch,
-            getState,
-        );
-        if (!connected) {
-            return {error: data};
-        }
-
-        dispatch({
-            type: ActionTypes.RECEIVED_YOUR_ASSIGNED_ISSUES,
             data,
         });
 
@@ -188,11 +110,11 @@ export function getMentions() {
     };
 }
 
-export function getTodos() {
+export function getLHSData() {
     return async (dispatch, getState) => {
         let data;
         try {
-            data = await Client.getTodos();
+            data = await Client.getLHSData();
         } catch (error) {
             return {error};
         }
@@ -206,7 +128,7 @@ export function getTodos() {
         }
 
         dispatch({
-            type: ActionTypes.RECEIVED_TODOS,
+            type: ActionTypes.RECEIVED_LHS_DATA,
             data,
         });
 

@@ -68,6 +68,51 @@ func (mr *MockGitlabMockRecorder) GetGroupHooks(arg0, arg1, arg2, arg3 interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGroupHooks", reflect.TypeOf((*MockGitlab)(nil).GetGroupHooks), arg0, arg1, arg2, arg3)
 }
 
+// GetIssueByID mocks base method.
+func (m *MockGitlab) GetIssueByID(arg0 context.Context, arg1 *gitlab.UserInfo, arg2, arg3 string, arg4 int, arg5 *oauth2.Token) (*gitlab.Issue, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetIssueByID", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(*gitlab.Issue)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetIssueByID indicates an expected call of GetIssueByID.
+func (mr *MockGitlabMockRecorder) GetIssueByID(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIssueByID", reflect.TypeOf((*MockGitlab)(nil).GetIssueByID), arg0, arg1, arg2, arg3, arg4, arg5)
+}
+
+// GetLHSData mocks base method.
+func (m *MockGitlab) GetLHSData(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token) (*gitlab.LHSContent, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLHSData", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*gitlab.LHSContent)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLHSData indicates an expected call of GetLHSData.
+func (mr *MockGitlabMockRecorder) GetLHSData(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLHSData", reflect.TypeOf((*MockGitlab)(nil).GetLHSData), arg0, arg1, arg2)
+}
+
+// GetMergeRequestByID mocks base method.
+func (m *MockGitlab) GetMergeRequestByID(arg0 context.Context, arg1 *gitlab.UserInfo, arg2, arg3 string, arg4 int, arg5 *oauth2.Token) (*gitlab.MergeRequest, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMergeRequestByID", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(*gitlab.MergeRequest)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMergeRequestByID indicates an expected call of GetMergeRequestByID.
+func (mr *MockGitlabMockRecorder) GetMergeRequestByID(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMergeRequestByID", reflect.TypeOf((*MockGitlab)(nil).GetMergeRequestByID), arg0, arg1, arg2, arg3, arg4, arg5)
+}
+
 // GetProject mocks base method.
 func (m *MockGitlab) GetProject(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token, arg3, arg4 string) (*gitlab0.Project, error) {
 	m.ctrl.T.Helper()
@@ -99,7 +144,7 @@ func (mr *MockGitlabMockRecorder) GetProjectHooks(arg0, arg1, arg2, arg3, arg4 i
 }
 
 // GetReviews mocks base method.
-func (m *MockGitlab) GetReviews(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token) ([]*gitlab.MergeRequest, error) {
+func (m *MockGitlab) GetReviews(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *gitlab0.Client) ([]*gitlab.MergeRequest, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetReviews", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]*gitlab.MergeRequest)
@@ -114,7 +159,7 @@ func (mr *MockGitlabMockRecorder) GetReviews(arg0, arg1, arg2 interface{}) *gomo
 }
 
 // GetToDoList mocks base method.
-func (m *MockGitlab) GetToDoList(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token) ([]*gitlab0.Todo, error) {
+func (m *MockGitlab) GetToDoList(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *gitlab0.Client) ([]*gitlab0.Todo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetToDoList", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]*gitlab0.Todo)
@@ -144,7 +189,7 @@ func (mr *MockGitlabMockRecorder) GetUserDetails(arg0, arg1, arg2 interface{}) *
 }
 
 // GetYourAssignedIssues mocks base method.
-func (m *MockGitlab) GetYourAssignedIssues(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token) ([]*gitlab.Issue, error) {
+func (m *MockGitlab) GetYourAssignedIssues(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *gitlab0.Client) ([]*gitlab.Issue, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetYourAssignedIssues", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]*gitlab.Issue)
@@ -159,7 +204,7 @@ func (mr *MockGitlabMockRecorder) GetYourAssignedIssues(arg0, arg1, arg2 interfa
 }
 
 // GetYourAssignedPrs mocks base method.
-func (m *MockGitlab) GetYourAssignedPrs(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token) ([]*gitlab.MergeRequest, error) {
+func (m *MockGitlab) GetYourAssignedPrs(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *gitlab0.Client) ([]*gitlab.MergeRequest, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetYourAssignedPrs", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]*gitlab.MergeRequest)

@@ -2,11 +2,8 @@ import {connect} from 'react-redux';
 import {bindActionCreators} from 'redux';
 
 import {
-    getReviews,
-    getTodos,
-    getYourAssignedPrs,
-    getYourAssignedIssues,
     updateRHSState,
+    getLHSData,
 } from '../../actions';
 
 import {id} from '../../manifest';
@@ -20,10 +17,10 @@ function mapStateToProps(state) {
         connected: state[`plugins-${id}`].connected,
         username: state[`plugins-${id}`].username,
         clientId: state[`plugins-${id}`].clientId,
-        reviews: state[`plugins-${id}`].reviews,
-        yourAssignedPrs: state[`plugins-${id}`].yourAssignedPrs,
-        yourAssignedIssues: state[`plugins-${id}`].yourAssignedIssues,
-        todos: state[`plugins-${id}`].todos,
+        reviews: state[`plugins-${id}`].lhsData?.reviews,
+        yourAssignedPrs: state[`plugins-${id}`].lhsData?.yourAssignedPrs,
+        yourAssignedIssues: state[`plugins-${id}`].lhsData?.yourAssignedIssues,
+        todos: state[`plugins-${id}`].lhsData?.todos,
         gitlabURL: state[`plugins-${id}`].gitlabURL,
         org: state[`plugins-${id}`].organization,
         pluginServerRoute: getPluginServerRoute(state),
@@ -35,11 +32,8 @@ function mapDispatchToProps(dispatch) {
     return {
         actions: bindActionCreators(
             {
-                getReviews,
-                getTodos,
-                getYourAssignedPrs,
-                getYourAssignedIssues,
                 updateRHSState,
+                getLHSData,
             },
             dispatch,
         ),
