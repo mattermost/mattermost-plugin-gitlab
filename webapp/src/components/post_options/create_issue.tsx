@@ -1,7 +1,7 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {MouseEvent, useCallback} from 'react';
+import React, {MouseEvent} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
 import {isSystemMessage} from 'mattermost-redux/utils/post_utils';
@@ -27,10 +27,10 @@ const CreateIssuePostMenuAction = ({postId}: PropTypes) => {
 
     const dispatch = useDispatch();
 
-    const handleClick = useCallback((e: MouseEvent<HTMLButtonElement> | Event) => {        
+    const handleClick = (e: MouseEvent<HTMLButtonElement> | Event) => {        
         e.preventDefault();
         dispatch(openCreateIssueModal(postId));
-    }, [postId]);
+    };
 
     if (!show) {
         return null;

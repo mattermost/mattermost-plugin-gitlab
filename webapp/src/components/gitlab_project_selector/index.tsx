@@ -1,7 +1,7 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 import {Theme} from 'mattermost-redux/types/preferences';
 
@@ -13,7 +13,7 @@ import {GlobalState} from 'src/types/global_state';
 type PropTypes = {
     theme: Theme;
     required: boolean;
-    onChange: (project: ProjectSelection) => void;
+    onChange: (project: ProjectSelection | null) => void;
     value?: string;
     addValidate: (key: string, validateField: () => boolean) => void;
     removeValidate: (key: string) => void;
@@ -32,18 +32,18 @@ const GitlabProjectSelector = ({theme, required, onChange, value, addValidate, r
       loadProjects();
     }, []);
 
-    const loadProjects = useCallback(async () => {
+    const loadProjects = async () => {
         setIsLoading(true);
         await dispatch(getProjects());
         setIsLoading(false);
-    }, []);
+    };
 
-    const handleOnChange = useCallback((_: string, name: string) => {
+    const handleOnChange = (_: string, name: string) => {
         const project = yourProjects.find((p: Project) => p.path_with_namespace === name);
-        onChange({name, project_id: project?.id});
-    }, [onChange, yourProjects])
+        onChange(project ? {name, project_id: project?.id} : null);
+    };
 
-    const projectOptions = useMemo(() => yourProjects.map((item: Project) => ({value: item.path_with_namespace, label: item.path_with_namespace})), [yourProjects]);
+    const projectOptions = yourProjects.map((item: Project) => ({value: item.path_with_namespace, label: item.path_with_namespace}));
     
     return (
         <div className={'form-group margin-bottom x3'}>

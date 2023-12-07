@@ -1,7 +1,7 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {useState, useEffect, useCallback} from 'react';
+import React, {useState, useEffect} from 'react';
 import {Theme} from 'mattermost-redux/types/preferences';
 
 import debounce from 'debounce-promise';
@@ -40,7 +40,7 @@ const GitlabIssueSelector = ({name, required, theme, onChange, error, value, add
     const [invalid, setInvalid] = useState(false);
     const [responseError, setResponseError] = useState('')
 
-    const isValid = useCallback(() => {                
+    const isValid = () => {                
         if (!required) {
             return true;
         }
@@ -48,7 +48,7 @@ const GitlabIssueSelector = ({name, required, theme, onChange, error, value, add
         const valid = Boolean(value);
         setInvalid(!valid);
         return valid;
-    }, [value, required])
+    };
 
     useEffect(() => {
         return () => {            
@@ -67,11 +67,11 @@ const GitlabIssueSelector = ({name, required, theme, onChange, error, value, add
         }
     }, [isValid])
 
-    const handleIssueSearchTermChange = useCallback((inputValue: string) => {
+    const handleIssueSearchTermChange = (inputValue: string) => {
         return debouncedSearchIssues(inputValue);
-    }, []);
+    };
 
-    const searchIssues = useCallback(async (text: string) => {
+    const searchIssues = async (text: string) => {
         const textEncoded = encodeURIComponent(text.trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'));
         try {
             const issues = await Client.searchIssues(textEncoded);
@@ -88,14 +88,14 @@ const GitlabIssueSelector = ({name, required, theme, onChange, error, value, add
             setResponseError(err.message);
             return [];
         }
-    }, []);
+    };
 
     const debouncedSearchIssues = debounce(searchIssues, searchDebounceDelay);
 
-    const handleOnChange = useCallback((newValue: SingleValue<IssueSelection>) => {
+    const handleOnChange = (newValue: SingleValue<IssueSelection>) => {
         const value = newValue?.value ?? null;
         onChange(value);
-    }, [onChange])
+    };
 
     const issueError = error ? (
         <p className='help-text error-text'>

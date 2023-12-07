@@ -1,7 +1,7 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {useState, useEffect, useCallback, useMemo} from 'react';
+import React, {useState, useEffect} from 'react';
 import ReactSelect, {OnChangeValue} from 'react-select';
 import {Theme} from 'mattermost-redux/types/preferences';
 
@@ -38,7 +38,7 @@ const IssueAttributeSelector = ({isMulti, projectName, theme, label, onChange, l
         }
     }, [projectName])
 
-    const loadSelectOptions = useCallback(async () => {
+    const loadSelectOptions = async () => {
         setIsLoading(true);
 
         try {
@@ -54,9 +54,9 @@ const IssueAttributeSelector = ({isMulti, projectName, theme, label, onChange, l
             setIsLoading(false);
             setError(err.message);
         }
-    }, [loadOptions]);
+    };
 
-    const filterSelection = useCallback((options: Array<SelectionType>) => {
+    const filterSelection = (options: Array<SelectionType>) => {
         if (!selection) {
             return;
         }
@@ -76,13 +76,11 @@ const IssueAttributeSelector = ({isMulti, projectName, theme, label, onChange, l
         }
 
         onChange(null);
-    }, [selection, isMulti, onChange])
+    };
 
-    const onChangeHandler =  useCallback((newValue: OnChangeValue<OnChangeType, boolean>) => {
+    const onChangeHandler =  (newValue: OnChangeValue<OnChangeType, boolean>) => {
         onChange(newValue as OnChangeType)
-    }, [onChange]);
-
-    const noOptionsMessage = useMemo(() => projectName ? 'No options' : 'Please select a project first', [projectName]);
+    };
 
     return (
         <Setting
@@ -93,7 +91,7 @@ const IssueAttributeSelector = ({isMulti, projectName, theme, label, onChange, l
                     isMulti={isMulti}
                     isClearable={true}
                     placeholder={'Select...'}
-                    noOptionsMessage={() => noOptionsMessage}
+                    noOptionsMessage={() => projectName ? 'No options' : 'Please select a project first'}
                     closeMenuOnSelect={!isMulti}
                     menuPortalTarget={document.body}
                     menuPlacement='auto'

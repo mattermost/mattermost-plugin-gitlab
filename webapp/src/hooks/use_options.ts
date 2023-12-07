@@ -4,7 +4,7 @@ import {useDispatch} from "react-redux";
 export const useOptions = (projectName: string, getOptions: GetOptions, returnFields: string[], errorMessage: string, projectID?: number) => {
     const dispatch = useDispatch();
 
-    const loadOptions = useCallback(async () => {
+    const loadOptions = async () => {
         if (!projectName) {
             return [];
         }
@@ -22,6 +22,6 @@ export const useOptions = (projectName: string, getOptions: GetOptions, returnFi
             value: option[returnFields[0]],
             label: option[returnFields[1]],
         }));
-    }, [projectID, projectName, errorMessage, returnFields]);
+    };
     return loadOptions;
 }

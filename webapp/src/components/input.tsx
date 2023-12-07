@@ -1,7 +1,7 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {useCallback} from 'react';
+import React from 'react';
 
 import Setting from './setting';
 
@@ -19,9 +19,9 @@ type PropTypes = {
 };
 
 const Input = ({id, label, placeholder, value, maxLength, onChange, disabled, required, readOnly, type}: PropTypes) => {   
-    const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>) => {
         onChange?.(e.target.value);
-    }, [onChange]);
+    };
 
     let input = null;
     if (type !== 'textarea') {

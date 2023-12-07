@@ -1,7 +1,7 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {useState, useCallback, useMemo} from 'react';
+import React, {useState} from 'react';
 import {Modal} from 'react-bootstrap';
 import {Theme} from 'mattermost-redux/types/preferences';
 import {useDispatch, useSelector} from 'react-redux';
@@ -21,7 +21,7 @@ interface PropTypes {
 }
 
 const AttachCommentToIssueModal = ({theme}: PropTypes) => {
-    const validator = useMemo(() => (new Validator()), []);
+    const validator = new Validator();
     const [submitting, setSubmitting] = useState(false);
     const [issueValue, setIssueValue] = useState<Issue | null>(null);
     const [error, setError] = useState<string>('')
@@ -38,7 +38,7 @@ const AttachCommentToIssueModal = ({theme}: PropTypes) => {
 
     const dispatch = useDispatch();
 
-    const handleCreate = useCallback(async (e: React.FormEvent<HTMLFormElement> | Event) => {
+    const handleCreate = async (e: React.FormEvent<HTMLFormElement> | Event) => {
         e.preventDefault();
         
         if (!validator.validate()) {
@@ -64,20 +64,20 @@ const AttachCommentToIssueModal = ({theme}: PropTypes) => {
         }
 
         handleClose();
-    }, [validator, issueValue, post]);
+    };
 
-    const handleClose = useCallback(() => {
+    const handleClose = () => {
         setError('');
         setSubmitting(false);
         setIssueValue(null);
         dispatch(closeAttachCommentToIssueModal());
-    }, []);
+    };
 
-    const handleIssueValueChange = useCallback((newValue: Issue | null) => {
+    const handleIssueValueChange = (newValue: Issue | null) => {
         setIssueValue(newValue);
-    }, []);
+    };
 
-    const style = useMemo(() => getStyle(theme), [theme]);
+    const style = getStyle(theme);
 
     if (!visible) {
         return null;
@@ -153,11 +153,6 @@ const getStyle = (theme: Theme) => ({
         padding: '2em 2em 3em',
         color: theme.centerChannelColor,
         backgroundColor: theme.centerChannelBg,
-    },
-    descriptionArea: {
-        height: 'auto',
-        width: '100%',
-        color: '#000',
     },
 });
 

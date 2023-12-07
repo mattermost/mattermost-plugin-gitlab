@@ -1,7 +1,7 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import ReactSelect, {SingleValue} from 'react-select';
 import AsyncSelect from 'react-select/async';
 import {Theme} from 'mattermost-redux/types/preferences';
@@ -45,20 +45,20 @@ const ReactSelectSetting = ({name, onChange, label, theme, options, isLoading, v
         }
     }, [value]);
 
-    const handleChange = useCallback((value: SingleValue<SelectionType>) => {             
+    const handleChange = (value: SingleValue<SelectionType>) => {             
         const newValue = value?.value ?? '';
         onChange(name, newValue as string);
-    }, [onChange, name]);
+    };
 
-    const filterOptions = useCallback((input: string) => {
+    const filterOptions = (input: string) => {
         if (input) {
             options = options.filter((x) => x.label.toLowerCase().includes(input.toLowerCase()));
         }
 
         return Promise.resolve(options.slice(0, MAX_NUM_OPTIONS));
-    }, [options]);
+    };
 
-    const isValid = useCallback(() => {
+    const isValid = () => {
         if (!required) {
             return true;
         }
@@ -67,7 +67,7 @@ const ReactSelectSetting = ({name, onChange, label, theme, options, isLoading, v
 
         setInvalid(!valid);
         return valid;
-    }, [value, required]);
+    };
 
     const requiredMsg = 'This field is required.';
     let validationError = null;

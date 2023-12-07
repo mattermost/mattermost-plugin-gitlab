@@ -112,22 +112,22 @@ const CreateIssueModal = ({theme}: PropTypes) => {
         dispatch(closeCreateIssueModal());
     }, []);
 
-    const handleProjectChange = useCallback((project: ProjectSelection) => setProject(project), []);
+    const handleProjectChange = (project: ProjectSelection | null) => setProject(project);
 
-    const handleLabelsChange = useCallback((newLabels: OnChangeType) => setLabels(newLabels as SelectionType[]), []);
+    const handleLabelsChange = (newLabels: OnChangeType) => setLabels(newLabels as SelectionType[]);
 
-    const handleAssigneesChange = useCallback((newAssignees: OnChangeType) => setAssignees(newAssignees as SelectionType[]), []);
+    const handleAssigneesChange = (newAssignees: OnChangeType) => setAssignees(newAssignees as SelectionType[]);
 
-    const handleMilestoneChange = useCallback((newMilestone: OnChangeType) => setMilestone(newMilestone as SelectionType), []);
+    const handleMilestoneChange = (newMilestone: OnChangeType) => setMilestone(newMilestone as SelectionType);
 
-    const handleIssueTitleChange = useCallback((issueTitle: string) => {        
+    const handleIssueTitleChange = (issueTitle: string) => {        
         setIssueTitle(issueTitle);
         if (issueTitle && !issueTitleValid) {
             setIssueTitleValid(true);
         }
-    }, [issueTitleValid]);
+    };
 
-    const handleIssueDescriptionChange = useCallback((issueDescription: string) => setIssueDescription(issueDescription), []);
+    const handleIssueDescriptionChange = (issueDescription: string) => setIssueDescription(issueDescription);
 
     const issueAttributeSelectors = useMemo(() => {              
         if (!project || !project?.project_id) {
