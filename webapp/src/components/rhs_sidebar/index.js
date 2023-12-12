@@ -7,6 +7,7 @@ import {getCurrentUserId} from 'mattermost-redux/selectors/entities/users';
 import {id} from '../../manifest';
 import {
     getChannelSubscriptions,
+    sendEphemeralPost,
 } from '../../actions';
 import {getPluginServerRoute} from '../../selectors';
 
@@ -34,6 +35,7 @@ function mapDispatchToProps(dispatch) {
         actions: bindActionCreators(
             {
                 getChannelSubscriptions,
+                sendEphemeralPost,
             },
             dispatch,
         ),

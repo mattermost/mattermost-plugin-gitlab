@@ -3,6 +3,7 @@ import {bindActionCreators} from 'redux';
 
 import {
     updateRHSState,
+    sendEphemeralPost,
     getLHSData,
 } from '../../actions';
 
@@ -33,6 +34,7 @@ function mapDispatchToProps(dispatch) {
         actions: bindActionCreators(
             {
                 updateRHSState,
+                sendEphemeralPost,
                 getLHSData,
             },
             dispatch,
