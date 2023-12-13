@@ -13,6 +13,9 @@ import CreateIssueModal from './components/modals/create_issue';
 import Reducer from './reducers';
 import AttachCommentToIssueModal from './components/modals/attach_comment_to_issue';
 import SidebarRight from './components/sidebar_right';
+import LinkTooltip from './components/link_tooltip';
+
+import Reducer from './reducers';
 import {getConnected, setShowRHSAction} from './actions';
 import {
     handleConnect,
@@ -25,7 +28,7 @@ import {
 import {id} from './manifest';
 import Client from './client';
 import {getPluginServerRoute} from './selectors';
-import LinkTooltip from './components/link_tooltip';
+import Hooks from './hooks';
 
 let activityFunc;
 let lastActivityTime = Number.MAX_SAFE_INTEGER;
@@ -48,6 +51,9 @@ class PluginClass {
         registry.registerRootComponent(AttachCommentToIssueModal);
         registry.registerPostDropdownMenuComponent(AttachCommentToIssuePostMenuAction);
         registry.registerLinkTooltipComponent(LinkTooltip);
+
+        const hooks = new Hooks(store);
+        registry.registerSlashCommandWillBePostedHook(hooks.slashCommandWillBePostedHook);
 
         const {showRHSPlugin} = registry.registerRightHandSidebarComponent(SidebarRight, 'GitLab Plugin');
         store.dispatch(setShowRHSAction(() => store.dispatch(showRHSPlugin)));

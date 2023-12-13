@@ -3,7 +3,8 @@ import {Tooltip, OverlayTrigger} from 'react-bootstrap';
 import PropTypes from 'prop-types';
 import {makeStyleFromTheme, changeOpacity} from 'mattermost-redux/utils/theme_utils';
 
-import {RHSStates} from 'src/constants';
+import {RHSStates, connectUsingBrowserMessage} from 'src/constants';
+import {isDesktopApp} from 'src/utils/user_agent';
 
 export default class SidebarButtons extends React.PureComponent {
     static propTypes = {
@@ -22,6 +23,7 @@ export default class SidebarButtons extends React.PureComponent {
         showRHSPlugin: PropTypes.func.isRequired,
         actions: PropTypes.shape({
             updateRHSState: PropTypes.func.isRequired,
+            sendEphemeralPost: PropTypes.func.isRequired,
             getLHSData: PropTypes.func.isRequired,
         }).isRequired,
     };
@@ -62,6 +64,10 @@ export default class SidebarButtons extends React.PureComponent {
 
     openConnectWindow = (e) => {
         e.preventDefault();
+        if (isDesktopApp()) {
+            this.props.actions.sendEphemeralPost(connectUsingBrowserMessage);
+            return;
+        }
         window.open(`${this.props.pluginServerRoute}/oauth/connect`, 'Connect Mattermost to GitLab', 'height=570,width=520');
     };
 
