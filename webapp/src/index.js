@@ -10,7 +10,6 @@ import UserAttribute from './components/user_attribute';
 import CreateIssuePostMenuAction from './components/post_options/create_issue';
 import AttachCommentToIssuePostMenuAction from './components/post_options/attach_comment_to_issue';
 import CreateIssueModal from './components/modals/create_issue';
-import Reducer from './reducers';
 import AttachCommentToIssueModal from './components/modals/attach_comment_to_issue';
 import SidebarRight from './components/sidebar_right';
 import LinkTooltip from './components/link_tooltip';

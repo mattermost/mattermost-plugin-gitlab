@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 import {Modal} from 'react-bootstrap';
 import {Theme} from 'mattermost-redux/types/preferences';
@@ -24,7 +24,7 @@ type PropTypes = {
 };
 
 const CreateIssueModal = ({theme}: PropTypes) => {
-    const validator = useMemo(() => (new Validator()), []);
+    const validator = new Validator();
     const [submitting, setSubmitting] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [project, setProject] = useState<ProjectSelection | null>(null);
@@ -62,7 +62,7 @@ const CreateIssueModal = ({theme}: PropTypes) => {
     }, [channelId, title, post]);
 
     // handle issue creation after form is populated
-    const handleCreate = useCallback(async (e: React.FormEvent<HTMLFormElement> | Event) => {
+    const handleCreate = async (e: React.FormEvent<HTMLFormElement> | Event) => {
         e.preventDefault();
 
         if (!validator.validate() || !issueTitle) {            
@@ -96,9 +96,9 @@ const CreateIssueModal = ({theme}: PropTypes) => {
         }
 
         handleClose();
-    }, [issueTitle, issueTitleValid, issueDescription, validator, labels, milestone, assignees, project, channelId]);
+    };
 
-    const handleClose = useCallback(() => {
+    const handleClose = () => {
         setError('');
         setSubmitting(false);
         setProject(null);
@@ -110,7 +110,7 @@ const CreateIssueModal = ({theme}: PropTypes) => {
         setShowErrors(false);
         setIssueTitleValid(true);
         dispatch(closeCreateIssueModal());
-    }, []);
+    };
 
     const handleProjectChange = (project: ProjectSelection | null) => setProject(project);
 
@@ -129,7 +129,7 @@ const CreateIssueModal = ({theme}: PropTypes) => {
 
     const handleIssueDescriptionChange = (issueDescription: string) => setIssueDescription(issueDescription);
 
-    const issueAttributeSelectors = useMemo(() => {              
+    const issueAttributeSelectors = () => {              
         if (!project || !project?.project_id) {
             return null;
         }
@@ -173,7 +173,7 @@ const CreateIssueModal = ({theme}: PropTypes) => {
                 />
             </>
         );
-    }, [project, milestone, assignees, labels]);
+    };
 
     if (!visible) {
         return null;
@@ -215,7 +215,7 @@ const CreateIssueModal = ({theme}: PropTypes) => {
                 onChange={handleIssueTitleChange}
             />
             {issueTitleValidationError}
-            {issueAttributeSelectors}
+            {issueAttributeSelectors()}
             <Input
                 id={'description'}
                 required={false}
