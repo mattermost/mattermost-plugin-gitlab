@@ -367,6 +367,7 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 }
 
 func (p *Plugin) migrateGitlabToken(userID string) (*oauth2.Token, *APIErrorResponse) {
+	p.API.LogDebug("Getting the stored Gitlab oauth token for user using migrateGitlabToken.", "UserID", userID)
 	config := p.getConfiguration()
 
 	var userInfo struct {
@@ -378,12 +379,19 @@ func (p *Plugin) migrateGitlabToken(userID string) (*oauth2.Token, *APIErrorResp
 	if err != nil {
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to obtain mutex for KV migration.", StatusCode: http.StatusInternalServerError}
 	}
+
+	p.API.LogDebug("Applying mutex lock while getting the stored Gitlab oauth token for user using migrateGitlabToken.", "UserID", userID)
 	mutex.Lock()
+	p.API.LogDebug("Mutex lock applied while getting the stored Gitlab oauth token for user using migrateGitlabToken.", "UserID", userID)
 	defer mutex.Unlock()
 
 	var gitlabTokenBytes []byte
 	err = p.client.KV.Get(userID+GitlabMigrationTokenKey, &gitlabTokenBytes)
 	if err != nil || gitlabTokenBytes == nil {
+		if err != nil {
+			p.API.LogDebug("Error occurred while getting token using migration token key.", "UserID", userID, "Error", err.Error())
+		}
+		p.API.LogDebug("The token fetched using GitlabMigrationTokenKey was empty", "UserID", userID)
 		return p.getGitlabUserTokenByMattermostID(userID)
 	}
 
@@ -787,12 +795,15 @@ func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namesp
 }
 
 func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*oauth2.Token, error) {
+	p.API.LogDebug("Refreshing oauth token.", "UserID", userInfo.UserID)
 	conf := p.getOAuthConfig()
 	src := conf.TokenSource(context.Background(), token)
 
 	newToken, err := src.Token() // this actually goes and renews the tokens
 
 	if err != nil {
+		p.API.LogDebug("Error occurred refreshing oauth token.", "UserID", userInfo.UserID, "Error", err.Error())
+
 		if strings.Contains(err.Error(), "\"error\":\"invalid_grant\"") {
 			p.handleRevokedToken(userInfo)
 		}
@@ -800,9 +811,11 @@ func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*
 	}
 
 	if newToken.AccessToken != token.AccessToken {
-		p.client.Log.Debug("Gitlab token refreshed.", "UserID", userInfo.UserID)
+		p.client.Log.Debug("Gitlab token refreshed.", "UserID", userInfo.UserID, "Expiry", newToken.Expiry)
 
 		if err := p.storeGitlabUserToken(userInfo.UserID, newToken); err != nil {
+			p.client.Log.Debug("Error occurred while storing refreshed token.", "UserID", userInfo.UserID)
+
 			return nil, errors.Wrap(err, "unable to store user info with refreshed token")
 		}
 
@@ -822,16 +835,20 @@ func (p *Plugin) handleRevokedToken(info *gitlab.UserInfo) {
 }
 
 func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo) (*oauth2.Token, error) {
+	p.API.LogDebug("Getting the stored Gitlab oauth token for user.", "UserID", info.UserID)
 	token, apiErr := p.getGitlabUserTokenByMattermostID(info.UserID)
 
 	if apiErr != nil {
+		p.API.LogDebug("Error getting the stored Gitlab oauth token for user.", "UserID", info.UserID, "Error", apiErr.Message)
 		token, apiErr = p.migrateGitlabToken(info.UserID)
 		if apiErr != nil {
+			p.API.LogDebug("Error getting the stored Gitlab oauth token for user using migrateGitlabToken function.", "UserID", info.UserID, "Error", apiErr.Message)
 			return nil, apiErr
 		}
 	}
 
 	if time.Until(token.Expiry) > 1*time.Minute {
+		p.API.LogDebug("Returning the existing oauth token as it is not expired yet.", "Expiry", token.Expiry)
 		return token, nil
 	}
 
@@ -840,15 +857,25 @@ func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo) (*oauth2.Toke
 		return nil, err
 	}
 
+	p.API.LogDebug("Applying mutex lock to refresh token.", "UserID", info.UserID)
 	mutex.Lock()
+	p.API.LogDebug("Mutex lock applied.", "UserID", info.UserID)
 	defer mutex.Unlock()
 
+	p.API.LogDebug("Fetching the token again to see if it is already refreshed.", "UserID", info.UserID)
 	lockedToken, apiErr := p.getGitlabUserTokenByMattermostID(info.UserID)
 	if apiErr != nil {
 		return nil, apiErr
 	}
 
+	if lockedToken != nil {
+		p.API.LogDebug("The token is already refreshed.", "UserID", info.UserID, "Expiry", lockedToken.Expiry)
+	} else {
+		p.API.LogDebug("The token is not refreshed yet.", "UserID", info.UserID)
+	}
+
 	if time.Until(lockedToken.Expiry) > 1*time.Minute {
+		p.API.LogDebug("The updated token is not yet expired.", "UserID", info.UserID, "Expiry", lockedToken.Expiry)
 		return lockedToken, nil
 	}
 
@@ -861,6 +888,7 @@ func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo) (*oauth2.Toke
 }
 
 func (p *Plugin) useGitlabClient(info *gitlab.UserInfo, toRun func(info *gitlab.UserInfo, token *oauth2.Token) error) error {
+	p.API.LogDebug("Inside useGitlabClient.", "UserID", info.UserID)
 	token, err := p.getOrRefreshTokenWithMutex(info)
 	if err != nil {
 		return err
