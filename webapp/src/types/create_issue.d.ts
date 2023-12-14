@@ -8,3 +8,9 @@ interface IssueBody {
     post_id: string;
     channel_id: string;
 }
+
+interface FormSubmission {
+    isSubmitting: boolean;
+    isSubmitted: boolean;
+    error: string;
+}
