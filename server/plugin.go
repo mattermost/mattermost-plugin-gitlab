@@ -19,6 +19,7 @@ import (
 	"github.com/mattermost/mattermost/server/public/plugin"
 	"github.com/mattermost/mattermost/server/public/pluginapi"
 	"github.com/mattermost/mattermost/server/public/pluginapi/cluster"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/logger"
 	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/poster"
 	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/telemetry"
 	"github.com/pkg/errors"
@@ -366,7 +367,11 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 	return &userInfo, nil
 }
 
-func (p *Plugin) migrateGitlabToken(userID string) (*oauth2.Token, *APIErrorResponse) {
+func (p *Plugin) migrateGitlabToken(userID string, log logger.Logger) (*oauth2.Token, *APIErrorResponse) {
+	log = log.With(logger.LogContext{
+		"func": "migrateGitlabToken",
+	})
+
 	config := p.getConfiguration()
 
 	var userInfo struct {
@@ -374,17 +379,43 @@ func (p *Plugin) migrateGitlabToken(userID string) (*oauth2.Token, *APIErrorResp
 		Token *oauth2.Token
 	}
 
+	log.Debugf("getting mutex for " + userID + TokenMutexKey)
 	mutex, err := cluster.NewMutex(p.API, userID+TokenMutexKey)
 	if err != nil {
+		log.WithError(err).Debugf("error getting mutex")
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to obtain mutex for KV migration.", StatusCode: http.StatusInternalServerError}
 	}
+
+	log.Debugf("got mutex. locking mutex")
+
 	mutex.Lock()
+
+	log.Debugf("locked mutex")
+
 	defer mutex.Unlock()
 
 	var gitlabTokenBytes []byte
+
+	log.Debugf("calling p.client.KV.Get " + userID + GitlabMigrationTokenKey)
 	err = p.client.KV.Get(userID+GitlabMigrationTokenKey, &gitlabTokenBytes)
 	if err != nil || gitlabTokenBytes == nil {
-		return p.getGitlabUserTokenByMattermostID(userID)
+		if err != nil {
+			log.WithError(err).Debugf("error calling p.client.KV.Get " + userID + GitlabMigrationTokenKey)
+		} else {
+			log.Debugf("no bytes returned when calling p.client.KV.Get " + userID + GitlabMigrationTokenKey)
+		}
+
+		log.Debugf("calling p.getGitlabUserTokenByMattermostID")
+		storedToken, errRes := p.getGitlabUserTokenByMattermostID(userID)
+		log.With(logger.LogContext{"storedToken": gitlab.MakeSanitizedTokenLogContext(storedToken)})
+
+		if errRes != nil {
+			log.WithError(errRes).Debugf("error calling getGitlabUserTokenByMattermostID")
+		} else {
+			log.Debugf("called p.getGitlabUserTokenByMattermostID")
+		}
+
+		return storedToken, errRes
 	}
 
 	if err = json.Unmarshal(gitlabTokenBytes, &userInfo); err != nil {
@@ -397,6 +428,9 @@ func (p *Plugin) migrateGitlabToken(userID string) (*oauth2.Token, *APIErrorResp
 	}
 
 	userInfo.Token.AccessToken = unencryptedToken
+	log = log.With(logger.LogContext{"token": gitlab.MakeSanitizedTokenLogContext(userInfo.Token)})
+
+	log.Debugf("decrypted access token")
 
 	var userInfoWithoutToken = &gitlab.UserInfo{
 		UserID:         userInfo.UserID,
@@ -406,17 +440,31 @@ func (p *Plugin) migrateGitlabToken(userID string) (*oauth2.Token, *APIErrorResp
 		Settings:       userInfo.Settings,
 	}
 
+	log.Debugf("calling p.storeGitlabUserInfo")
 	if err = p.storeGitlabUserInfo(userInfoWithoutToken); err != nil {
+		log.WithError(err).Debugf("error calling p.storeGitlabUserInfo")
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to store user info for KV migration.", StatusCode: http.StatusInternalServerError}
 	}
 
+	log.Debugf("called p.storeGitlabUserInfo")
+
+	log.Debugf("calling p.storeGitlabUserToken")
 	if err = p.storeGitlabUserToken(userInfo.UserID, userInfo.Token); err != nil {
+		log.WithError(err).Debugf("error calling p.storeGitlabUserToken")
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to store token for KV migration.", StatusCode: http.StatusInternalServerError}
 	}
 
+	log.Debugf("called p.storeGitlabUserToken")
+
+	log.Debugf("calling p.client.KV.Delete " + userInfo.UserID + GitlabMigrationTokenKey)
+
 	if err = p.client.KV.Delete(userInfo.UserID + GitlabMigrationTokenKey); err != nil {
+		log.WithError(err).Debugf("error calling p.client.KV.Delete " + userInfo.UserID + GitlabMigrationTokenKey)
 		return nil, &APIErrorResponse{ID: "", Message: "Unable to delete KV entry for migration.", StatusCode: http.StatusInternalServerError}
 	}
+	log.Debugf("called p.client.KV.Delete " + userInfo.UserID + GitlabMigrationTokenKey)
+
+	log.Debugf("end of migrateGitlabToken")
 
 	return userInfo.Token, nil
 }
@@ -581,10 +629,19 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 
 	var notificationText, reviewText, assignmentText, mergeRequestText string
 	err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetLHSData(ctx, info, token)
+		log := logger.New(p.API).With(logger.LogContext{
+			"userid": user.UserID,
+			"func":   "GetToDo/useGitlabClient",
+		})
+
+		log.Debugf("calling p.GitlabClient.GetLHSData")
+		resp, err := p.GitlabClient.GetLHSData(ctx, info, token, log)
 		if err != nil {
+			log.WithError(err).Debugf("error calling p.GitlabClient.GetLHSData")
 			return err
 		}
+
+		log.Debugf("called p.GitlabClient.GetLHSData")
 
 		unreads := resp.Unreads
 		notificationCount := 0
@@ -821,56 +878,129 @@ func (p *Plugin) handleRevokedToken(info *gitlab.UserInfo) {
 	}
 }
 
-func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo) (*oauth2.Token, error) {
+func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo, log logger.Logger) (*oauth2.Token, error) {
+	log = log.With(logger.LogContext{
+		"func": "getOrFreshTokenWithMutex",
+	})
+
+	log.Debugf("beginning of getOrRefreshTokenWithMutex")
+
+	log.Debugf("calling p.getGitlabUserTokenByMattermostID")
 	token, apiErr := p.getGitlabUserTokenByMattermostID(info.UserID)
 
+	log = log.With(logger.LogContext{"token": gitlab.MakeSanitizedTokenLogContext(token)})
+	log.Debugf("called p.getGitlabUserTokenByMattermostID")
+
 	if apiErr != nil {
-		token, apiErr = p.migrateGitlabToken(info.UserID)
+		log.WithError(apiErr).Debugf("error calling p.getGitlabUserTokenByMattermostID")
+
+		log.Debugf("calling migrateGitlabToken")
+		token, apiErr = p.migrateGitlabToken(info.UserID, log)
+
+		log = log.With(logger.LogContext{"token": gitlab.MakeSanitizedTokenLogContext(token)})
+
 		if apiErr != nil {
+			log.WithError(apiErr).Debugf("error calling p.migrateGitlabToken")
 			return nil, apiErr
 		}
+
+		log.Debugf("called p.migrateGitlabToken")
 	}
 
 	if time.Until(token.Expiry) > 1*time.Minute {
+		log.Debugf("time until expiry is more than one minute. not getting mutex for " + info.UserID + TokenMutexKey)
 		return token, nil
 	}
 
+	log.Debugf("time until expiry is less than one minute. getting mutex for " + info.UserID + TokenMutexKey)
+
 	mutex, err := cluster.NewMutex(p.API, info.UserID+TokenMutexKey)
 	if err != nil {
+		log.WithError(err).Debugf("error getting mutex")
 		return nil, err
 	}
 
+	log.Debugf("got mutex. locking mutex")
+
 	mutex.Lock()
+
+	log.Debugf("mutex locked")
+
 	defer mutex.Unlock()
 
+	log.Debugf("calling p.getGitlabUserTokenByMattermostID")
+
 	lockedToken, apiErr := p.getGitlabUserTokenByMattermostID(info.UserID)
+	log = log.With(logger.LogContext{"lockedToken": gitlab.MakeSanitizedTokenLogContext(lockedToken)})
+
 	if apiErr != nil {
+		log.WithError(apiErr).Debugf("error calling p.getGitlabUserTokenByMattermostID")
 		return nil, apiErr
 	}
 
+	log.Debugf("called p.getGitlabUserTokenByMattermostID")
+
 	if time.Until(lockedToken.Expiry) > 1*time.Minute {
+		log.Debugf("time until expiry for lockedToken is more than one minute. returning lockedToken")
 		return lockedToken, nil
 	}
 
+	log.Debugf("time until expiry for lockedToken is less than one minute. refreshing token")
+
+	log.Debugf("calling p.refreshToken")
 	newToken, err := p.refreshToken(info, lockedToken)
+	log.With(logger.LogContext{"newToken": gitlab.MakeSanitizedTokenLogContext(newToken)})
+
 	if err != nil {
+		log.WithError(err).Debugf("error calling p.refreshToken")
 		return nil, err
 	}
+
+	log.Debugf("called p.refreshToken")
+
+	log.Debugf("end of getOrRefreshTokenWithMutex")
 
 	return newToken, nil
 }
 
 func (p *Plugin) useGitlabClient(info *gitlab.UserInfo, toRun func(info *gitlab.UserInfo, token *oauth2.Token) error) error {
-	token, err := p.getOrRefreshTokenWithMutex(info)
+	log := logger.New(p.API).With(logger.LogContext{
+		"func":           "useGitlabClient",
+		"func_id":        model.NewId(),
+		"original_token": nil,
+		"token":          nil,
+		"userid":         info.UserID,
+	})
+
+	log.Debugf("calling getOrRefreshTokenWithMutex")
+	token, err := p.getOrRefreshTokenWithMutex(info, log)
+
+	log = log.With(logger.LogContext{"token": gitlab.MakeSanitizedTokenLogContext(token)})
+	log.Debugf("called getOrRefreshTokenWithMutex")
+
 	if err != nil {
+		log.WithError(err).Debugf("error calling getOrRefreshTokenWithMutex")
 		return err
 	}
 
+	log.Debugf("calling toRun")
 	err = toRun(info, token)
 
-	if err != nil && strings.Contains(err.Error(), invalidTokenError) {
-		p.handleRevokedToken(info)
+	log = log.With(logger.LogContext{"token": gitlab.MakeSanitizedTokenLogContext(token)})
+	log.Debugf("called toRun")
+
+	if err != nil {
+		if strings.Contains(err.Error(), invalidTokenError) {
+			log.WithError(err).Debugf("error calling toRun. contains invalidTokenError message")
+			log.Debugf("calling p.handleRevokedToken")
+			p.handleRevokedToken(info)
+			log.Debugf("called p.handleRevokedToken")
+		} else {
+			log.WithError(err).Debugf("error calling toRun. does not contain invalidTokenError message")
+		}
 	}
+
+	log.Debugf("end of useGitlabClient")
 
 	return err
 }

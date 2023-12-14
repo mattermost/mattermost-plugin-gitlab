@@ -554,10 +554,29 @@ func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Req
 }
 
 func (p *Plugin) getLHSData(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	log := c.Log.With(logger.LogContext{
+		"original_token": nil,
+		"token":          nil,
+		"func":           "getLHSData",
+	})
+
 	var result *gitlab.LHSContent
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetLHSData(c.Ctx, info, token)
+		log = log.With(logger.LogContext{"token": gitlab.MakeSanitizedTokenLogContext(token)})
+
+		localLog := log.With(logger.LogContext{"func": "getLHSData/useGitlabClient callback"})
+
+		localLog.Debugf("calling p.GitlabClient.GetLHSData")
+		resp, err := p.GitlabClient.GetLHSData(c.Ctx, info, token, log)
+
+		// update outer-scope log variable with potentially new token
+		log = log.With(gitlab.MakeSanitizedTokenLogContext(token))
+		localLog = log.With(logger.LogContext{"func": "getLHSData/useGitlabClient callback"})
+
+		localLog.Debugf("called p.GitlabClient.GetLHSData")
+
 		if err != nil {
+			localLog.WithError(err).Debugf("error calling p.GitlabClient.GetLHSData")
 			return err
 		}
 		result = resp
@@ -569,6 +588,8 @@ func (p *Plugin) getLHSData(c *UserContext, w http.ResponseWriter, r *http.Reque
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list issue in GitLab API.", StatusCode: http.StatusInternalServerError})
 		return
 	}
+
+	log.Debugf("end of getLHSData")
 
 	p.writeAPIResponse(w, result)
 }

@@ -289,35 +289,99 @@ func (g *gitlab) GetProject(ctx context.Context, user *UserInfo, token *oauth2.T
 	return project, nil
 }
 
-func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.Token) (*LHSContent, error) {
+func sanitizeTokenString(token string) string {
+	suffixLength := 8
+	endIndex := len(token) - suffixLength
+	return strings.Repeat("*", endIndex) + token[endIndex:]
+}
+
+func MakeSanitizedTokenLogContext(token *oauth2.Token) logger.LogContext {
+	if token == nil {
+		return nil
+	}
+
+	return logger.LogContext{
+		"access_token":  sanitizeTokenString(token.AccessToken),
+		"refresh_token": sanitizeTokenString(token.RefreshToken),
+		"expiry":        token.Expiry,
+	}
+}
+
+func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.Token, log logger.Logger) (*LHSContent, error) {
+	log = log.With(logger.LogContext{
+		"func":           "gitlab.getLHSData",
+		"original_token": MakeSanitizedTokenLogContext(token),
+		"token":          MakeSanitizedTokenLogContext(token),
+	})
+
+	log.Debugf("beginning of gitlab.GetLHSData")
+
+	log.Debugf("calling g.GitlabConnect")
 	client, err := g.GitlabConnect(*token)
+	log = log.With(logger.LogContext{"token": MakeSanitizedTokenLogContext(token)})
+
 	if err != nil {
+		log.WithError(err).Debugf("error calling g.GitlabConnect")
 		return nil, err
 	}
+
+	log.Debugf("called g.GitlabConnect")
 
 	grp, ctx := errgroup.WithContext(ctx)
 
 	var reviews []*MergeRequest
 	grp.Go(func() error {
+		log.Debugf("calling g.GetReviews")
 		reviews, err = g.GetReviews(ctx, user, client)
+		if err != nil {
+			log.WithError(err).Debugf("error calling g.GetReviews")
+			return err
+		}
+
+		log.Debugf("called g.GetReviews")
+
 		return err
 	})
 
 	var assignments []*Issue
 	grp.Go(func() error {
+		log.Debugf("calling g.GetYourAssignments")
 		assignments, err = g.GetYourAssignments(ctx, user, client)
+		if err != nil {
+			log.WithError(err).Debugf("error calling g.GetYourAssignments")
+			return err
+		}
+
+		log.Debugf("called g.GetYourAssignments")
+
 		return err
 	})
 
 	var mergeRequests []*MergeRequest
 	grp.Go(func() error {
+		log.Debugf("calling g.GetYourPrs")
 		mergeRequests, err = g.GetYourPrs(ctx, user, client)
+		if err != nil {
+			log.WithError(err).Debugf("error calling g.GetYourPrs")
+			return err
+		}
+
+		log.Debugf("called g.GetYourPrs")
+
 		return err
 	})
 
 	var unreads []*internGitlab.Todo
 	grp.Go(func() error {
+		log.Debugf("calling g.GetUnreads")
 		unreads, err = g.GetUnreads(ctx, user, client)
+		if err != nil {
+			log.WithError(err).Debugf("error calling g.GetUnreads")
+			return err
+		}
+
+		log.Debugf("called g.GetUnreads")
+
 		return err
 	})
 
