@@ -88,6 +88,7 @@ const CreateIssueForm = ({theme, handleClose, formSubmission, setFormSubmission}
             ...formSubmission,
             isSubmitting: true
         })
+
         const created = await createIssue(issue)(dispatch);
         if (created.error) {
             const errMessage = getErrorMessage((created as {error: ErrorType}).error.message);

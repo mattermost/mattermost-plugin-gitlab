@@ -5,76 +5,42 @@ import React, {useState} from 'react';
 import {Modal} from 'react-bootstrap';
 import {Theme} from 'mattermost-redux/types/preferences';
 import {useDispatch, useSelector} from 'react-redux';
-import {getPost} from 'mattermost-redux/selectors/entities/posts';
 
 import FormButton from 'src/components/form_button';
-import Input from 'src/components/input';
-import Validator from 'src/components/validator';
 import {id as pluginId} from 'src/manifest';
-import GitlabIssueSelector from 'src/components/gitlab_issue_selector';
-import {getErrorMessage} from 'src/utils/user_utils';
-import {closeAttachCommentToIssueModal, attachCommentToIssue} from 'src/actions';
+import {closeAttachCommentToIssueModal} from 'src/actions';
 import {GlobalState} from 'src/types/global_state';
+import AttachCommentToIssueForm from 'src/components/attach_comment_to_issue_form';
 
 interface PropTypes {  
     theme: Theme,
 }
 
 const AttachCommentToIssueModal = ({theme}: PropTypes) => {
-    const validator = new Validator();
-    const [submitting, setSubmitting] = useState(false);
-    const [issueValue, setIssueValue] = useState<Issue | null>(null);
-    const [error, setError] = useState<string>('')
+    const [formSubmission, setFormSubmission] = useState<FormSubmission>({
+        isSubmitted: false,
+        isSubmitting: false,
+        error: '',
+    });
 
-    const {post, visible} = useSelector((state: GlobalState) => {
-        const postId = state[`plugins-${pluginId}` as plugin].postIdForAttachCommentToIssueModal;
-        const post = getPost(state, postId);
-    
-        return {
-            visible: state[`plugins-${pluginId}` as plugin].attachCommentToIssueModalVisible,
-            post,
-        };
-    })
-
-    const dispatch = useDispatch();
+    const visible = useSelector((state: GlobalState) => state[`plugins-${pluginId}` as plugin].attachCommentToIssueModalVisible);
 
     const handleCreate = async (e: React.FormEvent<HTMLFormElement> | Event) => {
         e.preventDefault();
-        
-        if (!validator.validate()) {
-            return;
-        }
-
-        const comment = {
-            project_id: issueValue?.project_id,
-            iid: issueValue?.iid,
-            comment: post.message,
-            post_id: post.id,
-            web_url: issueValue?.web_url,
-        };
-
-        setSubmitting(true);
-
-        const created = await attachCommentToIssue(comment)(dispatch);
-        if (created.error) {
-            const errMessage = getErrorMessage((created as {error: ErrorType}).error.message);
-            setError(errMessage);
-            setSubmitting(false);
-            return;
-        }
-
-        handleClose();
+        setFormSubmission({
+            ...formSubmission,
+            isSubmitted: true,
+        })
     };
 
+    const dispatch = useDispatch();
     const handleClose = () => {
-        setError('');
-        setSubmitting(false);
-        setIssueValue(null);
+        setFormSubmission({
+            isSubmitted: false,
+            isSubmitting: false,
+            error: '',
+        })
         dispatch(closeAttachCommentToIssueModal());
-    };
-
-    const handleIssueValueChange = (newValue: Issue | null) => {
-        setIssueValue(newValue);
     };
 
     const style = getStyle(theme);
@@ -82,30 +48,6 @@ const AttachCommentToIssueModal = ({theme}: PropTypes) => {
     if (!visible) {
         return null;
     }
-
-    const component = (
-        <div>
-            <GitlabIssueSelector
-                name={'issue'}
-                onChange={handleIssueValueChange}
-                required={true}
-                theme={theme}
-                error={error}
-                value={issueValue}
-                addValidate={validator.addComponent}
-                removeValidate={validator.removeComponent}
-            />
-            <Input
-                id={'comment'}
-                label='Message Attached to GitLab Issue'
-                type='textarea'
-                required={false}
-                value={post.message}
-                disabled={false}
-                readOnly={true}
-            />
-        </div>
-    );
 
     return (
         <Modal
@@ -128,7 +70,12 @@ const AttachCommentToIssueModal = ({theme}: PropTypes) => {
                 <Modal.Body
                     style={style.modal}
                 >
-                    {component}
+                    <AttachCommentToIssueForm
+                        formSubmission={formSubmission}
+                        setFormSubmission={setFormSubmission}
+                        handleClose={handleClose}
+                        theme={theme}
+                    />
                 </Modal.Body>
                 <Modal.Footer>
                     <FormButton
@@ -138,7 +85,7 @@ const AttachCommentToIssueModal = ({theme}: PropTypes) => {
                     />
                     <FormButton
                         btnClass='btn btn-primary'
-                        saving={submitting}
+                        saving={formSubmission.isSubmitting}
                         defaultMessage='Attach'
                         savingMessage='Attaching'
                     />
