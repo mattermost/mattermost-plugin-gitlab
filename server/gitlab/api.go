@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/logger"
 
@@ -301,9 +302,10 @@ func MakeSanitizedTokenLogContext(token *oauth2.Token) logger.LogContext {
 	}
 
 	return logger.LogContext{
-		"access_token":  sanitizeTokenString(token.AccessToken),
-		"refresh_token": sanitizeTokenString(token.RefreshToken),
-		"expiry":        token.Expiry,
+		"access_token":   sanitizeTokenString(token.AccessToken),
+		"refresh_token":  sanitizeTokenString(token.RefreshToken),
+		"expiry":         token.Expiry,
+		"expiry_minutes": time.Until(token.Expiry) / time.Minute,
 	}
 }
 
@@ -654,7 +656,7 @@ func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo, client 
 		}
 	}
 
-	var result []*Issue
+	result := []*Issue{}
 	for _, issue := range issues {
 		if issue.Labels != nil {
 			labelsWithDetails, err := g.GetLabelDetails(client, issue.ProjectID, issue.Labels)

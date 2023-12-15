@@ -843,11 +843,20 @@ func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namesp
 	return found, err
 }
 
-func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*oauth2.Token, error) {
+func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token, log logger.Logger) (*oauth2.Token, error) {
+	log = log.With(logger.LogContext{
+		"func": "refreshToken",
+	})
+
+	log.Debugf("beginning of refreshToken")
+
 	conf := p.getOAuthConfig()
+
 	src := conf.TokenSource(context.Background(), token)
 
+	log.Debugf("calling src.Token()")
 	newToken, err := src.Token() // this actually goes and renews the tokens
+	log = log.With(logger.LogContext{"newToken": gitlab.MakeSanitizedTokenLogContext(newToken)})
 
 	if err != nil {
 		if strings.Contains(err.Error(), "\"error\":\"invalid_grant\"") {
@@ -948,7 +957,7 @@ func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo, log logger.Lo
 	log.Debugf("time until expiry for lockedToken is less than one minute. refreshing token")
 
 	log.Debugf("calling p.refreshToken")
-	newToken, err := p.refreshToken(info, lockedToken)
+	newToken, err := p.refreshToken(info, lockedToken, log)
 	log.With(logger.LogContext{"newToken": gitlab.MakeSanitizedTokenLogContext(newToken)})
 
 	if err != nil {

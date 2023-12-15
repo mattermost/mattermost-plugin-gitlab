@@ -34,6 +34,29 @@ const (
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
+	if r.URL.Path == "/set-expiry" {
+		expiry := r.URL.Query().Get("expiry")
+		userId := r.Header.Get("Mattermost-User-Id")
+		token, err := p.getGitlabUserTokenByMattermostID(userId)
+		oldExpiry := token.Expiry
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		expiryMinutes, _ := strconv.ParseInt(expiry, 10, 32)
+		newExpiry := time.Now().Add(time.Duration(expiryMinutes) * time.Minute)
+		token.Expiry = newExpiry
+		p.storeGitlabUserToken(userId, token)
+
+		json.NewEncoder(w).Encode(map[string]string{
+			"old_expiry": oldExpiry.String(),
+			"new_expiry": newExpiry.String(),
+		})
+
+		return
+	}
+
 	p.router.ServeHTTP(w, r)
 }
 
