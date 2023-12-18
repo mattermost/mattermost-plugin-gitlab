@@ -90,6 +90,14 @@
                 "default": null
             },
             {
+                "key": "EnableChildPipelineNotifications",
+                "display_name": "Enable Child Pipelines Notification:",
+                "type": "bool",
+                "help_text": "Allow the plugin to post notfication for child pipelines when the pipeline subscription is created in a channel.",
+                "placeholder": "",
+                "default": true
+            },
+            {
                 "key": "EnableCodePreview",
                 "display_name": "Enable Code Previews:",
                 "type": "dropdown",

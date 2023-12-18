@@ -26,6 +26,14 @@ export default class Client {
         return this.doPost(`${this.url}/user`, {user_id: userID});
     };
 
+    getIssue = async (owner, repo, issueNumber) => {
+        return this.doGet(`${this.url}/issue?owner=${owner}&repo=${repo}&number=${issueNumber}`);
+    }
+
+    getPullRequest = async (owner, repo, prNumber) => {
+        return this.doGet(`${this.url}/mergerequest?owner=${owner}&repo=${repo}&number=${prNumber}`);
+    }
+
     getChannelSubscriptions = async (channelID) => {
         return this.doGet(`${this.url}/channel/${channelID}/subscriptions`);
     };
