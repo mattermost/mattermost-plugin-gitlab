@@ -9,7 +9,8 @@
         "fix": "eslint --ignore-pattern node_modules --ignore-pattern dist --ext .js --ext .jsx . --quiet --fix",
         "test": "jest --forceExit --detectOpenHandles --verbose",
         "test:watch": "jest --watch",
-        "test-ci": "jest --forceExit --detectOpenHandles --maxWorkers=2"
+        "test-ci": "jest --forceExit --detectOpenHandles --maxWorkers=2",
+        "check-types": "tsc"
     },
     "dependencies": {
         "@primer/octicons-react": "10.1.0",
