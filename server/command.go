@@ -19,7 +19,7 @@ import (
 
 const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to your GitLab account
 * |/gitlab disconnect| - Disconnect your Mattermost account from your GitLab account
-* |/gitlab todo| - Get a list of unread messages and merge requests awaiting your review
+* |/gitlab todo| - Get a list of todos, assigned issues, assigned merge requests and merge requests awaiting your review
 * |/gitlab subscriptions list| - Will list the current channel subscriptions
 * |/gitlab subscriptions add owner[/repo] [features]| - Subscribe the current channel to receive notifications about opened merge requests and issues for a group or repository
   * |features| is a comma-delimited list of one or more the following:
@@ -248,7 +248,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 		_, text, err := p.GetToDo(ctx, info)
 		if err != nil {
 			p.client.Log.Warn("can't get todo in command", "err", err.Error())
-			return p.getCommandResponse(args, "Encountered an error getting your to do items."), nil
+			return p.getCommandResponse(args, "Encountered an error getting your todo items."), nil
 		}
 		return p.getCommandResponse(args, text), nil
 	case "me":
@@ -773,7 +773,7 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 	disconnect := model.NewAutocompleteData("disconnect", "", "disconnect your GitLab account")
 	gitlab.AddCommand(disconnect)
 
-	todo := model.NewAutocompleteData("todo", "", "Get a list of unread messages and merge requests awaiting your review")
+	todo := model.NewAutocompleteData("todo", "", "Get a list of todos, assigned issues, assigned merge requests and merge requests awaiting your review")
 	gitlab.AddCommand(todo)
 
 	subscriptions := model.NewAutocompleteData("subscriptions", "[command]", "Available commands: Add, List, Delete")
