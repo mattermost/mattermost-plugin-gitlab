@@ -7,6 +7,6 @@ export default {
 export const RHSStates = {
     PRS: 'pullRequests',
     REVIEWS: 'reviews',
-    UNREADS: 'unreads',
-    ASSIGNMENTS: 'assignments',
+    TODOS: 'todos',
+    ISSUES: 'issues',
 };

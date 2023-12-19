@@ -392,10 +392,10 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 			"Turn off notifications with `/gitlab settings notifications off`.\n\n"+
 			"##### Sidebar Buttons\n"+
 			"Check out the buttons in the left-hand sidebar of Mattermost.\n"+
-			"* The first button tells you how many merge requests you have submitted.\n"+
+			"* The first button tells you how many merge requests you are assigned to.\n"+
 			"* The second shows the number of merge requests that are awaiting your review.\n"+
-			"* The third shows the number of merge requests and issues you are assigned to.\n"+
-			"* The fourth tracks the number of unread messages you have.\n"+
+			"* The third shows the number of issues you are assigned to.\n"+
+			"* The fourth tracks the number of todos you have.\n"+
 			"* The fifth will refresh the numbers.\n\n"+
 			"Click on them!\n\n"+
 			"##### Slash Commands\n"+

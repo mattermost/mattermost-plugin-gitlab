@@ -5,6 +5,8 @@ import {makeStyleFromTheme, changeOpacity} from 'mattermost-redux/utils/theme_ut
 
 import {RHSStates} from 'src/constants';
 
+import {GitLabIssuesIcon, GitLabMergeRequestIcon, GitLabReviewsIcon, GitLabTodosIcon} from './button_icons';
+
 export default class SidebarButtons extends React.PureComponent {
     static propTypes = {
         theme: PropTypes.object.isRequired,
@@ -14,9 +16,9 @@ export default class SidebarButtons extends React.PureComponent {
         clientId: PropTypes.string,
         gitlabURL: PropTypes.string,
         reviews: PropTypes.arrayOf(PropTypes.object),
-        unreads: PropTypes.arrayOf(PropTypes.object),
-        yourPrs: PropTypes.arrayOf(PropTypes.object),
-        yourAssignments: PropTypes.arrayOf(PropTypes.object),
+        todos: PropTypes.arrayOf(PropTypes.object),
+        yourAssignedPrs: PropTypes.arrayOf(PropTypes.object),
+        yourAssignedIssues: PropTypes.arrayOf(PropTypes.object),
         isTeamSidebar: PropTypes.bool,
         pluginServerRoute: PropTypes.string.isRequired,
         showRHSPlugin: PropTypes.func.isRequired,
@@ -106,9 +108,9 @@ export default class SidebarButtons extends React.PureComponent {
 
         const baseURL = this.props.gitlabURL || 'https://gitlab.com';
         const reviews = this.props.reviews || [];
-        const yourPrs = this.props.yourPrs || [];
-        const unreads = this.props.unreads || [];
-        const yourAssignments = this.props.yourAssignments || [];
+        const yourAssignedPrs = this.props.yourAssignedPrs || [];
+        const todos = this.props.todos || [];
+        const yourAssignedIssues = this.props.yourAssignedIssues || [];
         const refreshClass = this.state.refreshing ? ' fa-spin' : '';
 
         return (
@@ -123,55 +125,55 @@ export default class SidebarButtons extends React.PureComponent {
                     <i className='fa fa-gitlab fa-lg'/>
                 </a>
                 <OverlayTrigger
-                    key='gitlabYourPrsLink'
+                    key='gitlabYourAssignedPrsLink'
                     placement={placement}
-                    overlay={<Tooltip id='yourPrsTooltip'>{'Your open merge requests'}</Tooltip>}
+                    overlay={<Tooltip id='yourAssignedPrsTooltip'>{'Merge requests assigned'}</Tooltip>}
                 >
                     <a
                         onClick={() => this.openRHS(RHSStates.PRS)}
                         style={button}
                     >
-                        <i className='fa fa-compress'/>
-                        {' ' + yourPrs.length}
+                        <GitLabMergeRequestIcon fill={changeOpacity(this.props.theme.sidebarText, 0.6)}/>
+                        <span style={style.buttonCount}>{yourAssignedPrs.length}</span>
                     </a>
                 </OverlayTrigger>
                 <OverlayTrigger
                     key='gitlabReviewsLink'
                     placement={placement}
-                    overlay={<Tooltip id='reviewTooltip'>{'Merge requests that need review'}</Tooltip>}
+                    overlay={<Tooltip id='reviewTooltip'>{'Merge requests needing review'}</Tooltip>}
                 >
                     <a
                         onClick={() => this.openRHS(RHSStates.REVIEWS)}
                         style={button}
                     >
-                        <i className='fa fa-code-fork'/>
-                        {' ' + reviews.length}
+                        <GitLabReviewsIcon fill={changeOpacity(this.props.theme.sidebarText, 0.6)}/>
+                        <span style={style.buttonCount}>{reviews.length}</span>
                     </a>
                 </OverlayTrigger>
                 <OverlayTrigger
-                    key='gitlabAssignmentsLink'
+                    key='gitlabIssuesLink'
                     placement={placement}
-                    overlay={<Tooltip id='reviewTooltip'>{'Your assignments'}</Tooltip>}
+                    overlay={<Tooltip id='issuesTooltip'>{'Issues'}</Tooltip>}
                 >
                     <a
-                        onClick={() => this.openRHS(RHSStates.ASSIGNMENTS)}
+                        onClick={() => this.openRHS(RHSStates.ISSUES)}
                         style={button}
                     >
-                        <i className='fa fa-list-ol'/>
-                        {' ' + yourAssignments.length}
+                        <GitLabIssuesIcon fill={changeOpacity(this.props.theme.sidebarText, 0.6)}/>
+                        <span style={style.buttonCount}>{yourAssignedIssues.length}</span>
                     </a>
                 </OverlayTrigger>
                 <OverlayTrigger
-                    key='gitlabUnreadsLink'
+                    key='gitlabTodosLink'
                     placement={placement}
-                    overlay={<Tooltip id='unreadsTooltip'>{'Unread messages'}</Tooltip>}
+                    overlay={<Tooltip id='todosTooltip'>{'To-Do list'}</Tooltip>}
                 >
                     <a
-                        onClick={() => this.openRHS(RHSStates.UNREADS)}
+                        onClick={() => this.openRHS(RHSStates.TODOS)}
                         style={button}
                     >
-                        <i className='fa fa-envelope'/>
-                        {' ' + unreads.length}
+                        <GitLabTodosIcon fill={changeOpacity(this.props.theme.sidebarText, 0.6)}/>
+                        <span style={style.buttonCount}>{todos.length}</span>
                     </a>
                 </OverlayTrigger>
                 <OverlayTrigger
@@ -204,6 +206,11 @@ const getStyle = makeStyleFromTheme((theme) => {
             color: changeOpacity(theme.sidebarText, 0.6),
             textAlign: 'center',
             cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+        },
+        buttonCount: {
+            marginLeft: '2px',
         },
         containerHeader: {
             marginTop: '10px',
