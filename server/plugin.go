@@ -587,11 +587,11 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 			return err
 		}
 
-		unreads := resp.Unreads
+		todos := resp.Todos
 		notificationCount := 0
 		notificationContent := ""
 
-		for _, n := range unreads {
+		for _, n := range todos {
 			if n == nil {
 				continue
 			}
@@ -611,9 +611,9 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 		}
 
 		if notificationCount == 0 {
-			notificationText += "You don't have any unread messages.\n"
+			notificationText += "You don't have any todos.\n"
 		} else {
-			notificationText += fmt.Sprintf("You have %v unread messages:\n", notificationCount)
+			notificationText += fmt.Sprintf("You have %v todos:\n", notificationCount)
 			notificationText += notificationContent
 
 			hasTodo = true
@@ -632,25 +632,24 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 			hasTodo = true
 		}
 
-		yourAssignments := resp.Assignments
-
-		if len(yourAssignments) == 0 {
+		yourAssignedIssues := resp.AssignedIssues
+		if len(yourAssignedIssues) == 0 {
 			assignmentText += "You don't have any issues awaiting your dev.\n"
 		} else {
-			assignmentText += fmt.Sprintf("You have %v issues awaiting dev:\n", len(yourAssignments))
+			assignmentText += fmt.Sprintf("You have %v issues awaiting dev:\n", len(yourAssignedIssues))
 
-			for _, pr := range yourAssignments {
+			for _, pr := range yourAssignedIssues {
 				assignmentText += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
 			}
 
 			hasTodo = true
 		}
 
-		mergeRequests := resp.PRs
+		mergeRequests := resp.AssignedPRs
 		if len(mergeRequests) == 0 {
-			mergeRequestText += "You don't have any open merge requests.\n"
+			mergeRequestText += "You don't have any merge requests assigned.\n"
 		} else {
-			mergeRequestText += fmt.Sprintf("You have %v open merge requests:\n", len(mergeRequests))
+			mergeRequestText += fmt.Sprintf("You have %v merge requests assigned:\n", len(mergeRequests))
 
 			for _, pr := range mergeRequests {
 				mergeRequestText += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
@@ -665,16 +664,16 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 		return false, "", err
 	}
 
-	text := "##### Unread Messages\n"
+	text := "##### To-Do list\n"
 	text += notificationText
 
 	text += "##### Review Requests\n"
 	text += reviewText
 
-	text += "##### Assignments\n"
+	text += "##### Issues\n"
 	text += assignmentText
 
-	text += "##### Your Open Merge Requests\n"
+	text += "##### Merge Requests Assigned\n"
 	text += mergeRequestText
 
 	return hasTodo, text, nil
