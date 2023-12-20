@@ -66,7 +66,7 @@ func TestSetDefaults(t *testing.T) {
 	for _, testCase := range []struct {
 		description string
 		isCloud     bool
-		config      configuration
+		config      *configuration
 
 		shouldChange bool
 		outputCheck  func(*testing.T, *configuration)
@@ -74,7 +74,7 @@ func TestSetDefaults(t *testing.T) {
 	}{
 		{
 			description: "noop",
-			config: configuration{
+			config: &configuration{
 				EncryptionKey: "abcd",
 				WebhookSecret: "efgh",
 			},
@@ -85,7 +85,7 @@ func TestSetDefaults(t *testing.T) {
 			},
 		}, {
 			description: "set encryption key",
-			config: configuration{
+			config: &configuration{
 				EncryptionKey: "",
 			},
 			shouldChange: true,
@@ -94,7 +94,7 @@ func TestSetDefaults(t *testing.T) {
 			},
 		}, {
 			description: "set webhook key",
-			config: configuration{
+			config: &configuration{
 				WebhookSecret: "",
 			},
 			shouldChange: true,
@@ -103,7 +103,7 @@ func TestSetDefaults(t *testing.T) {
 			},
 		}, {
 			description: "set webhook and encryption key",
-			config: configuration{
+			config: &configuration{
 				EncryptionKey: "",
 				WebhookSecret: "",
 			},
@@ -115,7 +115,7 @@ func TestSetDefaults(t *testing.T) {
 		}, {
 			description: "Should not set UsePreregisteredApplication in on-prem",
 			isCloud:     false,
-			config: configuration{
+			config: &configuration{
 				EncryptionKey:               "abcd",
 				WebhookSecret:               "efgh",
 				UsePreregisteredApplication: false,
@@ -128,7 +128,7 @@ func TestSetDefaults(t *testing.T) {
 		}, {
 			description: "Should set UsePreregisteredApplication in cloud if no OAuth secret is configured",
 			isCloud:     true,
-			config: configuration{
+			config: &configuration{
 				EncryptionKey:               "abcd",
 				WebhookSecret:               "efgh",
 				UsePreregisteredApplication: false,
@@ -143,7 +143,7 @@ func TestSetDefaults(t *testing.T) {
 		}, {
 			description: "Should set not UsePreregisteredApplication in cloud if OAuth secret is configured",
 			isCloud:     true,
-			config: configuration{
+			config: &configuration{
 				EncryptionKey:               "abcd",
 				WebhookSecret:               "efgh",
 				UsePreregisteredApplication: false,
@@ -163,7 +163,7 @@ func TestSetDefaults(t *testing.T) {
 			changed, err := testCase.config.setDefaults(testCase.isCloud)
 
 			assert.Equal(t, testCase.shouldChange, changed)
-			testCase.outputCheck(t, &testCase.config)
+			testCase.outputCheck(t, testCase.config)
 
 			if testCase.errMsg != "" {
 				require.Error(t, err)
