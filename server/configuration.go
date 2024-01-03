@@ -7,9 +7,9 @@ import (
 	"reflect"
 	"strings"
 
-	pluginapi "github.com/mattermost/mattermost-plugin-api"
-	"github.com/mattermost/mattermost-plugin-api/experimental/telemetry"
-	"github.com/mattermost/mattermost-server/v6/model"
+	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/public/pluginapi"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/telemetry"
 	"github.com/pkg/errors"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
@@ -27,14 +27,16 @@ import (
 // If you add non-reference types to your configuration struct, be sure to rewrite Clone as a deep
 // copy appropriate for your types.
 type configuration struct {
-	GitlabURL                   string `json:"gitlaburl"`
-	GitlabOAuthClientID         string `json:"gitlaboauthclientid"`
-	GitlabOAuthClientSecret     string `json:"gitlaboauthclientsecret"`
-	WebhookSecret               string `json:"webhooksecret"`
-	EncryptionKey               string `json:"encryptionkey"`
-	GitlabGroup                 string `json:"gitlabgroup"`
-	EnablePrivateRepo           bool   `json:"enableprivaterepo"`
-	UsePreregisteredApplication bool   `json:"usepreregisteredapplication"`
+	GitlabURL                        string `json:"gitlaburl"`
+	GitlabOAuthClientID              string `json:"gitlaboauthclientid"`
+	GitlabOAuthClientSecret          string `json:"gitlaboauthclientsecret"`
+	WebhookSecret                    string `json:"webhooksecret"`
+	EncryptionKey                    string `json:"encryptionkey"`
+	GitlabGroup                      string `json:"gitlabgroup"`
+	EnablePrivateRepo                bool   `json:"enableprivaterepo"`
+	EnableCodePreview                string `json:"enablecodepreview"`
+	UsePreregisteredApplication      bool   `json:"usepreregisteredapplication"`
+	EnableChildPipelineNotifications bool   `json:"enablechildpipelinenotifications"`
 }
 
 // Clone shallow copies the configuration. Your implementation may require a deep copy if

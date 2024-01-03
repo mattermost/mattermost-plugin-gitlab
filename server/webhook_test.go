@@ -7,9 +7,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	pluginapi "github.com/mattermost/mattermost-plugin-api"
-	"github.com/mattermost/mattermost-server/v6/model"
-	"github.com/mattermost/mattermost-server/v6/plugin/plugintest"
+	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/public/plugin/plugintest"
+	"github.com/mattermost/mattermost/server/public/pluginapi"
 	"github.com/stretchr/testify/assert"
 	gitlabLib "github.com/xanzy/go-gitlab"
 
@@ -131,4 +131,46 @@ func TestHandleWebhookToChannel(t *testing.T) {
 	mock.AssertCalled(t, "PublishWebSocketEvent", WsEventRefresh, map[string]interface{}(nil), &model.WebsocketBroadcast{UserId: "1"})
 	mock.AssertNumberOfCalls(t, "PublishWebSocketEvent", 1)
 	mock.AssertNumberOfCalls(t, "CreatePost", 1)
+}
+
+func TestHandleWebhookForChildPipelineNotficationDisabled(t *testing.T) {
+	p := &Plugin{configuration: &configuration{WebhookSecret: "secret", EnableChildPipelineNotifications: false}, WebhookHandler: fakeWebhookHandler{}}
+
+	mock := &plugintest.API{}
+	p.SetAPI(mock)
+	p.client = pluginapi.NewClient(mock, p.Driver)
+
+	req := httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"user": {"username":"test"}, "object_attributes": {"source":"parent_pipeline"}}`))
+	req.Header.Add("X-Gitlab-Token", "secret")
+	req.Header.Add("X-Gitlab-Event", string(gitlabLib.EventTypePipeline))
+	w := httptest.NewRecorder()
+
+	p.handleWebhook(w, req)
+	resp := w.Result()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+func TestHandleWebhookForChildPipelineNotficationEnabled(t *testing.T) {
+	p := &Plugin{configuration: &configuration{WebhookSecret: "secret", EnableChildPipelineNotifications: true}, WebhookHandler: fakeWebhookHandler{}}
+
+	mock := &plugintest.API{}
+	mock.On("KVGet", "test_gitlabusername").Return([]byte("1"), nil).Once()
+	mock.On("PublishWebSocketEvent", WsEventRefresh, map[string]interface{}(nil), &model.WebsocketBroadcast{UserId: "1"}).Return(nil).Once()
+	p.SetAPI(mock)
+	p.client = pluginapi.NewClient(mock, p.Driver)
+
+	req := httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"user": {"username":"test"}, "object_attributes": {"source":"parent_pipeline"}}`))
+	req.Header.Add("X-Gitlab-Token", "secret")
+	req.Header.Add("X-Gitlab-Event", string(gitlabLib.EventTypePipeline))
+	w := httptest.NewRecorder()
+
+	p.handleWebhook(w, req)
+	resp := w.Result()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	mock.AssertCalled(t, "KVGet", "test_gitlabusername")
+	mock.AssertNumberOfCalls(t, "KVGet", 1)
+	mock.AssertCalled(t, "PublishWebSocketEvent", WsEventRefresh, map[string]interface{}(nil), &model.WebsocketBroadcast{UserId: "1"})
+	mock.AssertNumberOfCalls(t, "PublishWebSocketEvent", 1)
 }

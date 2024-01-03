@@ -20,10 +20,12 @@ export const notificationReasons: Record<string | symbol, string> = {
     approval_required: 'Your approval is required on this issue/merge request.',
     unmergeable: 'This merge request can\'t be merged.',
     merge_train_removed: 'A merge train was removed.',
+    member_access_requested: 'requested access to a project/group.'
 };
 
 const SUCCESS = 'success';
 const PENDING = 'pending';
+const ACTION_NAME_MEMBER_ACCESS_REQUESTED = 'member_access_requested';
 
 function GitlabItems({item, theme}: GitlabItemsProps) {
     const style = getStyle(theme);
@@ -48,7 +50,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
         );
     }
 
-    const titleText = item.title || item.target?.title || '';
+    const titleText = item.title || item.target?.title || item.body || '';
 
     let title: React.ReactNode = titleText;
     if (item.web_url || item.target_url) {
@@ -160,6 +162,8 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
         );
     }
 
+    const includeNotificationAuthor = item.action_name == ACTION_NAME_MEMBER_ACCESS_REQUESTED;
+
     return (
         <div
             key={item.id}
@@ -174,17 +178,16 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
             </div>
             <div>
                 {number}
-                <span className='light'>{repoName}</span>
+                {repoName && <span className='light'>({repoName})</span>}
             </div>
             {labels}
             <div
                 className='light'
                 style={style.subtitle}
             >
-                {'Opened'}
+                {!item.action_name && 'Opened'}
                 {item.created_at && ` ${formatTimeSince(item.created_at)} ago`}
-                {userName && ` by ${userName}`}
-                {'.'}
+                {!item.action_name && userName && ` by ${userName}.`}
                 {milestone}
             </div>
             <div
@@ -194,6 +197,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
                 {item.action_name && (
                     <>
                         <div>{item.updated_at && `Updated ${formatTimeSince(item.updated_at)} ago.`}</div>
+                        {includeNotificationAuthor && <a href={item.author.web_url}>{item.author.name} </a>}
                         {notificationReasons[item.action_name]}
                     </>
                 )}

@@ -11,6 +11,8 @@ export interface Label {
 
 export interface User {
     username: string;
+    web_url: string;
+    name: string;
 }
 
 export interface References {
@@ -57,6 +59,7 @@ export interface Item {
     num_approvers: number;
     total_reviewers: number;
     reviewers: User[];
+    body: string;
 }
 
 export interface GitlabItemsProps {

@@ -3,12 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"time"
 
-	"github.com/mattermost/mattermost-plugin-api/experimental/command"
-	"github.com/mattermost/mattermost-server/v6/model"
-	"github.com/mattermost/mattermost-server/v6/plugin"
+	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/public/plugin"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/command"
 	"github.com/pkg/errors"
 	gitlabLib "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
@@ -18,7 +19,7 @@ import (
 
 const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to your GitLab account
 * |/gitlab disconnect| - Disconnect your Mattermost account from your GitLab account
-* |/gitlab todo| - Get a list of unread messages and merge requests awaiting your review
+* |/gitlab todo| - Get a list of todos, assigned issues, assigned merge requests and merge requests awaiting your review
 * |/gitlab subscriptions list| - Will list the current channel subscriptions
 * |/gitlab subscriptions add owner[/repo] [features]| - Subscribe the current channel to receive notifications about opened merge requests and issues for a group or repository
   * |features| is a comma-delimited list of one or more the following:
@@ -35,7 +36,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	* label:"<labelname>" - must include "merges" or "issues" in feature list when using a label
     * Defaults to "merges,issues,tag"
 * |/gitlab subscriptions delete owner/repo| - Unsubscribe the current channel from a repository
-* |/gitlab pipeline run [owner]/repo [ref]| - Run a pipeline for specific repository and ref (branch/tag)
+* |/gitlab pipelines run [owner]/repo [ref]| - Run a pipeline for specific repository and ref (branch/tag)
 * |/gitlab me| - Display the connected GitLab account
 * |/gitlab settings [setting] [value]| - Update your user settings
   * |setting| can be "notifications" or "reminders"
@@ -126,7 +127,7 @@ func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string) *model
 }
 
 // ExecuteCommand is the entrypoint for /gitlab commands. It returns a message to display to the user or an error.
-func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
+func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res *model.CommandResponse, appErr *model.AppError) {
 	var (
 		split      = strings.Fields(args.Command)
 		cmd        = split[0]
@@ -145,6 +146,21 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 
 	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
 	defer cancel()
+
+	defer func() {
+		if r := recover(); r != nil {
+			p.client.Log.Warn("Recovered from a panic",
+				"Command", args.Command,
+				"UserId", args.UserId,
+				"error", r,
+				"stack", string(debug.Stack()))
+			res = &model.CommandResponse{}
+			p.postCommandResponse(args, "An unexpected error occurred. Please try again later.")
+			if *p.client.Configuration.GetConfig().ServiceSettings.EnableDeveloper {
+				p.postCommandResponse(args, fmt.Sprintf("error: %v, \nstack:\n```\n%s\n```", r, string(debug.Stack())))
+			}
+		}
+	}()
 
 	if action == "about" {
 		text, err := command.BuildInfo(manifest)
@@ -233,7 +249,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 		_, text, err := p.GetToDo(ctx, info)
 		if err != nil {
 			p.client.Log.Warn("can't get todo in command", "err", err.Error())
-			return p.getCommandResponse(args, "Encountered an error getting your to do items."), nil
+			return p.getCommandResponse(args, "Encountered an error getting your todo items."), nil
 		}
 		return p.getCommandResponse(args, text), nil
 	case "me":
@@ -765,7 +781,7 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 	disconnect := model.NewAutocompleteData("disconnect", "", "disconnect your GitLab account")
 	gitlab.AddCommand(disconnect)
 
-	todo := model.NewAutocompleteData("todo", "", "Get a list of unread messages and merge requests awaiting your review")
+	todo := model.NewAutocompleteData("todo", "", "Get a list of todos, assigned issues, assigned merge requests and merge requests awaiting your review")
 	gitlab.AddCommand(todo)
 
 	subscriptions := model.NewAutocompleteData("subscriptions", "[command]", "Available commands: Add, List, Delete")

@@ -14,11 +14,12 @@ import (
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 
-	"github.com/mattermost/mattermost-server/v6/model"
+	"github.com/mattermost/mattermost/server/public/model"
 )
 
 const (
-	webhookTimeout = 10 * time.Second
+	webhookTimeout            = 10 * time.Second
+	eventSourceParentPipeline = "parent_pipeline"
 )
 
 type gitlabRetreiver struct {
@@ -119,6 +120,10 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
+		if !p.configuration.EnableChildPipelineNotifications && event.ObjectAttributes.Source == eventSourceParentPipeline {
+			return
+		}
+
 		handlers, errHandler = p.WebhookHandler.HandlePipeline(ctx, event)
 	case *gitlabLib.JobEvent:
 		repoPrivate = event.Repository.Visibility == gitlabLib.PrivateVisibility
