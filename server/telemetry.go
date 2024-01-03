@@ -16,16 +16,20 @@ const (
 )
 
 func (p *Plugin) TrackEvent(event string, properties map[string]interface{}) {
-	err := p.tracker.TrackEvent(event, properties)
-	if err != nil {
-		p.API.LogDebug("Error sending telemetry event", "event", event, "error", err.Error())
+	if p.tracker != nil {
+		err := p.tracker.TrackEvent(event, properties)
+		if err != nil {
+			p.API.LogDebug("Error sending telemetry event", "event", event, "error", err.Error())
+		}
 	}
 }
 
 func (p *Plugin) TrackUserEvent(event, userID string, properties map[string]interface{}) {
-	err := p.tracker.TrackUserEvent(event, userID, properties)
-	if err != nil {
-		p.API.LogDebug("Error sending user telemetry event", "event", event, "error", err.Error())
+	if p.tracker != nil {
+		err := p.tracker.TrackUserEvent(event, userID, properties)
+		if err != nil {
+			p.API.LogDebug("Error sending user telemetry event", "event", event, "error", err.Error())
+		}
 	}
 }
 

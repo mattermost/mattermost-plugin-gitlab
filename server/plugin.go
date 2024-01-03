@@ -115,7 +115,10 @@ func (p *Plugin) OnActivate() error {
 	}
 
 	p.initializeAPI()
-	p.initializeTelemetry()
+
+	if p.API.GetConfig().ServiceSettings.EnableSecurityFixAlert != nil {
+		p.initializeTelemetry()
+	}
 
 	p.oauthBroker = NewOAuthBroker(p.sendOAuthCompleteEvent)
 
@@ -164,7 +167,9 @@ func (p *Plugin) OnInstall(c *plugin.Context, event model.OnInstallEvent) error 
 }
 
 func (p *Plugin) OnSendDailyTelemetry() {
-	p.SendDailyTelemetry()
+	if p.API.GetConfig().ServiceSettings.EnableSecurityFixAlert != nil {
+		p.SendDailyTelemetry()
+	}
 }
 
 func (p *Plugin) OnPluginClusterEvent(c *plugin.Context, ev model.PluginClusterEvent) {
