@@ -15,16 +15,15 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	pluginapi "github.com/mattermost/mattermost-plugin-api"
-	"github.com/mattermost/mattermost-plugin-api/cluster"
-	"github.com/mattermost/mattermost-plugin-api/experimental/bot/poster"
-	"github.com/mattermost/mattermost-plugin-api/experimental/telemetry"
-	"github.com/mattermost/mattermost-server/v6/model"
-	"github.com/mattermost/mattermost-server/v6/plugin"
+	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/public/plugin"
+	"github.com/mattermost/mattermost/server/public/pluginapi"
+	"github.com/mattermost/mattermost/server/public/pluginapi/cluster"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/poster"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/telemetry"
 	"github.com/pkg/errors"
 	gitlabLib "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
-	"golang.org/x/sync/errgroup"
 
 	root "github.com/mattermost/mattermost-plugin-gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
@@ -48,6 +47,8 @@ const (
 	SettingOff                    = "off"
 
 	chimeraGitLabAppIdentifier = "plugin-gitlab"
+
+	NotificationActionNameMemberAccessRequest = "member_access_requested"
 
 	invalidTokenError = "401 {error: invalid_token}" //#nosec G101 -- False positive
 )
@@ -168,6 +169,12 @@ func (p *Plugin) OnSendDailyTelemetry() {
 
 func (p *Plugin) OnPluginClusterEvent(c *plugin.Context, ev model.PluginClusterEvent) {
 	p.HandleClusterEvent(ev)
+}
+
+func (p *Plugin) UserHasBeenDeactivated(c *plugin.Context, user *model.User) {
+	if info, _ := p.getGitlabUserInfoByMattermostID(user.Id); info != nil {
+		p.disconnectGitlabAccount(user.Id)
+	}
 }
 
 func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*model.Post, string) {
@@ -571,27 +578,19 @@ func (p *Plugin) PostToDo(ctx context.Context, info *gitlab.UserInfo) {
 
 func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, string, error) {
 	hasTodo := false
-	g, ctx := errgroup.WithContext(ctx)
 
-	notificationText := ""
-	g.Go(func() error {
-		var unreads []*gitlabLib.Todo
-		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetUnreads(ctx, info, token)
-			if err != nil {
-				return err
-			}
-			unreads = resp
-			return nil
-		})
+	var notificationText, reviewText, assignmentText, mergeRequestText string
+	err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetLHSData(ctx, info, token)
 		if err != nil {
 			return err
 		}
 
+		todos := resp.Todos
 		notificationCount := 0
 		notificationContent := ""
 
-		for _, n := range unreads {
+		for _, n := range todos {
 			if n == nil {
 				continue
 			}
@@ -600,36 +599,26 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 				continue
 			}
 			notificationCount++
-			notificationContent += fmt.Sprintf("* %v : [%v](%v)\n", n.ActionName, n.Target.Title, n.TargetURL)
+
+			switch n.ActionName {
+			// Handle special cases where the provided "Title" value is blank
+			case NotificationActionNameMemberAccessRequest:
+				notificationContent += fmt.Sprintf("* %v : [%v](%v) has requested access to [%v](%v)\n", n.ActionName, n.Author.Name, n.Author.WebURL, n.Body, n.TargetURL)
+			default:
+				notificationContent += fmt.Sprintf("* %v : [%v](%v)\n", n.ActionName, n.Target.Title, n.TargetURL)
+			}
 		}
 
 		if notificationCount == 0 {
-			notificationText += "You don't have any unread messages.\n"
+			notificationText += "You don't have any todos.\n"
 		} else {
-			notificationText += fmt.Sprintf("You have %v unread messages:\n", notificationCount)
+			notificationText += fmt.Sprintf("You have %v todos:\n", notificationCount)
 			notificationText += notificationContent
 
 			hasTodo = true
 		}
 
-		return nil
-	})
-
-	reviewText := ""
-	g.Go(func() error {
-		var reviews []*gitlab.MergeRequest
-		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetReviews(ctx, info, token)
-			if err != nil {
-				return err
-			}
-			reviews = resp
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-
+		reviews := resp.Reviews
 		if len(reviews) == 0 {
 			reviewText += "You don't have any merge requests awaiting your review.\n"
 		} else {
@@ -642,58 +631,24 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 			hasTodo = true
 		}
 
-		return nil
-	})
-
-	assignmentText := ""
-	g.Go(func() error {
-		var yourAssignments []*gitlab.Issue
-		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetYourAssignments(ctx, info, token)
-			if err != nil {
-				return err
-			}
-			yourAssignments = resp
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-
-		if len(yourAssignments) == 0 {
+		yourAssignedIssues := resp.AssignedIssues
+		if len(yourAssignedIssues) == 0 {
 			assignmentText += "You don't have any issues awaiting your dev.\n"
 		} else {
-			assignmentText += fmt.Sprintf("You have %v issues awaiting dev:\n", len(yourAssignments))
+			assignmentText += fmt.Sprintf("You have %v issues awaiting dev:\n", len(yourAssignedIssues))
 
-			for _, pr := range yourAssignments {
+			for _, pr := range yourAssignedIssues {
 				assignmentText += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
 			}
 
 			hasTodo = true
 		}
 
-		return nil
-	})
-
-	mergeRequestText := ""
-	g.Go(func() error {
-		var mergeRequests []*gitlab.MergeRequest
-		err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.GitlabClient.GetYourPrs(ctx, info, token)
-			if err != nil {
-				return err
-			}
-			mergeRequests = resp
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-
+		mergeRequests := resp.AssignedPRs
 		if len(mergeRequests) == 0 {
-			mergeRequestText += "You don't have any open merge requests.\n"
+			mergeRequestText += "You don't have any merge requests assigned.\n"
 		} else {
-			mergeRequestText += fmt.Sprintf("You have %v open merge requests:\n", len(mergeRequests))
+			mergeRequestText += fmt.Sprintf("You have %v merge requests assigned:\n", len(mergeRequests))
 
 			for _, pr := range mergeRequests {
 				mergeRequestText += fmt.Sprintf("* [%v](%v)\n", pr.Title, pr.WebURL)
@@ -704,21 +659,20 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 
 		return nil
 	})
-
-	if err := g.Wait(); err != nil {
+	if err != nil {
 		return false, "", err
 	}
 
-	text := "##### Unread Messages\n"
+	text := "##### To-Do list\n"
 	text += notificationText
 
 	text += "##### Review Requests\n"
 	text += reviewText
 
-	text += "##### Assignments\n"
+	text += "##### Issues\n"
 	text += assignmentText
 
-	text += "##### Your Open Merge Requests\n"
+	text += "##### Merge Requests Assigned\n"
 	text += mergeRequestText
 
 	return hasTodo, text, nil

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/mattermost/mattermost-plugin-api/experimental/bot/logger"
+	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/logger"
 
 	"github.com/pkg/errors"
 	internGitlab "github.com/xanzy/go-gitlab"
@@ -25,13 +25,16 @@ var (
 type Gitlab interface {
 	GitlabConnect(token oauth2.Token) (*internGitlab.Client, error)
 	GetCurrentUser(ctx context.Context, userID string, token oauth2.Token) (*UserInfo, error)
+	GetIssueByID(ctx context.Context, user *UserInfo, owner, repo string, issueID int, token *oauth2.Token) (*Issue, error)
+	GetMergeRequestByID(ctx context.Context, user *UserInfo, owner, repo string, mergeRequestID int, token *oauth2.Token) (*MergeRequest, error)
 	GetUserDetails(ctx context.Context, user *UserInfo, token *oauth2.Token) (*internGitlab.User, error)
 	GetProject(ctx context.Context, user *UserInfo, token *oauth2.Token, owner, repo string) (*internGitlab.Project, error)
 	GetYourPrDetails(ctx context.Context, log logger.Logger, user *UserInfo, token *oauth2.Token, prList []*PRDetails) ([]*PRDetails, error)
-	GetReviews(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*MergeRequest, error)
-	GetYourPrs(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*MergeRequest, error)
-	GetYourAssignments(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*Issue, error)
-	GetUnreads(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.Todo, error)
+	GetReviews(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*MergeRequest, error)
+	GetYourAssignedPrs(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*MergeRequest, error)
+	GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.Token) (*LHSContent, error)
+	GetYourAssignedIssues(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*Issue, error)
+	GetToDoList(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*internGitlab.Todo, error)
 	GetProjectHooks(ctx context.Context, user *UserInfo, token *oauth2.Token, owner string, repo string) ([]*WebhookInfo, error)
 	GetGroupHooks(ctx context.Context, user *UserInfo, token *oauth2.Token, owner string) ([]*WebhookInfo, error)
 	NewProjectHook(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID interface{}, projectHookOptions *AddWebhookOptions) (*WebhookInfo, error)

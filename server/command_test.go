@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	pluginapi "github.com/mattermost/mattermost-plugin-api"
-	"github.com/mattermost/mattermost-server/v6/model"
-	"github.com/mattermost/mattermost-server/v6/plugin/plugintest"
+	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/public/plugin/plugintest"
+	"github.com/mattermost/mattermost/server/public/pluginapi"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -380,7 +380,7 @@ func TestAddWebhookCommand(t *testing.T) {
 			p.GitlabClient = mockedClient
 
 			conf := &model.Config{}
-			conf.ServiceSettings.SiteURL = &test.siteURL
+			conf.ServiceSettings.SiteURL = model.NewString(test.siteURL)
 
 			encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
 

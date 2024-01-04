@@ -3,7 +3,7 @@ package gitlab
 import (
 	"context"
 
-	"github.com/mattermost/mattermost-server/v6/model"
+	"github.com/mattermost/mattermost/server/public/model"
 	internGitlab "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
 )

@@ -24,9 +24,9 @@ interface Props {
     org: string;
     gitlabURL: string;
     reviews: Item[];
-    unreads: Item[],
-    yourPrs: Item[],
-    yourAssignments: Item[],
+    todos: Item[],
+    yourAssignedPrs: Item[],
+    yourAssignedIssues: Item[],
     rhsState: string,
     theme: Theme,
 }
@@ -72,18 +72,18 @@ function shouldUpdateDetails(prs: Item[], prevPrs: Item[], targetState: string, 
 
 function SidebarRight({theme}: {theme: Theme}) {
     const sidebarData = useSelector(getSidebarData);
-    const {username, yourAssignments, org, unreads, gitlabURL, rhsState, reviews, yourPrs} = sidebarData;
+    const {username, yourAssignedIssues, org, todos, gitlabURL, rhsState, reviews, yourAssignedPrs} = sidebarData;
 
     const dispatch = useDispatch();
 
-    const prevPrs = usePrevious<Item[]>(yourPrs)
+    const prevPrs = usePrevious<Item[]>(yourAssignedPrs)
     const prevReviews = usePrevious<Item[]>(reviews)
 
     useEffect(() => {
-        if (yourPrs && (!prevPrs || shouldUpdateDetails(yourPrs, prevPrs, RHSStates.PRS, rhsState))) {
-            dispatch(getYourPrDetails(yourPrs));
+        if (yourAssignedPrs && (!prevPrs || shouldUpdateDetails(yourAssignedPrs, prevPrs, RHSStates.PRS, rhsState))) {
+            dispatch(getYourPrDetails(yourAssignedPrs));
         }
-    }, [yourPrs, rhsState, prevPrs]);
+    }, [yourAssignedPrs, rhsState, prevPrs]);
 
     useEffect(() => {
         if (reviews && (!prevReviews || shouldUpdateDetails(reviews, prevReviews, RHSStates.REVIEWS, rhsState))) {
@@ -104,23 +104,23 @@ function SidebarRight({theme}: {theme: Theme}) {
 
     switch (rhsState) {
     case RHSStates.PRS:
-        gitlabItems = yourPrs;
-        title = 'Your Open Merge Requests';
-        listUrl = `${baseURL}${orgQuery}/merge_requests?state=opened&author_username=${username}`;
+        gitlabItems = yourAssignedPrs;
+        title = 'Merge Requests Assigned';
+        listUrl = `${baseURL}${orgQuery}/merge_requests?state=opened&assignee_username=${username}`;
         break;
     case RHSStates.REVIEWS:
         gitlabItems = reviews;
         listUrl = `${baseURL}${orgQuery}/merge_requests?reviewer_username=${username}`;
         title = 'Merge Requests Needing Review';
         break;
-    case RHSStates.UNREADS:
-        gitlabItems = unreads;
-        title = 'Unread Messages';
+    case RHSStates.TODOS:
+        gitlabItems = todos;
+        title = 'To-Do List';
         listUrl = `${baseURL}/dashboard/todos`;
         break;
-    case RHSStates.ASSIGNMENTS:
-        gitlabItems = yourAssignments;
-        title = 'Your Assignments';
+    case RHSStates.ISSUES:
+        gitlabItems = yourAssignedIssues;
+        title = 'Issues';
         listUrl = `${baseURL}${orgQuery}/issues?assignee_username=${username}`;
         break;
     default:
