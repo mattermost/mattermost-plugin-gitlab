@@ -743,7 +743,7 @@ func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channel
 	foundPipelineSubscription := false
 	subs, err := p.GetSubscriptionsByChannel(channelID)
 	if err != nil {
-		p.API.LogWarn("Failed to get subscriptions for the channel", "ChannelID", channelID, "Error", err.Error())
+		p.client.Log.Warn("Failed to get subscriptions for the channel", "channel_id", channelID, "error", err.Error())
 		return txt
 	}
 
