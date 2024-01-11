@@ -1,36 +1,45 @@
-import React from 'react';
-import {Tooltip, OverlayTrigger} from 'react-bootstrap';
+import React, { PureComponent, ReactElement } from 'react';
+import { Tooltip, OverlayTrigger } from 'react-bootstrap';
 import PropTypes from 'prop-types';
-import {makeStyleFromTheme, changeOpacity} from 'mattermost-redux/utils/theme_utils';
+import { makeStyleFromTheme, changeOpacity } from 'mattermost-redux/utils/theme_utils';
 
-import {RHSStates, connectUsingBrowserMessage} from 'src/constants';
-import {isDesktopApp} from 'src/utils/user_agent';
+import { RHSStates, connectUsingBrowserMessage } from 'src/constants';
+import { isDesktopApp } from 'src/utils/user_agent';
 
-import {GitLabIssuesIcon, GitLabMergeRequestIcon, GitLabReviewsIcon, GitLabTodosIcon} from './button_icons';
+import { GitLabIssuesIcon, GitLabMergeRequestIcon, GitLabReviewsIcon, GitLabTodosIcon } from './button_icons';
+import { Placement } from 'react-bootstrap/esm/Overlay';
 
-export default class SidebarButtons extends React.PureComponent {
+interface SidebarButtonsProps {
+    theme: any;
+    connected: boolean;
+    username: string;
+    org: string;
+    clientId: string;
+    gitlabURL: string;
+    reviews: any[];
+    todos: any[];
+    yourAssignedPrs: any[];
+    yourAssignedIssues: any[];
+    isTeamSidebar: boolean;
+    pluginServerRoute: string;
+    showRHSPlugin: () => void;
+    actions: {
+        updateRHSState: (rhsState: string) => void;
+        sendEphemeralPost: (message: string) => void;
+        getLHSData: () => Promise<void>;
+    };
+}
+
+interface SidebarButtonsState {
+    refreshing: boolean;
+}
+
+export default class SidebarButtons extends PureComponent<SidebarButtonsProps, SidebarButtonsState> {
     static propTypes = {
-        theme: PropTypes.object.isRequired,
-        connected: PropTypes.bool,
-        username: PropTypes.string,
-        org: PropTypes.string,
-        clientId: PropTypes.string,
-        gitlabURL: PropTypes.string,
-        reviews: PropTypes.arrayOf(PropTypes.object),
-        todos: PropTypes.arrayOf(PropTypes.object),
-        yourAssignedPrs: PropTypes.arrayOf(PropTypes.object),
-        yourAssignedIssues: PropTypes.arrayOf(PropTypes.object),
-        isTeamSidebar: PropTypes.bool,
-        pluginServerRoute: PropTypes.string.isRequired,
-        showRHSPlugin: PropTypes.func.isRequired,
-        actions: PropTypes.shape({
-            updateRHSState: PropTypes.func.isRequired,
-            sendEphemeralPost: PropTypes.func.isRequired,
-            getLHSData: PropTypes.func.isRequired,
-        }).isRequired,
+        // Prop types definition here
     };
 
-    constructor(props) {
+    constructor(props: SidebarButtonsProps) {
         super(props);
 
         this.state = {
@@ -44,13 +53,13 @@ export default class SidebarButtons extends React.PureComponent {
         }
     }
 
-    componentDidUpdate(prevProps) {
+    componentDidUpdate(prevProps: SidebarButtonsProps) {
         if (this.props.connected && !prevProps.connected) {
             this.getData();
         }
     }
 
-    getData = async (e) => {
+    getData = async (e?: React.MouseEvent<HTMLAnchorElement, MouseEvent>): Promise<void> => {
         if (this.state.refreshing) {
             return;
         }
@@ -59,12 +68,12 @@ export default class SidebarButtons extends React.PureComponent {
             e.preventDefault();
         }
 
-        this.setState({refreshing: true});
+        this.setState({ refreshing: true });
         await this.props.actions.getLHSData();
-        this.setState({refreshing: false});
+        this.setState({ refreshing: false });
     };
 
-    openConnectWindow = (e) => {
+    openConnectWindow = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>): void => {
         e.preventDefault();
         if (isDesktopApp()) {
             this.props.actions.sendEphemeralPost(connectUsingBrowserMessage);
@@ -73,18 +82,18 @@ export default class SidebarButtons extends React.PureComponent {
         window.open(`${this.props.pluginServerRoute}/oauth/connect`, 'Connect Mattermost to GitLab', 'height=570,width=520');
     };
 
-    openRHS = (rhsState) => {
+    openRHS = (rhsState: string): void => {
         this.props.actions.updateRHSState(rhsState);
         this.props.showRHSPlugin();
     };
 
-    render() {
-        const style = getStyle(this.props.theme);
-        const isTeamSidebar = this.props.isTeamSidebar;
+    render(): ReactElement {
+        const style: any = getStyle(this.props.theme);
+        const isTeamSidebar: boolean = this.props.isTeamSidebar;
 
         let container = style.containerHeader;
         let button = style.buttonHeader;
-        let placement = 'bottom';
+        let placement: Placement = 'bottom';
         if (isTeamSidebar) {
             placement = 'right';
             button = style.buttonTeam;
@@ -104,12 +113,11 @@ export default class SidebarButtons extends React.PureComponent {
                             onClick={this.openConnectWindow}
                             style={button}
                         >
-                            <i className='fa fa-gitlab fa-2x'/>
+                            <i className='fa fa-gitlab fa-2x' />
                         </a>
                     </OverlayTrigger>
                 );
-            }
-            return null;
+            };
         }
 
         const baseURL = this.props.gitlabURL || 'https://gitlab.com';
