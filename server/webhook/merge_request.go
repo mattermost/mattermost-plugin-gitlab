@@ -38,7 +38,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 		case actionReopen:
 			message = fmt.Sprintf("[%s](%s) reopened your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 		case actionUpdate:
-			toUsers = []string{}
+			toUsers = []string{authorGitlabUsername}
 
 			// Not going to show notification in case of commit push.
 			if event.ObjectAttributes.OldRev != "" {
