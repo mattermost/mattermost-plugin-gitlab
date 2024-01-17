@@ -42,10 +42,10 @@ type Issue struct {
 }
 
 type LHSContent struct {
-	PRs         []*MergeRequest      `json:"prs"`
-	Reviews     []*MergeRequest      `json:"reviews"`
-	Assignments []*Issue             `json:"assignments"`
-	Unreads     []*internGitlab.Todo `json:"unreads"`
+	AssignedPRs    []*MergeRequest      `json:"yourAssignedPrs"`
+	Reviews        []*MergeRequest      `json:"reviews"`
+	AssignedIssues []*Issue             `json:"yourAssignedIssues"`
+	Todos          []*internGitlab.Todo `json:"todos"`
 }
 
 // NewGroupHook creates a webhook associated with a GitLab group
@@ -345,45 +345,30 @@ func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.T
 		return err
 	})
 
-	var assignments []*Issue
+	var issues []*Issue
 	grp.Go(func() error {
 		log.Debugf("calling g.GetYourAssignments")
-		assignments, err = g.GetYourAssignments(ctx, user, client)
-		if err != nil {
-			log.WithError(err).Debugf("error calling g.GetYourAssignments")
-			return err
-		}
-
 		log.Debugf("called g.GetYourAssignments")
 
+		issues, err = g.GetYourAssignedIssues(ctx, user, client)
 		return err
 	})
 
 	var mergeRequests []*MergeRequest
 	grp.Go(func() error {
 		log.Debugf("calling g.GetYourPrs")
-		mergeRequests, err = g.GetYourPrs(ctx, user, client)
-		if err != nil {
-			log.WithError(err).Debugf("error calling g.GetYourPrs")
-			return err
-		}
-
 		log.Debugf("called g.GetYourPrs")
 
+		mergeRequests, err = g.GetYourAssignedPrs(ctx, user, client)
 		return err
 	})
 
-	var unreads []*internGitlab.Todo
+	var todos []*internGitlab.Todo
 	grp.Go(func() error {
 		log.Debugf("calling g.GetUnreads")
-		unreads, err = g.GetUnreads(ctx, user, client)
-		if err != nil {
-			log.WithError(err).Debugf("error calling g.GetUnreads")
-			return err
-		}
-
 		log.Debugf("called g.GetUnreads")
 
+		todos, err = g.GetToDoList(ctx, user, client)
 		return err
 	})
 
@@ -392,10 +377,10 @@ func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.T
 	}
 
 	return &LHSContent{
-		Reviews:     reviews,
-		PRs:         mergeRequests,
-		Assignments: assignments,
-		Unreads:     unreads,
+		Reviews:        reviews,
+		AssignedPRs:    mergeRequests,
+		AssignedIssues: issues,
+		Todos:          todos,
 	}, nil
 }
 
@@ -460,13 +445,13 @@ func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo, client *internG
 	return mergeRequests, nil
 }
 
-func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*MergeRequest, error) {
+func (g *gitlab) GetYourAssignedPrs(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*MergeRequest, error) {
 	opened := stateOpened
 	scope := scopeAll
 	var mrs []*internGitlab.MergeRequest
 	if g.gitlabGroup == "" {
 		opt := &internGitlab.ListMergeRequestsOptions{
-			AuthorID:    &user.GitlabUserID,
+			AssigneeID:  internGitlab.AssigneeID(user.GitlabUserID),
 			State:       &opened,
 			Scope:       &scope,
 			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: perPage},
@@ -484,7 +469,7 @@ func (g *gitlab) GetYourPrs(ctx context.Context, user *UserInfo, client *internG
 		}
 	} else {
 		opt := &internGitlab.ListGroupMergeRequestsOptions{
-			AuthorID:    &user.GitlabUserID,
+			AssigneeID:  internGitlab.AssigneeID(user.GitlabUserID),
 			State:       &opened,
 			Scope:       &scope,
 			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: perPage},
@@ -613,7 +598,7 @@ func (g *gitlab) fetchYourPrDetails(c context.Context, log logger.Logger, client
 	return nil
 }
 
-func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*Issue, error) {
+func (g *gitlab) GetYourAssignedIssues(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*Issue, error) {
 	opened := stateOpened
 	scope := scopeAll
 	var issues []*internGitlab.Issue
@@ -673,7 +658,7 @@ func (g *gitlab) GetYourAssignments(ctx context.Context, user *UserInfo, client 
 	return result, nil
 }
 
-func (g *gitlab) GetUnreads(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*internGitlab.Todo, error) {
+func (g *gitlab) GetToDoList(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*internGitlab.Todo, error) {
 	var todos []*internGitlab.Todo
 
 	opt := &internGitlab.ListTodosOptions{
