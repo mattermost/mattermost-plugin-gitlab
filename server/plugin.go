@@ -858,6 +858,8 @@ func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token, lo
 	log = log.With(logger.LogContext{"newToken": gitlab.MakeSanitizedTokenLogContext(newToken)})
 
 	if err != nil {
+		log.WithError(err).Debugf("error calling src.Token()")
+
 		if strings.Contains(err.Error(), "\"error\":\"invalid_grant\"") {
 			p.handleRevokedToken(userInfo)
 		}
@@ -868,11 +870,15 @@ func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token, lo
 		p.client.Log.Debug("Gitlab token refreshed.", "UserID", userInfo.UserID)
 
 		if err := p.storeGitlabUserToken(userInfo.UserID, newToken); err != nil {
+			log.WithError(err).Debugf("Error occurred while storing refreshed token.")
+
 			return nil, errors.Wrap(err, "unable to store user info with refreshed token")
 		}
 
 		return newToken, nil
 	}
+
+	log.Debugf("end of refreshToken")
 
 	return token, nil
 }
@@ -891,8 +897,6 @@ func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo, log logger.Lo
 		"func": "getOrFreshTokenWithMutex",
 	})
 
-	log.Debugf("beginning of getOrRefreshTokenWithMutex")
-
 	log.Debugf("calling p.getGitlabUserTokenByMattermostID")
 	token, apiErr := p.getGitlabUserTokenByMattermostID(info.UserID)
 
@@ -902,7 +906,6 @@ func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo, log logger.Lo
 	if apiErr != nil {
 		log.WithError(apiErr).Debugf("error calling p.getGitlabUserTokenByMattermostID")
 
-		log.Debugf("calling migrateGitlabToken")
 		token, apiErr = p.migrateGitlabToken(info.UserID, log)
 
 		log = log.With(logger.LogContext{"token": gitlab.MakeSanitizedTokenLogContext(token)})
@@ -928,15 +931,11 @@ func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo, log logger.Lo
 		return nil, err
 	}
 
-	log.Debugf("got mutex. locking mutex")
-
 	mutex.Lock()
 
 	log.Debugf("mutex locked")
 
 	defer mutex.Unlock()
-
-	log.Debugf("calling p.getGitlabUserTokenByMattermostID")
 
 	lockedToken, apiErr := p.getGitlabUserTokenByMattermostID(info.UserID)
 	log = log.With(logger.LogContext{"lockedToken": gitlab.MakeSanitizedTokenLogContext(lockedToken)})
@@ -953,9 +952,8 @@ func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo, log logger.Lo
 		return lockedToken, nil
 	}
 
-	log.Debugf("time until expiry for lockedToken is less than one minute. refreshing token")
+	log.Debugf("time until expiry for lockedToken is less than one minute. calling refreshToken")
 
-	log.Debugf("calling p.refreshToken")
 	newToken, err := p.refreshToken(info, lockedToken, log)
 	log.With(logger.LogContext{"newToken": gitlab.MakeSanitizedTokenLogContext(newToken)})
 
@@ -966,18 +964,15 @@ func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo, log logger.Lo
 
 	log.Debugf("called p.refreshToken")
 
-	log.Debugf("end of getOrRefreshTokenWithMutex")
-
 	return newToken, nil
 }
 
 func (p *Plugin) useGitlabClient(info *gitlab.UserInfo, toRun func(info *gitlab.UserInfo, token *oauth2.Token) error) error {
 	log := logger.New(p.API).With(logger.LogContext{
-		"func":           "useGitlabClient",
-		"func_id":        model.NewId(),
-		"original_token": nil,
-		"token":          nil,
-		"userid":         info.UserID,
+		"func":    "useGitlabClient",
+		"func_id": model.NewId(),
+		"token":   nil,
+		"userid":  info.UserID,
 	})
 
 	log.Debugf("calling getOrRefreshTokenWithMutex")

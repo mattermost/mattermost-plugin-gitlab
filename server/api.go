@@ -36,8 +36,8 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 
 	if r.URL.Path == "/set-expiry" {
 		expiry := r.URL.Query().Get("expiry")
-		userId := r.Header.Get("Mattermost-User-Id")
-		token, err := p.getGitlabUserTokenByMattermostID(userId)
+		userID := r.Header.Get("Mattermost-User-Id")
+		token, err := p.getGitlabUserTokenByMattermostID(userID)
 		oldExpiry := token.Expiry
 		if err != nil {
 			http.Error(w, err.Error(), 500)
@@ -47,9 +47,9 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 		expiryMinutes, _ := strconv.ParseInt(expiry, 10, 32)
 		newExpiry := time.Now().Add(time.Duration(expiryMinutes) * time.Minute)
 		token.Expiry = newExpiry
-		p.storeGitlabUserToken(userId, token)
+		_ = p.storeGitlabUserToken(userID, token)
 
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"old_expiry": oldExpiry.String(),
 			"new_expiry": newExpiry.String(),
 		})
@@ -578,9 +578,8 @@ func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Req
 
 func (p *Plugin) getLHSData(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	log := c.Log.With(logger.LogContext{
-		"original_token": nil,
-		"token":          nil,
-		"func":           "getLHSData",
+		"token": nil,
+		"func":  "getLHSData",
 	})
 
 	var result *gitlab.LHSContent
@@ -593,15 +592,16 @@ func (p *Plugin) getLHSData(c *UserContext, w http.ResponseWriter, r *http.Reque
 		resp, err := p.GitlabClient.GetLHSData(c.Ctx, info, token, log)
 
 		// update outer-scope log variable with potentially new token
-		log = log.With(gitlab.MakeSanitizedTokenLogContext(token))
+		log = log.With(logger.LogContext{"token": gitlab.MakeSanitizedTokenLogContext(token)})
 		localLog = log.With(logger.LogContext{"func": "getLHSData/useGitlabClient callback"})
-
-		localLog.Debugf("called p.GitlabClient.GetLHSData")
 
 		if err != nil {
 			localLog.WithError(err).Debugf("error calling p.GitlabClient.GetLHSData")
 			return err
 		}
+
+		localLog.Debugf("called p.GitlabClient.GetLHSData")
+
 		result = resp
 		return nil
 	})

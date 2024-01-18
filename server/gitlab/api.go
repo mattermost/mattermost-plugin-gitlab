@@ -293,7 +293,7 @@ func (g *gitlab) GetProject(ctx context.Context, user *UserInfo, token *oauth2.T
 func sanitizeTokenString(token string) string {
 	suffixLength := 8
 	endIndex := len(token) - suffixLength
-	return strings.Repeat("*", endIndex) + token[endIndex:]
+	return token[endIndex:]
 }
 
 func MakeSanitizedTokenLogContext(token *oauth2.Token) logger.LogContext {
@@ -311,12 +311,9 @@ func MakeSanitizedTokenLogContext(token *oauth2.Token) logger.LogContext {
 
 func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.Token, log logger.Logger) (*LHSContent, error) {
 	log = log.With(logger.LogContext{
-		"func":           "gitlab.getLHSData",
-		"original_token": MakeSanitizedTokenLogContext(token),
-		"token":          MakeSanitizedTokenLogContext(token),
+		"func":  "gitlab.GetLHSData",
+		"token": MakeSanitizedTokenLogContext(token),
 	})
-
-	log.Debugf("beginning of gitlab.GetLHSData")
 
 	log.Debugf("calling g.GitlabConnect")
 	client, err := g.GitlabConnect(*token)
@@ -347,28 +344,43 @@ func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.T
 
 	var issues []*Issue
 	grp.Go(func() error {
-		log.Debugf("calling g.GetYourAssignments")
-		log.Debugf("called g.GetYourAssignments")
-
+		log.Debugf("calling g.GetYourAssignedIssues")
 		issues, err = g.GetYourAssignedIssues(ctx, user, client)
+		if err != nil {
+			log.WithError(err).Debugf("error calling g.GetYourAssignedIssues")
+			return err
+		}
+
+		log.Debugf("called g.GetYourAssignedIssues")
+
 		return err
 	})
 
 	var mergeRequests []*MergeRequest
 	grp.Go(func() error {
-		log.Debugf("calling g.GetYourPrs")
-		log.Debugf("called g.GetYourPrs")
-
+		log.Debugf("calling g.GetYourAssignedPrs")
 		mergeRequests, err = g.GetYourAssignedPrs(ctx, user, client)
+		if err != nil {
+			log.WithError(err).Debugf("error calling g.GetYourAssignedPrs")
+			return err
+		}
+
+		log.Debugf("called g.GetYourAssignedPrs")
 		return err
 	})
 
 	var todos []*internGitlab.Todo
 	grp.Go(func() error {
-		log.Debugf("calling g.GetUnreads")
-		log.Debugf("called g.GetUnreads")
+		log.Debugf("calling g.GetToDoList")
 
 		todos, err = g.GetToDoList(ctx, user, client)
+		if err != nil {
+			log.WithError(err).Debugf("error calling g.GetToDoList")
+			return err
+		}
+
+		log.Debugf("called g.GetToDoList")
+
 		return err
 	})
 
