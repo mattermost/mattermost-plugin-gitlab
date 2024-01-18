@@ -148,7 +148,7 @@ Use `/gitlab todo` to get a list of todos, assigned issues, assigned merge reque
 
 Use `/gitlab settings [setting] [value]` to update your settings for the plugin.  There are two settings:
 
-- To turn **personal notifications** `on` or `off.
+- To turn **personal notifications** `on` or `off`.
 - To turn **reminders** `on` or `off` for when you connect for the first time each day.  
 
 ### And more...
