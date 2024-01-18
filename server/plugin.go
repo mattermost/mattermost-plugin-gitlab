@@ -116,7 +116,7 @@ func (p *Plugin) OnActivate() error {
 
 	p.initializeAPI()
 
-	if p.API.GetConfig().ServiceSettings.EnableSecurityFixAlert != nil {
+	if p.API.GetConfig().LogSettings.EnableDiagnostics != nil {
 		p.initializeTelemetry()
 	}
 
@@ -167,7 +167,7 @@ func (p *Plugin) OnInstall(c *plugin.Context, event model.OnInstallEvent) error 
 }
 
 func (p *Plugin) OnSendDailyTelemetry() {
-	if p.API.GetConfig().ServiceSettings.EnableSecurityFixAlert != nil {
+	if p.API.GetConfig().LogSettings.EnableDiagnostics != nil {
 		p.SendDailyTelemetry()
 	}
 }
