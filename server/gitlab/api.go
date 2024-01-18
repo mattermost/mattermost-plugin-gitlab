@@ -305,7 +305,7 @@ func MakeSanitizedTokenLogContext(token *oauth2.Token) logger.LogContext {
 		"access_token":   sanitizeTokenString(token.AccessToken),
 		"refresh_token":  sanitizeTokenString(token.RefreshToken),
 		"expiry":         token.Expiry,
-		"expiry_minutes": time.Until(token.Expiry) / time.Minute,
+		"expiry_minutes": time.Until(token.Expiry).Minutes(),
 	}
 }
 
