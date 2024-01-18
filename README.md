@@ -40,7 +40,7 @@ Each user in Mattermost is connected with their own personal GitLab account. Use
 
 ### Sidebar buttons
 
-Team members can stay up-to-date with how many reviews, unread messages, assignments, and open merge requests they have by using buttons in the Mattermost sidebar.
+Team members can stay up-to-date with how many reviews, todos, assigned issues, and assigned merge requests they have by using buttons in the Mattermost sidebar.
 
 ## Admin guide
   
@@ -142,13 +142,13 @@ Connect your Mattermost account to your GitLab account using `/gitlab connect` a
 
 ### Get "To Do" items
 
-Use `/gitlab todo` to get a list of unread messages and merge requests awaiting your review.
+Use `/gitlab todo` to get a list of todos, assigned issues, assigned merge requests and merge requests awaiting your review.
 
 ### Update settings
 
 Use `/gitlab settings [setting] [value]` to update your settings for the plugin.  There are two settings:
 
-- To turn **personal notifications** `on` or `off.
+- To turn **personal notifications** `on` or `off`.
 - To turn **reminders** `on` or `off` for when you connect for the first time each day.  
 
 ### And more...
@@ -173,10 +173,10 @@ For Mattermost customers - please open a [support case](https://mattermost.zende
 
 For Questions, suggestions, and help - please find us on our forum at [https://forum.mattermost.org/c/plugins](https://forum.mattermost.org/c/plugins).
 
-Alternatively, join our public Mattermost server and join the [Integrations and Apps channel](https://community-daily.mattermost.com/core/channels/integrations).
+Alternatively, join our public Mattermost server and join the [Integrations and Apps channel](https://community.mattermost.com/core/channels/integrations).
 
 ## Feedback and feature requests
 
 Feel free to create a GitHub issue or [join the GitLab Plugin channel on our community Mattermost instance](https://community.mattermost.com/core/channels/plugin-gitlab) to discuss.
 
-Share your thoughts in the [Plugin: GitLab Channel](https://community-daily.mattermost.com/core/channels/gitlab-plugin) on our Mattermost community!
+Share your thoughts in the [Plugin: GitLab Channel](https://community.mattermost.com/core/channels/gitlab-plugin) on our Mattermost community!

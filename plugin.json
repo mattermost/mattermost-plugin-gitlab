@@ -4,9 +4,9 @@
     "description": "GitLab plugin for Mattermost.",
     "homepage_url": "https://github.com/mattermost/mattermost-plugin-gitlab",
     "support_url": "https://github.com/mattermost/mattermost-plugin-gitlab/issues",
-    "release_notes_url": "https://github.com/mattermost/mattermost-plugin-gitlab/releases/tag/v1.7.0",
+    "release_notes_url": "https://github.com/mattermost/mattermost-plugin-gitlab/releases/tag/v1.8.0",
     "icon_path": "assets/icon.svg",
-    "version": "1.7.0",
+    "version": "1.8.0",
     "min_server_version": "7.1.0",
     "server": {
         "executables": {
@@ -88,6 +88,14 @@
                 "help_text": "(Optional) Allow the plugin to work with private repositories for subscriptions.",
                 "placeholder": "",
                 "default": null
+            },
+            {
+                "key": "EnableChildPipelineNotifications",
+                "display_name": "Enable Child Pipelines Notification:",
+                "type": "bool",
+                "help_text": "Allow the plugin to post notfication for child pipelines when the pipeline subscription is created in a channel.",
+                "placeholder": "",
+                "default": true
             },
             {
                 "key": "EnableCodePreview",
