@@ -853,7 +853,6 @@ func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token, lo
 
 	src := conf.TokenSource(context.Background(), token)
 
-	log.Debugf("calling src.Token()")
 	newToken, err := src.Token() // this actually goes and renews the tokens
 	log = log.With(logger.LogContext{"newToken": gitlab.MakeSanitizedTokenLogContext(newToken)})
 
@@ -867,6 +866,8 @@ func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token, lo
 	}
 
 	if newToken.AccessToken != token.AccessToken {
+		log.Debugf("token is refreshed")
+
 		p.client.Log.Debug("Gitlab token refreshed.", "UserID", userInfo.UserID)
 
 		if err := p.storeGitlabUserToken(userInfo.UserID, newToken); err != nil {
@@ -932,9 +933,6 @@ func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo, log logger.Lo
 	}
 
 	mutex.Lock()
-
-	log.Debugf("mutex locked")
-
 	defer mutex.Unlock()
 
 	lockedToken, apiErr := p.getGitlabUserTokenByMattermostID(info.UserID)
@@ -995,9 +993,7 @@ func (p *Plugin) useGitlabClient(info *gitlab.UserInfo, toRun func(info *gitlab.
 	if err != nil {
 		if strings.Contains(err.Error(), invalidTokenError) {
 			log.WithError(err).Debugf("error calling toRun. contains invalidTokenError message")
-			log.Debugf("calling p.handleRevokedToken")
 			p.handleRevokedToken(info)
-			log.Debugf("called p.handleRevokedToken")
 		} else {
 			log.WithError(err).Debugf("error calling toRun. does not contain invalidTokenError message")
 		}

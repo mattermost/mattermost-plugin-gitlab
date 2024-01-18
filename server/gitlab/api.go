@@ -324,8 +324,6 @@ func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.T
 		return nil, err
 	}
 
-	log.Debugf("called g.GitlabConnect")
-
 	grp, ctx := errgroup.WithContext(ctx)
 
 	var reviews []*MergeRequest
@@ -336,9 +334,6 @@ func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.T
 			log.WithError(err).Debugf("error calling g.GetReviews")
 			return err
 		}
-
-		log.Debugf("called g.GetReviews")
-
 		return err
 	})
 
@@ -350,9 +345,6 @@ func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.T
 			log.WithError(err).Debugf("error calling g.GetYourAssignedIssues")
 			return err
 		}
-
-		log.Debugf("called g.GetYourAssignedIssues")
-
 		return err
 	})
 
@@ -364,8 +356,6 @@ func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.T
 			log.WithError(err).Debugf("error calling g.GetYourAssignedPrs")
 			return err
 		}
-
-		log.Debugf("called g.GetYourAssignedPrs")
 		return err
 	})
 
@@ -378,9 +368,6 @@ func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.T
 			log.WithError(err).Debugf("error calling g.GetToDoList")
 			return err
 		}
-
-		log.Debugf("called g.GetToDoList")
-
 		return err
 	})
 
