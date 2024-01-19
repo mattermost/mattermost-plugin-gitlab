@@ -1,8 +1,6 @@
 import React, {PureComponent, ReactElement} from 'react';
 import {Tooltip, OverlayTrigger} from 'react-bootstrap';
 
-// import PropTypes from 'prop-types';
-
 import {makeStyleFromTheme, changeOpacity} from 'mattermost-redux/utils/theme_utils';
 
 import {Placement} from 'react-bootstrap/esm/Overlay';
