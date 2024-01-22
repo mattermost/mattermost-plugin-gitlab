@@ -1,7 +1,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
+import {Modal} from 'react-bootstrap';
 import {Theme} from 'mattermost-redux/types/preferences';
-import {getPost} from 'mattermost-redux/selectors/entities/posts';
 
 import {getErrorMessage} from 'src/utils/user_utils';
 import GitlabLabelSelector from 'src/components/gitlab_label_selector';
@@ -10,21 +10,20 @@ import GitlabMilestoneSelector from 'src/components/gitlab_milestone_selector';
 import GitlabProjectSelector from 'src/components/gitlab_project_selector';
 import Validator from 'src/components/validator';
 import Input from 'src/components/input';
-import {id as pluginId} from 'src/manifest';
 import {createIssue} from 'src/actions';
-import {GlobalState} from 'src/types/global_state';
-import {usePrevious} from 'src/hooks/use_previous';
+import {getCreateIssueModalContents} from 'src/selectors';
+import FormButton from '../form_button';
 
 const MAX_TITLE_LENGTH = 255;
 
 type PropTypes = {
     theme: Theme;
     handleClose: () => void;
-    setFormSubmission: React.Dispatch<React.SetStateAction<FormSubmission>>;
-    formSubmission: FormSubmission;
+    setIsSubmitting: React.Dispatch<React.SetStateAction<boolean>>;
+    isSubmitting: boolean;
 };
 
-const CreateIssueForm = ({theme, handleClose, formSubmission, setFormSubmission}: PropTypes) => {    
+const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: PropTypes) => {    
     const validator = useMemo(() => (new Validator()), []);
     const [project, setProject] = useState<ProjectSelection | null>(null);
     const [issueTitle, setIssueTitle] = useState<string>('');
@@ -33,50 +32,36 @@ const CreateIssueForm = ({theme, handleClose, formSubmission, setFormSubmission}
     const [assignees, setAssignees] = useState<SelectionType[]>([]);
     const [milestone, setMilestone] = useState<SelectionType | null>(null);
     const [showErrors, setShowErrors] = useState<boolean>(false);
+    const [error, setError] = useState<string>('');
     const [issueTitleValid, setIssueTitleValid] = useState<boolean>(true);
 
-    const {post, channelId, title} = useSelector((state: GlobalState) => {
-        const {postId, title, channelId} = state[`plugins-${pluginId}` as pluginReduxStoreKey].createIssueModal;
-        
-        const post = postId ? getPost(state, postId) : null;
-        return {
-            post,
-            title,
-            channelId,
-        };
-    });
-
-    const dispatch = useDispatch();
-    const prevPost = usePrevious(post);
-    const prevChannelId = usePrevious(channelId);
-    const prevTitle = usePrevious(title);
+    const {post, channelId, title} = useSelector(getCreateIssueModalContents);
 
     useEffect(() => {
-        if (post && !prevPost) {
+        if (post) {
             setIssueDescription(post.message);
-        } else if (channelId && (channelId !== prevChannelId || title !== prevTitle)) {
+        } else if (channelId) {
             setIssueTitle(title.substring(0, MAX_TITLE_LENGTH));
         }
-    }, [channelId, title, post]);
+    }, []);
+
+    const dispatch = useDispatch();
 
     // handle issue creation after form is populated
-    const handleCreate = async () => {        
-        if (!validator.validate() || !issueTitle) {            
+    const handleCreate = async (e: React.FormEvent<HTMLFormElement> | Event) => {   
+        e.preventDefault();     
+        if (!validator.validate() || !issueTitle || !project?.project_id) {            
             setIssueTitleValid(Boolean(issueTitle));
             setShowErrors(true);
-            setFormSubmission({
-                ...formSubmission,
-                isSubmitted: false,
-            })
             return;
         }
 
         const postId = post?.id ?? '';
 
-        const issue = {
+        const issue: IssueBody = {
             title: issueTitle,
             description: issueDescription,
-            project_id: project?.project_id,
+            project_id: project.project_id,
             labels: labels.map((label) => label.value),
             assignees: assignees.map((assignee) => assignee.value),
             milestone: milestone?.value,
@@ -84,32 +69,19 @@ const CreateIssueForm = ({theme, handleClose, formSubmission, setFormSubmission}
             channel_id: channelId,
         };
 
-        setFormSubmission({
-            ...formSubmission,
-            isSubmitting: true
-        })
+        setIsSubmitting(true)
 
         const created = await createIssue(issue)(dispatch);
         if (created.error) {
             const errMessage = getErrorMessage((created as {error: ErrorType}).error.message);
             setShowErrors(true);
-            setFormSubmission({
-                isSubmitted: false,
-                isSubmitting: false,
-                error: errMessage
-            })
+            setIsSubmitting(false);
+            setError(errMessage);
             return;
         }
 
         handleClose();
     };
-
-    useEffect(() => {               
-      if (formSubmission.isSubmitted){
-        handleCreate();
-      }
-    }, [formSubmission.isSubmitted])
-    
 
     const handleProjectChange = (project: ProjectSelection | null) => setProject(project);
 
@@ -181,38 +153,75 @@ const CreateIssueForm = ({theme, handleClose, formSubmission, setFormSubmission}
         </p>
     ) : null;
 
+    const submitError = error ? (
+        <p className='help-text error-text'>
+            <span>{error}</span>
+        </p>
+    ) : null;
+
+    const style = getStyle(theme);
+
     return (
-        <>
-            <GitlabProjectSelector
-                onChange={handleProjectChange}
-                value={project?.name}
-                required={true}
-                theme={theme}
-                addValidate={validator.addComponent}
-                removeValidate={validator.removeComponent}
-            />
-            <Input
-                id={'title'}
-                label='Issue title'
-                type='input'
-                required={true}
-                disabled={false}
-                maxLength={MAX_TITLE_LENGTH}
-                value={issueTitle}
-                onChange={handleIssueTitleChange}
-            />
-            {issueTitleValidationError}
-            {issueAttributeSelectors()}
-            <Input
-                id={'description'}
-                required={false}
-                label='Issue description'
-                type='textarea'
-                value={issueDescription}
-                onChange={handleIssueDescriptionChange}
-            />
-        </>
+        <form
+            role='form'
+            onSubmit={handleCreate}
+        >
+            <Modal.Body
+                style={style.modal}
+            >
+                <GitlabProjectSelector
+                    onChange={handleProjectChange}
+                    value={project?.name}
+                    required={true}
+                    theme={theme}
+                    addValidate={validator.addComponent}
+                    removeValidate={validator.removeComponent}
+                />
+                <Input
+                    id={'title'}
+                    label='Issue title'
+                    type='input'
+                    required={true}
+                    disabled={false}
+                    maxLength={MAX_TITLE_LENGTH}
+                    value={issueTitle}
+                    onChange={handleIssueTitleChange}
+                />
+                {issueTitleValidationError}
+                {issueAttributeSelectors()}
+                <Input
+                    id={'description'}
+                    required={false}
+                    label='Issue description'
+                    type='textarea'
+                    value={issueDescription}
+                    onChange={handleIssueDescriptionChange}
+                />
+            </Modal.Body>
+            <Modal.Footer>
+                {submitError}
+                <FormButton
+                    btnClass='btn-link'
+                    defaultMessage='Cancel'
+                    onClick={handleClose}
+                />
+                <FormButton
+                    btnClass='btn btn-primary'
+                    saving={isSubmitting}
+                    defaultMessage='Submit'
+                    savingMessage='Submitting'
+                />
+            </Modal.Footer>
+        </form>
     );
 }
+
+const getStyle = (theme: Theme) => ({
+    modal: {
+        padding: '1em 2.3em 0 2.3em',
+        color: theme.centerChannelColor,
+        backgroundColor: theme.centerChannelBg,
+    },
+});
 
 export default CreateIssueForm;

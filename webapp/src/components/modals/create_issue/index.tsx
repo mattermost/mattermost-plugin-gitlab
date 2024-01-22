@@ -3,29 +3,20 @@ import {useDispatch, useSelector} from 'react-redux';
 import {Modal} from 'react-bootstrap';
 import {Theme} from 'mattermost-redux/types/preferences';
 
-import FormButton from 'src/components/form_button';
-import {closeCreateIssueModal} from 'src/actions';
 import CreateIssueForm from 'src/components/create_issue_form';
-import { isCreateIssueModalVisible } from 'src/selectors';
+import {isCreateIssueModalVisible} from 'src/selectors';
+import {closeCreateIssueModal} from 'src/actions';
 
 type PropTypes = {
     theme: Theme;
 };
 
 const CreateIssueModal = ({theme}: PropTypes) => {
-    const [formSubmission, setFormSubmission] = useState<FormSubmission>({
-        isSubmitted: false,
-        isSubmitting: false,
-        error: '',
-    });
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
     const dispatch = useDispatch();
     const handleClose = () => {
-        setFormSubmission({
-            isSubmitted: false,
-            isSubmitting: false,
-            error: ''
-        })
+        setIsSubmitting(false)
         dispatch(closeCreateIssueModal());
     };
 
@@ -33,22 +24,6 @@ const CreateIssueModal = ({theme}: PropTypes) => {
     if (!visible) {
         return null;
     }
-
-    const handleCreate = async (e: React.FormEvent<HTMLFormElement> | Event) => {
-        e.preventDefault();
-        setFormSubmission({
-            ...formSubmission,
-            isSubmitted: true,
-        })
-    };
-
-    const style = getStyle(theme);
-
-    const submitError = formSubmission.error ? (
-        <p className='help-text error-text'>
-            <span>{formSubmission.error}</span>
-        </p>
-    ) : null;
 
     return (
         <Modal
@@ -64,45 +39,14 @@ const CreateIssueModal = ({theme}: PropTypes) => {
                     {'Create GitLab Issue'}
                 </Modal.Title>
             </Modal.Header>
-            <form
-                role='form'
-                onSubmit={handleCreate}
-            >
-                <Modal.Body
-                    style={style.modal}
-                >
-                    <CreateIssueForm
-                        handleClose={handleClose}
-                        setFormSubmission={setFormSubmission}
-                        formSubmission={formSubmission}
-                        theme={theme}
-                    />
-                </Modal.Body>
-                <Modal.Footer>
-                    {submitError}
-                    <FormButton
-                        btnClass='btn-link'
-                        defaultMessage='Cancel'
-                        onClick={handleClose}
-                    />
-                    <FormButton
-                        btnClass='btn btn-primary'
-                        saving={formSubmission.isSubmitting}
-                        defaultMessage='Submit'
-                        savingMessage='Submitting'
-                    />
-                </Modal.Footer>
-            </form>
+            <CreateIssueForm
+                handleClose={handleClose}
+                setIsSubmitting={setIsSubmitting}
+                isSubmitting={isSubmitting}
+                theme={theme}
+            />
         </Modal>
     );
 }
-
-const getStyle = (theme: Theme) => ({
-    modal: {
-        padding: '2em 2em 3em',
-        color: theme.centerChannelColor,
-        backgroundColor: theme.centerChannelBg,
-    },
-});
 
 export default CreateIssueModal;

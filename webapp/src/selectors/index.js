@@ -2,6 +2,8 @@ import {getConfig} from 'mattermost-redux/selectors/entities/general';
 
 import {createSelector} from 'reselect';
 
+import {getPost} from 'mattermost-redux/selectors/entities/posts';
+
 import {id as PluginId} from '../manifest';
 
 export const getPluginServerRoute = (state) => {
@@ -59,6 +61,24 @@ export const getSidebarData = createSelector(
     },
 );
 
-export const isCreateIssueModalVisible = (state) => state[`plugins-${PluginId}`].isCreateIssueModalVisible; 
+export const isCreateIssueModalVisible = (state) => state[`plugins-${PluginId}`].isCreateIssueModalVisible;
 
 export const isAttachCommentToIssueModalVisible = (state) => state[`plugins-${PluginId}`].isAttachCommentToIssueModalVisible;
+
+export const getCreateIssueModalContents = (state) => {
+    const {postId, title, channelId} = state[`plugins-${PluginId}`].createIssueModal;
+
+    const post = postId ? getPost(state, postId) : null;
+    return {
+        post,
+        title,
+        channelId,
+    };
+};
+
+export const getAttachCommentModalContents = (state) => {
+    const postId = state[`plugins-${PluginId}`].postIdForAttachCommentToIssueModal;
+    const post = getPost(state, postId);
+
+    return post;
+};

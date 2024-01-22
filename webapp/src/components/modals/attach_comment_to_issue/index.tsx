@@ -6,41 +6,22 @@ import {Modal} from 'react-bootstrap';
 import {Theme} from 'mattermost-redux/types/preferences';
 import {useDispatch, useSelector} from 'react-redux';
 
-import FormButton from 'src/components/form_button';
-import {closeAttachCommentToIssueModal} from 'src/actions';
 import AttachCommentToIssueForm from 'src/components/attach_comment_to_issue_form';
-import { isAttachCommentToIssueModalVisible } from 'src/selectors';
+import {isAttachCommentToIssueModalVisible} from 'src/selectors';
+import {closeAttachCommentToIssueModal} from 'src/actions';
 
 interface PropTypes {  
     theme: Theme,
 }
 
 const AttachCommentToIssueModal = ({theme}: PropTypes) => {
-    const [formSubmission, setFormSubmission] = useState<FormSubmission>({
-        isSubmitted: false,
-        isSubmitting: false,
-        error: '',
-    });
-
-    const handleCreate = async (e: React.FormEvent<HTMLFormElement> | Event) => {
-        e.preventDefault();
-        setFormSubmission({
-            ...formSubmission,
-            isSubmitted: true,
-        })
-    };
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
     const dispatch = useDispatch();
     const handleClose = () => {
-        setFormSubmission({
-            isSubmitted: false,
-            isSubmitting: false,
-            error: '',
-        })
+        setIsSubmitting(false)
         dispatch(closeAttachCommentToIssueModal());
     };
-
-    const style = getStyle(theme);
 
     const visible = useSelector(isAttachCommentToIssueModalVisible);
     if (!visible) {
@@ -61,44 +42,14 @@ const AttachCommentToIssueModal = ({theme}: PropTypes) => {
                     {'Attach Message to GitLab Issue'}
                 </Modal.Title>
             </Modal.Header>
-            <form
-                role='form'
-                onSubmit={handleCreate}
-            >
-                <Modal.Body
-                    style={style.modal}
-                >
-                    <AttachCommentToIssueForm
-                        formSubmission={formSubmission}
-                        setFormSubmission={setFormSubmission}
-                        handleClose={handleClose}
-                        theme={theme}
-                    />
-                </Modal.Body>
-                <Modal.Footer>
-                    <FormButton
-                        btnClass='btn-link'
-                        defaultMessage='Cancel'
-                        onClick={handleClose}
-                    />
-                    <FormButton
-                        btnClass='btn btn-primary'
-                        saving={formSubmission.isSubmitting}
-                        defaultMessage='Attach'
-                        savingMessage='Attaching'
-                    />
-                </Modal.Footer>
-            </form>
+            <AttachCommentToIssueForm
+                isSubmitting={isSubmitting}
+                setIsSubmitting={setIsSubmitting}
+                handleClose={handleClose}
+                theme={theme}
+            />
         </Modal>
     );
 }
-
-const getStyle = (theme: Theme) => ({
-    modal: {
-        padding: '2em 2em 3em',
-        color: theme.centerChannelColor,
-        backgroundColor: theme.centerChannelBg,
-    },
-});
 
 export default AttachCommentToIssueModal;
