@@ -9,7 +9,7 @@ import GitlabIssueSelector from 'src/components/gitlab_issue_selector';
 import {getErrorMessage} from 'src/utils/user_utils';
 import {attachCommentToIssue} from 'src/actions';
 import {getAttachCommentModalContents} from 'src/selectors';
-import FormButton from '../form_button';
+import FormButton from '../../form_button';
 
 interface PropTypes {
     theme: Theme;
@@ -31,14 +31,14 @@ const AttachCommentToIssueForm = ({ theme, handleClose, setIsSubmitting, isSubmi
 
     const handleCreate = async (e: React.FormEvent<HTMLFormElement> | Event) => {
         e.preventDefault();
-        if (!validator.validate() || !message) {
+        if (!validator.validate() || !message || !issueValue) {
             setIsMessageValid(Boolean(message));
             return;
         }
 
-        const comment = {
-            project_id: issueValue?.project_id,
-            iid: issueValue?.iid,
+        const comment: CommentBody = {
+            project_id: issueValue.project_id,
+            iid: issueValue.iid,
             comment: message,
             post_id: post.id,
             web_url: issueValue?.web_url,

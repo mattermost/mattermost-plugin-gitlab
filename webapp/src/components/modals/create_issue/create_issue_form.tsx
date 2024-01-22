@@ -12,7 +12,7 @@ import Validator from 'src/components/validator';
 import Input from 'src/components/input';
 import {createIssue} from 'src/actions';
 import {getCreateIssueModalContents} from 'src/selectors';
-import FormButton from '../form_button';
+import FormButton from '../../form_button';
 
 const MAX_TITLE_LENGTH = 255;
 

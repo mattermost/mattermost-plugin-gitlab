@@ -159,7 +159,7 @@ const isAttachCommentToIssueModalVisible = (state = false, action) => {
     }
 };
 
-const postIdForAttachCommentToIssueModal = (state = '', action) => {
+const postIdForAttachCommentToIssueModal = (state = {}, action) => {
     switch (action.type) {
     case ActionTypes.OPEN_ATTACH_COMMENT_TO_ISSUE_MODAL:
         return action.data.postId;
@@ -170,7 +170,7 @@ const postIdForAttachCommentToIssueModal = (state = '', action) => {
     }
 };
 
-const createIssueModal = (state = '', action) => {
+const createIssueModal = (state = {}, action) => {
     switch (action.type) {
     case ActionTypes.OPEN_CREATE_ISSUE_MODAL:
     case ActionTypes.OPEN_CREATE_ISSUE_MODAL_WITHOUT_POST:

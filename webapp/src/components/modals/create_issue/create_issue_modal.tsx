@@ -3,7 +3,7 @@ import {useDispatch, useSelector} from 'react-redux';
 import {Modal} from 'react-bootstrap';
 import {Theme} from 'mattermost-redux/types/preferences';
 
-import CreateIssueForm from 'src/components/create_issue_form';
+import CreateIssueForm from './create_issue_form';
 import {isCreateIssueModalVisible} from 'src/selectors';
 import {closeCreateIssueModal} from 'src/actions';
 

@@ -6,7 +6,7 @@ import {Modal} from 'react-bootstrap';
 import {Theme} from 'mattermost-redux/types/preferences';
 import {useDispatch, useSelector} from 'react-redux';
 
-import AttachCommentToIssueForm from 'src/components/attach_comment_to_issue_form';
+import AttachCommentToIssueForm from './attach_comment_to_issue_form';
 import {isAttachCommentToIssueModalVisible} from 'src/selectors';
 import {closeAttachCommentToIssueModal} from 'src/actions';
 

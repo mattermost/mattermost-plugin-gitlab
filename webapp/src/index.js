@@ -9,8 +9,8 @@ import RHSSidebar from './components/rhs_sidebar';
 import UserAttribute from './components/user_attribute';
 import CreateIssuePostMenuAction from './components/post_options/create_issue';
 import AttachCommentToIssuePostMenuAction from './components/post_options/attach_comment_to_issue';
-import CreateIssueModal from './components/modals/create_issue';
-import AttachCommentToIssueModal from './components/modals/attach_comment_to_issue';
+import CreateIssueModal from './components/modals/create_issue/create_issue_modal';
+import AttachCommentToIssueModal from './components/modals/attach_comment_to_issue/attach_comment_to_issue_modal';
 import SidebarRight from './components/sidebar_right';
 import LinkTooltip from './components/link_tooltip';
 
