@@ -1,7 +1,7 @@
 import {useCallback} from "react";
 import {useDispatch} from "react-redux";
 
-export const useOptions = (projectName: string, getOptions: GetOptions, returnFields: string[], errorMessage: string, projectID?: number) => {
+export const useOptions = (projectName: string, getOptions: FetchIssueAttributeOptionsForProject, returnFields: string[], errorMessage: string, projectID?: number) => {
     const dispatch = useDispatch();
 
     const loadOptions = async () => {

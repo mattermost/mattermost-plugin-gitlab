@@ -23,7 +23,7 @@ const GitlabProjectSelector = ({theme, required, onChange, value, addValidate, r
     const [isLoading, setIsLoading] = useState(false);
 
     const {yourProjects} = useSelector((state: GlobalState) => ({
-        yourProjects: state[`plugins-${pluginId}` as plugin].yourProjects,
+        yourProjects: state[`plugins-${pluginId}` as pluginReduxStoreKey].yourProjects,
     }));
 
     const dispatch = useDispatch();

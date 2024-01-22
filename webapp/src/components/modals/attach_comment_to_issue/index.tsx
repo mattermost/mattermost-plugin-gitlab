@@ -7,10 +7,9 @@ import {Theme} from 'mattermost-redux/types/preferences';
 import {useDispatch, useSelector} from 'react-redux';
 
 import FormButton from 'src/components/form_button';
-import {id as pluginId} from 'src/manifest';
 import {closeAttachCommentToIssueModal} from 'src/actions';
-import {GlobalState} from 'src/types/global_state';
 import AttachCommentToIssueForm from 'src/components/attach_comment_to_issue_form';
+import { isAttachCommentToIssueModalVisible } from 'src/selectors';
 
 interface PropTypes {  
     theme: Theme,
@@ -22,8 +21,6 @@ const AttachCommentToIssueModal = ({theme}: PropTypes) => {
         isSubmitting: false,
         error: '',
     });
-
-    const visible = useSelector((state: GlobalState) => state[`plugins-${pluginId}` as plugin].attachCommentToIssueModalVisible);
 
     const handleCreate = async (e: React.FormEvent<HTMLFormElement> | Event) => {
         e.preventDefault();
@@ -45,6 +42,7 @@ const AttachCommentToIssueModal = ({theme}: PropTypes) => {
 
     const style = getStyle(theme);
 
+    const visible = useSelector(isAttachCommentToIssueModalVisible);
     if (!visible) {
         return null;
     }

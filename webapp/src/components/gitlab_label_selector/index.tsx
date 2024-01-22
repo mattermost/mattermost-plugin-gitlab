@@ -20,7 +20,7 @@ const GitlabLabelSelector = ({projectID, projectName, theme, selectedLabels, onC
     const returnType = ['name', 'name'];
     const errorMessage = 'failed to load labels';
 
-    const loadLabels = useOptions(projectName, getLabelOptions as GetOptions, returnType, errorMessage, projectID);
+    const loadLabels = useOptions(projectName, getLabelOptions as FetchIssueAttributeOptionsForProject, returnType, errorMessage, projectID);
 
     return (
         <div className='form-group margin-bottom x3'>

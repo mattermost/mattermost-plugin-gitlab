@@ -20,7 +20,7 @@ const GitlabAssigneeSelector = ({projectID, projectName, theme, selectedAssignee
     const returnType = ['id', 'username'];
     const errorMessage = 'failed to load assignees';
 
-    const loadAssignees = useOptions(projectName, getAssigneeOptions as GetOptions, returnType, errorMessage, projectID);
+    const loadAssignees = useOptions(projectName, getAssigneeOptions as FetchIssueAttributeOptionsForProject, returnType, errorMessage, projectID);
 
     return (
         <div className='form-group margin-bottom x3'>

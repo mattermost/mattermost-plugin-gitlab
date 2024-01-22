@@ -4,10 +4,9 @@ import {Modal} from 'react-bootstrap';
 import {Theme} from 'mattermost-redux/types/preferences';
 
 import FormButton from 'src/components/form_button';
-import {id as pluginId} from 'src/manifest';
 import {closeCreateIssueModal} from 'src/actions';
-import {GlobalState} from 'src/types/global_state';
 import CreateIssueForm from 'src/components/create_issue_form';
+import { isCreateIssueModalVisible } from 'src/selectors';
 
 type PropTypes = {
     theme: Theme;
@@ -20,11 +19,6 @@ const CreateIssueModal = ({theme}: PropTypes) => {
         error: '',
     });
 
-    const visible = useSelector((state: GlobalState) => state[`plugins-${pluginId}` as plugin].isCreateIssueModalVisible); 
-    if (!visible) {
-        return null;
-    }
-
     const dispatch = useDispatch();
     const handleClose = () => {
         setFormSubmission({
@@ -34,6 +28,11 @@ const CreateIssueModal = ({theme}: PropTypes) => {
         })
         dispatch(closeCreateIssueModal());
     };
+
+    const visible = useSelector(isCreateIssueModalVisible); 
+    if (!visible) {
+        return null;
+    }
 
     const handleCreate = async (e: React.FormEvent<HTMLFormElement> | Event) => {
         e.preventDefault();

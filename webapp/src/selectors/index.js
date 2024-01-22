@@ -58,3 +58,7 @@ export const getSidebarData = createSelector(
         };
     },
 );
+
+export const isCreateIssueModalVisible = (state) => state[`plugins-${PluginId}`].isCreateIssueModalVisible; 
+
+export const isAttachCommentToIssueModalVisible = (state) => state[`plugins-${PluginId}`].isAttachCommentToIssueModalVisible;

@@ -23,7 +23,7 @@ const AttachCommentToIssueForm = ({theme, handleClose, setFormSubmission, formSu
     const [issueValue, setIssueValue] = useState<Issue | null>(null);
 
     const post = useSelector((state: GlobalState) => {
-        const postId = state[`plugins-${pluginId}` as plugin].postIdForAttachCommentToIssueModal;
+        const postId = state[`plugins-${pluginId}` as pluginReduxStoreKey].postIdForAttachCommentToIssueModal;
         const post = getPost(state, postId);
     
         return post;

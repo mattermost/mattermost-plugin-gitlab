@@ -21,7 +21,7 @@ const CreateIssuePostMenuAction = ({postId}: PropTypes) => {
         const systemMessage = Boolean(!post || isSystemMessage(post));
     
         return {
-            show: state[`plugins-${pluginId}` as plugin].connected && !systemMessage,
+            show: state[`plugins-${pluginId}` as pluginReduxStoreKey].connected && !systemMessage,
         };
     })
 

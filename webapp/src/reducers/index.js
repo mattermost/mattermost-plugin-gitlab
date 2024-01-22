@@ -148,7 +148,7 @@ const isCreateIssueModalVisible = (state = false, action) => {
     }
 };
 
-const attachCommentToIssueModalVisible = (state = false, action) => {
+const isAttachCommentToIssueModalVisible = (state = false, action) => {
     switch (action.type) {
     case ActionTypes.OPEN_ATTACH_COMMENT_TO_ISSUE_MODAL:
         return true;
@@ -222,7 +222,7 @@ export default combineReducers({
     yourProjects,
     createIssueModal,
     postIdForAttachCommentToIssueModal,
-    attachCommentToIssueModalVisible,
+    isAttachCommentToIssueModalVisible,
     rhsPluginAction,
     rhsState,
     yourPrDetails,

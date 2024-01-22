@@ -36,7 +36,7 @@ const CreateIssueForm = ({theme, handleClose, formSubmission, setFormSubmission}
     const [issueTitleValid, setIssueTitleValid] = useState<boolean>(true);
 
     const {post, channelId, title} = useSelector((state: GlobalState) => {
-        const {postId, title, channelId} = state[`plugins-${pluginId}` as plugin].createIssueModal;
+        const {postId, title, channelId} = state[`plugins-${pluginId}` as pluginReduxStoreKey].createIssueModal;
         
         const post = postId ? getPost(state, postId) : null;
         return {
