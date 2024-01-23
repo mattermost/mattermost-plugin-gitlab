@@ -1,4 +1,7 @@
-import {id} from '../manifest';
+import manifest from '../manifest';
+
+
+const {id} = manifest;
 
 export default {
     RECEIVED_YOUR_PR_DETAILS: `${id}_received_your_pr_details`,

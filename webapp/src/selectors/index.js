@@ -2,7 +2,7 @@ import {getConfig} from 'mattermost-redux/selectors/entities/general';
 
 import {createSelector} from 'reselect';
 
-import {id as PluginId} from '../manifest';
+import manifest from '../manifest';
 
 export const getPluginServerRoute = (state) => {
     const config = getConfig(state);
@@ -16,7 +16,7 @@ export const getPluginServerRoute = (state) => {
         }
     }
 
-    return basePath + '/plugins/' + PluginId;
+    return basePath + '/plugins/' + manifest.id;
 };
 
 function mapPrsToDetails(prs, details) {
@@ -39,7 +39,7 @@ function mapPrsToDetails(prs, details) {
     });
 }
 
-export const getPluginState = (state) => state[`plugins-${PluginId}`];
+export const getPluginState = (state) => state[`plugins-${manifest.id}`];
 
 export const getSidebarData = createSelector(
     getPluginState,

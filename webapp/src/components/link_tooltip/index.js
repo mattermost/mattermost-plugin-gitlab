@@ -1,10 +1,11 @@
 import {connect} from 'react-redux';
 
-import {id} from '../../manifest';
+import manifest from '../../manifest';
 
 import {LinkTooltip} from './link_tooltip.jsx';
 
 const mapStateToProps = (state) => {
+    const {id} = manifest;
     return {
         connected: state[`plugins-${id}`].connected,
         gitlabURL: state[`plugins-${id}`].gitlabURL,
