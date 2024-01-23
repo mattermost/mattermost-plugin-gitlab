@@ -11,7 +11,7 @@ import {id} from '../../manifest';
 
 import {getPluginServerRoute} from '../../selectors';
 
-import SidebarButtons from './sidebar_buttons.jsx';
+import SidebarButtons from './sidebar_buttons';
 
 function mapStateToProps(state) {
     return {
