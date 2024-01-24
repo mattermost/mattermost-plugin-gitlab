@@ -105,6 +105,9 @@ const OpenMergeRequest = `{
 		"total_time_spent":0,
 		"human_total_time_spent":null,
 		"human_time_estimate":null,
+		"assignee_ids": [
+			50
+		],
 		"action":"open"
 	},
 	"labels":[],
@@ -650,6 +653,9 @@ const AssigneeMergeRequest = `{
 							"total_time_spent":0,
 							"human_total_time_spent":null,
 							"human_time_estimate":null,
+							"assignee_ids": [
+								50
+							],
 							"action":"update"
 						},
 						"labels":[],
