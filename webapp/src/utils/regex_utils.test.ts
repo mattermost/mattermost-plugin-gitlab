@@ -1,5 +1,6 @@
+import {describe, expect, it} from '@jest/globals';
+
 import {validateGitlabURL} from './regex_utils';
-import {describe, expect, it} from "@jest/globals";
 
 describe('validateGitlabURL should work as expected', () => {
     it('Should return true for valid GitLab repository URL', () => {
