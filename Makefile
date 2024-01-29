@@ -46,9 +46,9 @@ all: check-style test dist
 check-style: webapp/node_modules
 	@echo Checking for style guide compliance
 
-## TODO: Add check-types as well
 ifneq ($(HAS_WEBAPP),)
 	cd webapp && npm run lint
+	cd webapp && npm run check-types
 endif
 
 ifneq ($(HAS_SERVER),)
