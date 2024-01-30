@@ -1,10 +1,12 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
+import {Store} from 'redux';
+
 import {isDesktopApp} from 'src/utils/user_agent';
 import {connectUsingBrowserMessage} from 'src/constants';
+
 import {sendEphemeralPost} from '../actions';
-import {Store} from 'redux';
 
 type ContextArgs = {channel_id: string};
 
@@ -17,7 +19,7 @@ export default class Hooks {
         this.store = store;
     }
 
-    slashCommandWillBePostedHook = (rawMessage: string, contextArgs: ContextArgs) => {        
+    slashCommandWillBePostedHook = (rawMessage: string, contextArgs: ContextArgs) => {
         let message;
         if (rawMessage) {
             message = rawMessage.trim();

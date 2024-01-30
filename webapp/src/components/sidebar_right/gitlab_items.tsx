@@ -20,7 +20,7 @@ export const notificationReasons: Record<string | symbol, string> = {
     approval_required: 'Your approval is required on this issue/merge request.',
     unmergeable: 'This merge request can\'t be merged.',
     merge_train_removed: 'A merge train was removed.',
-    member_access_requested: 'requested access to a project/group.'
+    member_access_requested: 'requested access to a project/group.',
 };
 
 const SUCCESS = 'success';
@@ -162,7 +162,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
         );
     }
 
-    const includeNotificationAuthor = item.action_name == ACTION_NAME_MEMBER_ACCESS_REQUESTED;
+    const includeNotificationAuthor = item.action_name === ACTION_NAME_MEMBER_ACCESS_REQUESTED;
 
     return (
         <div
@@ -178,7 +178,9 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
             </div>
             <div>
                 {number}
-                {repoName && <span className='light'>({repoName})</span>}
+                {repoName && (
+                    <span className='light'>{repoName}</span>
+                )}
             </div>
             {labels}
             <div
