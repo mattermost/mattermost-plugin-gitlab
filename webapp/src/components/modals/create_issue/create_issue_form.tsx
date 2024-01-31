@@ -23,7 +23,7 @@ type PropTypes = {
     isSubmitting: boolean;
 };
 
-const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: PropTypes) => {    
+const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: PropTypes) => {
     const validator = useMemo(() => (new Validator()), []);
     const [project, setProject] = useState<ProjectSelection | null>(null);
     const [issueTitle, setIssueTitle] = useState<string>('');
@@ -48,9 +48,9 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
     const dispatch = useDispatch();
 
     // handle issue creation after form is populated
-    const handleCreate = async (e: React.FormEvent<HTMLFormElement> | Event) => {   
-        e.preventDefault();     
-        if (!validator.validate() || !issueTitle || !project?.project_id) {            
+    const handleCreate = async (e: React.FormEvent<HTMLFormElement> | Event) => {
+        e.preventDefault();
+        if (!validator.validate() || !issueTitle || !project?.project_id) {
             setIssueTitleValid(Boolean(issueTitle));
             setShowErrors(true);
             return;
@@ -69,7 +69,7 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
             channel_id: channelId,
         };
 
-        setIsSubmitting(true)
+        setIsSubmitting(true);
 
         const created = await createIssue(issue)(dispatch);
         if (created.error) {
@@ -91,7 +91,7 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
 
     const handleMilestoneChange = (newMilestone: OnChangeType) => setMilestone(newMilestone as SelectionType);
 
-    const handleIssueTitleChange = (issueTitle: string) => {        
+    const handleIssueTitleChange = (issueTitle: string) => {
         setIssueTitle(issueTitle);
         if (issueTitle && !issueTitleValid) {
             setIssueTitleValid(true);
@@ -100,7 +100,7 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
 
     const handleIssueDescriptionChange = (issueDescription: string) => setIssueDescription(issueDescription);
 
-    const issueAttributeSelectors = () => {              
+    const issueAttributeSelectors = () => {
         if (!project) {
             return null;
         }
@@ -108,23 +108,23 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
         const dropdownProps = {
             projectID: project.project_id,
             projectName: project.name,
-            theme: theme,
-        }
+            theme,
+        };
 
         const labelProps = {
             selectedLabels: labels,
             onChange: handleLabelsChange,
-        }
+        };
 
         const assigneeProps = {
             selectedAssignees: assignees,
             onChange: handleAssigneesChange,
-        }
+        };
 
         const milestoneProps = {
             selectedMilestone: milestone,
             onChange: handleMilestoneChange,
-        }
+        };
 
         return (
             <>
@@ -145,7 +145,7 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
             </>
         );
     };
-    
+
     const requiredMsg = 'This field is required.';
     const issueTitleValidationError = (showErrors && !issueTitleValid) ? (
         <p className='help-text error-text'>
@@ -214,7 +214,7 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
             </Modal.Footer>
         </form>
     );
-}
+};
 
 const getStyle = (theme: Theme) => ({
     modal: {

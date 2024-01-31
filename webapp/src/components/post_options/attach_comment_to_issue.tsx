@@ -14,17 +14,17 @@ import {GlobalState} from 'src/types/global_state';
 
 interface PropTypes {
     postId: string;
-};
+}
 
 const AttachCommentToIssuePostMenuAction = ({postId}: PropTypes) => {
     const {show} = useSelector((state: GlobalState) => {
         const post = getPost(state, postId);
         const systemMessage = Boolean(!post || isSystemMessage(post));
-    
+
         return {
             show: state[`plugins-${pluginId}` as pluginReduxStoreKey].connected && !systemMessage,
         };
-    })
+    });
 
     const dispatch = useDispatch();
 
@@ -56,6 +56,6 @@ const AttachCommentToIssuePostMenuAction = ({postId}: PropTypes) => {
             {content}
         </li>
     );
-}
+};
 
 export default AttachCommentToIssuePostMenuAction;

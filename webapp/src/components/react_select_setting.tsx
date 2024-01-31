@@ -7,6 +7,7 @@ import AsyncSelect from 'react-select/async';
 import {Theme} from 'mattermost-redux/types/preferences';
 
 import {getStyleForReactSelect} from 'src/utils/styles';
+
 import Setting from './setting';
 
 const MAX_NUM_OPTIONS = 100;
@@ -33,7 +34,7 @@ const ReactSelectSetting = ({name, onChange, label, theme, options, isLoading, v
             if (removeValidate && name) {
                 removeValidate(name);
             }
-        }
+        };
     }, []);
 
     useEffect(() => {
@@ -45,7 +46,7 @@ const ReactSelectSetting = ({name, onChange, label, theme, options, isLoading, v
         }
     }, [value]);
 
-    const handleChange = (value: SingleValue<SelectionType>) => {             
+    const handleChange = (value: SingleValue<SelectionType>) => {
         const newValue = value?.value ?? '';
         onChange(name, newValue as string);
     };
@@ -77,7 +78,7 @@ const ReactSelectSetting = ({name, onChange, label, theme, options, isLoading, v
                 <span>{requiredMsg}</span>
             </p>
         );
-    };
+    }
 
     let selectComponent = null;
     if (limitOptions && options.length > MAX_NUM_OPTIONS) {
@@ -122,6 +123,6 @@ const ReactSelectSetting = ({name, onChange, label, theme, options, isLoading, v
             </>
         </Setting>
     );
-}
+};
 
 export default ReactSelectSetting;

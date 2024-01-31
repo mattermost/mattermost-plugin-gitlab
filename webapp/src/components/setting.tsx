@@ -35,6 +35,6 @@ const Setting = ({children, inputId, label, required}: PropTypes) => {
             </div>
         </div>
     );
-}
+};
 
 export default Setting;

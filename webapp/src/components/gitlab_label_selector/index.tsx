@@ -35,6 +35,6 @@ const GitlabLabelSelector = ({projectID, projectName, theme, selectedLabels, onC
             />
         </div>
     );
-}
+};
 
 export default GitlabLabelSelector;

@@ -1,5 +1,5 @@
-import {useCallback} from "react";
-import {useDispatch} from "react-redux";
+import {useCallback} from 'react';
+import {useDispatch} from 'react-redux';
 
 export const useOptions = (projectName: string, getOptions: FetchIssueAttributeOptionsForProject, returnFields: string[], errorMessage: string, projectID?: number) => {
     const dispatch = useDispatch();
@@ -24,4 +24,4 @@ export const useOptions = (projectName: string, getOptions: FetchIssueAttributeO
         }));
     };
     return loadOptions;
-}
+};

@@ -18,12 +18,12 @@ interface PropTypes {
     isSubmitting: boolean;
 }
 
-const AttachCommentToIssueForm = ({ theme, handleClose, setIsSubmitting, isSubmitting }: PropTypes) => {
+const AttachCommentToIssueForm = ({theme, handleClose, setIsSubmitting, isSubmitting}: PropTypes) => {
     const validator = useMemo(() => new Validator(), []);
     const [issueValue, setIssueValue] = useState<Issue | null>(null);
     const [error, setError] = useState<string>('');
 
-    const post = useSelector(getAttachCommentModalContents)
+    const post = useSelector(getAttachCommentModalContents);
     const [message, setMessage] = useState<string>(post.message);
     const [isMessageValid, setIsMessageValid] = useState<boolean>(true);
 
@@ -44,13 +44,13 @@ const AttachCommentToIssueForm = ({ theme, handleClose, setIsSubmitting, isSubmi
             web_url: issueValue?.web_url,
         };
 
-        setIsSubmitting(true)
+        setIsSubmitting(true);
 
         const created = await attachCommentToIssue(comment)(dispatch);
         if (created.error) {
             const errMessage = getErrorMessage((created as { error: ErrorType }).error.message);
-            setError(errMessage)
-            setIsSubmitting(false)
+            setError(errMessage);
+            setIsSubmitting(false);
             return;
         }
 
@@ -62,11 +62,11 @@ const AttachCommentToIssueForm = ({ theme, handleClose, setIsSubmitting, isSubmi
     };
 
     const handleMessageChange = (newValue: string) => {
-        setMessage(newValue)
+        setMessage(newValue);
         if (newValue && !isMessageValid) {
             setIsMessageValid(true);
         }
-    }
+    };
 
     const messageValidationError = (!isMessageValid) ? (
         <p className='help-text error-text'>
@@ -119,7 +119,7 @@ const AttachCommentToIssueForm = ({ theme, handleClose, setIsSubmitting, isSubmi
             </Modal.Footer>
         </form>
     );
-}
+};
 
 const getStyle = (theme: Theme) => ({
     modal: {

@@ -7,6 +7,7 @@ import {Theme} from 'mattermost-redux/types/preferences';
 
 import {getStyleForReactSelect} from 'src/utils/styles';
 import {usePrevious} from 'src/hooks/use_previous';
+
 import Setting from './setting';
 
 type PropTypes = {
@@ -28,15 +29,15 @@ const IssueAttributeSelector = ({isMulti, projectName, theme, label, onChange, l
         if (projectName) {
             loadSelectOptions();
         }
-    }, [])
+    }, []);
 
-    const prevProjectName = usePrevious(projectName)
+    const prevProjectName = usePrevious(projectName);
 
     useEffect(() => {
         if (projectName && prevProjectName !== projectName) {
             loadSelectOptions();
         }
-    }, [projectName])
+    }, [projectName]);
 
     const loadSelectOptions = async () => {
         setIsLoading(true);
@@ -62,7 +63,7 @@ const IssueAttributeSelector = ({isMulti, projectName, theme, label, onChange, l
         }
 
         if (isMulti) {
-            const selectionValues = (selection as SelectionType[]).map((s) => s.value)
+            const selectionValues = (selection as SelectionType[]).map((s) => s.value);
             const filtered = options.filter((option) => selectionValues.includes(option.value));
             onChange(filtered);
             return;
@@ -78,8 +79,8 @@ const IssueAttributeSelector = ({isMulti, projectName, theme, label, onChange, l
         onChange(null);
     };
 
-    const onChangeHandler =  (newValue: OnChangeValue<OnChangeType, boolean>) => {
-        onChange(newValue as OnChangeType)
+    const onChangeHandler = (newValue: OnChangeValue<OnChangeType, boolean>) => {
+        onChange(newValue as OnChangeType);
     };
 
     return (
@@ -91,7 +92,7 @@ const IssueAttributeSelector = ({isMulti, projectName, theme, label, onChange, l
                     isMulti={isMulti}
                     isClearable={true}
                     placeholder={'Select...'}
-                    noOptionsMessage={() => projectName ? 'No options' : 'Please select a project first'}
+                    noOptionsMessage={() => (projectName ? 'No options' : 'Please select a project first')}
                     closeMenuOnSelect={!isMulti}
                     menuPortalTarget={document.body}
                     menuPlacement='auto'
@@ -114,6 +115,6 @@ const IssueAttributeSelector = ({isMulti, projectName, theme, label, onChange, l
             </>
         </Setting>
     );
-}
+};
 
 export default IssueAttributeSelector;

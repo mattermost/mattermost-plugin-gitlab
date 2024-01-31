@@ -35,6 +35,6 @@ const GitlabAssigneeSelector = ({projectID, projectName, theme, selectedAssignee
             />
         </div>
     );
-}
+};
 
 export default GitlabAssigneeSelector;

@@ -3,9 +3,10 @@ import {useDispatch, useSelector} from 'react-redux';
 import {Modal} from 'react-bootstrap';
 import {Theme} from 'mattermost-redux/types/preferences';
 
-import CreateIssueForm from './create_issue_form';
 import {isCreateIssueModalVisible} from 'src/selectors';
 import {closeCreateIssueModal} from 'src/actions';
+
+import CreateIssueForm from './create_issue_form';
 
 type PropTypes = {
     theme: Theme;
@@ -16,11 +17,11 @@ const CreateIssueModal = ({theme}: PropTypes) => {
 
     const dispatch = useDispatch();
     const handleClose = () => {
-        setIsSubmitting(false)
+        setIsSubmitting(false);
         dispatch(closeCreateIssueModal());
     };
 
-    const visible = useSelector(isCreateIssueModalVisible); 
+    const visible = useSelector(isCreateIssueModalVisible);
     if (!visible) {
         return null;
     }
@@ -47,6 +48,6 @@ const CreateIssueModal = ({theme}: PropTypes) => {
             />
         </Modal>
     );
-}
+};
 
 export default CreateIssueModal;

@@ -18,7 +18,7 @@ type PropTypes = {
     type: string;
 };
 
-const Input = ({id, label, placeholder, value, maxLength, onChange, disabled, required, readOnly, type}: PropTypes) => {   
+const Input = ({id, label, placeholder, value, maxLength, onChange, disabled, required, readOnly, type}: PropTypes) => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>) => {
         onChange?.(e.target.value);
     };
@@ -44,7 +44,7 @@ const Input = ({id, label, placeholder, value, maxLength, onChange, disabled, re
                 style={{resize: 'none'}}
                 id={id}
                 className='form-control'
-                rows= {5}
+                rows={5}
                 placeholder={placeholder}
                 value={value ?? null}
                 maxLength={maxLength}
@@ -64,6 +64,6 @@ const Input = ({id, label, placeholder, value, maxLength, onChange, disabled, re
             {input}
         </Setting>
     );
-}
+};
 
 export default Input;

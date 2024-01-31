@@ -19,15 +19,15 @@ const CreateIssuePostMenuAction = ({postId}: PropTypes) => {
     const {show} = useSelector((state: GlobalState) => {
         const post = getPost(state, postId);
         const systemMessage = Boolean(!post || isSystemMessage(post));
-    
+
         return {
             show: state[`plugins-${pluginId}` as pluginReduxStoreKey].connected && !systemMessage,
         };
-    })
+    });
 
     const dispatch = useDispatch();
 
-    const handleClick = (e: MouseEvent<HTMLButtonElement> | Event) => {        
+    const handleClick = (e: MouseEvent<HTMLButtonElement> | Event) => {
         e.preventDefault();
         dispatch(openCreateIssueModal(postId));
     };
@@ -55,6 +55,6 @@ const CreateIssuePostMenuAction = ({postId}: PropTypes) => {
             {content}
         </li>
     );
-}
+};
 
 export default CreateIssuePostMenuAction;

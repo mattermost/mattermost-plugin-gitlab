@@ -24,7 +24,7 @@ const FormButton = ({saving, disabled, savingMessage, defaultMessage, btnClass, 
     ) : defaultMessage;
 
     const className = `save-button btn ${btnClass}`;
-    
+
     return (
         <button
             id='saveSetting'
@@ -35,6 +35,6 @@ const FormButton = ({saving, disabled, savingMessage, defaultMessage, btnClass, 
             {contents}
         </button>
     );
-}
+};
 
 export default FormButton;

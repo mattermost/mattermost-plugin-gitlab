@@ -10,6 +10,7 @@ import {SingleValue} from 'react-select';
 
 import {getStyleForReactSelect} from '../utils/styles';
 import Client from '../client';
+
 import Setting from './setting';
 
 const searchDebounceDelay = 400;
@@ -23,49 +24,49 @@ interface PropTypes {
     value: Issue | null;
     addValidate: (key: string, validateField: () => boolean) => void;
     removeValidate: (key: string) => void;
-};
+}
 
-export const getUsernameAndProjectName=(webUrl: string) => {
+export const getUsernameAndProjectName = (webUrl: string) => {
     const projectParts = webUrl.split('/');
 
     // Extract "username/projectName" from the issueURL parts
     if (projectParts.length >= 5) {
-        return`${projectParts[3]}/${projectParts[4]}`;
-    }    
+        return `${projectParts[3]}/${projectParts[4]}`;
+    }
     return '';
-}
+};
 
-const GitlabIssueSelector = ({name, required, theme, onChange, error, value, addValidate, removeValidate
+const GitlabIssueSelector = ({name, required, theme, onChange, error, value, addValidate, removeValidate,
 }: PropTypes) => {
     const [invalid, setInvalid] = useState(false);
-    const [responseError, setResponseError] = useState('')
+    const [responseError, setResponseError] = useState('');
 
-    const isValid = () => {                
+    const isValid = () => {
         if (!required) {
             return true;
         }
-        
+
         const valid = Boolean(value);
         setInvalid(!valid);
         return valid;
     };
 
     useEffect(() => {
-        return () => {            
+        return () => {
             if (removeValidate && name) {
                 removeValidate(name);
             }
-        }
-    }, [])
+        };
+    }, []);
 
     useEffect(() => {
-        if (addValidate && name) {            
+        if (addValidate && name) {
             addValidate(name, isValid);
         }
-        if (invalid) {            
+        if (invalid) {
             isValid();
         }
-    }, [isValid])
+    }, [isValid]);
 
     const handleIssueSearchTermChange = (inputValue: string) => {
         return debouncedSearchIssues(inputValue);
@@ -148,6 +149,6 @@ const GitlabIssueSelector = ({name, required, theme, onChange, error, value, add
             </>
         </Setting>
     );
-}
+};
 
 export default GitlabIssueSelector;

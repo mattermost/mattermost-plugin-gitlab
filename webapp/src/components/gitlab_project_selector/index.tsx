@@ -19,7 +19,7 @@ type PropTypes = {
     removeValidate: (key: string) => void;
 };
 
-const GitlabProjectSelector = ({theme, required, onChange, value, addValidate, removeValidate}: PropTypes) => { 
+const GitlabProjectSelector = ({theme, required, onChange, value, addValidate, removeValidate}: PropTypes) => {
     const [isLoading, setIsLoading] = useState(false);
 
     const {yourProjects} = useSelector((state: GlobalState) => ({
@@ -29,7 +29,7 @@ const GitlabProjectSelector = ({theme, required, onChange, value, addValidate, r
     const dispatch = useDispatch();
 
     useEffect(() => {
-      loadProjects();
+        loadProjects();
     }, []);
 
     const loadProjects = async () => {
@@ -44,7 +44,7 @@ const GitlabProjectSelector = ({theme, required, onChange, value, addValidate, r
     };
 
     const projectOptions = yourProjects.map((item: Project) => ({value: item.path_with_namespace, label: item.path_with_namespace}));
-    
+
     return (
         <div className={'form-group margin-bottom x3'}>
             <ReactSelectSetting
@@ -66,6 +66,6 @@ const GitlabProjectSelector = ({theme, required, onChange, value, addValidate, r
             </div>
         </div>
     );
-}
+};
 
 export default GitlabProjectSelector;
