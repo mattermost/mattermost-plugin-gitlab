@@ -83,7 +83,7 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
         handleClose();
     };
 
-    const handleProjectChange = (project: ProjectSelection | null) => setProject(project);
+    const handleProjectChange = (newValue: ProjectSelection | null) => setProject(newValue);
 
     const handleLabelsChange = (newLabels: OnChangeType) => setLabels(newLabels as SelectionType[]);
 
@@ -91,14 +91,14 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
 
     const handleMilestoneChange = (newMilestone: OnChangeType) => setMilestone(newMilestone as SelectionType);
 
-    const handleIssueTitleChange = (issueTitle: string) => {
-        setIssueTitle(issueTitle);
-        if (issueTitle && !issueTitleValid) {
+    const handleIssueTitleChange = (newValue: string) => {
+        setIssueTitle(newValue);
+        if (newValue && !issueTitleValid) {
             setIssueTitleValid(true);
         }
     };
 
-    const handleIssueDescriptionChange = (issueDescription: string) => setIssueDescription(issueDescription);
+    const handleIssueDescriptionChange = (newValue: string) => setIssueDescription(newValue);
 
     const issueAttributeSelectors = () => {
         if (!project) {

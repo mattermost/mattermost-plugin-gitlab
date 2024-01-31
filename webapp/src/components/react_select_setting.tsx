@@ -46,17 +46,18 @@ const ReactSelectSetting = ({name, onChange, label, theme, options, isLoading, v
         }
     }, [value]);
 
-    const handleChange = (value: SingleValue<SelectionType>) => {
-        const newValue = value?.value ?? '';
-        onChange(name, newValue as string);
+    const handleChange = (newValue: SingleValue<SelectionType>) => {
+        const updatedValue = newValue?.value ?? '';
+        onChange(name, updatedValue as string);
     };
 
     const filterOptions = (input: string) => {
+        let filteredOptions: SelectionType[] = [];
         if (input) {
-            options = options.filter((x) => x.label.toLowerCase().includes(input.toLowerCase()));
+            filteredOptions = options.filter((x) => x.label.toLowerCase().includes(input.toLowerCase()));
         }
 
-        return Promise.resolve(options.slice(0, MAX_NUM_OPTIONS));
+        return Promise.resolve(filteredOptions.slice(0, MAX_NUM_OPTIONS));
     };
 
     const isValid = () => {

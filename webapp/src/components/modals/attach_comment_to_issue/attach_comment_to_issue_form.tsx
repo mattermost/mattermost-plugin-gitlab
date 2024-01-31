@@ -68,11 +68,11 @@ const AttachCommentToIssueForm = ({theme, handleClose, setIsSubmitting, isSubmit
         }
     };
 
-    const messageValidationError = (!isMessageValid) ? (
+    const messageValidationError = (isMessageValid) ? null : (
         <p className='help-text error-text'>
             <span>{'This field is required.'}</span>
         </p>
-    ) : null;
+    );
 
     const style = getStyle(theme);
 

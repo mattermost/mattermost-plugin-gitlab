@@ -24,12 +24,13 @@ const Input = ({id, label, placeholder, value, maxLength, onChange, disabled, re
     };
 
     let input = null;
-    if (type !== 'textarea') {
+    if (type === 'textarea') {
         input = (
-            <input
+            <textarea
+                style={{resize: 'none'}}
                 id={id}
                 className='form-control'
-                type={type === 'input' ? 'text' : 'number'}
+                rows={5}
                 placeholder={placeholder}
                 value={value ?? null}
                 maxLength={maxLength}
@@ -40,11 +41,10 @@ const Input = ({id, label, placeholder, value, maxLength, onChange, disabled, re
         );
     } else {
         input = (
-            <textarea
-                style={{resize: 'none'}}
+            <input
                 id={id}
                 className='form-control'
-                rows={5}
+                type={type === 'input' ? 'text' : 'number'}
                 placeholder={placeholder}
                 value={value ?? null}
                 maxLength={maxLength}

@@ -43,9 +43,9 @@ const IssueAttributeSelector = ({isMulti, projectName, theme, label, onChange, l
         setIsLoading(true);
 
         try {
-            const options = await loadOptions();
-            filterSelection(options);
-            setOptions(options);
+            const loadedOptions = await loadOptions();
+            filterSelection(loadedOptions);
+            setOptions(loadedOptions);
             setIsLoading(false);
             setError('');
         } catch (e) {
@@ -57,19 +57,19 @@ const IssueAttributeSelector = ({isMulti, projectName, theme, label, onChange, l
         }
     };
 
-    const filterSelection = (options: Array<SelectionType>) => {
+    const filterSelection = (loadedOptions: Array<SelectionType>) => {
         if (!selection) {
             return;
         }
 
         if (isMulti) {
             const selectionValues = (selection as SelectionType[]).map((s) => s.value);
-            const filtered = options.filter((option) => selectionValues.includes(option.value));
+            const filtered = loadedOptions.filter((option) => selectionValues.includes(option.value));
             onChange(filtered);
             return;
         }
 
-        for (const option of options) {
+        for (const option of loadedOptions) {
             if (option.value === (selection as SelectionType).value) {
                 onChange(option);
                 return;

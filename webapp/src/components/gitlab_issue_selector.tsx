@@ -94,8 +94,7 @@ const GitlabIssueSelector = ({name, required, theme, onChange, error, value, add
     const debouncedSearchIssues = debounce(searchIssues, searchDebounceDelay);
 
     const handleOnChange = (newValue: SingleValue<IssueSelection>) => {
-        const value = newValue?.value ?? null;
-        onChange(value);
+        onChange(newValue?.value ?? null);
     };
 
     const issueError = error ? (
