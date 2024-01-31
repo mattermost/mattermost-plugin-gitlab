@@ -1,6 +1,5 @@
 import manifest from '../manifest';
 
-
 const {id} = manifest;
 
 export default {
