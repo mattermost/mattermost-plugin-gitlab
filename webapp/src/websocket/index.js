@@ -4,7 +4,7 @@ import {
     getConnected,
     getLHSData,
 } from '../actions';
-import {id} from '../manifest';
+import manifest from '../manifest';
 
 export function handleConnect(store) {
     return (msg) => {
@@ -53,7 +53,7 @@ export function handleReconnect(store, reminder = false) {
 
 export function handleRefresh(store) {
     return () => {
-        if (store.getState()[`plugins-${id}`].connected) {
+        if (store.getState()[`plugins-${manifest.id}`].connected) {
             getLHSData()(store.dispatch, store.getState);
         }
     };

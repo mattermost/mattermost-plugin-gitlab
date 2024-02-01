@@ -162,7 +162,11 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 	}()
 
 	if action == "about" {
-		text, err := command.BuildInfo(manifest)
+		text, err := command.BuildInfo(model.Manifest{
+			Id:      manifest.Id,
+			Version: manifest.Version,
+			Name:    manifest.Name,
+		})
 		if err != nil {
 			text = errors.Wrap(err, "failed to get build info").Error()
 		}

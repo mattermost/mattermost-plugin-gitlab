@@ -7,13 +7,14 @@ import {
     getLHSData,
 } from '../../actions';
 
-import {id} from '../../manifest';
+import manifest from '../../manifest';
 
 import {getPluginServerRoute} from '../../selectors';
 
 import SidebarButtons from './sidebar_buttons';
 
 function mapStateToProps(state) {
+    const {id} = manifest;
     return {
         connected: state[`plugins-${id}`].connected,
         username: state[`plugins-${id}`].username,
