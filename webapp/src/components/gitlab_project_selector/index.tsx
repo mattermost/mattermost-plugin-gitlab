@@ -6,7 +6,7 @@ import {useDispatch, useSelector} from 'react-redux';
 import {Theme} from 'mattermost-redux/types/preferences';
 
 import {getProjects} from 'src/actions';
-import {id as pluginId} from 'src/manifest';
+import manifest from 'src/manifest';
 import ReactSelectSetting from 'src/components/react_select_setting';
 import {GlobalState} from 'src/types/global_state';
 
@@ -23,7 +23,7 @@ const GitlabProjectSelector = ({theme, required, onChange, value, addValidate, r
     const [isLoading, setIsLoading] = useState(false);
 
     const {yourProjects} = useSelector((state: GlobalState) => ({
-        yourProjects: state[`plugins-${pluginId}` as pluginReduxStoreKey].yourProjects,
+        yourProjects: state[`plugins-${manifest.id}` as pluginReduxStoreKey].yourProjects,
     }));
 
     const dispatch = useDispatch();

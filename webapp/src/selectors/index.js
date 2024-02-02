@@ -4,7 +4,7 @@ import {createSelector} from 'reselect';
 
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
 
-import {id as PluginId} from '../manifest';
+import manifest from '../manifest';
 
 export const getPluginServerRoute = (state) => {
     const config = getConfig(state);
@@ -18,7 +18,7 @@ export const getPluginServerRoute = (state) => {
         }
     }
 
-    return basePath + '/plugins/' + PluginId;
+    return basePath + '/plugins/' + manifest.id;
 };
 
 function mapPrsToDetails(prs, details) {
@@ -41,7 +41,7 @@ function mapPrsToDetails(prs, details) {
     });
 }
 
-export const getPluginState = (state) => state[`plugins-${PluginId}`];
+export const getPluginState = (state) => state[`plugins-${manifest.id}`];
 
 export const getSidebarData = createSelector(
     getPluginState,
@@ -61,12 +61,12 @@ export const getSidebarData = createSelector(
     },
 );
 
-export const isCreateIssueModalVisible = (state) => state[`plugins-${PluginId}`].isCreateIssueModalVisible;
+export const isCreateIssueModalVisible = (state) => state[`plugins-${manifest.id}`].isCreateIssueModalVisible;
 
-export const isAttachCommentToIssueModalVisible = (state) => state[`plugins-${PluginId}`].isAttachCommentToIssueModalVisible;
+export const isAttachCommentToIssueModalVisible = (state) => state[`plugins-${manifest.id}`].isAttachCommentToIssueModalVisible;
 
 export const getCreateIssueModalContents = (state) => {
-    const {postId, title, channelId} = state[`plugins-${PluginId}`].createIssueModal;
+    const {postId, title, channelId} = state[`plugins-${manifest.id}`].createIssueModal;
 
     const post = postId ? getPost(state, postId) : null;
     return {
@@ -77,7 +77,7 @@ export const getCreateIssueModalContents = (state) => {
 };
 
 export const getAttachCommentModalContents = (state) => {
-    const postId = state[`plugins-${PluginId}`].postIdForAttachCommentToIssueModal;
+    const postId = state[`plugins-${manifest.id}`].postIdForAttachCommentToIssueModal;
     const post = getPost(state, postId);
 
     return post;

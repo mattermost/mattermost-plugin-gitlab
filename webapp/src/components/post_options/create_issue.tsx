@@ -7,7 +7,7 @@ import {getPost} from 'mattermost-redux/selectors/entities/posts';
 import {isSystemMessage} from 'mattermost-redux/utils/post_utils';
 
 import GitLabIcon from 'src/images/icons/gitlab';
-import {id as pluginId} from 'src/manifest';
+import manifest from 'src/manifest';
 import {openCreateIssueModal} from 'src/actions';
 import {GlobalState} from 'src/types/global_state';
 
@@ -21,7 +21,7 @@ const CreateIssuePostMenuAction = ({postId}: PropTypes) => {
         const systemMessage = Boolean(!post || isSystemMessage(post));
 
         return {
-            show: state[`plugins-${pluginId}` as pluginReduxStoreKey].connected && !systemMessage,
+            show: state[`plugins-${manifest.id}` as pluginReduxStoreKey].connected && !systemMessage,
         };
     });
 

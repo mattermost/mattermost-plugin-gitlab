@@ -180,3 +180,12 @@ Alternatively, join our public Mattermost server and join the [Integrations and 
 Feel free to create a GitHub issue or [join the GitLab Plugin channel on our community Mattermost instance](https://community.mattermost.com/core/channels/plugin-gitlab) to discuss.
 
 Share your thoughts in the [Plugin: GitLab Channel](https://community.mattermost.com/core/channels/gitlab-plugin) on our Mattermost community!
+
+### Releasing new versions
+
+The version of a plugin is determined at compile time, automatically populating a `version` field in the [plugin manifest](plugin.json):
+* If the current commit matches a tag, the version will match after stripping any leading `v`, e.g. `1.3.1`.
+* Otherwise, the version will combine the nearest tag with `git rev-parse --short HEAD`, e.g. `1.3.1+d06e53e1`.
+* If there is no version tag, an empty version will be combined with the short hash, e.g. `0.0.0+76081421`.
+
+To disable this behaviour, manually populate and maintain the `version` field.

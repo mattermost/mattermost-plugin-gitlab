@@ -19,10 +19,10 @@ interface SidebarButtonsProps {
     org: string;
     clientId: string;
     gitlabURL: string;
-    reviews: unknown[];
-    todos: unknown[];
-    yourAssignedPrs: unknown[];
-    yourAssignedIssues: unknown[];
+    reviews?: unknown[];
+    todos?: unknown[];
+    yourAssignedPrs?: unknown[];
+    yourAssignedIssues?: unknown[];
     isTeamSidebar: boolean;
     pluginServerRoute: string;
     showRHSPlugin: () => void;

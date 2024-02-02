@@ -7,7 +7,7 @@ import {useDispatch, useSelector} from 'react-redux';
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
 import {isSystemMessage} from 'mattermost-redux/utils/post_utils';
 
-import {id as pluginId} from 'src/manifest';
+import manifest from 'src/manifest';
 import GitLabIcon from 'src/images/icons/gitlab';
 import {openAttachCommentToIssueModal} from 'src/actions';
 import {GlobalState} from 'src/types/global_state';
@@ -22,7 +22,7 @@ const AttachCommentToIssuePostMenuAction = ({postId}: PropTypes) => {
         const systemMessage = Boolean(!post || isSystemMessage(post));
 
         return {
-            show: state[`plugins-${pluginId}` as pluginReduxStoreKey].connected && !systemMessage,
+            show: state[`plugins-${manifest.id}` as pluginReduxStoreKey].connected && !systemMessage,
         };
     });
 

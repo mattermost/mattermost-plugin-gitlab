@@ -4,7 +4,7 @@ import {PostTypes} from 'mattermost-redux/action_types';
 
 import Client from '../client';
 import ActionTypes from '../action_types';
-import {id} from '../manifest';
+import manifest from '../manifest';
 
 export function getConnected(reminder = false) {
     return async (dispatch) => {
@@ -166,7 +166,7 @@ export function getGitlabUser(userID) {
             return {};
         }
 
-        const user = getState()[`plugins-${id}`].gitlabUsers[userID];
+        const user = getState()[`plugins-${manifest.id}`].gitlabUsers[userID];
         if (
             user &&
             user.last_try &&

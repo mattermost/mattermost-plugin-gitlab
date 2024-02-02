@@ -24,7 +24,7 @@ import {
     handleOpenCreateIssueModal,
     handleChannelSubscriptionsUpdated,
 } from './websocket';
-import {id} from './manifest';
+import manifest from './manifest';
 import Client from './client';
 import {getPluginServerRoute} from './selectors';
 import Hooks from './hooks';
@@ -32,6 +32,7 @@ import Hooks from './hooks';
 let activityFunc;
 let lastActivityTime = Number.MAX_SAFE_INTEGER;
 const activityTimeout = 60 * 60 * 1000; // 1 hour
+const {id} = manifest;
 
 class PluginClass {
     async initialize(registry, store) {
