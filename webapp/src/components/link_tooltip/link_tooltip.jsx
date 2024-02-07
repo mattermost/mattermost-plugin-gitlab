@@ -210,4 +210,5 @@ LinkTooltip.propTypes = {
     href: PropTypes.string.isRequired,
     connected: PropTypes.bool.isRequired,
     gitlabURL: PropTypes.string.isRequired,
+    show: PropTypes.bool,
 };
