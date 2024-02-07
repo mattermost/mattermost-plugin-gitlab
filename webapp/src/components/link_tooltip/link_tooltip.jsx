@@ -42,7 +42,7 @@ export const getInfoAboutLink = (href, hostname) => {
     return {};
 };
 
-export const LinkTooltip = ({href, connected, gitlabURL}) => {
+export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
     const [data, setData] = useState(null);
     const dispatch = useDispatch();
     useEffect(() => {
@@ -74,12 +74,12 @@ export const LinkTooltip = ({href, connected, gitlabURL}) => {
             }
         };
 
-        if (!connected) {
+        if (!connected || !show) {
             return;
         }
 
         init();
-    }, [connected, href]);
+    }, [connected, href, show]);
 
     const getIconElement = () => {
         const iconProps = {
