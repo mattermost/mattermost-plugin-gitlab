@@ -731,6 +731,7 @@ func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channel
 	if err != nil {
 		return err.Error()
 	}
+
 	var txt string
 	if pipelineInfo == nil {
 		txt = "Currently there is no pipeline info"
@@ -742,6 +743,25 @@ func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channel
 	txt += fmt.Sprintf("**Ref**: %s\n", pipelineInfo.Ref)
 	txt += fmt.Sprintf("**Triggered By**: %s\n", pipelineInfo.User)
 	txt += fmt.Sprintf("**Visit pipeline [here](%s)** \n\n", pipelineInfo.WebURL)
+
+	foundPipelineSubscription := false
+	subs, err := p.GetSubscriptionsByChannel(channelID)
+	if err != nil {
+		p.client.Log.Warn("Failed to get subscriptions for the channel", "channel_id", channelID, "error", err.Error())
+		return txt
+	}
+
+	for _, sub := range subs {
+		if sub.Repository == namespace && sub.Pipeline() {
+			foundPipelineSubscription = true
+			break
+		}
+	}
+
+	if !foundPipelineSubscription {
+		txt += fmt.Sprintf("\n\n**Note:** This channel is currently not subscribed to pipeline event for `%s`. Run the command below if would you like to create a subscription.\n\n`/gitlab subscriptions add %s pipeline`", namespace, namespace)
+	}
+
 	return txt
 }
 
