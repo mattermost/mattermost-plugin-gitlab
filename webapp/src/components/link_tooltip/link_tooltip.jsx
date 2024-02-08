@@ -46,6 +46,10 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
     const [data, setData] = useState(null);
     const dispatch = useDispatch();
     useEffect(() => {
+        if (!connected || !show) {
+            return;
+        }
+
         if (!isValidUrl(href)) {
             return;
         }
@@ -73,10 +77,6 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
                 }
             }
         };
-
-        if (!connected || !show) {
-            return;
-        }
 
         init();
     }, [connected, href, show]);
