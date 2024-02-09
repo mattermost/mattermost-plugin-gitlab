@@ -42,10 +42,14 @@ export const getInfoAboutLink = (href, hostname) => {
     return {};
 };
 
-export const LinkTooltip = ({href, connected, gitlabURL}) => {
+export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
     const [data, setData] = useState(null);
     const dispatch = useDispatch();
     useEffect(() => {
+        if (!connected || !show) {
+            return;
+        }
+
         if (!isValidUrl(href)) {
             return;
         }
@@ -74,12 +78,8 @@ export const LinkTooltip = ({href, connected, gitlabURL}) => {
             }
         };
 
-        if (!connected) {
-            return;
-        }
-
         init();
-    }, [connected, href]);
+    }, [connected, href, show]);
 
     const getIconElement = () => {
         const iconProps = {
@@ -118,7 +118,7 @@ export const LinkTooltip = ({href, connected, gitlabURL}) => {
         );
     };
 
-    if (!data) {
+    if (!data || !show) {
         return null;
     }
 
@@ -210,4 +210,5 @@ LinkTooltip.propTypes = {
     href: PropTypes.string.isRequired,
     connected: PropTypes.bool.isRequired,
     gitlabURL: PropTypes.string.isRequired,
+    show: PropTypes.bool,
 };
