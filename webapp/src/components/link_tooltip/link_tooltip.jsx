@@ -118,7 +118,7 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
         );
     };
 
-    if (!data) {
+    if (!data || !show) {
         return null;
     }
 
