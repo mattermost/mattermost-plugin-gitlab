@@ -121,4 +121,6 @@
     background-color: var(--light-blue);
     border-radius: 3px;
     max-width: 140px;
+    text-overflow: ellipsis;
+    overflow: hidden;
 }
