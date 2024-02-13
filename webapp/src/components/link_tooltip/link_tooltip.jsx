@@ -9,8 +9,7 @@ import {logError} from 'mattermost-redux/actions/errors';
 import {GitLabIssueOpenIcon, GitLabMergeRequestIcon, GitLabMergeRequestClosedIcon, GitLabMergedIcon, GitLabIssueClosedIcon} from '../../utils/icons';
 
 import Client from '../../client';
-import {validateGitlabURL} from '../../utils/regex_utils';
-import {isValidUrl} from '../../utils/url_utils';
+import {getTruncatedText, validateGitlabURL, isValidUrl} from '../../utils/tooltip_utils';
 
 import './tooltip.css';
 
@@ -32,9 +31,9 @@ const LINK_TYPES = {
     ISSUES: 'issues',
 };
 
-const ICON_WIDTH = 16;
-const MAX_DESCRIPTION_LENGTH = 160;
-const MAX_TITLE_LENGTH = 70;
+const TOOLTIP_ICON_WIDTH = 16;
+const TOOLTIP_MAX_DESCRIPTION_LENGTH = 160;
+const TOOLTIP_MAX_TITLE_LENGTH = 70;
 
 export const getInfoAboutLink = (href, hostname) => {
     const linkInfo = href.split(`${hostname}/`)[1].split('/');
@@ -97,8 +96,8 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
             icon = (
                 <GitLabMergeRequestIcon
                     fill={OPENED_COLOR}
-                    width={ICON_WIDTH}
-                    height={ICON_WIDTH}
+                    width={TOOLTIP_ICON_WIDTH}
+                    height={TOOLTIP_ICON_WIDTH}
                 />
             );
             if (data.state === STATE_TYPES.CLOSED) {
@@ -128,22 +127,6 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
 
     const date = new Date(data.created_at).toDateString();
 
-    let description = '';
-    if (data.description) {
-        description = data.description.substring(0, MAX_DESCRIPTION_LENGTH).trim();
-        if (data.description.length > MAX_DESCRIPTION_LENGTH) {
-            description += '...';
-        }
-    }
-
-    let title = '';
-    if (data.title) {
-        title = data.title.substring(0, MAX_TITLE_LENGTH).trim();
-        if (data.title.length > MAX_TITLE_LENGTH) {
-            title += '...';
-        }
-    }
-
     return (
         <div className='gitlab-tooltip'>
             <div className='gitlab-tooltip box gitlab-tooltip--large gitlab-tooltip--bottom-left p-4'>
@@ -165,12 +148,12 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
 
                     <div className='tooltip-info mt-1'>
                         <a href={href}>
-                            <h5 className='mr-1'>{title}</h5>
+                            <h5 className='mr-1'>{getTruncatedText(data.title, TOOLTIP_MAX_TITLE_LENGTH)}</h5>
                             <span className='mr-number'>{`#${data.iid}`}</span>
                         </a>
                         <div className='markdown-text mt-1 mb-1'>
                             <ReactMarkdown
-                                source={description}
+                                source={getTruncatedText(data.description, TOOLTIP_MAX_DESCRIPTION_LENGTH)}
                                 disallowedTypes={['heading']}
                                 linkTarget='_blank'
                             />
