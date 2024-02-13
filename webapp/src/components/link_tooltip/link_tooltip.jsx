@@ -158,8 +158,8 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
                     <span>{date}</span>
                 </div>
 
-                <div className='body d-flex mt-2'>
-                    <span className='pt-1 pb-1 pr-2'>
+                <div className='body d-flex mt-1'>
+                    <span className='pt-2 pb-1 pr-2'>
                         {getIconElement()}
                     </span>
 
