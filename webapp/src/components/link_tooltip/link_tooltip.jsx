@@ -9,7 +9,7 @@ import {logError} from 'mattermost-redux/actions/errors';
 import {GitLabIssueOpenIcon, GitLabMergeRequestIcon, GitLabMergeRequestClosedIcon, GitLabMergedIcon, GitLabIssueClosedIcon} from '../../utils/icons';
 
 import Client from '../../client';
-import {getTruncatedText, validateGitlabURL, isValidUrl} from '../../utils/tooltip_utils';
+import {getTruncatedText, validateGitlabUrl, isValidUrl} from '../../utils/tooltip_utils';
 
 import './tooltip.css';
 
@@ -31,7 +31,7 @@ const LINK_TYPES = {
     ISSUES: 'issues',
 };
 
-const TOOLTIP_ICON_WIDTH = 16;
+const TOOLTIP_ICON_DIMENSION = 16;
 const TOOLTIP_MAX_DESCRIPTION_LENGTH = 160;
 const TOOLTIP_MAX_TITLE_LENGTH = 70;
 
@@ -62,7 +62,7 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
 
         const url = new URL(href);
         const init = async () => {
-            if (url.origin === gitlabURL && validateGitlabURL(href)) {
+            if (url.origin === gitlabURL && validateGitlabUrl(href)) {
                 const linkInfo = getInfoAboutLink(href, url.hostname);
                 let res;
                 switch (linkInfo?.type) {
@@ -96,8 +96,8 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
             icon = (
                 <GitLabMergeRequestIcon
                     fill={OPENED_COLOR}
-                    width={TOOLTIP_ICON_WIDTH}
-                    height={TOOLTIP_ICON_WIDTH}
+                    width={TOOLTIP_ICON_DIMENSION}
+                    height={TOOLTIP_ICON_DIMENSION}
                 />
             );
             if (data.state === STATE_TYPES.CLOSED) {

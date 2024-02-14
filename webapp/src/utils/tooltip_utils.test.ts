@@ -1,21 +1,21 @@
 import {describe, expect, it} from '@jest/globals';
 
-import {validateGitlabURL, isValidUrl} from './tooltip_utils';
+import {validateGitlabUrl, isValidUrl} from './tooltip_utils';
 
-describe('validateGitlabURL should work as expected', () => {
+describe('validateGitlabUrl should work as expected', () => {
     it('Should return true for valid GitLab repository URL', () => {
         const URL = 'https://gitlab.com/username/repo/-/merge_requests/1234';
-        expect(validateGitlabURL(URL)).toBe(true);
+        expect(validateGitlabUrl(URL)).toBe(true);
     });
 
     it('Should return false for invalid GitLab repository URL', () => {
         const URL = 'https://github.com/username/repo';
-        expect(validateGitlabURL(URL)).toBe(false);
+        expect(validateGitlabUrl(URL)).toBe(false);
     });
 
     it('Should return false for non-URL string input', () => {
         const URL = 'not a URL';
-        expect(validateGitlabURL(URL)).toBe(false);
+        expect(validateGitlabUrl(URL)).toBe(false);
     });
 });
 
