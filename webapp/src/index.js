@@ -8,7 +8,6 @@ import TeamSidebar from './components/team_sidebar';
 import RHSSidebar from './components/rhs_sidebar';
 import UserAttribute from './components/user_attribute';
 import SidebarRight from './components/sidebar_right';
-import LinkTooltip from './components/link_tooltip';
 
 import Reducer from './reducers';
 import {getConnected, setShowRHSAction} from './actions';
