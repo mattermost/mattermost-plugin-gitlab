@@ -2,8 +2,10 @@ import {combineReducers} from 'redux';
 
 import ActionTypes from '../action_types';
 import Constants from '../constants';
+import {Item} from 'src/types/gitlab_items';
+import {ConnectedData, GitlabUsersData, LHSData, ShowRhsPluginActionData, SubscriptionData} from 'src/types';
 
-function connected(state = false, action) {
+function connected(state = false, action: {type: string, data: ConnectedData}) {
     switch (action.type) {
     case ActionTypes.RECEIVED_CONNECTED:
         return action.data.connected;
@@ -12,7 +14,7 @@ function connected(state = false, action) {
     }
 }
 
-function gitlabURL(state = '', action) {
+function gitlabURL(state = '', action: {type: string, data: ConnectedData}) {
     switch (action.type) {
     case ActionTypes.RECEIVED_CONNECTED:
         if (action.data && action.data.gitlab_url) {
@@ -24,7 +26,7 @@ function gitlabURL(state = '', action) {
     }
 }
 
-function organization(state = '', action) {
+function organization(state = '', action: {type: string, data: ConnectedData}) {
     switch (action.type) {
     case ActionTypes.RECEIVED_CONNECTED:
         if (action.data && action.data.organization) {
@@ -36,7 +38,7 @@ function organization(state = '', action) {
     }
 }
 
-function username(state = '', action) {
+function username(state = '', action: {type: string, data: ConnectedData}) {
     switch (action.type) {
     case ActionTypes.RECEIVED_CONNECTED:
         return action.data.gitlab_username;
@@ -51,7 +53,7 @@ function settings(
         daily_reminder: true,
         notifications: true,
     },
-    action,
+    action: {type: string, data: ConnectedData},
 ) {
     switch (action.type) {
     case ActionTypes.RECEIVED_CONNECTED:
@@ -61,7 +63,7 @@ function settings(
     }
 }
 
-function clientId(state = '', action) {
+function clientId(state = '', action: {type: string, data: ConnectedData}) {
     switch (action.type) {
     case ActionTypes.RECEIVED_CONNECTED:
         return action.data.gitlab_client_id;
@@ -70,7 +72,7 @@ function clientId(state = '', action) {
     }
 }
 
-function reviewDetails(state = [], action) {
+function reviewDetails(state = [], action: {type: string, data: Item}) {
     switch (action.type) {
     case ActionTypes.RECEIVED_REVIEW_DETAILS:
         return action.data;
@@ -79,7 +81,7 @@ function reviewDetails(state = [], action) {
     }
 }
 
-function yourPrDetails(state = [], action) {
+function yourPrDetails(state = [], action: {type: string, data: Item}) {
     switch (action.type) {
     case ActionTypes.RECEIVED_YOUR_PR_DETAILS:
         return action.data;
@@ -88,7 +90,7 @@ function yourPrDetails(state = [], action) {
     }
 }
 
-function lhsData(state = [], action) {
+function lhsData(state = [], action: {type: string, data: LHSData}) {
     switch (action.type) {
     case ActionTypes.RECEIVED_LHS_DATA:
         return action.data;
@@ -97,16 +99,7 @@ function lhsData(state = [], action) {
     }
 }
 
-function mentions(state = [], action) {
-    switch (action.type) {
-    case ActionTypes.RECEIVED_MENTIONS:
-        return action.data;
-    default:
-        return state;
-    }
-}
-
-function rhsPluginAction(state = null, action) {
+function rhsPluginAction(state = null, action: {type: string, showRHSPluginAction: ShowRhsPluginActionData}) {
     switch (action.type) {
     case ActionTypes.RECEIVED_SHOW_RHS_ACTION:
         return action.showRHSPluginAction;
@@ -115,7 +108,7 @@ function rhsPluginAction(state = null, action) {
     }
 }
 
-function rhsState(state = null, action) {
+function rhsState(state = null, action: {type: string, state: string}) {
     switch (action.type) {
     case ActionTypes.UPDATE_RHS_STATE:
         return action.state;
@@ -124,7 +117,7 @@ function rhsState(state = null, action) {
     }
 }
 
-function gitlabUsers(state = {}, action) {
+function gitlabUsers(state: Record<string, GitlabUsersData> = {}, action: {type: string, data: GitlabUsersData, userID: string}) {
     switch (action.type) {
     case ActionTypes.RECEIVED_GITLAB_USER: {
         const nextState = {...state};
@@ -136,7 +129,7 @@ function gitlabUsers(state = {}, action) {
     }
 }
 
-function subscriptions(state = {}, action) {
+function subscriptions(state: Record<string, SubscriptionData> = {}, action: {type: string, data: {channelId: string, subscriptions: SubscriptionData}}) {
     switch (action.type) {
     case ActionTypes.RECEIVED_CHANNEL_SUBSCRIPTIONS: {
         const nextState = {...state};
@@ -156,7 +149,6 @@ export default combineReducers({
     username,
     settings,
     clientId,
-    mentions,
     gitlabUsers,
     rhsPluginAction,
     rhsState,

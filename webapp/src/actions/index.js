@@ -88,32 +88,6 @@ export function getYourPrDetails(prList) {
     };
 }
 
-export function getMentions() {
-    return async (dispatch, getState) => {
-        let data;
-        try {
-            data = await Client.getMentions();
-        } catch (error) {
-            return {error};
-        }
-
-        const connected = await checkAndHandleNotConnected(data)(
-            dispatch,
-            getState,
-        );
-        if (!connected) {
-            return {error: data};
-        }
-
-        dispatch({
-            type: ActionTypes.RECEIVED_MENTIONS,
-            data,
-        });
-
-        return {data};
-    };
-}
-
 export function getLHSData() {
     return async (dispatch, getState) => {
         let data;

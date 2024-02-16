@@ -18,10 +18,6 @@ export default class Client {
         return this.doGet(`${this.url}/lhs-data`);
     }
 
-    getMentions = async () => {
-        return this.doGet(`${this.url}/mentions`);
-    };
-
     getGitlabUser = async (userID) => {
         return this.doPost(`${this.url}/user`, {user_id: userID});
     };

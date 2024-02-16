@@ -1,0 +1,41 @@
+import {Item} from './gitlab_items';
+
+export type ConnectedData = {
+    gitlab_url: string;
+    connected: boolean;
+    organization: string;
+    gitlab_username: string;
+    settings: UserSettingsData;
+    gitlab_client_id: string;
+}
+
+export type LHSData = {
+    review: Item;
+    yourAssignedPrs: Item;
+    yourAssignedIssues: Item;
+    todos: Item;
+}
+
+export type UserSettingsData = {
+    sidebar_buttons: string;
+    daily_reminder: boolean;
+    notifications: boolean;
+}
+
+export type GitlabUsersData = {
+    username: string;
+    last_try: number;
+}
+
+export type SubscriptionData = {
+    repository_url: string;
+    repository_name: string;
+    features: string[];
+    creator_id: string;
+}
+
+export type ShowRhsPluginActionData = {
+    type: string;
+    state: string;
+    pluggableId: string;
+}
