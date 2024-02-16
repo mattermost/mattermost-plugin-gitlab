@@ -39,3 +39,9 @@ export type ShowRhsPluginActionData = {
     state: string;
     pluggableId: string;
 }
+
+export type APIError = {
+    id?: string;
+    message: string;
+    status: number;
+}
