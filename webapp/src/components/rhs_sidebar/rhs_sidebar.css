@@ -88,13 +88,13 @@
 .gitlab-rhs-Description {
     font-size: 12px;
     font-weight: 400;
-    letterSpacing: 0;
+    letter-spacing: 0;
 }
 
 .gitlab-rhs-Username {
     font-size: 11px;
     font-weight: 600;
-    letterSpacing: 0.02em;
+    letter-spacing: 0.02em;
 }
 
 .gitlab-rhs-GitLabURL {
@@ -133,8 +133,7 @@
     font-size: 12px;
     font-weight: 600;
     line-height: 16px;
-    letterSpacing: 0.02em;
-    textTransform: uppercase;
+    letter-spacing: 0.02em;
     margin: 0 0 4px 0;
     color: rgba(var(--center-channel-color-rgb), 0.72);
 }

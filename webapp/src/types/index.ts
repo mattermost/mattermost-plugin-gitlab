@@ -10,10 +10,10 @@ export type ConnectedData = {
 }
 
 export type LHSData = {
-    review: Item;
-    yourAssignedPrs: Item;
-    yourAssignedIssues: Item;
-    todos: Item;
+    reviews: Item[];
+    yourAssignedPrs: Item[];
+    yourAssignedIssues: Item[];
+    todos: Item[];
 }
 
 export type UserSettingsData = {

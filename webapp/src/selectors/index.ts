@@ -3,8 +3,10 @@ import {getConfig} from 'mattermost-redux/selectors/entities/general';
 import {createSelector} from 'reselect';
 
 import manifest from '../manifest';
+import {Item} from 'src/types/gitlab_items';
+import {GlobalState, PluginState, pluginStateKey} from 'src/types/store';
 
-export const getPluginServerRoute = (state) => {
+export const getPluginServerRoute = (state: GlobalState) => {
     const config = getConfig(state);
 
     let basePath = '';
@@ -19,7 +21,7 @@ export const getPluginServerRoute = (state) => {
     return basePath + '/plugins/' + manifest.id;
 };
 
-function mapPrsToDetails(prs, details) {
+function mapPrsToDetails(prs: Item[], details: Item[]) {
     if (!prs || !prs.length) {
         return [];
     }
@@ -39,11 +41,11 @@ function mapPrsToDetails(prs, details) {
     });
 }
 
-export const getPluginState = (state) => state[`plugins-${manifest.id}`];
+export const getPluginState = (state: GlobalState) => state[`plugins-${manifest.id}` as pluginStateKey];
 
 export const getSidebarData = createSelector(
     getPluginState,
-    (pluginState) => {
+    (pluginState: PluginState) => {
         return {
             username: pluginState.username,
             reviewDetails: pluginState.reviewDetails,
