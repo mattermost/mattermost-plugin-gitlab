@@ -135,7 +135,7 @@ func (g *gitlab) GetGroupHooks(ctx context.Context, user *UserInfo, token *oauth
 		return nil, err
 	}
 
-	hooks, resp, err := client.Groups.ListGroupHooks(owner, internGitlab.WithContext(ctx))
+	hooks, resp, err := client.Groups.ListGroupHooks(owner, nil, internGitlab.WithContext(ctx))
 	if respErr := checkResponse(resp); respErr != nil {
 		return nil, respErr
 	}
@@ -554,7 +554,7 @@ func (g *gitlab) GetYourAssignedIssues(ctx context.Context, user *UserInfo, clie
 
 	if g.gitlabGroup == "" {
 		opt := &internGitlab.ListIssuesOptions{
-			AssigneeID:  &user.GitlabUserID,
+			AssigneeID:  internGitlab.AssigneeID(user.GitlabUserID),
 			State:       &opened,
 			Scope:       &scope,
 			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: perPage},
@@ -572,7 +572,7 @@ func (g *gitlab) GetYourAssignedIssues(ctx context.Context, user *UserInfo, clie
 		}
 	} else {
 		opt := &internGitlab.ListGroupIssuesOptions{
-			AssigneeID:  &user.GitlabUserID,
+			AssigneeID:  internGitlab.AssigneeID(user.GitlabUserID),
 			State:       &opened,
 			Scope:       &scope,
 			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: perPage},

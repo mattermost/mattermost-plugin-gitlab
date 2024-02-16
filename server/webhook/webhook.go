@@ -114,7 +114,7 @@ func (w *webhook) handleMention(m mentionDetails) *HandleWebhook {
 	return nil
 }
 
-func sameLabels(a []gitlab.Label, b []gitlab.Label) bool {
+func sameLabels(a []*gitlab.EventLabel, b []*gitlab.EventLabel) bool {
 	if len(a) != len(b) {
 		return false
 	}
@@ -126,28 +126,19 @@ func sameLabels(a []gitlab.Label, b []gitlab.Label) bool {
 	return true
 }
 
-func containsLabelPointer(a []*gitlab.Label, labelName string) bool {
+func containsLabel(a []*gitlab.EventLabel, labelName string) bool {
 	for _, l := range a {
-		if l != nil && l.Name == labelName {
+		if l != nil && l.Title == labelName {
 			return true
 		}
 	}
 	return false
 }
 
-func containsLabel(a []gitlab.Label, labelName string) bool {
-	for _, l := range a {
-		if l.Name == labelName {
-			return true
-		}
-	}
-	return false
-}
-
-func labelToString(a []gitlab.Label) string {
+func labelToString(a []*gitlab.EventLabel) string {
 	names := make([]string, len(a))
 	for index, l := range a {
-		names[index] = l.Name
+		names[index] = l.Title
 	}
 	return strings.Join(names, ", ")
 }
