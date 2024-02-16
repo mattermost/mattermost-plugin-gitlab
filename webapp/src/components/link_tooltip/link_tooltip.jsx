@@ -32,7 +32,6 @@ const LINK_TYPES = {
 };
 
 const TOOLTIP_ICON_DIMENSION = 16;
-const TOOLTIP_MAX_DESCRIPTION_LENGTH = 160;
 const TOOLTIP_MAX_TITLE_LENGTH = 70;
 
 export const getInfoAboutLink = (href, hostname) => {
@@ -153,7 +152,7 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
                         </a>
                         <div className='markdown-text mt-1 mb-1'>
                             <ReactMarkdown
-                                source={getTruncatedText(data.description, TOOLTIP_MAX_DESCRIPTION_LENGTH)}
+                                source={data.description}
                                 disallowedTypes={['heading']}
                                 linkTarget='_blank'
                             />

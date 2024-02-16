@@ -77,7 +77,10 @@
     overflow: hidden;
     font-size: 12px;
     word-break: break-word;
-    line-height: 16px
+    line-height: 16px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;  
 }
 
 .gitlab-tooltip .tooltip-info .markdown-text::-webkit-scrollbar {
