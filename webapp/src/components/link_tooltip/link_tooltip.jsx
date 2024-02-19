@@ -47,7 +47,7 @@ export const getInfoAboutLink = (href, hostname) => {
     return {};
 };
 
-export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
+export const LinkTooltip = ({href, connected, connectedGitlabUrl, show}) => {
     const [data, setData] = useState(null);
     const dispatch = useDispatch();
     useEffect(() => {
@@ -60,8 +60,9 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
         }
 
         const url = new URL(href);
+        const gitlabUrl = new URL(connectedGitlabUrl);
         const init = async () => {
-            if (url.origin === gitlabURL && validateGitlabUrl(href)) {
+            if (url.host === gitlabUrl.host && validateGitlabUrl(href)) {
                 const linkInfo = getInfoAboutLink(href, url.hostname);
                 let res;
                 switch (linkInfo?.type) {
@@ -201,6 +202,6 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
 LinkTooltip.propTypes = {
     href: PropTypes.string.isRequired,
     connected: PropTypes.bool.isRequired,
-    gitlabURL: PropTypes.string.isRequired,
+    connectedGitlabUrl: PropTypes.string.isRequired,
     show: PropTypes.bool,
 };

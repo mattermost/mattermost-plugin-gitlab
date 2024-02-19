@@ -8,7 +8,7 @@ const mapStateToProps = (state) => {
     const {id} = manifest;
     return {
         connected: state[`plugins-${id}`].connected,
-        gitlabURL: state[`plugins-${id}`].gitlabURL,
+        connectedGitlabUrl: state[`plugins-${id}`].gitlabURL,
     };
 };
 
