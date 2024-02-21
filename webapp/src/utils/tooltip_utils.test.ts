@@ -4,18 +4,18 @@ import {validateGitlabUrl, isValidUrl} from './tooltip_utils';
 
 describe('validateGitlabUrl should work as expected', () => {
     it('Should return true for valid GitLab repository URL', () => {
-        const URL = 'https://gitlab.com/username/repo/-/merge_requests/1234';
-        expect(validateGitlabUrl(URL)).toBe(true);
+        const url = 'https://gitlab.com/username/repo/-/merge_requests/1234';
+        expect(validateGitlabUrl(url)).toBe(true);
     });
 
     it('Should return false for invalid GitLab repository URL', () => {
-        const URL = 'https://github.com/username/repo';
-        expect(validateGitlabUrl(URL)).toBe(false);
+        const url = 'https://github.com/username/repo';
+        expect(validateGitlabUrl(url)).toBe(false);
     });
 
     it('Should return false for non-URL string input', () => {
-        const URL = 'not a URL';
-        expect(validateGitlabUrl(URL)).toBe(false);
+        const url = 'not a URL';
+        expect(validateGitlabUrl(url)).toBe(false);
     });
 });
 

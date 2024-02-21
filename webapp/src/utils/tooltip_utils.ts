@@ -1,5 +1,7 @@
+// Regex to match if a URl is valid merge request of issue URL
+const gitlabRegexPattern = /https?:\/\/(www\.)?.*\/([\w.?-]+)\/([\w-]+)\/-\/([\w-]+)\/([\d-]+$)/g;
+
 export const validateGitlabUrl = (url: string): boolean => {
-    const gitlabRegexPattern = /https?:\/\/(www\.)?.*\/([\w.?-]+)\/([\w-]+)\/-\/([\w-]+)\/([\d-]+$)/g;
     return gitlabRegexPattern.test(url);
 };
 
