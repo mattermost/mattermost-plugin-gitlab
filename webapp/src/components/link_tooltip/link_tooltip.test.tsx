@@ -1,3 +1,5 @@
+import {describe, expect, it} from '@jest/globals';
+
 const {getInfoAboutLink} = require('../../utils/tooltip_utils');
 
 describe('getInfoAboutLink should work as expected', () => {
