@@ -1,15 +1,15 @@
 import React, {useEffect, useState} from 'react';
-import PropTypes from 'prop-types';
 import ReactMarkdown from 'react-markdown';
-
-import {useDispatch} from 'react-redux';
+import {useDispatch, useSelector} from 'react-redux';
 
 import {logError} from 'mattermost-redux/actions/errors';
 
 import {GitLabIssueOpenIcon, GitLabMergeRequestIcon, GitLabMergeRequestClosedIcon, GitLabMergedIcon, GitLabIssueClosedIcon} from '../../utils/icons';
 
 import Client from '../../client';
-import {getTruncatedText, validateGitlabUrl, isValidUrl} from '../../utils/tooltip_utils';
+import {getTruncatedText, validateGitlabUrl, isValidUrl, getInfoAboutLink} from '../../utils/tooltip_utils';
+import {TooltipData} from 'src/types/gitlab_items';
+import {getConnected, getConnectedGitlabUrl} from 'src/selectors';
 
 import './tooltip.css';
 
@@ -34,21 +34,17 @@ const LINK_TYPES = {
 const TOOLTIP_ICON_DIMENSION = 16;
 const TOOLTIP_MAX_TITLE_LENGTH = 70;
 
-export const getInfoAboutLink = (href, hostname) => {
-    const linkInfo = href.split(`${hostname}/`)[1].split('/');
-    if (linkInfo.length >= 5) {
-        return {
-            owner: linkInfo[0],
-            repo: linkInfo[1],
-            type: linkInfo[3],
-            number: linkInfo[4],
-        };
-    }
-    return {};
-};
+type Props = {
+    href: string;
+    show: boolean;
+}
 
-export const LinkTooltip = ({href, connected, connectedGitlabUrl, show}) => {
-    const [data, setData] = useState(null);
+const LinkTooltip = ({href, show}: Props) => {
+    const [data, setData] = useState<TooltipData | null>(null);
+
+    const connected = useSelector(getConnected);
+    const connectedGitlabUrl = useSelector(getConnectedGitlabUrl);
+
     const dispatch = useDispatch();
     useEffect(() => {
         if (!connected || !show) {
@@ -73,7 +69,7 @@ export const LinkTooltip = ({href, connected, connectedGitlabUrl, show}) => {
                     res = await Client.getPullRequest(linkInfo.owner, linkInfo.repo, linkInfo.number);
                     break;
                 default:
-                    dispatch(logError(`link type ${linkInfo?.type} is not supported to display a tooltip`));
+                    dispatch(logError({message: `link type ${linkInfo.type} is not supported to display a tooltip`}));
                     return;
                 }
 
@@ -86,6 +82,10 @@ export const LinkTooltip = ({href, connected, connectedGitlabUrl, show}) => {
 
         init();
     }, [connected, href, show]);
+
+    if (!data || !show) {
+        return null;
+    }
 
     const getIconElement = () => {
         let color;
@@ -111,7 +111,7 @@ export const LinkTooltip = ({href, connected, connectedGitlabUrl, show}) => {
             icon = data.state === STATE_TYPES.OPENED ? <GitLabIssueOpenIcon fill={OPENED_COLOR}/> : <GitLabIssueClosedIcon fill={ISSUE_CLOSED_COLOR}/>;
             break;
         default:
-            dispatch(logError(`link type ${data.type} is not supported to display a tooltip`));
+            dispatch(logError({message: `link type ${data.type} is not supported to display a tooltip`}));
         }
 
         return (
@@ -120,10 +120,6 @@ export const LinkTooltip = ({href, connected, connectedGitlabUrl, show}) => {
             </span>
         );
     };
-
-    if (!data || !show) {
-        return null;
-    }
 
     const date = new Date(data.created_at).toDateString();
 
@@ -185,9 +181,9 @@ export const LinkTooltip = ({href, connected, connectedGitlabUrl, show}) => {
                                         key={label.name}
                                         className='label mr-1'
                                         title={label.description}
-                                        style={{backgroundColor: label.color}}
+                                        style={{backgroundColor: label.color as string}}
                                     >
-                                        <span style={{color: label.text_color}}>{label.name}</span>
+                                        <span style={{color: label.text_color as string}}>{label.name}</span>
                                     </span>
                                 );
                             })}
@@ -199,9 +195,4 @@ export const LinkTooltip = ({href, connected, connectedGitlabUrl, show}) => {
     );
 };
 
-LinkTooltip.propTypes = {
-    href: PropTypes.string.isRequired,
-    connected: PropTypes.bool.isRequired,
-    connectedGitlabUrl: PropTypes.string.isRequired,
-    show: PropTypes.bool,
-};
+export default LinkTooltip;

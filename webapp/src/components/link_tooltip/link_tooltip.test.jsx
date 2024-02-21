@@ -1,4 +1,4 @@
-import {getInfoAboutLink} from './link_tooltip';
+const {getInfoAboutLink} = require('../../utils/tooltip_utils');
 
 describe('getInfoAboutLink should work as expected', () => {
     it('Should return an object of correct owner, repo, type, and number when given a valid GitLab hostname and href with all required information', () => {

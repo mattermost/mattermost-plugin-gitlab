@@ -20,3 +20,16 @@ export const getTruncatedText = (text: string, length: number): string => {
     }
     return truncatedText;
 };
+
+export const getInfoAboutLink = (href: string, hostname: string) => {
+    const linkInfo = href.split(`${hostname}/`)[1].split('/');
+    if (linkInfo.length >= 5) {
+        return {
+            owner: linkInfo[0],
+            repo: linkInfo[1],
+            type: linkInfo[3],
+            number: linkInfo[4],
+        };
+    }
+    return {};
+};
