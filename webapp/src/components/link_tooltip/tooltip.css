@@ -44,6 +44,11 @@
     line-height: 1.25;
 }
 
+/* Icon */
+.gitlab-tooltip .tooltip-icon {
+    margin: 5px 5px 0 0;
+}
+
 /* Info */
 .gitlab-tooltip .tooltip-info {
     display: flex;
@@ -51,6 +56,11 @@
     font-family: Metropolis,sans-serif;
     font-size: 16px;
     line-height: 22px;
+}
+
+/* Info */
+.gitlab-tooltip .tooltip-info a {
+    line-height: normal;
 }
 
 .gitlab-tooltip .tooltip-info > a, .gitlab-tooltip .tooltip-info > a:hover {

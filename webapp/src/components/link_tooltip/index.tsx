@@ -138,7 +138,7 @@ const LinkTooltip = ({href, show}: Props) => {
                 </div>
 
                 <div className='body d-flex mt-1'>
-                    <span className='pt-2 pb-1 pr-2'>
+                    <span className='tooltip-icon'>
                         {getIconElement()}
                     </span>
 
