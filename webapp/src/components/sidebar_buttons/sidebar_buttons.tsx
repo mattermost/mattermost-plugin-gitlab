@@ -10,7 +10,7 @@ import {Theme} from 'mattermost-redux/types/preferences';
 import {RHSStates, connectUsingBrowserMessage} from '../../constants';
 import {isDesktopApp} from '../../utils/user_agent';
 
-import {GitLabIssuesIcon, GitLabMergeRequestIcon, GitLabReviewsIcon, GitLabTodosIcon} from './button_icons';
+import {GitLabIssuesIcon, GitLabMergeRequestIcon, GitLabReviewsIcon, GitLabTodosIcon} from '../../utils/icons';
 
 interface SidebarButtonsProps {
     theme: Theme;

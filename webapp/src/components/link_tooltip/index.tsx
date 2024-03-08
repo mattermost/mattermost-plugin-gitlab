@@ -1,15 +1,15 @@
 import React, {useEffect, useState} from 'react';
-import PropTypes from 'prop-types';
 import ReactMarkdown from 'react-markdown';
-import {GitMergeIcon, GitPullRequestIcon, IssueClosedIcon, IssueOpenedIcon} from '@primer/octicons-react';
-
-import {useDispatch} from 'react-redux';
+import {useDispatch, useSelector} from 'react-redux';
 
 import {logError} from 'mattermost-redux/actions/errors';
 
+import {GitLabIssueOpenIcon, GitLabMergeRequestIcon, GitLabMergeRequestClosedIcon, GitLabMergedIcon, GitLabIssueClosedIcon} from '../../utils/icons';
+
 import Client from '../../client';
-import {validateGitlabURL} from '../../utils/regex_utils';
-import {isValidUrl} from '../../utils/url_utils';
+import {getTruncatedText, validateGitlabUrl, isValidUrl, getInfoAboutLink} from '../../utils/tooltip_utils';
+import {TooltipData} from 'src/types/gitlab_items';
+import {getConnected, getConnectedGitlabUrl} from 'src/selectors';
 
 import './tooltip.css';
 
@@ -17,11 +17,13 @@ const STATE_COLOR_MAP = {
     OPENED_COLOR: '#28a745',
     CLOSED_COLOR: '#cb2431',
     MERGED_COLOR: '#6f42c1',
+    ISSUE_CLOSED_COLOR: '#0b5cad',
 };
 
 const STATE_TYPES = {
     OPENED: 'opened',
     CLOSED: 'closed',
+    MERGED: 'merged',
 };
 
 const LINK_TYPES = {
@@ -29,21 +31,20 @@ const LINK_TYPES = {
     ISSUES: 'issues',
 };
 
-export const getInfoAboutLink = (href, hostname) => {
-    const linkInfo = href.split(`${hostname}/`)[1].split('/');
-    if (linkInfo.length >= 5) {
-        return {
-            owner: linkInfo[0],
-            repo: linkInfo[1],
-            type: linkInfo[3],
-            number: linkInfo[4],
-        };
-    }
-    return {};
-};
+const TOOLTIP_ICON_DIMENSION = 16;
+const TOOLTIP_MAX_TITLE_LENGTH = 70;
 
-export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
-    const [data, setData] = useState(null);
+type Props = {
+    href: string;
+    show: boolean;
+}
+
+const LinkTooltip = ({href, show}: Props) => {
+    const [data, setData] = useState<TooltipData | null>(null);
+
+    const connected = useSelector(getConnected);
+    const connectedGitlabUrl = useSelector(getConnectedGitlabUrl);
+
     const dispatch = useDispatch();
     useEffect(() => {
         if (!connected || !show) {
@@ -55,8 +56,9 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
         }
 
         const url = new URL(href);
+        const gitlabUrl = new URL(connectedGitlabUrl);
         const init = async () => {
-            if (url.origin === gitlabURL && validateGitlabURL(href)) {
+            if (url.host === gitlabUrl.host && validateGitlabUrl(href)) {
                 const linkInfo = getInfoAboutLink(href, url.hostname);
                 let res;
                 switch (linkInfo?.type) {
@@ -67,7 +69,7 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
                     res = await Client.getPullRequest(linkInfo.owner, linkInfo.repo, linkInfo.number);
                     break;
                 default:
-                    dispatch(logError(`link type ${linkInfo?.type} is not supported to display a tooltip`));
+                    dispatch(logError({message: `link type ${linkInfo.type} is not supported to display a tooltip`}));
                     return;
                 }
 
@@ -81,34 +83,35 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
         init();
     }, [connected, href, show]);
 
-    const getIconElement = () => {
-        const iconProps = {
-            size: 'small',
-            verticalAlign: 'text-bottom',
-        };
+    if (!data || !show) {
+        return null;
+    }
 
+    const getIconElement = () => {
         let color;
         let icon;
-        const {OPENED_COLOR, CLOSED_COLOR, MERGED_COLOR} = STATE_COLOR_MAP;
+        const {OPENED_COLOR, CLOSED_COLOR, MERGED_COLOR, ISSUE_CLOSED_COLOR} = STATE_COLOR_MAP;
         switch (data.type) {
         case LINK_TYPES.MERGE_REQUESTS:
-            color = OPENED_COLOR;
-            icon = <GitPullRequestIcon {...iconProps}/>;
+            icon = (
+                <GitLabMergeRequestIcon
+                    fill={OPENED_COLOR}
+                    width={TOOLTIP_ICON_DIMENSION}
+                    height={TOOLTIP_ICON_DIMENSION}
+                />
+            );
             if (data.state === STATE_TYPES.CLOSED) {
-                if (data.merged) {
-                    color = MERGED_COLOR;
-                    icon = <GitMergeIcon {...iconProps}/>;
-                } else {
-                    color = CLOSED_COLOR;
-                }
+                icon = <GitLabMergeRequestClosedIcon fill={CLOSED_COLOR}/>;
+            } else if (data.state === STATE_TYPES.MERGED) {
+                icon = <GitLabMergedIcon fill={MERGED_COLOR}/>;
             }
             break;
         case LINK_TYPES.ISSUES:
             color = data.state === STATE_TYPES.OPENED ? OPENED_COLOR : CLOSED_COLOR;
-            icon = data.state === STATE_TYPES.OPENED ? <IssueOpenedIcon {...iconProps}/> : <IssueClosedIcon {...iconProps}/>;
+            icon = data.state === STATE_TYPES.OPENED ? <GitLabIssueOpenIcon fill={OPENED_COLOR}/> : <GitLabIssueClosedIcon fill={ISSUE_CLOSED_COLOR}/>;
             break;
         default:
-            dispatch(logError(`link type ${data.type} is not supported to display a tooltip`));
+            dispatch(logError({message: `link type ${data.type} is not supported to display a tooltip`}));
         }
 
         return (
@@ -117,10 +120,6 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
             </span>
         );
     };
-
-    if (!data || !show) {
-        return null;
-    }
 
     const date = new Date(data.created_at).toDateString();
 
@@ -138,14 +137,14 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
                     <span>{date}</span>
                 </div>
 
-                <div className='body d-flex mt-2'>
-                    <span className='pt-1 pb-1 pr-2'>
+                <div className='body d-flex mt-1'>
+                    <span className='tooltip-icon'>
                         {getIconElement()}
                     </span>
 
                     <div className='tooltip-info mt-1'>
                         <a href={href}>
-                            <h5 className='mr-1'>{data.title}</h5>
+                            <h5 className='mr-1'>{getTruncatedText(data.title, TOOLTIP_MAX_TITLE_LENGTH)}</h5>
                             <span className='mr-number'>{`#${data.iid}`}</span>
                         </a>
                         <div className='markdown-text mt-1 mb-1'>
@@ -174,16 +173,6 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
                             </div>
                         )}
 
-                        <div className='see-more mt-1'>
-                            <a
-                                href={href}
-                                target='_blank'
-                                rel='noopener noreferrer'
-                            >
-                                {'See more'}
-                            </a>
-                        </div>
-
                         {/* Labels */}
                         <div className='labels mt-3'>
                             {data.labels && data.labels_with_details?.length && data.labels_with_details.map((label) => {
@@ -192,9 +181,9 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
                                         key={label.name}
                                         className='label mr-1'
                                         title={label.description}
-                                        style={{backgroundColor: label.color}}
+                                        style={{backgroundColor: label.color as string}}
                                     >
-                                        <span style={{color: label.text_color}}>{label.name}</span>
+                                        <span style={{color: label.text_color as string}}>{label.name}</span>
                                     </span>
                                 );
                             })}
@@ -206,9 +195,4 @@ export const LinkTooltip = ({href, connected, gitlabURL, show}) => {
     );
 };
 
-LinkTooltip.propTypes = {
-    href: PropTypes.string.isRequired,
-    connected: PropTypes.bool.isRequired,
-    gitlabURL: PropTypes.string.isRequired,
-    show: PropTypes.bool,
-};
+export default LinkTooltip;
