@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -11,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	gitLabAPI "github.com/xanzy/go-gitlab"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
@@ -23,7 +25,9 @@ type subscribeCommandTest struct {
 	want           string
 	webhookInfo    []*gitlab.WebhookInfo
 	mattermostURL  string
+	noAccess       bool
 	projectHookErr error
+	getProjectErr  error
 	mockGitlab     bool
 }
 
@@ -36,6 +40,25 @@ var subscribeCommandTests = []subscribeCommandTest{
 		testName:   "No Subscriptions",
 		parameters: []string{"list"},
 		want:       "Currently there are no subscriptions in this channel",
+	},
+	{
+		testName:      "No Repository permissions",
+		parameters:    []string{"add", "group/project"},
+		mockGitlab:    true,
+		want:          "You don't have the permissions to create subscriptions for this project.",
+		webhookInfo:   []*gitlab.WebhookInfo{{URL: "example.com/somewebhookURL"}},
+		noAccess:      true,
+		mattermostURL: "example.com",
+		getProjectErr: errors.New("unable to get project"),
+	},
+	{
+		testName:      "Guest permissions only",
+		parameters:    []string{"add", "group/project"},
+		mockGitlab:    true,
+		want:          "You don't have the permissions to create subscriptions for this project.",
+		webhookInfo:   []*gitlab.WebhookInfo{{URL: "example.com/somewebhookURL"}},
+		noAccess:      true,
+		mattermostURL: "example.com",
 	},
 	{
 		testName:      "Hook Found",
@@ -78,9 +101,11 @@ func TestSubscribeCommand(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
 
 			channelID := "12345"
-			userInfo := &gitlab.UserInfo{}
+			userInfo := &gitlab.UserInfo{
+				UserID: "user_id",
+			}
 
-			p := getTestPlugin(t, mockCtrl, test.webhookInfo, test.mattermostURL, test.projectHookErr, test.mockGitlab)
+			p := getTestPlugin(t, mockCtrl, test.webhookInfo, test.mattermostURL, test.projectHookErr, test.getProjectErr, test.mockGitlab, test.noAccess)
 			subscribeMessage := p.subscribeCommand(context.Background(), test.parameters, channelID, &configuration{}, userInfo)
 
 			assert.Equal(t, test.want, subscribeMessage, "Subscribe command message should be the same.")
@@ -224,15 +249,34 @@ func TestListWebhookCommand(t *testing.T) {
 	}
 }
 
-func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.WebhookInfo, mattermostURL string, projectHookErr error, mockGitlab bool) *Plugin {
+func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.WebhookInfo, mattermostURL string, projectHookErr error, getProjectErr error, mockGitlab, noAccess bool) *Plugin {
 	p := new(Plugin)
+
+	accessLevel := gitLabAPI.OwnerPermission
+	if noAccess {
+		accessLevel = gitLabAPI.GuestPermissions
+	}
 
 	mockedClient := mocks.NewMockGitlab(mockCtrl)
 	if mockGitlab {
 		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("group", "project", nil)
-		mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
-		if projectHookErr == nil {
-			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
+		if getProjectErr != nil {
+			mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, getProjectErr)
+		} else {
+			mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&gitLabAPI.Project{
+				Permissions: &gitLabAPI.Permissions{
+					ProjectAccess: &gitLabAPI.ProjectAccess{
+						AccessLevel: accessLevel,
+					},
+				},
+			}, nil)
+		}
+
+		if !noAccess {
+			mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
+			if projectHookErr == nil {
+				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
+			}
 		}
 	}
 
@@ -247,15 +291,32 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.We
 		EncryptionKey: testEncryptionKey,
 	}
 
+	info := gitlab.UserInfo{
+		UserID:         "user_id",
+		GitlabUsername: "gitlab_username",
+	}
+
+	jsonInfo, err := json.Marshal(info)
+	require.NoError(t, err)
+
 	var subVal []byte
 
 	api := &plugintest.API{}
 	api.On("GetConfig", mock.Anything).Return(conf)
-	api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
-	api.On("KVGet", mock.Anything).Return(subVal, nil)
+	api.On("KVGet", "user_id_usertoken").Return([]byte(encryptedToken), nil)
+	api.On("KVGet", "user_id_userinfo").Return(subVal, nil).Once()
+	api.On("KVGet", "user_id_gitlabtoken").Return(jsonInfo, nil).Once()
+	api.On("KVGet", "subscriptions").Return(subVal, nil)
+
 	api.On("KVSet", mock.Anything, mock.Anything).Return(nil)
 	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil)
 	api.On("PublishWebSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	api.On("LogWarn",
+		mock.AnythingOfTypeArgument("string"),
+		mock.AnythingOfTypeArgument("string"),
+		mock.AnythingOfTypeArgument("string"),
+		mock.AnythingOfTypeArgument("string"),
+		mock.AnythingOfTypeArgument("string"))
 
 	p.SetAPI(api)
 	p.client = pluginapi.NewClient(api, p.Driver)

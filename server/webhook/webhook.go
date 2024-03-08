@@ -37,7 +37,7 @@ type HandleWebhook struct {
 }
 
 type Webhook interface {
-	HandleIssue(ctx context.Context, event *gitlab.IssueEvent) ([]*HandleWebhook, error)
+	HandleIssue(ctx context.Context, event *gitlab.IssueEvent, eventType gitlab.EventType) ([]*HandleWebhook, error)
 	HandleMergeRequest(ctx context.Context, event *gitlab.MergeEvent) ([]*HandleWebhook, error)
 	HandleIssueComment(ctx context.Context, event *gitlab.IssueCommentEvent) ([]*HandleWebhook, error)
 	HandleMergeRequestComment(ctx context.Context, event *gitlab.MergeCommentEvent) ([]*HandleWebhook, error)
