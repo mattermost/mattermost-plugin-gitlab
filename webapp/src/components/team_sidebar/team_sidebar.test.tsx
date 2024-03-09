@@ -1,8 +1,9 @@
 import React from 'react';
-import TeamSidebar from './team_sidebar';
-import { describe, expect, test, jest } from '@jest/globals';
-import { render } from '@testing-library/react';
 
+import {describe, expect, test, jest} from '@jest/globals';
+import {render} from '@testing-library/react';
+
+import TeamSidebar from './team_sidebar';
 
 const mockTheme = {
     sidebarBg: '#ffffff',
@@ -33,18 +34,25 @@ const mockTheme = {
 
 jest.mock('../sidebar_buttons', () => ({
     __esModule: true,
-    default:() => <div data-testid="mocked-sidebar-buttons" />,
+    default: () => <div data-testid='mocked-sidebar-buttons'/>,
 }));
-
 
 describe('TeamSidebar', () => {
     test('renders nothing when show is false', () => {
-        const { queryByTestId } = render(<TeamSidebar show={false} theme={mockTheme} />);
+        const {queryByTestId} = render(
+            <TeamSidebar
+                show={false}
+                theme={mockTheme}
+            />);
         expect(queryByTestId('mocked-sidebar-buttons')).toBeNull();
     });
 
     test('renders SidebarButtons with correct props when show is true', () => {
-        const { getByTestId } = render(<TeamSidebar show={true} theme={mockTheme} />);
+        const {getByTestId} = render(
+            <TeamSidebar
+                show={true}
+                theme={mockTheme}
+            />);
         const sidebarButtonsElement = getByTestId('mocked-sidebar-buttons');
         expect(sidebarButtonsElement).not.toBeNull();
     });

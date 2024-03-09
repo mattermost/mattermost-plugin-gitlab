@@ -1,14 +1,15 @@
-import React, { FC } from 'react';
+import React, {FC} from 'react';
+
+import {Theme} from 'mattermost-redux/types/preferences';
 
 import SidebarButtons from '../sidebar_buttons';
-import { Theme } from 'mattermost-redux/types/preferences';
 
 interface TeamSidebarProps {
     show: boolean;
     theme: Theme;
 }
 
-const TeamSidebar: FC<TeamSidebarProps> = ({ show, theme }) => {
+const TeamSidebar: FC<TeamSidebarProps> = ({show, theme}: TeamSidebarProps) => {
     if (!show) {
         return null;
     }
@@ -20,7 +21,5 @@ const TeamSidebar: FC<TeamSidebarProps> = ({ show, theme }) => {
         />
     );
 };
-
-
 
 export default TeamSidebar;
