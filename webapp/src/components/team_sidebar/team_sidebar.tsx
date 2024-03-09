@@ -1,5 +1,4 @@
 import React, { FC } from 'react';
-import PropTypes from 'prop-types';
 
 import SidebarButtons from '../sidebar_buttons';
 import { Theme } from 'mattermost-redux/types/preferences';
