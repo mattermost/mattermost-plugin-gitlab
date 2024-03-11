@@ -252,7 +252,7 @@ func TestListWebhookCommand(t *testing.T) {
 func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.WebhookInfo, mattermostURL string, projectHookErr error, getProjectErr error, mockGitlab, noAccess bool) *Plugin {
 	p := new(Plugin)
 
-	accessLevel := gitLabAPI.OwnerPermission
+	accessLevel := gitLabAPI.OwnerPermissions
 	if noAccess {
 		accessLevel = gitLabAPI.GuestPermissions
 	}
