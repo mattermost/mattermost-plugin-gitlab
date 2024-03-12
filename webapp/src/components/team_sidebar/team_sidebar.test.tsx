@@ -38,22 +38,12 @@ jest.mock('../sidebar_buttons', () => ({
 }));
 
 describe('TeamSidebar', () => {
-    test('renders nothing when show is false', () => {
-        const {queryByTestId} = render(
+    test.each([true, false])('should render when show is %s', (show) => {
+        const {container} = render(
             <TeamSidebar
-                show={false}
+                show={show}
                 theme={mockTheme}
             />);
-        expect(queryByTestId('mocked-sidebar-buttons')).toBeNull();
-    });
-
-    test('renders SidebarButtons with correct props when show is true', () => {
-        const {getByTestId} = render(
-            <TeamSidebar
-                show={true}
-                theme={mockTheme}
-            />);
-        const sidebarButtonsElement = getByTestId('mocked-sidebar-buttons');
-        expect(sidebarButtonsElement).not.toBeNull();
+        expect(container).toMatchSnapshot();
     });
 });

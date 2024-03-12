@@ -17,7 +17,6 @@
     },
     "dependencies": {
         "@primer/octicons-react": "10.1.0",
-        "@testing-library/react": "12.1.2",
         "core-js": "3.6.5",
         "csstype": "3.0.3",
         "jest": "26.4.2",
@@ -57,9 +56,6 @@
         "babel-loader": "8.1.0",
         "babel-plugin-typescript-to-proptypes": "1.4.1",
         "css-loader": "4.3.0",
-        "enzyme": "3.11.0",
-        "enzyme-adapter-react-16": "1.15.7",
-        "enzyme-to-json": "3.6.2",
         "eslint": "7.9.0",
         "eslint-import-resolver-typescript": "3.6.1",
         "eslint-import-resolver-webpack": "0.12.2",
@@ -71,6 +67,7 @@
         "style-loader": "1.2.1",
         "typescript": "4.6.4",
         "webpack": "4.44.2",
-        "webpack-cli": "3.3.12"
+        "webpack-cli": "3.3.12",
+        "@testing-library/react": "12.1.2"
     }
 }

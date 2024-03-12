@@ -1,0 +1,11 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`TeamSidebar should render when show is false 1`] = `<div />`;
+
+exports[`TeamSidebar should render when show is true 1`] = `
+<div>
+  <div
+    data-testid="mocked-sidebar-buttons"
+  />
+</div>
+`;
