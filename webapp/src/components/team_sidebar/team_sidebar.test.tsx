@@ -1,7 +1,10 @@
 import React from 'react';
 
-import {describe, expect, test, jest} from '@jest/globals';
+import {describe, expect, test} from '@jest/globals';
 import {render} from '@testing-library/react';
+import {configureStore, createSlice} from '@reduxjs/toolkit';
+
+import {Provider} from 'react-redux';
 
 import TeamSidebar from './team_sidebar';
 
@@ -32,18 +35,43 @@ const mockTheme = {
     codeTheme: 'solarized-dark',
 };
 
-jest.mock('../sidebar_buttons', () => ({
-    __esModule: true,
-    default: () => <div data-testid='mocked-sidebar-buttons'/>,
-}));
+const mockSlice = createSlice({
+    name: 'mock-reducer',
+    initialState: {
+        'plugins-com.github.manland.mattermost-plugin-gitlab': {
+            connected: true,
+            username: '',
+            clientId: '',
+            lhsData: {
+                reviews: [],
+                yourAssignedPrs: [],
+                yourAssignedIssues: [],
+                todos: [],
+            },
+            gitlabURL: '',
+            organization: '',
+            rhsPluginAction: () => true,
+        },
+        entities: {general: {config: {}}},
+    },
+    reducers: {},
+});
+
+const mockStore = configureStore({
+    reducer: mockSlice.reducer,
+});
 
 describe('TeamSidebar', () => {
     test.each([true, false])('should render when show is %s', (show) => {
         const {container} = render(
-            <TeamSidebar
-                show={show}
-                theme={mockTheme}
-            />);
+            <Provider store={mockStore}>
+                <TeamSidebar
+                    show={show}
+                    theme={mockTheme}
+                />
+            </Provider>,
+        );
+
         expect(container).toMatchSnapshot();
     });
 });
