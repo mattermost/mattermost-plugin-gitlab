@@ -73,7 +73,8 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	event, err := gitlabLib.ParseWebhook(gitlabLib.WebhookEventType(r), body)
+	eventType := gitlabLib.WebhookEventType(r)
+	event, err := gitlabLib.ParseWebhook(eventType, body)
 	if err != nil {
 		p.client.Log.Debug("Can't parse webhook", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"), "event", string(body))
 		http.Error(w, "Unable to handle request", http.StatusBadRequest)
@@ -99,7 +100,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
-		handlers, errHandler = p.WebhookHandler.HandleIssue(ctx, event)
+		handlers, errHandler = p.WebhookHandler.HandleIssue(ctx, event, eventType)
 	case *gitlabLib.IssueCommentEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
@@ -224,10 +225,16 @@ func (p *Plugin) permissionToProject(ctx context.Context, userID, namespace, pro
 	})
 	if result == nil || err != nil {
 		if err != nil {
-			p.client.Log.Warn("can't get project in webhook", "err", err.Error(), "project", namespace+"/"+project)
+			p.client.Log.Warn("Can't get project in webhook", "err", err.Error(), "project", namespace+"/"+project)
 		}
 		return false
 	}
+
+	// Check for guest level permissions
+	if result.Permissions.ProjectAccess == nil || result.Permissions.ProjectAccess.AccessLevel == gitlabLib.GuestPermissions {
+		return false
+	}
+
 	return true
 }
 

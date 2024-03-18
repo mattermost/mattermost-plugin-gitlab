@@ -7,12 +7,12 @@ import (
 	"github.com/xanzy/go-gitlab"
 )
 
-func (w *webhook) HandleIssue(ctx context.Context, event *gitlab.IssueEvent) ([]*HandleWebhook, error) {
+func (w *webhook) HandleIssue(ctx context.Context, event *gitlab.IssueEvent, eventType gitlab.EventType) ([]*HandleWebhook, error) {
 	handlers, err := w.handleDMIssue(event)
 	if err != nil {
 		return nil, err
 	}
-	handlers2, err := w.handleChannelIssue(ctx, event)
+	handlers2, err := w.handleChannelIssue(ctx, event, eventType)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 	return []*HandleWebhook{}, nil
 }
 
-func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEvent) ([]*HandleWebhook, error) {
+func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEvent, eventType gitlab.EventType) ([]*HandleWebhook, error) {
 	issue := event.ObjectAttributes
 	senderGitlabUsername := event.User.Username
 	repo := event.Project
@@ -95,6 +95,10 @@ func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEve
 		)
 		for _, sub := range subs {
 			if !sub.Issues() {
+				continue
+			}
+
+			if eventType == gitlab.EventConfidentialIssue && !sub.ConfidentialIssues() {
 				continue
 			}
 

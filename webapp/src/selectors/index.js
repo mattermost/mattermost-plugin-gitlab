@@ -82,3 +82,7 @@ export const getAttachCommentModalContents = (state) => {
 
     return post;
 };
+
+export const getConnected = (state) => state[`plugins-${manifest.id}`].connected;
+
+export const getConnectedGitlabUrl = (state) => state[`plugins-${manifest.id}`].gitlabURL;

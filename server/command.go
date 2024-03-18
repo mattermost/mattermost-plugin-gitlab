@@ -24,6 +24,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 * |/gitlab subscriptions add owner[/repo] [features]| - Subscribe the current channel to receive notifications about opened merge requests and issues for a group or repository
   * |features| is a comma-delimited list of one or more the following:
     * issues - includes new and closed issues
+	* confidential_issues - includes new and closed confidential issues
 	* jobs - includes jobs status updates
 	* merges - includes new and closed merge requests
     * pushes - includes pushes
@@ -601,6 +602,7 @@ func (p *Plugin) subscriptionsListCommand(channelID string) string {
 	if err != nil {
 		return err.Error()
 	}
+
 	if len(subs) == 0 {
 		txt = "Currently there are no subscriptions in this channel"
 	} else {
@@ -635,6 +637,12 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 			"err", err.Error(),
 		)
 		return err.Error()
+	}
+
+	if hasPermission := p.permissionToProject(ctx, info.UserID, namespace, project); !hasPermission {
+		msg := "You don't have the permissions to create subscriptions for this project."
+		p.client.Log.Warn(msg)
+		return msg
 	}
 
 	updatedSubscriptions, subscribeErr := p.Subscribe(info, namespace, project, channelID, features)
@@ -754,6 +762,7 @@ func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channel
 	if err != nil {
 		return err.Error()
 	}
+
 	var txt string
 	if pipelineInfo == nil {
 		txt = "Currently there is no pipeline info"
@@ -765,6 +774,25 @@ func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channel
 	txt += fmt.Sprintf("**Ref**: %s\n", pipelineInfo.Ref)
 	txt += fmt.Sprintf("**Triggered By**: %s\n", pipelineInfo.User)
 	txt += fmt.Sprintf("**Visit pipeline [here](%s)** \n\n", pipelineInfo.WebURL)
+
+	foundPipelineSubscription := false
+	subs, err := p.GetSubscriptionsByChannel(channelID)
+	if err != nil {
+		p.client.Log.Warn("Failed to get subscriptions for the channel", "channel_id", channelID, "error", err.Error())
+		return txt
+	}
+
+	for _, sub := range subs {
+		if sub.Repository == namespace && sub.Pipeline() {
+			foundPipelineSubscription = true
+			break
+		}
+	}
+
+	if !foundPipelineSubscription {
+		txt += fmt.Sprintf("\n\n**Note:** This channel is currently not subscribed to pipeline event for `%s`. Run the command below if would you like to create a subscription.\n\n`/gitlab subscriptions add %s pipeline`", namespace, namespace)
+	}
+
 	return txt
 }
 
@@ -816,7 +844,7 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 
 	subscriptionsAdd := model.NewAutocompleteData(commandAdd, "owner[/repo] [features]", "Subscribe the current channel to receive notifications from a project")
 	subscriptionsAdd.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
-	subscriptionsAdd.AddTextArgument("comma-delimited list of features to subscribe to: issues, merges, pushes, issue_comments, merge_request_comments, pipeline, tag, pull_reviews, label:<labelName>", "[features] (optional)", `/[^,-\s]+(,[^,-\s]+)*/`)
+	subscriptionsAdd.AddTextArgument("comma-delimited list of features to subscribe to: issues, confidential_issues, merges, pushes, issue_comments, merge_request_comments, pipeline, tag, pull_reviews, label:<labelName>", "[features] (optional)", `/[^,-\s]+(,[^,-\s]+)*/`)
 	subscriptions.AddCommand(subscriptionsAdd)
 
 	subscriptionsDelete := model.NewAutocompleteData(commandDelete, "owner[/repo]", "Unsubscribe the current channel from a repository")

@@ -8,6 +8,7 @@ export interface Label {
     name: string;
     color: CSS.Properties;
     text_color: CSS.Properties;
+    description: string;
 }
 
 export interface User {
@@ -61,9 +62,27 @@ export interface Item {
     total_reviewers: number;
     reviewers: User[];
     body: string;
+    state: string;
+    type: string;
+    repo: string;
+    description: string;
 }
 
 export interface GitlabItemsProps {
     item: Item;
     theme: Theme;
+}
+
+export interface TooltipData {
+    state: string;
+    type: string;
+    repo: string;
+    description: string;
+    created_at: string;
+    iid: number;
+    title: string;
+    target_branch: string;
+    source_branch: string;
+    labels: string[];
+    labels_with_details: Label[];
 }
