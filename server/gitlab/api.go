@@ -23,18 +23,18 @@ const (
 )
 
 type IssueRequest struct {
-	ID          int                 `json:"id"`
-	IID         int                 `json:"iid"`
-	Title       string              `json:"title"`
-	Description string              `json:"description"`
-	Milestone   int                 `json:"milestone"`
-	ProjectID   int                 `json:"project_id"`
-	Assignees   []int               `json:"assignees"`
-	Labels      internGitlab.Labels `json:"labels"`
-	PostID      string              `json:"post_id"`
-	ChannelID   string              `json:"channel_id"`
-	Comment     string              `json:"comment"`
-	WebURL      string              `json:"web_url"`
+	ID          int                       `json:"id"`
+	IID         int                       `json:"iid"`
+	Title       string                    `json:"title"`
+	Description string                    `json:"description"`
+	Milestone   int                       `json:"milestone"`
+	ProjectID   int                       `json:"project_id"`
+	Assignees   []int                     `json:"assignees"`
+	Labels      internGitlab.LabelOptions `json:"labels"`
+	PostID      string                    `json:"post_id"`
+	ChannelID   string                    `json:"channel_id"`
+	Comment     string                    `json:"comment"`
+	WebURL      string                    `json:"web_url"`
 }
 
 type PRDetails struct {
