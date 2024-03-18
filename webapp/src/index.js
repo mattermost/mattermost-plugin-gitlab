@@ -7,6 +7,10 @@ import SidebarHeader from './components/sidebar_header';
 import TeamSidebar from './components/team_sidebar';
 import RHSSidebar from './components/rhs_sidebar';
 import UserAttribute from './components/user_attribute';
+import CreateIssuePostMenuAction from './components/post_options/create_issue';
+import AttachCommentToIssuePostMenuAction from './components/post_options/attach_comment_to_issue';
+import CreateIssueModal from './components/modals/create_issue/create_issue_modal';
+import AttachCommentToIssueModal from './components/modals/attach_comment_to_issue/attach_comment_to_issue_modal';
 import SidebarRight from './components/sidebar_right';
 import LinkTooltip from './components/link_tooltip';
 
@@ -17,6 +21,7 @@ import {
     handleDisconnect,
     handleReconnect,
     handleRefresh,
+    handleOpenCreateIssueModal,
     handleChannelSubscriptionsUpdated,
 } from './websocket';
 import manifest from './manifest';
@@ -41,6 +46,10 @@ class PluginClass {
         registry.registerLeftSidebarHeaderComponent(SidebarHeader);
         registry.registerBottomTeamSidebarComponent(TeamSidebar);
         registry.registerPopoverUserAttributesComponent(UserAttribute);
+        registry.registerRootComponent(CreateIssueModal);
+        registry.registerPostDropdownMenuComponent(CreateIssuePostMenuAction);
+        registry.registerRootComponent(AttachCommentToIssueModal);
+        registry.registerPostDropdownMenuComponent(AttachCommentToIssuePostMenuAction);
         registry.registerLinkTooltipComponent(LinkTooltip);
 
         const hooks = new Hooks(store);
@@ -60,6 +69,10 @@ class PluginClass {
         registry.registerWebSocketEventHandler(
             `custom_${id}_gitlab_refresh`,
             handleRefresh(store),
+        );
+        registry.registerWebSocketEventHandler(
+            `custom_${id}_create_issue`,
+            handleOpenCreateIssueModal(store),
         );
         registry.registerWebSocketEventHandler(
             `custom_${id}_gitlab_channel_subscriptions_updated`,

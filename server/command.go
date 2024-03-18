@@ -256,6 +256,12 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 			return p.getCommandResponse(args, "Encountered an error getting your todo items."), nil
 		}
 		return p.getCommandResponse(args, text), nil
+	case "issue":
+		message := p.handleIssue(c, args, parameters)
+		if message != "" {
+			p.postCommandResponse(args, message)
+		}
+		return &model.CommandResponse{}, nil
 	case "me":
 		var gitUser *gitlabLib.User
 		err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
@@ -364,6 +370,23 @@ func (p *Plugin) handleSetup(c *plugin.Context, args *model.CommandArgs, paramet
 	}
 
 	return ""
+}
+
+func (p *Plugin) handleIssue(_ *plugin.Context, args *model.CommandArgs, parameters []string) string {
+	if len(parameters) == 0 {
+		return "Invalid issue command. Available command is 'create'."
+	}
+
+	command := parameters[0]
+	parameters = parameters[1:]
+
+	switch {
+	case command == "create":
+		p.openIssueCreateModal(args.UserId, args.ChannelId, strings.Join(parameters, " "))
+		return ""
+	default:
+		return fmt.Sprintf("This command is not implemented yet. Command: %v", command)
+	}
 }
 
 // webhookCommand processes the /gitlab webhook commands
@@ -807,6 +830,12 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 
 	todo := model.NewAutocompleteData("todo", "", "Get a list of todos, assigned issues, assigned merge requests and merge requests awaiting your review")
 	gitlab.AddCommand(todo)
+
+	issue := model.NewAutocompleteData("issue", "[command]", "Available commands: create")
+	gitlab.AddCommand(issue)
+
+	issueCreate := model.NewAutocompleteData("create", "[title]", "Open a dialog to create a new issue in Gitlab, using the title if provided")
+	issue.AddCommand(issueCreate)
 
 	subscriptions := model.NewAutocompleteData("subscriptions", "[command]", "Available commands: Add, List, Delete")
 
