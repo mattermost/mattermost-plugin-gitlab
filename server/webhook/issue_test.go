@@ -111,7 +111,7 @@ func TestIssueWebhook(t *testing.T) {
 			if err := json.Unmarshal([]byte(test.fixture), issueEvent); err != nil {
 				assert.Fail(t, "can't unmarshal fixture")
 			}
-			res, err := w.HandleIssue(context.Background(), issueEvent)
+			res, err := w.HandleIssue(context.Background(), issueEvent, gitlab.EventTypeIssue)
 			assert.Empty(t, err)
 			assert.Equal(t, len(test.res), len(res))
 			for index := range res {

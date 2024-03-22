@@ -7,8 +7,6 @@ import (
 	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/logger"
 	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/telemetry"
 	"github.com/pkg/errors"
-
-	root "github.com/mattermost/mattermost-plugin-gitlab"
 )
 
 const (
@@ -88,8 +86,8 @@ func (p *Plugin) initializeTelemetry() {
 		p.telemetryClient,
 		p.API.GetDiagnosticId(),
 		p.API.GetServerVersion(),
-		root.Manifest.Id,
-		root.Manifest.Version,
+		manifest.Id,
+		manifest.Version,
 		"gitlab",
 		telemetry.NewTrackerConfig(p.API.GetConfig()),
 		logger.New(p.API),

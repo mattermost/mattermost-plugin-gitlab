@@ -4,7 +4,7 @@ import {bindActionCreators} from 'redux';
 import {getCurrentChannelId} from 'mattermost-redux/selectors/entities/common';
 import {getCurrentUserId} from 'mattermost-redux/selectors/entities/users';
 
-import {id} from '../../manifest';
+import manifest from '../../manifest';
 import {
     getChannelSubscriptions,
     sendEphemeralPost,
@@ -18,7 +18,7 @@ const noSubscriptions = [];
 function mapStateToProps(state) {
     const currentUserId = getCurrentUserId(state);
     const currentChannelId = getCurrentChannelId(state);
-
+    const {id} = manifest;
     return {
         currentUserId,
         connected: state[`plugins-${id}`].connected,
