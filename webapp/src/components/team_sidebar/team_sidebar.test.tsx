@@ -40,7 +40,7 @@ const mockSlice = createSlice({
     initialState: {
         'plugins-com.github.manland.mattermost-plugin-gitlab': {
             connected: true,
-            username: '',
+            username: 'mattermost',
             clientId: '',
             lhsData: {
                 reviews: [],
@@ -48,7 +48,7 @@ const mockSlice = createSlice({
                 yourAssignedIssues: [],
                 todos: [],
             },
-            gitlabURL: '',
+            gitlabURL: 'https://gitlab.com/gitlab-org/gitlab.git',
             organization: '',
             rhsPluginAction: () => true,
         },
