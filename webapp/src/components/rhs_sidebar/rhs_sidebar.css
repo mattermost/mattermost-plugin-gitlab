@@ -129,7 +129,7 @@
 }
 
 .gitlab-rhs-SubscriptionHeader {
-    font-family: 'Open Sans';
+    font-family: 'Open Sans' !important;
     font-size: 12px;
     font-weight: 600;
     line-height: 16px;

@@ -62,6 +62,6 @@ export const getSidebarData = createSelector(
     },
 );
 
-export const getConnected = (state) => state[`plugins-${manifest.id}`].connected;
+export const getConnected = (state: GlobalState) => getPluginState(state).connected;
 
-export const getConnectedGitlabUrl = (state) => state[`plugins-${manifest.id}`].gitlabURL;
+export const getConnectedGitlabUrl = (state: GlobalState) => getPluginState(state).gitlabURL;
