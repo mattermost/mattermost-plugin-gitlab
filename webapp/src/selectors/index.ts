@@ -5,6 +5,7 @@ import {createSelector} from 'reselect';
 import manifest from '../manifest';
 import {Item} from 'src/types/gitlab_items';
 import {GlobalState, PluginState, pluginStateKey} from 'src/types/store';
+import {SideBarData} from 'src/types';
 
 export const getPluginServerRoute = (state: GlobalState) => {
     const config = getConfig(state);
@@ -21,7 +22,7 @@ export const getPluginServerRoute = (state: GlobalState) => {
     return basePath + '/plugins/' + manifest.id;
 };
 
-function mapPrsToDetails(prs: Item[], details: Item[]) {
+function mapPrsToDetails(prs?: Item[], details?: Item[]): Item[] {
     if (!prs || !prs.length) {
         return [];
     }
@@ -49,14 +50,14 @@ export const getSidebarData = createSelector(
         return {
             username: pluginState.username,
             reviewDetails: pluginState.reviewDetails,
-            reviews: mapPrsToDetails(pluginState.lhsData?.reviews, pluginState.reviewDetails),
-            yourAssignedPrs: mapPrsToDetails(pluginState.lhsData?.yourAssignedPrs, pluginState.yourPrDetails),
+            reviews: mapPrsToDetails(pluginState.lhsData?.reviews, pluginState.reviewDetails || []),
+            yourAssignedPrs: mapPrsToDetails(pluginState.lhsData?.yourAssignedPrs, pluginState.yourPrDetails || []),
             yourPrDetails: pluginState.yourPrDetails,
             yourAssignedIssues: pluginState.lhsData?.yourAssignedIssues,
             todos: pluginState.lhsData?.todos,
             org: pluginState.organization,
             gitlabURL: pluginState.gitlabURL,
             rhsState: pluginState.rhsState,
-        };
+        } as SideBarData;
     },
 );

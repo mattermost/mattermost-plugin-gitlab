@@ -7,13 +7,13 @@ import {AnyAction, Dispatch} from 'redux';
 import Client from '../client';
 import ActionTypes from '../action_types';
 import manifest from '../manifest';
-import {APIError, ShowRhsPluginActionData} from 'src/types';
+import {APIError, ConnectedData, GitlabUsersData, LHSData, ShowRhsPluginActionData, SubscriptionData} from 'src/types';
 import {Item} from 'src/types/gitlab_items';
 import {GlobalState, pluginStateKey} from 'src/types/store';
 
 export function getConnected(reminder = false) {
     return async (dispatch: Dispatch<AnyAction>) => {
-        let data;
+        let data: ConnectedData;
         try {
             data = await Client.getConnected(reminder);
         } catch (error) {
@@ -29,7 +29,7 @@ export function getConnected(reminder = false) {
     };
 }
 
-function checkAndHandleNotConnected(data: {id: string}) {
+function checkAndHandleNotConnected(data: APIError) {
     return async (dispatch: Dispatch<AnyAction>) => {
         if (data && data.id === 'not_connected') {
             dispatch({
@@ -39,7 +39,7 @@ function checkAndHandleNotConnected(data: {id: string}) {
                     gitlab_username: '',
                     gitlab_client_id: '',
                     settings: {},
-                },
+                } as ConnectedData,
             });
             return false;
         }
@@ -49,14 +49,14 @@ function checkAndHandleNotConnected(data: {id: string}) {
 
 export function getReviewDetails(prList: Item[]) {
     return async (dispatch: Dispatch<AnyAction>) => {
-        let data;
+        let data: Item | APIError;
         try {
             data = await Client.getPrsDetails(prList);
         } catch (error) {
             return {error};
         }
 
-        const connected = await checkAndHandleNotConnected(data)(dispatch);
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }
@@ -72,14 +72,14 @@ export function getReviewDetails(prList: Item[]) {
 
 export function getYourPrDetails(prList: Item[]) {
     return async (dispatch: Dispatch<AnyAction>) => {
-        let data;
+        let data: Item | APIError;
         try {
             data = await Client.getPrsDetails(prList);
         } catch (error) {
             return {error};
         }
 
-        const connected = await checkAndHandleNotConnected(data)(dispatch);
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }
@@ -95,14 +95,14 @@ export function getYourPrDetails(prList: Item[]) {
 
 export function getLHSData() {
     return async (dispatch: Dispatch<AnyAction>) => {
-        let data;
+        let data: LHSData | APIError;
         try {
             data = await Client.getLHSData();
         } catch (error) {
             return {error};
         }
 
-        const connected = await checkAndHandleNotConnected(data)(dispatch);
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }
@@ -155,7 +155,7 @@ export function getGitlabUser(userID: string) {
             return {data: user};
         }
 
-        let data;
+        let data: GitlabUsersData;
         try {
             data = await Client.getGitlabUser(userID);
         } catch (error: unknown) {
@@ -185,7 +185,7 @@ export function getChannelSubscriptions(channelId: string) {
             return {};
         }
 
-        let subscriptions;
+        let subscriptions: SubscriptionData;
         try {
             subscriptions = await Client.getChannelSubscriptions(channelId);
         } catch (error) {

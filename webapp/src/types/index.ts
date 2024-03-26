@@ -45,3 +45,16 @@ export type APIError = {
     message: string;
     status: number;
 }
+
+export type SideBarData = {
+    username: string;
+    reviewDetails: Item[];
+    reviews: Item[];
+    yourAssignedPrs: Item[];
+    yourPrDetails: Item[];
+    yourAssignedIssues: Item[];
+    todos: Item[];
+    org: string;
+    gitlabURL: string;
+    rhsState: string;
+}
