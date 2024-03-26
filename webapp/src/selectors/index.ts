@@ -61,3 +61,7 @@ export const getSidebarData = createSelector(
         } as SideBarData;
     },
 );
+
+export const getConnected = (state) => state[`plugins-${manifest.id}`].connected;
+
+export const getConnectedGitlabUrl = (state) => state[`plugins-${manifest.id}`].gitlabURL;
