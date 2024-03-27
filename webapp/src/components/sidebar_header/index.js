@@ -1,7 +1,8 @@
 import {connect} from 'react-redux';
 
-import SidebarHeader from './sidebar_header.jsx';
 import manifest from '../../manifest';
+
+import SidebarHeader from './sidebar_header.jsx';
 
 function mapStateToProps(state) {
     const members = state.entities.teams.myMembers || {};
