@@ -6,11 +6,12 @@ import SidebarButtons from '../sidebar_buttons';
 export default class SidebarHeader extends React.PureComponent {
     static propTypes = {
         show: PropTypes.bool.isRequired,
+        connected: PropTypes.bool.isRequired,
         theme: PropTypes.object.isRequired,
     };
 
     render() {
-        if (!this.props.show) {
+        if (!this.props.show || !this.props.connected) {
             return null;
         }
 
