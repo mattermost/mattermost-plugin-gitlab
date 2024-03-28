@@ -42,23 +42,23 @@ function mapPrsToDetails(prs?: Item[], details?: Item[]): Item[] {
     });
 }
 
-export const getPluginState = (state: GlobalState) => state[`plugins-${manifest.id}` as pluginStateKey];
+export const getPluginState = (state: GlobalState) => state[pluginStateKey];
 
 export const getSidebarData = createSelector(
     getPluginState,
-    (pluginState: PluginState) => {
+    (pluginState: PluginState): SideBarData => {
         return {
             username: pluginState.username,
-            reviewDetails: pluginState.reviewDetails,
+            reviewDetails: pluginState.reviewDetails ?? [],
             reviews: mapPrsToDetails(pluginState.lhsData?.reviews, pluginState.reviewDetails || []),
             yourAssignedPrs: mapPrsToDetails(pluginState.lhsData?.yourAssignedPrs, pluginState.yourPrDetails || []),
-            yourPrDetails: pluginState.yourPrDetails,
-            yourAssignedIssues: pluginState.lhsData?.yourAssignedIssues,
-            todos: pluginState.lhsData?.todos,
+            yourPrDetails: pluginState.yourPrDetails ?? [],
+            yourAssignedIssues: pluginState.lhsData?.yourAssignedIssues ?? [],
+            todos: pluginState.lhsData?.todos ?? [],
             org: pluginState.organization,
             gitlabURL: pluginState.gitlabURL,
-            rhsState: pluginState.rhsState,
-        } as SideBarData;
+            rhsState: pluginState.rhsState ?? '',
+        };
     },
 );
 

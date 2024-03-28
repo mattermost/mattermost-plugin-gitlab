@@ -1,17 +1,9 @@
-import React from 'react';
-import PropTypes from 'prop-types';
+import React, {PureComponent} from 'react';
 
-export default class UserAttribute extends React.PureComponent {
-    static propTypes = {
-        id: PropTypes.string.isRequired,
-        username: PropTypes.string,
-        gitlabURL: PropTypes.string,
-        actions: PropTypes.shape({
-            getGitlabUser: PropTypes.func.isRequired,
-        }).isRequired,
-    };
+import {UserAttributeProps} from '.';
 
-    constructor(props) {
+export default class UserAttribute extends PureComponent<UserAttributeProps> {
+    constructor(props: UserAttributeProps) {
         super(props);
         props.actions.getGitlabUser(props.id);
     }

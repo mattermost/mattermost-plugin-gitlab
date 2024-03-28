@@ -142,7 +142,7 @@ export function getGitlabUser(userID: string) {
             return {};
         }
 
-        const user = getState()[`plugins-${manifest.id}` as pluginStateKey].gitlabUsers[userID];
+        const user = getState()[pluginStateKey].gitlabUsers[userID];
         if (
             user &&
             user.last_try &&
