@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/logger"
 
@@ -289,9 +290,37 @@ func (g *gitlab) GetProject(ctx context.Context, user *UserInfo, token *oauth2.T
 	return project, nil
 }
 
-func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.Token) (*LHSContent, error) {
+func sanitizeTokenString(token string) string {
+	suffixLength := 8
+	endIndex := len(token) - suffixLength
+	return token[endIndex:]
+}
+
+func MakeSanitizedTokenLogContext(token *oauth2.Token) logger.LogContext {
+	if token == nil {
+		return nil
+	}
+
+	return logger.LogContext{
+		"access_token":   sanitizeTokenString(token.AccessToken),
+		"refresh_token":  sanitizeTokenString(token.RefreshToken),
+		"expiry":         token.Expiry,
+		"expiry_minutes": time.Until(token.Expiry).Minutes(),
+	}
+}
+
+func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.Token, log logger.Logger) (*LHSContent, error) {
+	log = log.With(logger.LogContext{
+		"func":  "gitlab.GetLHSData",
+		"token": MakeSanitizedTokenLogContext(token),
+	})
+
+	log.Debugf("calling g.GitlabConnect")
 	client, err := g.GitlabConnect(*token)
+	log = log.With(logger.LogContext{"token": MakeSanitizedTokenLogContext(token)})
+
 	if err != nil {
+		log.WithError(err).Debugf("error calling g.GitlabConnect")
 		return nil, err
 	}
 
@@ -299,25 +328,46 @@ func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.T
 
 	var reviews []*MergeRequest
 	grp.Go(func() error {
+		log.Debugf("calling g.GetReviews")
 		reviews, err = g.GetReviews(ctx, user, client)
+		if err != nil {
+			log.WithError(err).Debugf("error calling g.GetReviews")
+			return err
+		}
 		return err
 	})
 
 	var issues []*Issue
 	grp.Go(func() error {
+		log.Debugf("calling g.GetYourAssignedIssues")
 		issues, err = g.GetYourAssignedIssues(ctx, user, client)
+		if err != nil {
+			log.WithError(err).Debugf("error calling g.GetYourAssignedIssues")
+			return err
+		}
 		return err
 	})
 
 	var mergeRequests []*MergeRequest
 	grp.Go(func() error {
+		log.Debugf("calling g.GetYourAssignedPrs")
 		mergeRequests, err = g.GetYourAssignedPrs(ctx, user, client)
+		if err != nil {
+			log.WithError(err).Debugf("error calling g.GetYourAssignedPrs")
+			return err
+		}
 		return err
 	})
 
 	var todos []*internGitlab.Todo
 	grp.Go(func() error {
+		log.Debugf("calling g.GetToDoList")
+
 		todos, err = g.GetToDoList(ctx, user, client)
+		if err != nil {
+			log.WithError(err).Debugf("error calling g.GetToDoList")
+			return err
+		}
 		return err
 	})
 
@@ -590,7 +640,7 @@ func (g *gitlab) GetYourAssignedIssues(ctx context.Context, user *UserInfo, clie
 		}
 	}
 
-	var result []*Issue
+	result := []*Issue{}
 	for _, issue := range issues {
 		if issue.Labels != nil {
 			labelsWithDetails, err := g.GetLabelDetails(client, issue.ProjectID, issue.Labels)
