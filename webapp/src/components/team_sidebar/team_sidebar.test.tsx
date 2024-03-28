@@ -48,7 +48,7 @@ const mockSlice = createSlice({
                 yourAssignedIssues: [],
                 todos: [],
             },
-            gitlabURL: 'https://gitlab.com/gitlab-org/gitlab.git',
+            gitlabURL: 'https://gitlab.com/gitlab-org',
             organization: '',
             rhsPluginAction: () => true,
         },
