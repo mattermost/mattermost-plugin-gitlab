@@ -1,1 +1,13 @@
-dist
+bin/
+dist/
+webapp/src/manifest.ts
+server/manifest.go
+
+# Mac
+.DS_Store
+
+# Jetbrains
+.idea/
+
+# VS Code
+.vscode

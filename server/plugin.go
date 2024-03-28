@@ -26,7 +26,6 @@ import (
 	gitlabLib "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
 
-	root "github.com/mattermost/mattermost-plugin-gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 )
@@ -53,8 +52,6 @@ const (
 
 	invalidTokenError = "401 {error: invalid_token}" //#nosec G101 -- False positive
 )
-
-var manifest model.Manifest = root.Manifest
 
 type Plugin struct {
 	plugin.MattermostPlugin

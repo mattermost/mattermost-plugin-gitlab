@@ -3,14 +3,14 @@ import {bindActionCreators} from 'redux';
 
 import {getGitlabUser} from '../../actions';
 
-import {id} from '../../manifest';
+import manifest from '../../manifest';
 
 import UserAttribute from './user_attribute.jsx';
 
 function mapStateToProps(state, ownProps) {
     const idUser = ownProps.user ? ownProps.user.id : '';
+    const {id} = manifest;
     const user = state[`plugins-${id}`].gitlabUsers[idUser] || {};
-
     return {
         id: idUser,
         username: user.username,

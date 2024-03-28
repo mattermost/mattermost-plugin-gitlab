@@ -76,8 +76,8 @@ function SidebarRight({theme}: {theme: Theme}) {
 
     const dispatch = useDispatch();
 
-    const prevPrs = usePrevious<Item[]>(yourAssignedPrs)
-    const prevReviews = usePrevious<Item[]>(reviews)
+    const prevPrs = usePrevious<Item[]>(yourAssignedPrs);
+    const prevReviews = usePrevious<Item[]>(reviews);
 
     useEffect(() => {
         if (yourAssignedPrs && (!prevPrs || shouldUpdateDetails(yourAssignedPrs, prevPrs, RHSStates.PRS, rhsState))) {
