@@ -89,15 +89,105 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			From:       "manland",
 		}},
 	}, {
-		testTitle:       "root affect manland to merge-request",
-		fixture:         AssigneeMergeRequest,
+		testTitle:       "root assign manland to the merge-request",
+		fixture:         RootUpdateAssigneeMergeRequest,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
+		res: []*HandleWebhook{
+			{
+				Message:    "[root](http://my.gitlab.com/root) updated the list of assignees for the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+				ToUsers:    []string{},
+				ToChannels: []string{},
+				From:       "root",
+			},
+			{
+				Message:    "[root](http://my.gitlab.com/root) removed you as an assignee from the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+				ToUsers:    []string{"user"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+			{
+				Message:    "[root](http://my.gitlab.com/root) assigned you to merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+		},
+	}, {
+		testTitle:       "root assign manland as reviewer to the merge-request",
+		fixture:         RootUpdateReviewerMergeRequest,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
+		res: []*HandleWebhook{
+			{
+				Message:    "[root](http://my.gitlab.com/root) updated the list of reviewers for the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+				ToUsers:    []string{},
+				ToChannels: []string{},
+				From:       "root",
+			},
+			{
+				Message:    "[root](http://my.gitlab.com/root) removed you as a reviewer from the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+				ToUsers:    []string{"user"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+			{
+				Message:    "[root](http://my.gitlab.com/root) assigned you as a reviewer to merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+		},
+	}, {
+		testTitle:       "Manland updates labels, title and description of merge-request",
+		fixture:         MultipleEventsMergeRequest,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
 		res: []*HandleWebhook{{
-			Message:    "[root](http://my.gitlab.com/root) assigned you to merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
-			ToUsers:    []string{"manland"},
+			Message:    "[manland](http://my.gitlab.com/manland) updated the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			ToUsers:    []string{"root"},
 			ToChannels: []string{},
-			From:       "root",
+			From:       "manland",
 		}},
+	}, {
+		testTitle:       "user assign manland as assignee to the merge-request",
+		fixture:         UserUpdateAssigneeToManlandMergeRequest,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
+		res: []*HandleWebhook{
+			{
+				Message:    "[user](http://my.gitlab.com/user) removed you as an assignee from the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+				ToUsers:    []string{"root"},
+				ToChannels: []string{},
+				From:       "user",
+			},
+			{
+				Message:    "[user](http://my.gitlab.com/user) assigned you to merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "user",
+			},
+		},
+	}, {
+		testTitle:       "user assign itself to the merge-request",
+		fixture:         UserUpdateAssigneeToUserMergeRequest,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
+		res: []*HandleWebhook{
+			{
+				Message:    "[user](http://my.gitlab.com/user) updated the list of assignees for the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+				ToUsers:    []string{"root"},
+				ToChannels: []string{},
+				From:       "user",
+			},
+			{
+				Message:    "[user](http://my.gitlab.com/user) removed you as an assignee from the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "user",
+			},
+			{
+				Message:    "[user](http://my.gitlab.com/user) assigned you to merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+				ToUsers:    []string{},
+				ToChannels: []string{},
+				From:       "user",
+			},
+		},
 	}, {
 		testTitle: "manland merge root merge-request and display in channel1",
 		fixture:   MergeRequestMerged,
