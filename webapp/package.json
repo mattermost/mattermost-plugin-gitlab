@@ -59,7 +59,7 @@
         "@typescript-eslint/parser": "4.1.1",
         "babel-loader": "8.1.0",
         "babel-plugin-typescript-to-proptypes": "1.4.1",
-        "css-loader": "4.3.0",
+        "css-loader": "6.10.0",
         "eslint": "7.9.0",
         "eslint-import-resolver-typescript": "3.6.1",
         "eslint-import-resolver-webpack": "0.12.2",
