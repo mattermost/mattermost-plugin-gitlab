@@ -124,7 +124,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 				message = fmt.Sprintf("[%s](%s) updated the merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 				handlers = []*HandleWebhook{{
 					Message: message,
-					ToUsers: []string{authorGitlabUsername},
+					ToUsers: toUsers,
 					From:    senderGitlabUsername,
 				}}
 			}

@@ -137,14 +137,14 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			},
 		},
 	}, {
-		testTitle:       "Manland updates labels, title and description of merge-request",
+		testTitle:       "Root updates labels, title and description of merge-request",
 		fixture:         MultipleEventsMergeRequest,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
 		res: []*HandleWebhook{{
-			Message:    "[manland](http://my.gitlab.com/manland) updated the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
-			ToUsers:    []string{"root"},
+			Message:    "[root](http://my.gitlab.com/root) updated the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			ToUsers:    []string{"manland"},
 			ToChannels: []string{},
-			From:       "manland",
+			From:       "root",
 		}},
 	}, {
 		testTitle:       "user assign manland as assignee to the merge-request",

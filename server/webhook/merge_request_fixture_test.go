@@ -920,8 +920,8 @@ const MultipleEventsMergeRequest = `{
 				"object_kind":"merge_request",
 				"event_type":"merge_request",
 				"user":{
-					"name":"manland",
-					"username":"manland",
+					"name":"Administrator",
+					"username":"root",
 					"avatar_url":"https://www.gravatar.com/avatar/c6b552a4cd47f7cf1701ea5b650cd2e3?s=80\\u0026d=identicon"
 				},
 				"project":{
@@ -969,7 +969,7 @@ const MultipleEventsMergeRequest = `{
 							"email":"admin@example.com"
 						}
 					},
-					"assignee_ids": [],
+					"assignee_ids": [50],
 					"action":"update"
 				},
 				"labels":[
@@ -1003,6 +1003,14 @@ const MultipleEventsMergeRequest = `{
 						}]
 					}
 				},
+				"assignees": [
+					{
+						"id": 50,
+						"name": "manland",
+						"username": "manland",
+						"avatar_url": "https://www.gravatar.com/avatar/e64c7d89f26bd1972efa854d13d7dd61?s=80\\u0026d=identicon"
+					}
+				],
 				"repository":{
 					"name":"webhook",
 					"url":"ssh://rmaneschi@localhost:2222/manland/webhook.git",
