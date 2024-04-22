@@ -3,6 +3,10 @@
 
 import {getConfig} from 'mattermost-redux/selectors/entities/general';
 
+import {GlobalState} from 'mattermost-redux/types/store';
+
+import {Store, Action} from 'redux';
+
 import SidebarHeader from './components/sidebar_header';
 import TeamSidebar from './components/team_sidebar';
 import RHSSidebar from './components/rhs_sidebar';
@@ -24,19 +28,21 @@ import Client from './client';
 import {getPluginServerRoute} from './selectors';
 import Hooks from './hooks';
 
-let activityFunc;
+import {FormatTextOptions, MessageHtmlToComponentOptions, PluginRegistry} from './types/mattermost-webapp';
+
+let activityFunc: () => void;
 let lastActivityTime = Number.MAX_SAFE_INTEGER;
 const activityTimeout = 60 * 60 * 1000; // 1 hour
 const {id} = manifest;
 
 class PluginClass {
-    async initialize(registry, store) {
+    async initialize(registry: PluginRegistry, store: Store<GlobalState, Action<any>>) {
         registry.registerReducer(Reducer);
 
         // This needs to be called before any API calls below
         Client.setServerRoute(getPluginServerRoute(store.getState()));
 
-        await getConnected(true)(store.dispatch, store.getState);
+        await getConnected(true)(store.dispatch);
 
         registry.registerLeftSidebarHeaderComponent(SidebarHeader);
         registry.registerBottomTeamSidebarComponent(TeamSidebar);
@@ -95,4 +101,14 @@ class PluginClass {
     }
 }
 
-global.window.registerPlugin(id, new PluginClass());
+declare global {
+    interface Window {
+        registerPlugin(pluginId: string, plugin: PluginClass): void
+        PostUtils: {
+            formatText(text: string, options?: FormatTextOptions): string,
+            messageHtmlToComponent(html: string, isRHS: boolean, option?: MessageHtmlToComponentOptions): React.ReactNode,
+        }
+    }
+}
+
+window.registerPlugin(manifest.id, new PluginClass());
