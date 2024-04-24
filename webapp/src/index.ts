@@ -30,7 +30,7 @@ import Hooks from './hooks';
 
 import {FormatTextOptions, MessageHtmlToComponentOptions, PluginRegistry} from './types/mattermost-webapp';
 
-let activityFunc: () => void;
+let activityFunc: (() => void) | undefined;
 let lastActivityTime = Number.MAX_SAFE_INTEGER;
 const activityTimeout = 60 * 60 * 1000; // 1 hour
 const {id} = manifest;
