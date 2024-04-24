@@ -97,7 +97,7 @@ class PluginClass {
     }
 
     deinitialize() {
-        document.removeEventListener('click', activityFunc);
+        document.removeEventListener('click', activityFunc as EventListenerOrEventListenerObject);
     }
 }
 
