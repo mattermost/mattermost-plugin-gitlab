@@ -1,5 +1,4 @@
 import React, {useEffect, useState} from 'react';
-import ReactMarkdown from 'react-markdown';
 import {useDispatch, useSelector} from 'react-redux';
 
 import {logError} from 'mattermost-redux/actions/errors';
@@ -122,6 +121,7 @@ const LinkTooltip = ({href, show}: Props) => {
     };
 
     const date = new Date(data.created_at).toDateString();
+    const {formatText, messageHtmlToComponent} = window.PostUtils;
 
     return (
         <div className='gitlab-tooltip'>
@@ -148,11 +148,7 @@ const LinkTooltip = ({href, show}: Props) => {
                             <span className='mr-number'>{`#${data.iid}`}</span>
                         </a>
                         <div className='markdown-text mt-1 mb-1'>
-                            <ReactMarkdown
-                                source={data.description}
-                                disallowedTypes={['heading']}
-                                linkTarget='_blank'
-                            />
+                            {messageHtmlToComponent(formatText(data.description), false)}
                         </div>
 
                         {data.type === LINK_TYPES.MERGE_REQUESTS && (

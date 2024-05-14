@@ -7,8 +7,7 @@ import {isDesktopApp} from 'src/utils/user_agent';
 import {connectUsingBrowserMessage} from 'src/constants';
 
 import {sendEphemeralPost} from '../actions';
-
-type ContextArgs = {channel_id: string};
+import {ContextArgs} from '../types/mattermost-webapp';
 
 const connectCommand = '/gitlab connect';
 
