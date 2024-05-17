@@ -230,8 +230,11 @@ func (p *Plugin) permissionToProject(ctx context.Context, userID, namespace, pro
 		return false
 	}
 
-	// Check for guest level permissions for project and group
-	if (result.Permissions.ProjectAccess != nil && result.Permissions.ProjectAccess.AccessLevel == gitlabLib.GuestPermissions) || (result.Permissions.GroupAccess != nil && result.Permissions.GroupAccess.AccessLevel == gitlabLib.GuestPermissions) {
+	// User permission for the project 
+	userPermission:= result.Permissions;
+
+	// Check if the user has guest permission or less for both project and group level
+	if (userPermission.ProjectAccess != nil && userPermission.ProjectAccess.AccessLevel <= gitlabLib.GuestPermissions) || (userPermission.GroupAccess != nil && userPermission.GroupAccess.AccessLevel <= gitlabLib.GuestPermissions) {
 		return false
 	}
 
