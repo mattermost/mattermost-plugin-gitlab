@@ -15,7 +15,7 @@ Originally developed by [Romain Maneschi](https://github.com/manland). This proj
 
 **Co-Maintainer:** [@hanzei](https://github.com/hanzei)
 
-See the [Mattermost Product Documentation](https://docs.mattermost.com/integrate/integrate/gitlab-interoperability.html) for details on installing, configuring, enabling, and using this Mattermost integration.
+See the [Mattermost Product Documentation](https://docs.mattermost.com/integrate/gitlab-interoperability.html) for details on installing, configuring, enabling, and using this Mattermost integration.
 
 ## Feature summary of GitLab to Mattermost notifications
 
