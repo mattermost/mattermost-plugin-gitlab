@@ -120,7 +120,7 @@ export function getLHSData() {
  * Stores "showRHSPlugin" action returned by
  * "registerRightHandSidebarComponent" in plugin initialization.
  */
-export function setShowRHSAction(showRHSPluginAction: ShowRhsPluginActionData) {
+export function setShowRHSAction(showRHSPluginAction: () => ShowRhsPluginActionData) {
     return {
         type: ActionTypes.RECEIVED_SHOW_RHS_ACTION,
         showRHSPluginAction,

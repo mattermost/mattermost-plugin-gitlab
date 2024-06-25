@@ -10,6 +10,7 @@ import RHSSidebar from './components/rhs_sidebar';
 import UserAttribute from './components/user_attribute';
 import SidebarRight from './components/sidebar_right';
 import LinkTooltip from './components/link_tooltip';
+
 import {GlobalState} from './types/store';
 
 import Reducer from './reducers';
