@@ -1,11 +1,10 @@
 import React, {PureComponent} from 'react';
 
-import {UserAttributeProps} from '.';
+import type {UserAttributeProps} from '.';
 
 export default class UserAttribute extends PureComponent<UserAttributeProps> {
-    constructor(props: UserAttributeProps) {
-        super(props);
-        props.actions.getGitlabUser(props.id);
+    componentDidMount() {
+        this.props.actions.getGitlabUser(this.props.id);
     }
 
     render() {

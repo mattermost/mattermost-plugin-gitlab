@@ -9,6 +9,7 @@ import {GlobalState, pluginStateKey} from 'src/types/store';
 
 import UserAttribute from './user_attribute';
 
+export type UserAttributeProps = UserAttributeStateProps & UserAttributeDispatchProps
 interface UserAttributeStateProps {
     id: string,
     username: string,
@@ -17,11 +18,9 @@ interface UserAttributeStateProps {
 
 interface UserAttributeDispatchProps {
     actions: {
-        getGitlabUser:(userID: string) => (dispatch: Dispatch<AnyAction>, getState: () => GlobalState) => Promise<any>,
+        getGitlabUser: typeof getGitlabUser,
     },
 }
-
-export type UserAttributeProps = UserAttributeStateProps & UserAttributeDispatchProps
 
 function mapStateToProps(state: GlobalState, ownProps: {user: UserProfile}): UserAttributeStateProps {
     const idUser = ownProps.user ? ownProps.user.id : '';

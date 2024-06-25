@@ -2,9 +2,6 @@
 // See License.txt for license information.
 
 import {getConfig} from 'mattermost-redux/selectors/entities/general';
-
-import {GlobalState} from 'mattermost-redux/types/store';
-
 import {Store, Action} from 'redux';
 
 import SidebarHeader from './components/sidebar_header';
@@ -13,6 +10,7 @@ import RHSSidebar from './components/rhs_sidebar';
 import UserAttribute from './components/user_attribute';
 import SidebarRight from './components/sidebar_right';
 import LinkTooltip from './components/link_tooltip';
+import {GlobalState} from './types/store';
 
 import Reducer from './reducers';
 import {getConnected, setShowRHSAction} from './actions';

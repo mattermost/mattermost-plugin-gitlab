@@ -6,10 +6,10 @@ import {AnyAction, Dispatch} from 'redux';
 
 import Client from '../client';
 import ActionTypes from '../action_types';
-import manifest from '../manifest';
 import {APIError, ConnectedData, GitlabUsersData, LHSData, ShowRhsPluginActionData, SubscriptionData} from 'src/types';
 import {Item} from 'src/types/gitlab_items';
-import {GlobalState, pluginStateKey} from 'src/types/store';
+import {GlobalState} from 'src/types/store';
+import {getPluginState} from 'src/selectors';
 
 export function getConnected(reminder = false) {
     return async (dispatch: Dispatch<AnyAction>) => {
@@ -142,7 +142,7 @@ export function getGitlabUser(userID: string) {
             return {};
         }
 
-        const user = getState()[pluginStateKey].gitlabUsers[userID];
+        const user = getPluginState(getState()).gitlabUsers[userID];
         if (
             user &&
             user.last_try &&
