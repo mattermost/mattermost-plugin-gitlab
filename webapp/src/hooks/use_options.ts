@@ -1,7 +1,14 @@
-import {useCallback} from 'react';
 import {useDispatch} from 'react-redux';
 
-export const useOptions = (projectName: string, getOptions: FetchIssueAttributeOptionsForProject, returnFields: string[], errorMessage: string, projectID?: number) => {
+type useOptionsProps = {
+    projectName: string;
+    getOptions: FetchIssueAttributeOptionsForProject<AttributeType>;
+    returnType: [string, string];
+    errorMessage: string;
+    projectID?: number;
+}
+
+export const useOptions = ({projectName, getOptions, returnType, errorMessage, projectID}: useOptionsProps) => {
     const dispatch = useDispatch();
 
     const loadOptions = async () => {
@@ -19,8 +26,8 @@ export const useOptions = (projectName: string, getOptions: FetchIssueAttributeO
         }
 
         return options.data.map((option: any) => ({
-            value: option[returnFields[0]],
-            label: option[returnFields[1]],
+            value: option[returnType[0]],
+            label: option[returnType[1]],
         }));
     };
     return loadOptions;

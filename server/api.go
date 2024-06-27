@@ -778,7 +778,7 @@ func (p *Plugin) getYourProjects(c *UserContext, w http.ResponseWriter, r *http.
 	})
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't list projects in GitLab")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list projects in GitLab.", StatusCode: http.StatusInternalServerError})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list projects in GitLab.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 

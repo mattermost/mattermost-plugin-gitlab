@@ -11,6 +11,7 @@ import manifest from 'src/manifest';
 import GitLabIcon from 'src/images/icons/gitlab';
 import {openAttachCommentToIssueModal} from 'src/actions';
 import {GlobalState} from 'src/types/global_state';
+import {isUserConnectedToGitlab} from 'src/selectors';
 
 interface PropTypes {
     postId: string;
@@ -19,10 +20,10 @@ interface PropTypes {
 const AttachCommentToIssuePostMenuAction = ({postId}: PropTypes) => {
     const {show} = useSelector((state: GlobalState) => {
         const post = getPost(state, postId);
-        const systemMessage = Boolean(!post || isSystemMessage(post));
+        const isPostSystemMessage = Boolean(!post || isSystemMessage(post));
 
         return {
-            show: state[`plugins-${manifest.id}` as pluginReduxStoreKey].connected && !systemMessage,
+            show: isUserConnectedToGitlab(state) && !isPostSystemMessage,
         };
     });
 

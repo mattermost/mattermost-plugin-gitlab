@@ -29,7 +29,7 @@ const IssueAttributeSelector = ({isMulti, projectName, theme, label, onChange, l
         if (projectName) {
             loadSelectOptions();
         }
-    }, []);
+    }, [projectName]);
 
     const prevProjectName = usePrevious(projectName);
 

@@ -72,7 +72,7 @@ const GitlabIssueSelector = ({name, required, theme, onChange, error, value, add
         return debouncedSearchIssues(inputValue);
     };
 
-    const searchIssues = async (text: string) => {
+    const searchIssues = async (text: string): Promise<ReactSelectOption[]> => {
         const textEncoded = encodeURIComponent(text.trim().replace(/\\/g, '\\\\').replace(/"/g, '\\"'));
         try {
             const issues = await Client.searchIssues(textEncoded);

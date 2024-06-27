@@ -3,16 +3,16 @@
 
 import React from 'react';
 
-type PropTypes = {
+type Prop = {
     disabled?: boolean;
-    defaultMessage?: string,
+    defaultMessage?: string;
     btnClass?: string;
     saving?: boolean;
     savingMessage?: string;
     onClick?: () => void;
 };
 
-const FormButton = ({saving, disabled, savingMessage, defaultMessage, btnClass, onClick}: PropTypes) => {
+const FormButton = ({saving, disabled, savingMessage, defaultMessage, btnClass, onClick}: Prop) => {
     const contents = saving ? (
         <span>
             <span

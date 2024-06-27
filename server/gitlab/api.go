@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/logger"
 
 	"github.com/pkg/errors"
@@ -660,13 +661,12 @@ func (g *gitlab) GetYourProjects(ctx context.Context, user *UserInfo, token *oau
 	if err != nil {
 		return nil, err
 	}
-	owned := true
 
 	var projects []*internGitlab.Project
 	if g.gitlabGroup == "" {
 		result, resp, err := client.Projects.ListProjects(
 			&internGitlab.ListProjectsOptions{
-				Owned: &owned,
+				Owned: model.NewBool(true),
 			},
 			internGitlab.WithContext(ctx),
 		)
@@ -682,7 +682,7 @@ func (g *gitlab) GetYourProjects(ctx context.Context, user *UserInfo, token *oau
 		result, resp, err := client.Groups.ListGroupProjects(
 			g.gitlabGroup,
 			&internGitlab.ListGroupProjectsOptions{
-				Owned: &owned,
+				Owned: model.NewBool(true),
 			},
 			internGitlab.WithContext(ctx),
 		)

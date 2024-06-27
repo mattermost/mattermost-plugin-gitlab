@@ -17,10 +17,10 @@ type PropTypes = {
 };
 
 const GitlabAssigneeSelector = ({projectID, projectName, theme, selectedAssignees, onChange}: PropTypes) => {
-    const returnType = ['id', 'username'];
+    const returnType: [string, string] = ['id', 'username'];
     const errorMessage = 'failed to load assignees';
 
-    const loadAssignees = useOptions(projectName, getAssigneeOptions as FetchIssueAttributeOptionsForProject, returnType, errorMessage, projectID);
+    const loadAssignees = useOptions({projectName, getOptions: getAssigneeOptions as FetchIssueAttributeOptionsForProject<Assignee>, returnType, errorMessage, projectID});
 
     return (
         <div className='form-group margin-bottom x3'>

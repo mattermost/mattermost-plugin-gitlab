@@ -1,14 +1,15 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 import {Theme} from 'mattermost-redux/types/preferences';
 
 import {getProjects} from 'src/actions';
-import manifest from 'src/manifest';
 import ReactSelectSetting from 'src/components/react_select_setting';
 import {GlobalState} from 'src/types/global_state';
+import {getPluginState} from 'src/selectors';
+import {getErrorMessage} from 'src/utils/user_utils';
 
 type PropTypes = {
     theme: Theme;
@@ -21,10 +22,9 @@ type PropTypes = {
 
 const GitlabProjectSelector = ({theme, required, onChange, value, addValidate, removeValidate}: PropTypes) => {
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string>('');
 
-    const {yourProjects} = useSelector((state: GlobalState) => ({
-        yourProjects: state[`plugins-${manifest.id}` as pluginReduxStoreKey].yourProjects,
-    }));
+    const myProjects = useSelector((state: GlobalState) => getPluginState(state).yourProjects);
 
     const dispatch = useDispatch();
 
@@ -34,16 +34,25 @@ const GitlabProjectSelector = ({theme, required, onChange, value, addValidate, r
 
     const loadProjects = async () => {
         setIsLoading(true);
-        await dispatch(getProjects());
+        const res: any = await dispatch(getProjects());
+        if (res.error) {
+            const errMessage = getErrorMessage((res as { error: ErrorType }).error.message);
+            setError(errMessage);
+        } else {
+            setError('');
+        }
+
         setIsLoading(false);
     };
 
     const handleOnChange = (_: string, name: string) => {
-        const project = yourProjects.find((p: Project) => p.path_with_namespace === name);
+        const project = myProjects.find((p: Project) => p.path_with_namespace === name);
         onChange(project ? {name, project_id: project?.id} : null);
     };
 
-    const projectOptions = yourProjects.map((item: Project) => ({value: item.path_with_namespace, label: item.path_with_namespace}));
+    const projectOptions = useMemo(() => {
+        return myProjects.map((item: Project) => ({value: item.path_with_namespace, label: item.path_with_namespace}));
+    }, [myProjects]);
 
     return (
         <div className={'form-group margin-bottom x3'}>
@@ -64,6 +73,18 @@ const GitlabProjectSelector = ({theme, required, onChange, value, addValidate, r
             <div className={'help-text'}>
                 {'Returns GitLab projects connected to the user account'}
             </div>
+            {error && (
+                <p
+                    className='alert alert-danger'
+                    style={{marginTop: '10px'}}
+                >
+                    <i
+                        className='fa fa-warning'
+                        title='Warning Icon'
+                    />
+                    <span> {error}</span>
+                </p>
+            )}
         </div>
     );
 };

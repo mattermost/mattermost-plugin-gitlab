@@ -17,10 +17,10 @@ type PropTypes = {
 };
 
 const GitlabLabelSelector = ({projectID, projectName, theme, selectedLabels, onChange}: PropTypes) => {
-    const returnType = ['name', 'name'];
+    const returnType: [string, string] = ['name', 'name'];
     const errorMessage = 'failed to load labels';
 
-    const loadLabels = useOptions(projectName, getLabelOptions as FetchIssueAttributeOptionsForProject, returnType, errorMessage, projectID);
+    const loadLabels = useOptions({projectName, getOptions: getLabelOptions as FetchIssueAttributeOptionsForProject<Label>, returnType, errorMessage, projectID});
 
     return (
         <div className='form-group margin-bottom x3'>

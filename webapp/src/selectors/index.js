@@ -43,6 +43,8 @@ function mapPrsToDetails(prs, details) {
 
 export const getPluginState = (state) => state[`plugins-${manifest.id}`];
 
+export const isUserConnectedToGitlab = (state) => state[`plugins-${manifest.id}`].connected;
+
 export const getSidebarData = createSelector(
     getPluginState,
     (pluginState) => {

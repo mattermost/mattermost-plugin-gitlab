@@ -1,7 +1,7 @@
 type OnChangeType = SelectionType | SelectionType[] | null;
 
 type SelectionType = {
-    value: number | string;
+    value: number | string | Issue;
     label: string;
 }
 
@@ -11,7 +11,14 @@ type ErrorType = {
 
 type pluginReduxStoreKey = 'plugins-com.github.manland.mattermost-plugin-gitlab'
 
-type FetchIssueAttributeOptionsForProject = (projectID?: number) => (dispatch: Dispatch<GenericAction>) => Promise<{
+type AttributeType = Assignee | Milestone | Label;
+
+type FetchIssueAttributeOptionsForProject<T> = (projectID?: number) => (dispatch: Dispatch<GenericAction>) => Promise<{
     error?: ErrorType;
-    data?: Assignee[] | Milestone[] | Label[];
+    data?: T[];
 }>
+
+type ReactSelectOption = {
+    value: Issue;
+    label: string;
+}

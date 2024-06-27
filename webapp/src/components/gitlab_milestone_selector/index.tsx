@@ -17,10 +17,10 @@ type PropTypes = {
 };
 
 const GitlabMilestoneSelector = ({projectID, projectName, theme, selectedMilestone, onChange}: PropTypes) => {
-    const returnType = ['id', 'title'];
+    const returnType: [string, string] = ['id', 'title'];
     const errorMessage = 'failed to load milestones';
 
-    const loadMilestones = useOptions(projectName, getMilestoneOptions as FetchIssueAttributeOptionsForProject, returnType, errorMessage, projectID);
+    const loadMilestones = useOptions({projectName, getOptions: getMilestoneOptions as FetchIssueAttributeOptionsForProject<Milestone>, returnType, errorMessage, projectID});
 
     return (
         <div className='form-group margin-bottom x3'>
