@@ -34,9 +34,9 @@ const GitlabProjectSelector = ({theme, required, onChange, value, addValidate, r
 
     const loadProjects = async () => {
         setIsLoading(true);
-        const res: any = await dispatch(getProjects());
+        const res = (await dispatch(getProjects())) as {error?: ErrorType};
         if (res.error) {
-            const errMessage = getErrorMessage((res as { error: ErrorType }).error.message);
+            const errMessage = getErrorMessage(res.error?.message);
             setError(errMessage);
         } else {
             setError('');

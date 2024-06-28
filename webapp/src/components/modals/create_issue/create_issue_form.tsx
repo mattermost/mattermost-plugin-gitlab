@@ -62,9 +62,9 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
             title: issueTitle,
             description: issueDescription,
             project_id: project.project_id,
-            labels: labels.map((label) => label.value),
-            assignees: assignees.map((assignee) => assignee.value),
-            milestone: milestone?.value,
+            labels: labels.map((label) => label.value as string),
+            assignees: assignees.map((assignee) => assignee.value as number),
+            milestone: milestone?.value as number,
             post_id: postId,
             channel_id: channelId,
         };

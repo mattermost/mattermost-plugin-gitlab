@@ -3,7 +3,7 @@
 
 import React from 'react';
 
-type Prop = {
+type Props = {
     disabled?: boolean;
     defaultMessage?: string;
     btnClass?: string;
@@ -12,7 +12,7 @@ type Prop = {
     onClick?: () => void;
 };
 
-const FormButton = ({saving, disabled, savingMessage, defaultMessage, btnClass, onClick}: Prop) => {
+const FormButton = ({saving, disabled, savingMessage, defaultMessage, btnClass, onClick}: Props) => {
     const contents = saving ? (
         <span>
             <span

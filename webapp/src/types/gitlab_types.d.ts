@@ -2,9 +2,9 @@ interface IssueBody {
     title: string;
     description: string;
     project_id?: number;
-    labels?: (string | number | Issue)[];
-    assignees?: (string | number | Issue)[];
-    milestone?: (string | number | Issue);
+    labels?: string[];
+    assignees?: number[];
+    milestone?: number;
     post_id: string;
     channel_id: string;
 }
