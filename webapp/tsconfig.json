@@ -23,7 +23,7 @@
     "baseUrl": "."
   },
   "include": [
-    "./**/*"
+    "./src/*"
   ],
   "exclude": [
     "dist",
