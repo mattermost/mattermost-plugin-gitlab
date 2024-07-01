@@ -555,6 +555,7 @@ func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Req
 
 func (p *Plugin) getLHSData(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	var result *gitlab.LHSContent
+	p.API.LogDebug("Getting the LHS data.")
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		resp, err := p.GitlabClient.GetLHSData(c.Ctx, info, token)
 		if err != nil {
