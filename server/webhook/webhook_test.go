@@ -38,6 +38,8 @@ func (*fakeWebhook) GetUsernameByID(id int) string {
 		return "root"
 	case 50:
 		return "manland"
+	case 100:
+		return "user"
 	default:
 		return ""
 	}
