@@ -55,7 +55,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 
 			// Handle change in assignees
 			if event.Changes.Assignees.Current != nil || event.Changes.Assignees.Previous != nil {
-				isAuthorPresent, updatedPreviousUsers, updatedCurrentUsers := w.handleDMNotificationUsers(event.ObjectAttributes.AuthorID, event.Changes.Assignees.Previous, event.Changes.Assignees.Current)
+				isAuthorPresent, updatedPreviousUsers, updatedCurrentUsers := w.calculateUserDiffs(event.ObjectAttributes.AuthorID, event.Changes.Assignees.Previous, event.Changes.Assignees.Current)
 
 				// Check if the MR author is present in the assignee changes
 				if !isAuthorPresent {
@@ -88,7 +88,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 
 			// Handle change in reviewers
 			if event.Changes.Reviewers.Current != nil || event.Changes.Reviewers.Previous != nil {
-				isAuthorPresent, updatedPreviousUsers, updatedCurrentUsers := w.handleDMNotificationUsers(event.ObjectAttributes.AuthorID, event.Changes.Reviewers.Previous, event.Changes.Reviewers.Current)
+				isAuthorPresent, updatedPreviousUsers, updatedCurrentUsers := w.calculateUserDiffs(event.ObjectAttributes.AuthorID, event.Changes.Reviewers.Previous, event.Changes.Reviewers.Current)
 
 				// Check if the MR author is present in the assignee changes
 				if !isAuthorPresent {
@@ -232,7 +232,7 @@ func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.M
 	return res, nil
 }
 
-func (w *webhook) handleDMNotificationUsers(authorID int, previousUsers, currentUsers []*gitlab.EventUser) (bool, []string, []string) {
+func (w *webhook) calculateUserDiffs(authorID int, previousUsers, currentUsers []*gitlab.EventUser) (bool, []string, []string) {
 	mapPreviousUsers := map[int]*gitlab.EventUser{}
 	mapCurrentUsers := map[int]*gitlab.EventUser{}
 	updatedPreviousUsers := []string{}
