@@ -3,8 +3,11 @@ import {getConfig} from 'mattermost-redux/selectors/entities/general';
 import {createSelector} from 'reselect';
 
 import manifest from '../manifest';
+import {Item} from 'src/types/gitlab_items';
+import {GlobalState, PluginState, pluginStateKey} from 'src/types/store';
+import {SideBarData} from 'src/types';
 
-export const getPluginServerRoute = (state) => {
+export const getPluginServerRoute = (state: GlobalState) => {
     const config = getConfig(state);
 
     let basePath = '';
@@ -19,7 +22,7 @@ export const getPluginServerRoute = (state) => {
     return basePath + '/plugins/' + manifest.id;
 };
 
-function mapPrsToDetails(prs, details) {
+function mapPrsToDetails(prs?: Item[], details?: Item[]): Item[] {
     if (!prs || !prs.length) {
         return [];
     }
@@ -39,26 +42,26 @@ function mapPrsToDetails(prs, details) {
     });
 }
 
-export const getPluginState = (state) => state[`plugins-${manifest.id}`];
+export const getPluginState = (state: GlobalState) => state[pluginStateKey];
 
 export const getSidebarData = createSelector(
     getPluginState,
-    (pluginState) => {
+    (pluginState: PluginState): SideBarData => {
         return {
             username: pluginState.username,
-            reviewDetails: pluginState.reviewDetails,
-            reviews: mapPrsToDetails(pluginState.lhsData?.reviews, pluginState.reviewDetails),
-            yourAssignedPrs: mapPrsToDetails(pluginState.lhsData?.yourAssignedPrs, pluginState.yourPrDetails),
-            yourPrDetails: pluginState.yourPrDetails,
-            yourAssignedIssues: pluginState.lhsData?.yourAssignedIssues,
-            todos: pluginState.lhsData?.todos,
+            reviewDetails: pluginState.reviewDetails ?? [],
+            reviews: mapPrsToDetails(pluginState.lhsData?.reviews, pluginState.reviewDetails || []),
+            yourAssignedPrs: mapPrsToDetails(pluginState.lhsData?.yourAssignedPrs, pluginState.yourPrDetails || []),
+            yourPrDetails: pluginState.yourPrDetails ?? [],
+            yourAssignedIssues: pluginState.lhsData?.yourAssignedIssues ?? [],
+            todos: pluginState.lhsData?.todos ?? [],
             org: pluginState.organization,
             gitlabURL: pluginState.gitlabURL,
-            rhsState: pluginState.rhsState,
+            rhsState: pluginState.rhsState ?? '',
         };
     },
 );
 
-export const getConnected = (state) => state[`plugins-${manifest.id}`].connected;
+export const getConnected = (state: GlobalState) => getPluginState(state).connected;
 
-export const getConnectedGitlabUrl = (state) => state[`plugins-${manifest.id}`].gitlabURL;
+export const getConnectedGitlabUrl = (state: GlobalState) => getPluginState(state).gitlabURL;
