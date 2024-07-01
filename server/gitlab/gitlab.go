@@ -32,7 +32,7 @@ type Gitlab interface {
 	GetYourPrDetails(ctx context.Context, log logger.Logger, user *UserInfo, token *oauth2.Token, prList []*PRDetails) ([]*PRDetails, error)
 	GetReviews(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*MergeRequest, error)
 	GetYourAssignedPrs(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*MergeRequest, error)
-	GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.Token) (*LHSContent, error)
+	GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.Token, log logger.Logger) (*LHSContent, error)
 	GetYourAssignedIssues(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*Issue, error)
 	GetToDoList(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*internGitlab.Todo, error)
 	GetProjectHooks(ctx context.Context, user *UserInfo, token *oauth2.Token, owner string, repo string) ([]*WebhookInfo, error)

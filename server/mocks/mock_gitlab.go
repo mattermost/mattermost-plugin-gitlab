@@ -84,18 +84,18 @@ func (mr *MockGitlabMockRecorder) GetIssueByID(arg0, arg1, arg2, arg3, arg4, arg
 }
 
 // GetLHSData mocks base method.
-func (m *MockGitlab) GetLHSData(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token) (*gitlab.LHSContent, error) {
+func (m *MockGitlab) GetLHSData(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token, arg3 logger.Logger) (*gitlab.LHSContent, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetLHSData", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetLHSData", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*gitlab.LHSContent)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetLHSData indicates an expected call of GetLHSData.
-func (mr *MockGitlabMockRecorder) GetLHSData(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockGitlabMockRecorder) GetLHSData(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLHSData", reflect.TypeOf((*MockGitlab)(nil).GetLHSData), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLHSData", reflect.TypeOf((*MockGitlab)(nil).GetLHSData), arg0, arg1, arg2, arg3)
 }
 
 // GetMergeRequestByID mocks base method.
