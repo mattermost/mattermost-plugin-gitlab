@@ -5,6 +5,21 @@ type SelectionType = {
     label: string;
 }
 
+type LabelSelectionType = {
+    value: string;
+    label: string;
+}
+
+type MilestoneSelectionType = {
+    value: number;
+    label: string;
+}
+
+type AssigneeSelectionType = {
+    value: number;
+    label: string;
+}
+
 type ErrorType = {
     message: string;
 }

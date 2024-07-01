@@ -12,7 +12,7 @@ type PropTypes = {
     projectID?: number;
     projectName: string;
     theme: Theme;
-    selectedLabels: SelectionType[];
+    selectedLabels: LabelSelectionType[];
     onChange: (labels: OnChangeType) => void;
 };
 

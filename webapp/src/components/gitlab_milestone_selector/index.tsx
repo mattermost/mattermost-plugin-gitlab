@@ -12,7 +12,7 @@ type PropTypes = {
     projectID?: number;
     projectName: string;
     theme: Theme;
-    selectedMilestone: SelectionType | null;
+    selectedMilestone: MilestoneSelectionType | null;
     onChange: (milestone: OnChangeType) => void;
 };
 

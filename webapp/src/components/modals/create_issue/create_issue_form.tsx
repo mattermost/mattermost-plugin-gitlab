@@ -28,9 +28,9 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
     const [project, setProject] = useState<ProjectSelection | null>(null);
     const [issueTitle, setIssueTitle] = useState<string>('');
     const [issueDescription, setIssueDescription] = useState<string>('');
-    const [labels, setLabels] = useState<SelectionType[]>([]);
-    const [assignees, setAssignees] = useState<SelectionType[]>([]);
-    const [milestone, setMilestone] = useState<SelectionType | null>(null);
+    const [labels, setLabels] = useState<LabelSelectionType[]>([]);
+    const [assignees, setAssignees] = useState<AssigneeSelectionType[]>([]);
+    const [milestone, setMilestone] = useState<MilestoneSelectionType | null>(null);
     const [showErrors, setShowErrors] = useState<boolean>(false);
     const [error, setError] = useState<string>('');
     const [issueTitleValid, setIssueTitleValid] = useState<boolean>(true);
@@ -62,9 +62,9 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
             title: issueTitle,
             description: issueDescription,
             project_id: project.project_id,
-            labels: labels.map((label) => label.value as string),
-            assignees: assignees.map((assignee) => assignee.value as number),
-            milestone: milestone?.value as number,
+            labels: labels.map((label) => label.value),
+            assignees: assignees.map((assignee) => assignee.value),
+            milestone: milestone?.value,
             post_id: postId,
             channel_id: channelId,
         };
@@ -85,11 +85,11 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
 
     const handleProjectChange = (newValue: ProjectSelection | null) => setProject(newValue);
 
-    const handleLabelsChange = (newLabels: OnChangeType) => setLabels(newLabels as SelectionType[]);
+    const handleLabelsChange = (newLabels: OnChangeType) => setLabels(newLabels as LabelSelectionType[]);
 
-    const handleAssigneesChange = (newAssignees: OnChangeType) => setAssignees(newAssignees as SelectionType[]);
+    const handleAssigneesChange = (newAssignees: OnChangeType) => setAssignees(newAssignees as AssigneeSelectionType[]);
 
-    const handleMilestoneChange = (newMilestone: OnChangeType) => setMilestone(newMilestone as SelectionType);
+    const handleMilestoneChange = (newMilestone: OnChangeType) => setMilestone(newMilestone as MilestoneSelectionType);
 
     const handleIssueTitleChange = (newValue: string) => {
         setIssueTitle(newValue);
