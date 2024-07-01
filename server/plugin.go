@@ -39,11 +39,12 @@ const (
 	WsEventConnect                = "gitlab_connect"
 	WsEventDisconnect             = "gitlab_disconnect"
 	WsEventRefresh                = "gitlab_refresh"
-	WsChannelSubscriptionsUpdated = "gitlab_channel_subscriptions_updated"
+	wsEventCreateIssue            = "create_issue"
 	SettingNotifications          = "notifications"
 	SettingReminders              = "reminders"
 	SettingOn                     = "on"
 	SettingOff                    = "off"
+	WsChannelSubscriptionsUpdated = "gitlab_channel_subscriptions_updated"
 
 	chimeraGitLabAppIdentifier = "plugin-gitlab"
 
@@ -692,6 +693,17 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 	)
 }
 
+func (p *Plugin) openIssueCreateModal(userID, channelID, title string) {
+	p.API.PublishWebSocketEvent(
+		wsEventCreateIssue,
+		map[string]interface{}{
+			"title":      title,
+			"channel_id": channelID,
+		},
+		&model.WebsocketBroadcast{UserId: userID},
+	)
+}
+
 func (p *Plugin) sendChannelSubscriptionsUpdated(subs *Subscriptions, channelID string) {
 	config := p.getConfiguration()
 
@@ -780,6 +792,29 @@ func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namesp
 	}
 
 	return found, err
+}
+
+// getUsername returns the GitLab username for a given Mattermost user,
+// if the user is connected to GitLab via this plugin.
+// Otherwise it returns the Mattermost username.
+// One use of this function is to include an at-mention username in the GitLab comment itself.
+func (p *Plugin) getUsername(userID string) (string, *APIErrorResponse) {
+	info, err := p.getGitlabUserInfoByMattermostID(userID)
+	if err != nil && err.ID != APIErrorIDNotConnected {
+		return "", err
+	} else if err != nil {
+		user, appErr := p.API.GetUser(userID)
+		if appErr != nil {
+			return "", &APIErrorResponse{
+				StatusCode: appErr.StatusCode,
+				Message:    appErr.Message,
+			}
+		}
+
+		return user.Username, nil
+	}
+
+	return info.GitlabUsername, nil
 }
 
 func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*oauth2.Token, error) {

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/logger"
 
 	"github.com/pkg/errors"
@@ -21,6 +22,21 @@ const (
 
 	perPage = 20
 )
+
+type IssueRequest struct {
+	ID          int                       `json:"id"`
+	IID         int                       `json:"iid"`
+	Title       string                    `json:"title"`
+	Description string                    `json:"description"`
+	Milestone   int                       `json:"milestone"`
+	ProjectID   int                       `json:"project_id"`
+	Assignees   []int                     `json:"assignees"`
+	Labels      internGitlab.LabelOptions `json:"labels"`
+	PostID      string                    `json:"post_id"`
+	ChannelID   string                    `json:"channel_id"`
+	Comment     string                    `json:"comment"`
+	WebURL      string                    `json:"web_url"`
+}
 
 type PRDetails struct {
 	IID          int                           `json:"iid"`
@@ -638,6 +654,203 @@ func (g *gitlab) GetToDoList(ctx context.Context, user *UserInfo, client *intern
 	}
 
 	return notifications, nil
+}
+
+func (g *gitlab) GetYourProjects(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.Project, error) {
+	client, err := g.GitlabConnect(*token)
+	if err != nil {
+		return nil, err
+	}
+
+	var projects []*internGitlab.Project
+	if g.gitlabGroup == "" {
+		result, resp, err := client.Projects.ListProjects(
+			&internGitlab.ListProjectsOptions{
+				Owned: model.NewBool(true),
+			},
+			internGitlab.WithContext(ctx),
+		)
+		if respErr := checkResponse(resp); respErr != nil {
+			return nil, respErr
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		projects = append(projects, result...)
+	} else {
+		result, resp, err := client.Groups.ListGroupProjects(
+			g.gitlabGroup,
+			&internGitlab.ListGroupProjectsOptions{
+				Owned: model.NewBool(true),
+			},
+			internGitlab.WithContext(ctx),
+		)
+		if respErr := checkResponse(resp); respErr != nil {
+			return nil, respErr
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		projects = append(projects, result...)
+	}
+
+	return projects, nil
+}
+
+func (g *gitlab) GetLabels(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.Label, error) {
+	client, err := g.GitlabConnect(*token)
+	if err != nil {
+		return nil, err
+	}
+	result, resp, err := client.Labels.ListLabels(
+		projectID,
+		nil,
+		internGitlab.WithContext(ctx),
+	)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (g *gitlab) GetMilestones(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.Milestone, error) {
+	client, err := g.GitlabConnect(*token)
+	if err != nil {
+		return nil, err
+	}
+	result, resp, err := client.Milestones.ListMilestones(
+		projectID,
+		nil,
+		internGitlab.WithContext(ctx),
+	)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (g *gitlab) GetProjectMembers(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.ProjectMember, error) {
+	client, err := g.GitlabConnect(*token)
+	if err != nil {
+		return nil, err
+	}
+	result, resp, err := client.ProjectMembers.ListProjectMembers(
+		projectID,
+		nil,
+		internGitlab.WithContext(ctx),
+	)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (g *gitlab) CreateIssue(ctx context.Context, user *UserInfo, issue *IssueRequest, token *oauth2.Token) (*internGitlab.Issue, error) {
+	client, err := g.GitlabConnect(*token)
+	if err != nil {
+		return nil, err
+	}
+
+	result, resp, err := client.Issues.CreateIssue(
+		issue.ProjectID,
+		&internGitlab.CreateIssueOptions{
+			Title:       &issue.Title,
+			Description: &issue.Description,
+			MilestoneID: &issue.Milestone,
+			AssigneeIDs: &issue.Assignees,
+			Labels:      &issue.Labels,
+		},
+		internGitlab.WithContext(ctx),
+	)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "can't create issue in GitLab")
+	}
+
+	return result, nil
+}
+
+func (g *gitlab) AttachCommentToIssue(ctx context.Context, user *UserInfo, issue *IssueRequest, permalink, commentUsername string, token *oauth2.Token) (*internGitlab.Note, error) {
+	client, err := g.GitlabConnect(*token)
+	if err != nil {
+		return nil, err
+	}
+
+	issueComment := fmt.Sprintf("*@%s attached a* [message](%s) *from @%s*\n\n%s", user.GitlabUsername, permalink, commentUsername, issue.Comment)
+
+	result, resp, err := client.Notes.CreateIssueNote(
+		issue.ProjectID,
+		issue.IID,
+		&internGitlab.CreateIssueNoteOptions{
+			Body: &issueComment,
+		},
+		internGitlab.WithContext(ctx),
+	)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "can't create issue comment in GitLab api")
+	}
+
+	return result, nil
+}
+
+func (g *gitlab) SearchIssues(ctx context.Context, user *UserInfo, search string, token *oauth2.Token) ([]*internGitlab.Issue, error) {
+	client, err := g.GitlabConnect(*token)
+	if err != nil {
+		return nil, err
+	}
+
+	var issues []*internGitlab.Issue
+	if g.gitlabGroup == "" {
+		result, resp, err := client.Search.Issues(
+			search,
+			&internGitlab.SearchOptions{},
+			internGitlab.WithContext(ctx),
+		)
+		if respErr := checkResponse(resp); respErr != nil {
+			return nil, respErr
+		}
+		if err != nil {
+			return nil, errors.Wrap(err, "can't search issues in GitLab api")
+		}
+
+		issues = append(issues, result...)
+	} else {
+		result, resp, err := client.Search.IssuesByGroup(
+			g.gitlabGroup,
+			search,
+			&internGitlab.SearchOptions{},
+			internGitlab.WithContext(ctx),
+		)
+		if respErr := checkResponse(resp); respErr != nil {
+			return nil, respErr
+		}
+		if err != nil {
+			return nil, errors.Wrap(err, "can't search issues in GitLab api")
+		}
+
+		issues = append(issues, result...)
+	}
+
+	return issues, nil
 }
 
 func (g *gitlab) ResolveNamespaceAndProject(
