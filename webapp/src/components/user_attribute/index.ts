@@ -10,19 +10,11 @@ import {GlobalState, pluginStateKey} from 'src/types/store';
 import UserAttribute from './user_attribute';
 
 export type UserAttributeProps = UserAttributeStateProps & UserAttributeDispatchProps
-interface UserAttributeStateProps {
-    id: string,
-    username: string,
-    gitlabURL: string,
-}
 
-interface UserAttributeDispatchProps {
-    actions: {
-        getGitlabUser: typeof getGitlabUser,
-    },
-}
+type UserAttributeDispatchProps = ReturnType<typeof mapDispatchToProps>;
+type UserAttributeStateProps = ReturnType<typeof mapStateToProps>;
 
-function mapStateToProps(state: GlobalState, ownProps: {user: UserProfile}): UserAttributeStateProps {
+function mapStateToProps(state: GlobalState, ownProps: {user: UserProfile}) {
     const idUser = ownProps.user ? ownProps.user.id : '';
     const user = state[pluginStateKey].gitlabUsers[idUser] || {};
     return {
@@ -32,7 +24,7 @@ function mapStateToProps(state: GlobalState, ownProps: {user: UserProfile}): Use
     };
 }
 
-function mapDispatchToProps(dispatch: Dispatch<AnyAction>): UserAttributeDispatchProps {
+function mapDispatchToProps(dispatch: Dispatch<AnyAction>) {
     return {
         actions: bindActionCreators(
             {
