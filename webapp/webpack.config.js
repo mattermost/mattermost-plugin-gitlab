@@ -1,7 +1,5 @@
 var path = require('path');
 
-const NodePolyfillPlugin = require('node-polyfill-webpack-plugin');
-
 module.exports = {
     entry: [
         './src/index.ts',
@@ -49,9 +47,6 @@ module.exports = {
         'prop-types': 'PropTypes',
         'react-bootstrap': 'ReactBootstrap',
     },
-    plugins: [
-        new NodePolyfillPlugin(),
-    ],
     output: {
         path: path.join(__dirname, '/dist'),
         publicPath: '/',
