@@ -55,26 +55,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 
 			// Handle change in assignees
 			if event.Changes.Assignees.Current != nil || event.Changes.Assignees.Previous != nil {
-				isAuthorPresent, updatedPreviousUsers, updatedCurrentUsers := w.calculateUserDiffs(event.ObjectAttributes.AuthorID, event.Changes.Assignees.Previous, event.Changes.Assignees.Current)
-
-				// Check if the MR author is present in the assignee changes
-				if !isAuthorPresent {
-					message = fmt.Sprintf("[%s](%s) updated the list of assignees for the merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
-					handlers = append(handlers, &HandleWebhook{
-						Message: message,
-						ToUsers: []string{authorGitlabUsername},
-						From:    senderGitlabUsername,
-					})
-				}
-
-				if len(updatedPreviousUsers) != 0 {
-					message = fmt.Sprintf("[%s](%s) removed you as an assignee from the merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
-					handlers = append(handlers, &HandleWebhook{
-						Message: message,
-						ToUsers: updatedPreviousUsers,
-						From:    senderGitlabUsername,
-					})
-				}
+				updatedCurrentUsers := w.calculateUserDiffs(event.Changes.Assignees.Previous, event.Changes.Assignees.Current)
 
 				if len(updatedCurrentUsers) != 0 {
 					message = fmt.Sprintf("[%s](%s) assigned you to merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
@@ -88,29 +69,10 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 
 			// Handle change in reviewers
 			if event.Changes.Reviewers.Current != nil || event.Changes.Reviewers.Previous != nil {
-				isAuthorPresent, updatedPreviousUsers, updatedCurrentUsers := w.calculateUserDiffs(event.ObjectAttributes.AuthorID, event.Changes.Reviewers.Previous, event.Changes.Reviewers.Current)
-
-				// Check if the MR author is present in the assignee changes
-				if !isAuthorPresent {
-					message = fmt.Sprintf("[%s](%s) updated the list of reviewers for the merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
-					handlers = append(handlers, &HandleWebhook{
-						Message: message,
-						ToUsers: []string{authorGitlabUsername},
-						From:    senderGitlabUsername,
-					})
-				}
-
-				if len(updatedPreviousUsers) != 0 {
-					message = fmt.Sprintf("[%s](%s) removed you as a reviewer from the merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
-					handlers = append(handlers, &HandleWebhook{
-						Message: message,
-						ToUsers: updatedPreviousUsers,
-						From:    senderGitlabUsername,
-					})
-				}
+				updatedCurrentUsers := w.calculateUserDiffs(event.Changes.Reviewers.Previous, event.Changes.Reviewers.Current)
 
 				if len(updatedCurrentUsers) != 0 {
-					message = fmt.Sprintf("[%s](%s) assigned you as a reviewer to merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+					message = fmt.Sprintf("[%s](%s) requested your review on merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 					handlers = append(handlers, &HandleWebhook{
 						Message: message,
 						ToUsers: updatedCurrentUsers,
@@ -118,17 +80,6 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 					})
 				}
 			}
-
-			// Check if multiple events happened in single webhook event
-			if w.checkForMultipleEvents(event) {
-				message = fmt.Sprintf("[%s](%s) updated the merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
-				handlers = []*HandleWebhook{{
-					Message: message,
-					ToUsers: toUsers,
-					From:    senderGitlabUsername,
-				}}
-			}
-
 		case actionApproved:
 			message = fmt.Sprintf("[%s](%s) approved your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 			handlers = []*HandleWebhook{{
@@ -232,71 +183,19 @@ func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.M
 	return res, nil
 }
 
-func (w *webhook) calculateUserDiffs(authorID int, previousUsers, currentUsers []*gitlab.EventUser) (bool, []string, []string) {
+// calculateUserDiffs function takes previousUsers and currentUsers of an event, finds the change in the user list, and returns the updated current user list.
+func (w *webhook) calculateUserDiffs(previousUsers, currentUsers []*gitlab.EventUser) []string {
 	mapPreviousUsers := map[int]*gitlab.EventUser{}
-	mapCurrentUsers := map[int]*gitlab.EventUser{}
-	updatedPreviousUsers := []string{}
 	updatedCurrentUsers := []string{}
-	isAuthorPresent := false
 	for _, previousUser := range previousUsers {
 		mapPreviousUsers[previousUser.ID] = previousUser
 	}
 
 	for _, currentUser := range currentUsers {
-		mapCurrentUsers[currentUser.ID] = currentUser
 		if _, exist := mapPreviousUsers[currentUser.ID]; !exist {
-			if currentUser.ID == authorID {
-				isAuthorPresent = true
-			}
 			updatedCurrentUsers = append(updatedCurrentUsers, w.gitlabRetreiver.GetUsernameByID(currentUser.ID))
 		}
 	}
 
-	for _, previousUser := range previousUsers {
-		if _, exist := mapCurrentUsers[previousUser.ID]; !exist {
-			if previousUser.ID == authorID {
-				isAuthorPresent = true
-			}
-			updatedPreviousUsers = append(updatedPreviousUsers, w.gitlabRetreiver.GetUsernameByID(previousUser.ID))
-		}
-	}
-
-	return isAuthorPresent, updatedPreviousUsers, updatedCurrentUsers
-}
-
-func (w *webhook) checkForMultipleEvents(event *gitlab.MergeEvent) bool {
-	eventCount := 0
-	if event.Changes.Labels.Current != nil || event.Changes.Labels.Previous != nil {
-		eventCount++
-	}
-
-	if event.Changes.Description.Current != "" || event.Changes.Description.Previous != "" {
-		eventCount++
-	}
-
-	if event.Changes.Title.Current != "" || event.Changes.Title.Previous != "" {
-		eventCount++
-	}
-
-	if event.Changes.MilestoneID.Current != 0 || event.Changes.MilestoneID.Previous != 0 {
-		eventCount++
-	}
-
-	if event.Changes.Draft.Current || event.Changes.Draft.Previous {
-		eventCount++
-	}
-
-	if event.Changes.TargetBranch.Current != "" || event.Changes.TargetBranch.Previous != "" {
-		eventCount++
-	}
-
-	if event.Changes.SourceBranch.Current != "" || event.Changes.SourceBranch.Previous != "" {
-		eventCount++
-	}
-
-	if (event.Changes.Assignees.Previous != nil || event.Changes.Assignees.Current != nil) && (event.Changes.Reviewers.Previous != nil || event.Changes.Reviewers.Current != nil) {
-		eventCount++
-	}
-
-	return eventCount > 0
+	return updatedCurrentUsers
 }

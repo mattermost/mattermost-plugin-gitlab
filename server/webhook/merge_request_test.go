@@ -94,18 +94,6 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
 		res: []*HandleWebhook{
 			{
-				Message:    "[root](http://my.gitlab.com/root) updated the list of assignees for the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
-				ToUsers:    []string{},
-				ToChannels: []string{},
-				From:       "root",
-			},
-			{
-				Message:    "[root](http://my.gitlab.com/root) removed you as an assignee from the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
-				ToUsers:    []string{"user"},
-				ToChannels: []string{},
-				From:       "root",
-			},
-			{
 				Message:    "[root](http://my.gitlab.com/root) assigned you to merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
 				ToUsers:    []string{"manland"},
 				ToChannels: []string{},
@@ -118,45 +106,17 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
 		res: []*HandleWebhook{
 			{
-				Message:    "[root](http://my.gitlab.com/root) updated the list of reviewers for the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
-				ToUsers:    []string{},
-				ToChannels: []string{},
-				From:       "root",
-			},
-			{
-				Message:    "[root](http://my.gitlab.com/root) removed you as a reviewer from the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
-				ToUsers:    []string{"user"},
-				ToChannels: []string{},
-				From:       "root",
-			},
-			{
-				Message:    "[root](http://my.gitlab.com/root) assigned you as a reviewer to merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+				Message:    "[root](http://my.gitlab.com/root) requested your review on merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
 				ToUsers:    []string{"manland"},
 				ToChannels: []string{},
 				From:       "root",
 			},
 		},
 	}, {
-		testTitle:       "Root updates labels, title and description of merge-request",
-		fixture:         MultipleEventsMergeRequest,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
-		res: []*HandleWebhook{{
-			Message:    "[root](http://my.gitlab.com/root) updated the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
-			ToUsers:    []string{"manland"},
-			ToChannels: []string{},
-			From:       "root",
-		}},
-	}, {
 		testTitle:       "user assign manland as assignee to the merge-request",
 		fixture:         UserUpdateAssigneeToManlandMergeRequest,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
 		res: []*HandleWebhook{
-			{
-				Message:    "[user](http://my.gitlab.com/user) removed you as an assignee from the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
-				ToUsers:    []string{"root"},
-				ToChannels: []string{},
-				From:       "user",
-			},
 			{
 				Message:    "[user](http://my.gitlab.com/user) assigned you to merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
 				ToUsers:    []string{"manland"},
@@ -169,18 +129,6 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 		fixture:         UserUpdateAssigneeToUserMergeRequest,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
 		res: []*HandleWebhook{
-			{
-				Message:    "[user](http://my.gitlab.com/user) updated the list of assignees for the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
-				ToUsers:    []string{"root"},
-				ToChannels: []string{},
-				From:       "user",
-			},
-			{
-				Message:    "[user](http://my.gitlab.com/user) removed you as an assignee from the merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
-				ToUsers:    []string{"manland"},
-				ToChannels: []string{},
-				From:       "user",
-			},
 			{
 				Message:    "[user](http://my.gitlab.com/user) assigned you to merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
 				ToUsers:    []string{},
