@@ -183,7 +183,10 @@ func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.M
 	return res, nil
 }
 
-// calculateUserDiffs function takes previousUsers and currentUsers of an event, finds the change in the user list, and returns the updated current user list.
+/*
+calculateUserDiffs function takes previousUsers and currentUsers of an event,
+finds the change in the user list, and returns the updated current user list.
+*/
 func (w *webhook) calculateUserDiffs(previousUsers, currentUsers []*gitlab.EventUser) []string {
 	mapPreviousUsers := map[int]*gitlab.EventUser{}
 	updatedCurrentUsers := []string{}
