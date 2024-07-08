@@ -38,4 +38,4 @@ function mapDispatchToProps(dispatch: Dispatch<AnyAction>) {
 export default connect(
     mapStateToProps,
     mapDispatchToProps,
-)(UserAttribute as React.ComponentType<UserAttributeStateProps & UserAttributeDispatchProps>);
+)(UserAttribute);

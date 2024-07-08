@@ -2,39 +2,41 @@ import {Client4} from 'mattermost-redux/client';
 import {ClientError} from 'mattermost-redux/client/client4';
 
 export default class Client {
-    setServerRoute = (url) => {
+    private url = '';
+
+    setServerRoute(url: string): void {
         this.url = `${url}/api/v1`;
     }
 
-    getConnected = async (reminder = false) => {
+    async getConnected(reminder: boolean): Promise<any> {
         return this.doGet(`${this.url}/connected?reminder=` + reminder);
-    };
+    }
 
-    getPrsDetails = async (prList) => {
+    async getPrsDetails(prList: any): Promise<any> {
         return this.doPost(`${this.url}/prdetails`, prList);
     }
 
-    getLHSData= async () => {
+    async getLHSData(): Promise<any> {
         return this.doGet(`${this.url}/lhs-data`);
     }
 
-    getGitlabUser = async (userID) => {
+    async getGitlabUser(userID: string): Promise<any> {
         return this.doPost(`${this.url}/user`, {user_id: userID});
-    };
+    }
 
-    getIssue = async (owner, repo, issueNumber) => {
+    async getIssue(owner: string, repo: string, issueNumber: string): Promise<any> {
         return this.doGet(`${this.url}/issue?owner=${owner}&repo=${repo}&number=${issueNumber}`);
     }
 
-    getPullRequest = async (owner, repo, prNumber) => {
+    async getPullRequest(owner: string, repo: string, prNumber: string): Promise<any> {
         return this.doGet(`${this.url}/mergerequest?owner=${owner}&repo=${repo}&number=${prNumber}`);
     }
 
-    getChannelSubscriptions = async (channelID) => {
+    async getChannelSubscriptions(channelID: string): Promise<any> {
         return this.doGet(`${this.url}/channel/${channelID}/subscriptions`);
-    };
+    }
 
-    doGet = async (url, body, headers = {}) => {
+    private async doGet(url: string, body?: any, headers: Record<string, any> = {}): Promise<any> {
         headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
 
         const options = {
@@ -55,9 +57,9 @@ export default class Client {
             status_code: response.status,
             url,
         });
-    };
+    }
 
-    doPost = async (url, body, headers = {}) => {
+    private async doPost(url: string, body: any, headers: Record<string, any> = {}): Promise<any> {
         headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
 
         const options = {
@@ -79,9 +81,9 @@ export default class Client {
             status_code: response.status,
             url,
         });
-    };
+    }
 
-    doDelete = async (url, body, headers = {}) => {
+    private async doDelete(url: string, body?: any, headers: Record<string, any> = {}): Promise<any> {
         headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
 
         const options = {
@@ -102,9 +104,9 @@ export default class Client {
             status_code: response.status,
             url,
         });
-    };
+    }
 
-    doPut = async (url, body, headers = {}) => {
+    private async doPut(url: string, body: any, headers: Record<string, any> = {}): Promise<any> {
         headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
 
         const options = {
@@ -126,5 +128,5 @@ export default class Client {
             status_code: response.status,
             url,
         });
-    };
+    }
 }
