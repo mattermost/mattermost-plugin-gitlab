@@ -8,6 +8,8 @@ import {Theme} from 'mattermost-redux/types/preferences';
 
 import {getStyleForReactSelect} from 'src/utils/styles';
 
+import {SelectionType} from 'src/types/common';
+
 import Setting from './setting';
 
 const MAX_NUM_OPTIONS = 100;

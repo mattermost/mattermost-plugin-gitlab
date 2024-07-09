@@ -8,6 +8,8 @@ import {Theme} from 'mattermost-redux/types/preferences';
 import {getStyleForReactSelect} from 'src/utils/styles';
 import {usePrevious} from 'src/hooks/use_previous';
 
+import {OnChangeType, SelectionType, ErrorType} from 'src/types/common';
+
 import Setting from './setting';
 
 type PropTypes = {

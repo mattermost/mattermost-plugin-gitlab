@@ -7,6 +7,8 @@ import {Theme} from 'mattermost-redux/types/preferences';
 import IssueAttributeSelector from 'src/components/issue_attribute_selector';
 import {getLabelOptions} from 'src/actions';
 import {useOptions} from 'src/hooks/use_options';
+import {Label} from 'src/types/gitlab_items';
+import {FetchIssueAttributeOptionsForProject, LabelSelectionType, OnChangeType} from 'src/types/common';
 
 type PropTypes = {
     projectID?: number;

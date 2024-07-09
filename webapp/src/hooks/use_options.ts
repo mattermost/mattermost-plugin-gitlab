@@ -1,5 +1,7 @@
 import {useDispatch} from 'react-redux';
 
+import {AttributeType, FetchIssueAttributeOptionsForProject} from 'src/types/common';
+
 type useOptionsProps = {
     projectName: string;
     getOptions: FetchIssueAttributeOptionsForProject<AttributeType>;

@@ -10,6 +10,8 @@ import {getErrorMessage} from 'src/utils/user_utils';
 import {attachCommentToIssue} from 'src/actions';
 import {getAttachCommentModalContents} from 'src/selectors';
 import FormButton from '../../form_button';
+import {ErrorType} from 'src/types/common';
+import {Issue, CommentBody} from 'src/types/gitlab_types';
 
 interface PropTypes {
     theme: Theme;

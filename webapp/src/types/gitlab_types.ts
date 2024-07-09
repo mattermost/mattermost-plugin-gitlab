@@ -1,4 +1,4 @@
-interface IssueBody {
+export interface IssueBody {
     title: string;
     description: string;
     project_id?: number;
@@ -9,18 +9,18 @@ interface IssueBody {
     channel_id: string;
 }
 
-interface Issue {
+export interface Issue {
     iid: number;
     web_url: string;
     project_id: number;
 }
 
-interface IssueSelection {
+export interface IssueSelection {
     value: Issue;
     label: string;
 }
 
-interface CommentBody {
+export interface CommentBody {
     project_id?: number;
     iid?: number;
     comment: string;
@@ -28,26 +28,22 @@ interface CommentBody {
     web_url?: string;
 }
 
-interface Assignee {
+export interface Assignee {
     id: number;
     username: string;
 }
 
-interface Label{
-    name: string;
-}
-
-interface Milestone{
+export interface Milestone{
     id: number;
     title: string;
 }
 
-interface ProjectSelection {
+export interface ProjectSelection {
     name: string;
     project_id?: number;
 }
 
-interface Project{
+export interface Project{
     path_with_namespace: string;
     id: number;
 }

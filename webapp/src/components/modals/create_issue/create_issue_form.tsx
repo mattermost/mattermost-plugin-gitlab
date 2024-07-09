@@ -13,6 +13,8 @@ import Input from 'src/components/input';
 import {createIssue} from 'src/actions';
 import {getCreateIssueModalContents} from 'src/selectors';
 import FormButton from '../../form_button';
+import {LabelSelectionType, AssigneeSelectionType, MilestoneSelectionType, ErrorType, OnChangeType} from 'src/types/common';
+import {ProjectSelection, IssueBody} from 'src/types/gitlab_types';
 
 const MAX_TITLE_LENGTH = 255;
 

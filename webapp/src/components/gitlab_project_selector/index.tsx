@@ -10,6 +10,8 @@ import ReactSelectSetting from 'src/components/react_select_setting';
 import {GlobalState} from 'src/types/global_state';
 import {getPluginState} from 'src/selectors';
 import {getErrorMessage} from 'src/utils/user_utils';
+import {Project, ProjectSelection} from 'src/types/gitlab_types';
+import {ErrorType, SelectionType} from 'src/types/common';
 
 type PropTypes = {
     theme: Theme;

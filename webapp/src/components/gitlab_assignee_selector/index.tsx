@@ -7,6 +7,8 @@ import {Theme} from 'mattermost-redux/types/preferences';
 import IssueAttributeSelector from 'src/components/issue_attribute_selector';
 import {getAssigneeOptions} from 'src/actions';
 import {useOptions} from 'src/hooks/use_options';
+import {SelectionType, OnChangeType, FetchIssueAttributeOptionsForProject} from 'src/types/common';
+import {Assignee} from 'src/types/gitlab_types';
 
 type PropTypes = {
     projectID?: number;

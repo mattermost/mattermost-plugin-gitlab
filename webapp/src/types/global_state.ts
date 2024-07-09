@@ -1,5 +1,7 @@
 import {GlobalState as ReduxGlobalState} from 'mattermost-redux/types/store';
 
+import {Project} from './gitlab_types';
+
 export type GlobalState = ReduxGlobalState & {
     'plugins-com.github.manland.mattermost-plugin-gitlab': {
         createIssueModal: {

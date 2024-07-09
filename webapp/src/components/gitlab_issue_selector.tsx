@@ -11,6 +11,9 @@ import {SingleValue} from 'react-select';
 import {getStyleForReactSelect} from '../utils/styles';
 import Client from '../client';
 
+import {ReactSelectOption, ErrorType} from 'src/types/common';
+import {Issue, IssueSelection} from 'src/types/gitlab_types';
+
 import Setting from './setting';
 
 const searchDebounceDelay = 400;

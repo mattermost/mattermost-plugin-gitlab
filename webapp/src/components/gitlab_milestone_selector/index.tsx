@@ -7,6 +7,8 @@ import {Theme} from 'mattermost-redux/types/preferences';
 import IssueAttributeSelector from 'src/components/issue_attribute_selector';
 import {getMilestoneOptions} from 'src/actions';
 import {useOptions} from 'src/hooks/use_options';
+import {Milestone} from 'src/types/gitlab_types';
+import {FetchIssueAttributeOptionsForProject, MilestoneSelectionType, OnChangeType} from 'src/types/common';
 
 type PropTypes = {
     projectID?: number;
