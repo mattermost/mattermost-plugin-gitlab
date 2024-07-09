@@ -1,5 +1,6 @@
 import {Client4} from 'mattermost-redux/client';
 import {ClientError} from 'mattermost-redux/client/client4';
+import {ConnectedResponse, PrDetails, LHSContent, GitlabUserResponse, IssueResponse, MergeRequestResponse, SubscriptionResponse} from 'src/types/gitlab_items';
 
 export default class Client {
     private url = '';
@@ -8,31 +9,31 @@ export default class Client {
         this.url = `${url}/api/v1`;
     }
 
-    async getConnected(reminder: boolean): Promise<any> {
+    async getConnected(reminder: boolean): Promise<ConnectedResponse> {
         return this.doGet(`${this.url}/connected?reminder=` + reminder);
     }
 
-    async getPrsDetails(prList: any): Promise<any> {
+    async getPrsDetails(prList: any): Promise<PrDetails> {
         return this.doPost(`${this.url}/prdetails`, prList);
     }
 
-    async getLHSData(): Promise<any> {
+    async getLHSData(): Promise<LHSContent> {
         return this.doGet(`${this.url}/lhs-data`);
     }
 
-    async getGitlabUser(userID: string): Promise<any> {
+    async getGitlabUser(userID: string): Promise<GitlabUserResponse> {
         return this.doPost(`${this.url}/user`, {user_id: userID});
     }
 
-    async getIssue(owner: string, repo: string, issueNumber: string): Promise<any> {
+    async getIssue(owner: string, repo: string, issueNumber: string): Promise<IssueResponse> {
         return this.doGet(`${this.url}/issue?owner=${owner}&repo=${repo}&number=${issueNumber}`);
     }
 
-    async getPullRequest(owner: string, repo: string, prNumber: string): Promise<any> {
+    async getPullRequest(owner: string, repo: string, prNumber: string): Promise<MergeRequestResponse> {
         return this.doGet(`${this.url}/mergerequest?owner=${owner}&repo=${repo}&number=${prNumber}`);
     }
 
-    async getChannelSubscriptions(channelID: string): Promise<any> {
+    async getChannelSubscriptions(channelID: string): Promise<SubscriptionResponse> {
         return this.doGet(`${this.url}/channel/${channelID}/subscriptions`);
     }
 
