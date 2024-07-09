@@ -1,6 +1,8 @@
 import {Client4} from 'mattermost-redux/client';
 import {ClientError} from 'mattermost-redux/client/client4';
-import {ConnectedResponse, PrDetails, LHSContent, GitlabUserResponse, IssueResponse, MergeRequestResponse, SubscriptionResponse} from 'src/types/gitlab_items';
+
+import {Item, TooltipData} from 'src/types/gitlab_items';
+import {APIError, ConnectedData, GitlabUsersData, LHSData, SubscriptionData} from 'src/types';
 
 export default class Client {
     private url = '';
@@ -9,31 +11,31 @@ export default class Client {
         this.url = `${url}/api/v1`;
     }
 
-    async getConnected(reminder: boolean): Promise<ConnectedResponse> {
+    async getConnected(reminder: boolean): Promise<ConnectedData> {
         return this.doGet(`${this.url}/connected?reminder=` + reminder);
     }
 
-    async getPrsDetails(prList: any): Promise<PrDetails> {
+    async getPrsDetails(prList: any): Promise<Item | APIError> {
         return this.doPost(`${this.url}/prdetails`, prList);
     }
 
-    async getLHSData(): Promise<LHSContent> {
+    async getLHSData(): Promise<LHSData | APIError> {
         return this.doGet(`${this.url}/lhs-data`);
     }
 
-    async getGitlabUser(userID: string): Promise<GitlabUserResponse> {
+    async getGitlabUser(userID: string): Promise<GitlabUsersData> {
         return this.doPost(`${this.url}/user`, {user_id: userID});
     }
 
-    async getIssue(owner: string, repo: string, issueNumber: string): Promise<IssueResponse> {
+    async getIssue(owner: string, repo: string, issueNumber: string): Promise<TooltipData | null> {
         return this.doGet(`${this.url}/issue?owner=${owner}&repo=${repo}&number=${issueNumber}`);
     }
 
-    async getPullRequest(owner: string, repo: string, prNumber: string): Promise<MergeRequestResponse> {
+    async getPullRequest(owner: string, repo: string, prNumber: string): Promise<TooltipData | null> {
         return this.doGet(`${this.url}/mergerequest?owner=${owner}&repo=${repo}&number=${prNumber}`);
     }
 
-    async getChannelSubscriptions(channelID: string): Promise<SubscriptionResponse> {
+    async getChannelSubscriptions(channelID: string): Promise<SubscriptionData> {
         return this.doGet(`${this.url}/channel/${channelID}/subscriptions`);
     }
 
