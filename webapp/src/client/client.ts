@@ -11,35 +11,35 @@ export default class Client {
         this.url = `${url}/api/v1`;
     }
 
-    async getConnected(reminder: boolean): Promise<ConnectedData> {
-        return this.doGet(`${this.url}/connected?reminder=` + reminder);
-    }
+    getConnected = async (reminder: boolean) => {
+        return this.doGet<ConnectedData>(`${this.url}/connected?reminder=` + reminder);
+    };
+    
+    getPrsDetails = async (prList: Item[]) => {
+        return this.doPost<Item | APIError>(`${this.url}/prdetails`, prList);
+    };
+    
+    getLHSData = async () => {
+        return this.doGet<LHSData | APIError>(`${this.url}/lhs-data`);
+    };
+    
+    getGitlabUser = async (userID: string) => {
+        return this.doPost<GitlabUsersData>(`${this.url}/user`, { user_id: userID });
+    };
+    
+    getIssue = async (owner: string, repo: string, issueNumber: string) => {
+        return this.doGet<TooltipData | null>(`${this.url}/issue?owner=${owner}&repo=${repo}&number=${issueNumber}`);
+    };
+    
+    getPullRequest = async (owner: string, repo: string, prNumber: string) => {
+        return this.doGet<TooltipData | null>(`${this.url}/mergerequest?owner=${owner}&repo=${repo}&number=${prNumber}`);
+    };
+    
+    getChannelSubscriptions = async (channelID: string) => {
+        return this.doGet<SubscriptionData>(`${this.url}/channel/${channelID}/subscriptions`);
+    };    
 
-    async getPrsDetails(prList: any): Promise<Item | APIError> {
-        return this.doPost(`${this.url}/prdetails`, prList);
-    }
-
-    async getLHSData(): Promise<LHSData | APIError> {
-        return this.doGet(`${this.url}/lhs-data`);
-    }
-
-    async getGitlabUser(userID: string): Promise<GitlabUsersData> {
-        return this.doPost(`${this.url}/user`, {user_id: userID});
-    }
-
-    async getIssue(owner: string, repo: string, issueNumber: string): Promise<TooltipData | null> {
-        return this.doGet(`${this.url}/issue?owner=${owner}&repo=${repo}&number=${issueNumber}`);
-    }
-
-    async getPullRequest(owner: string, repo: string, prNumber: string): Promise<TooltipData | null> {
-        return this.doGet(`${this.url}/mergerequest?owner=${owner}&repo=${repo}&number=${prNumber}`);
-    }
-
-    async getChannelSubscriptions(channelID: string): Promise<SubscriptionData> {
-        return this.doGet(`${this.url}/channel/${channelID}/subscriptions`);
-    }
-
-    private async doGet(url: string, body?: any, headers: Record<string, any> = {}): Promise<any> {
+    private async doGet<Response>(url: string, body?: any, headers: Record<string, any> = {}): Promise<Response> {
         headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
 
         const options = {
@@ -62,7 +62,7 @@ export default class Client {
         });
     }
 
-    private async doPost(url: string, body: any, headers: Record<string, any> = {}): Promise<any> {
+    private async doPost<Response>(url: string, body: any, headers: Record<string, any> = {}): Promise<Response> {
         headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
 
         const options = {
