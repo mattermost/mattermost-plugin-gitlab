@@ -28,11 +28,11 @@ export default class Client {
     };
 
     getIssue = async (owner: string, repo: string, issueNumber: string) => {
-        return this.doGet<TooltipData | null>(`${this.url}/issue?owner=${owner}&repo=${repo}&number=${issueNumber}`);
+        return this.doGet<TooltipData>(`${this.url}/issue?owner=${owner}&repo=${repo}&number=${issueNumber}`);
     };
 
     getPullRequest = async (owner: string, repo: string, prNumber: string) => {
-        return this.doGet<TooltipData | null>(`${this.url}/mergerequest?owner=${owner}&repo=${repo}&number=${prNumber}`);
+        return this.doGet<TooltipData>(`${this.url}/mergerequest?owner=${owner}&repo=${repo}&number=${prNumber}`);
     };
 
     getChannelSubscriptions = async (channelID: string) => {
