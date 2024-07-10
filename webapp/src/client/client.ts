@@ -14,30 +14,30 @@ export default class Client {
     getConnected = async (reminder: boolean) => {
         return this.doGet<ConnectedData>(`${this.url}/connected?reminder=` + reminder);
     };
-    
+
     getPrsDetails = async (prList: Item[]) => {
         return this.doPost<Item | APIError>(`${this.url}/prdetails`, prList);
     };
-    
+
     getLHSData = async () => {
         return this.doGet<LHSData | APIError>(`${this.url}/lhs-data`);
     };
-    
+
     getGitlabUser = async (userID: string) => {
-        return this.doPost<GitlabUsersData>(`${this.url}/user`, { user_id: userID });
+        return this.doPost<GitlabUsersData>(`${this.url}/user`, {user_id: userID});
     };
-    
+
     getIssue = async (owner: string, repo: string, issueNumber: string) => {
         return this.doGet<TooltipData | null>(`${this.url}/issue?owner=${owner}&repo=${repo}&number=${issueNumber}`);
     };
-    
+
     getPullRequest = async (owner: string, repo: string, prNumber: string) => {
         return this.doGet<TooltipData | null>(`${this.url}/mergerequest?owner=${owner}&repo=${repo}&number=${prNumber}`);
     };
-    
+
     getChannelSubscriptions = async (channelID: string) => {
         return this.doGet<SubscriptionData>(`${this.url}/channel/${channelID}/subscriptions`);
-    };    
+    };
 
     private async doGet<Response>(url: string, body?: any, headers: Record<string, any> = {}): Promise<Response> {
         headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
