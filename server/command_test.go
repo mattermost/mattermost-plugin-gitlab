@@ -99,6 +99,7 @@ func TestSubscribeCommand(t *testing.T) {
 	for _, test := range subscribeCommandTests {
 		t.Run(test.testName, func(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
 
 			channelID := "12345"
 			userInfo := &gitlab.UserInfo{
@@ -220,6 +221,8 @@ func TestListWebhookCommand(t *testing.T) {
 			p := new(Plugin)
 
 			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
 			mockedClient := mocks.NewMockGitlab(mockCtrl)
 
 			encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
@@ -230,6 +233,24 @@ func TestListWebhookCommand(t *testing.T) {
 
 			api := &plugintest.API{}
 			api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
+			api.On("LogDebug",
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+			).Maybe().Return(nil)
+
 			p.SetAPI(api)
 			p.client = pluginapi.NewClient(api, p.Driver)
 
@@ -311,6 +332,23 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.We
 	api.On("KVSet", mock.Anything, mock.Anything).Return(nil)
 	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil)
 	api.On("PublishWebSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	api.On("LogDebug",
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+		mock.Anything,
+	).Maybe().Return(nil)
 	api.On("LogWarn",
 		mock.AnythingOfTypeArgument("string"),
 		mock.AnythingOfTypeArgument("string"),
@@ -427,6 +465,8 @@ func TestAddWebhookCommand(t *testing.T) {
 			p := new(Plugin)
 
 			mockCtrl := gomock.NewController(t)
+			defer mockCtrl.Finish()
+
 			mockedClient := mocks.NewMockGitlab(mockCtrl)
 
 			if test.scope == "group" {
@@ -452,6 +492,24 @@ func TestAddWebhookCommand(t *testing.T) {
 			api := &plugintest.API{}
 			api.On("GetConfig", mock.Anything).Return(conf)
 			api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
+			api.On("LogDebug",
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+				mock.Anything,
+			).Maybe().Return(nil)
+
 			p.SetAPI(api)
 			p.client = pluginapi.NewClient(api, p.Driver)
 
