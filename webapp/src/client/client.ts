@@ -1,6 +1,8 @@
 import {Client4} from 'mattermost-redux/client';
 import {ClientError} from 'mattermost-redux/client/client4';
 
+import {Options} from 'mattermost-redux/types/client4';
+
 import {Item, TooltipData} from 'src/types/gitlab_items';
 import {APIError, ConnectedData, GitlabUsersData, LHSData, SubscriptionData} from 'src/types';
 
@@ -39,10 +41,10 @@ export default class Client {
         return this.doGet<SubscriptionData>(`${this.url}/channel/${channelID}/subscriptions`);
     };
 
-    private async doGet<Response>(url: string, headers: Record<string, unknown> = {}): Promise<Response | APIError> {
-        headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
+    private async doGet<Response>(url: string, headers: { [x: string]: string; } = {}): Promise<Response > {
+        headers['X-Timezone-Offset'] = String(new Date().getTimezoneOffset());
 
-        const options = {
+        const options: Options = {
             method: 'get',
             headers,
         };
@@ -62,10 +64,10 @@ export default class Client {
         });
     }
 
-    private async doPost<Response>(url: string, body: Object, headers: Record<string, unknown> = {}): Promise<Response | APIError> {
-        headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
+    private async doPost<Response>(url: string, body: Object, headers: { [x: string]: string; } = {}): Promise<Response > {
+        headers['X-Timezone-Offset'] = String(new Date().getTimezoneOffset());
 
-        const options = {
+        const options: Options = {
             method: 'post',
             body: JSON.stringify(body),
             headers,
@@ -86,10 +88,10 @@ export default class Client {
         });
     }
 
-    private async doDelete<Response>(url: string, headers: Record<string, unknown> = {}): Promise<Response | APIError> {
-        headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
+    private async doDelete<Response>(url: string, headers: { [x: string]: string; } = {}): Promise<Response > {
+        headers['X-Timezone-Offset'] = String(new Date().getTimezoneOffset());
 
-        const options = {
+        const options: Options = {
             method: 'delete',
             headers,
         };
@@ -109,8 +111,8 @@ export default class Client {
         });
     }
 
-    private async doPut<Response>(url: string, body: Object, headers: Record<string, unknown> = {}): Promise<Response | APIError> {
-        headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
+    private async doPut<Response>(url: string, body: Object, headers: { [x: string]: string; } = {}): Promise<Response > {
+        headers['X-Timezone-Offset'] = String(new Date().getTimezoneOffset());
 
         const options = {
             method: 'put',
