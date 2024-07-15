@@ -11,7 +11,7 @@ export default class Client {
         this.url = `${url}/api/v1`;
     }
 
-    getConnected = async (reminder: boolean) => {
+    getConnected = async (reminder = false) => {
         return this.doGet<ConnectedData>(`${this.url}/connected?reminder=` + reminder);
     };
 
@@ -39,7 +39,7 @@ export default class Client {
         return this.doGet<SubscriptionData>(`${this.url}/channel/${channelID}/subscriptions`);
     };
 
-    private async doGet<Response>(url: string, body?: any, headers: Record<string, any> = {}): Promise<Response> {
+    private async doGet<Response>(url: string, headers: Record<string, unknown> = {}): Promise<Response | APIError> {
         headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
 
         const options = {
@@ -62,7 +62,7 @@ export default class Client {
         });
     }
 
-    private async doPost<Response>(url: string, body: any, headers: Record<string, any> = {}): Promise<Response> {
+    private async doPost<Response>(url: string, body: Object, headers: Record<string, unknown> = {}): Promise<Response | APIError> {
         headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
 
         const options = {
@@ -86,7 +86,7 @@ export default class Client {
         });
     }
 
-    private async doDelete(url: string, body?: any, headers: Record<string, any> = {}): Promise<any> {
+    private async doDelete<Response>(url: string, headers: Record<string, unknown> = {}): Promise<Response | APIError> {
         headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
 
         const options = {
@@ -109,7 +109,7 @@ export default class Client {
         });
     }
 
-    private async doPut(url: string, body: any, headers: Record<string, any> = {}): Promise<any> {
+    private async doPut<Response>(url: string, body: Object, headers: Record<string, unknown> = {}): Promise<Response | APIError> {
         headers['X-Timezone-Offset'] = new Date().getTimezoneOffset();
 
         const options = {
