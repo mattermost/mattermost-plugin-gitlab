@@ -90,7 +90,7 @@ var subscribeCommandTests = []subscribeCommandTest{
 		mattermostURL:  "example.com",
 		mockGitlab:     true,
 		webhookInfo:    []*gitlab.WebhookInfo{{}},
-		want:           "Unable to determine status of Webhook. See [setup instructions](https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook) to validate.",
+		want:           "Successfully subscribed to group.\nA Webhook is needed, run ```/gitlab webhook add group``` to create one now.\n**Note:** We are unable to determine the webhook status for this project. Please contact your project administrator",
 		projectHookErr: errors.New("unable to get project hooks"),
 	},
 }
