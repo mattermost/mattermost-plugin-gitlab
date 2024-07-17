@@ -26,6 +26,8 @@ export const notificationReasons: Record<string | symbol, string> = {
 const SUCCESS = 'success';
 const PENDING = 'pending';
 const ACTION_NAME_MEMBER_ACCESS_REQUESTED = 'member_access_requested';
+const MAX_TITLE_LENGTH = 100;
+const MAX_LABEL_LENGTH = 20;
 
 function GitlabItems({item, theme}: GitlabItemsProps) {
     const style = getStyle(theme);
@@ -50,8 +52,8 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
         );
     }
 
-    const titleText = item.title || item.target?.title || item.body || '';
-
+    let titleText = item.title || item.target?.title || item.body || '';
+    titleText = titleText.length > MAX_TITLE_LENGTH ? `${titleText.substring(0, MAX_TITLE_LENGTH)}...` : titleText;
     let title: React.ReactNode = titleText;
     if (item.web_url || item.target_url) {
         title = (
@@ -258,28 +260,39 @@ const getStyle = makeStyleFromTheme((theme) => {
 const getGitlabLabels = (labels: Label[]) => {
     return labels.map((label) => {
         return (
-            <Badge
-                key={label.id}
-                style={{
-                    ...itemStyle,
-                    ...{
-                        backgroundColor: `${label.color}`,
-                        color: `${label.text_color}`,
-                    },
-                }}
+            <OverlayTrigger
+                key='labelName'
+                placement='top'
+                overlay={
+                    <Tooltip id='labelName'>
+                        {label.name}
+                    </Tooltip>
+                }
             >
-                {label.name}
-            </Badge>
+                <Badge
+                    key={label.id}
+                    style={{
+                        ...labelStyle,
+                        ...{
+                            backgroundColor: `${label.color}`,
+                            color: `${label.text_color}`,
+                        },
+                    }}
+                >
+                    {label.name.length > MAX_LABEL_LENGTH ? `${label.name.substring(0, MAX_LABEL_LENGTH)}...` : label.name}
+                </Badge>
+            </OverlayTrigger>
         );
     });
 };
 
-const itemStyle: CSS.Properties = {
+const labelStyle: CSS.Properties = {
     margin: '4px 5px 0 0',
     padding: '3px 8px',
     display: 'inline-flex',
     borderRadius: '3px',
     position: 'relative',
+    justifyContent: 'flex-start',
 };
 
 export default GitlabItems;
