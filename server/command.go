@@ -633,19 +633,24 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 	}
 
 	var hasHook bool
-	hookErrorMessage := ""
+	hasHookError := false
 	if project != "" {
 		hasHook, err = p.HasProjectHook(ctx, info, namespace, project)
 		if err != nil {
-			hookErrorMessage = "\n**Note:** We are unable to determine the webhook status for this project. Please contact your project administrator"
-			hasHook = false
+			p.client.Log.Debug("Unable to fetch project webhook data", "Error", err)
+			hasHookError = true
 		}
 	} else {
 		hasHook, err = p.HasGroupHook(ctx, info, namespace)
 		if err != nil {
-			hookErrorMessage = "\n**Note:** We are unable to determine the webhook status for this project. Please contact your project administrator"
-			hasHook = false
+			p.client.Log.Debug("Unable to fetch group webhook data", "Error", err)
+			hasHookError = true
 		}
+	}
+
+	hookErrorMessage := ""
+	if hasHookError {
+		hookErrorMessage = "\n**Note:** We are unable to determine the webhook status for this project. Please contact your project administrator"
 	}
 
 	var hookStatusMessage string
