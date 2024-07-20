@@ -3,15 +3,15 @@ module github.com/mattermost/mattermost-plugin-gitlab
 go 1.21
 
 require (
-	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.8.0
 	github.com/mattermost/mattermost/server/public v0.0.9-0.20230830065520-5de1e306de52
 	github.com/microcosm-cc/bluemonday v1.0.19
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.4
 	github.com/xanzy/go-gitlab v0.97.0
+	go.uber.org/mock v0.4.0
 	golang.org/x/oauth2 v0.7.0
-	golang.org/x/sync v0.1.0
+	golang.org/x/sync v0.3.0
 )
 
 require (

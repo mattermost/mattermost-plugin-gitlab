@@ -95,7 +95,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
         </span>
     );
 
-    const labels: JSX.Element[] | undefined = item.labels_with_details && getGitlabLabels(item.labels_with_details);
+    const labels: JSX.Element[] | undefined = item.label_details && getGitlabLabels(item.label_details);
 
     let hasConflict: React.ReactNode | undefined;
     if (item.has_conflicts) {
