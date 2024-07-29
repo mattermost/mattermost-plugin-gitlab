@@ -17,4 +17,12 @@ const (
 	statusRunning = "running"
 	statusPending = "pending"
 	statusFailed  = "failed"
+	statusCreated = "created"
+
+	statusCreate = "create"
+	statusUpdate = "update"
+	statusDelete = "delete"
+
+	PrivateVisibilityLevel = 0
+	PublicVisibilityLevel  = 20
 )

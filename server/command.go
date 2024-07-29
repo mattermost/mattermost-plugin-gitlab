@@ -34,6 +34,8 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	* tag - include tag creation
     * pull_reviews - includes merge request reviews
 	* label:"<labelname>" - must include "merges" or "issues" in feature list when using a label
+	* deployments - includes deployments
+	* releases - includes releases
     * Defaults to "merges,issues,tag"
 * |/gitlab subscriptions delete owner/repo| - Unsubscribe the current channel from a repository
 * |/gitlab pipelines run [owner]/repo [ref]| - Run a pipeline for specific repository and ref (branch/tag)
@@ -56,6 +58,8 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	 * JobEvents 
 	 * PipelineEvents 
 	 * WikiPageEvents
+	 * DeploymentEvents
+	 * RelaseEvents
 	 * SSLverification
   * |url| is the URL that will be called when triggered. Defaults to this plugins URL
   * |token| Secret token. Defaults to secret token used in plugin's settings.
@@ -493,7 +497,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 
 func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 	var sslVerification, pushEvents, tagPushEvents, issuesEvents, confidentialIssuesEvents, noteEvents bool
-	var confidentialNoteEvents, mergeRequestsEvents, jobEvents, pipelineEvents, wikiPageEvents bool
+	var confidentialNoteEvents, mergeRequestsEvents, jobEvents, pipelineEvents, wikiPageEvents, deploymentEvents, releaseEvents bool
 	var all bool
 	if triggersCsv == "*" {
 		all = true
@@ -538,6 +542,12 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 		if all || strings.EqualFold(trigger, "WikiPageEvents") {
 			wikiPageEvents = true
 		}
+		if all || strings.EqualFold(trigger, "DeploymentEvents") {
+			deploymentEvents = true
+		}
+		if all || strings.EqualFold(trigger, "releaseEvents") {
+			releaseEvents = true
+		}
 	}
 
 	return &gitlab.AddWebhookOptions{
@@ -552,6 +562,8 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 		JobEvents:                jobEvents,
 		PipelineEvents:           pipelineEvents,
 		WikiPageEvents:           wikiPageEvents,
+		DeploymentEvents:         deploymentEvents,
+		ReleaseEvents:            releaseEvents,
 	}
 }
 
@@ -815,7 +827,7 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 
 	subscriptionsAdd := model.NewAutocompleteData(commandAdd, "owner[/repo] [features]", "Subscribe the current channel to receive notifications from a project")
 	subscriptionsAdd.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
-	subscriptionsAdd.AddTextArgument("comma-delimited list of features to subscribe to: issues, confidential_issues, merges, pushes, issue_comments, merge_request_comments, pipeline, tag, pull_reviews, label:<labelName>", "[features] (optional)", `/[^,-\s]+(,[^,-\s]+)*/`)
+	subscriptionsAdd.AddTextArgument("comma-delimited list of features to subscribe to: issues, confidential_issues, merges, pushes, issue_comments, merge_request_comments, pipeline, tag, pull_reviews, label:<labelName>, deployments, releases", "[features] (optional)", `/[^,-\s]+(,[^,-\s]+)*/`)
 	subscriptions.AddCommand(subscriptionsAdd)
 
 	subscriptionsDelete := model.NewAutocompleteData(commandDelete, "owner[/repo]", "Unsubscribe the current channel from a repository")
