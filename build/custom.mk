@@ -12,7 +12,7 @@ GO_BUILD_FLAGS += -ldflags '-X "github.com/mattermost/mattermost/server/public/p
 .PHONY: mock
 mock:
 ifneq ($(HAS_SERVER),)
-	go install github.com/golang/mock/mockgen@v1.6.0
+	go get go.uber.org/mock/mockgen
 	mockgen -destination server/mocks/mock_gitlab.go github.com/mattermost/mattermost-plugin-gitlab/server/gitlab Gitlab
 	mockgen -destination server/gitlab/mocks/mock_gitlab.go github.com/mattermost/mattermost-plugin-gitlab/server/gitlab Gitlab
 endif

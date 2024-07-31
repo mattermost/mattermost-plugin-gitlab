@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin/plugintest"
 	"github.com/mattermost/mattermost/server/public/pluginapi"
@@ -14,6 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	gitLabAPI "github.com/xanzy/go-gitlab"
+	"go.uber.org/mock/gomock"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	mocks "github.com/mattermost/mattermost-plugin-gitlab/server/gitlab/mocks"
