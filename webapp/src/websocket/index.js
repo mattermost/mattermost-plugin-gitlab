@@ -2,6 +2,7 @@ import ActionTypes from '../action_types';
 import Constants from '../constants';
 import {
     getConnected,
+    openCreateIssueModalWithoutPost,
     getLHSData,
 } from '../actions';
 import manifest from '../manifest';
@@ -59,6 +60,15 @@ export function handleRefresh(store) {
     };
 }
 
+export function handleOpenCreateIssueModal(store) {
+    return (msg) => {
+        if (!msg.data) {
+            return;
+        }
+        store.dispatch(openCreateIssueModalWithoutPost(msg.data.title, msg.data.channel_id));
+    };
+}
+
 export function handleChannelSubscriptionsUpdated(store) {
     return (msg) => {
         if (!msg.data) {
@@ -75,4 +85,3 @@ export function handleChannelSubscriptionsUpdated(store) {
         });
     };
 }
-

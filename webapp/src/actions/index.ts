@@ -179,6 +179,157 @@ export function getGitlabUser(userID: string) {
     };
 }
 
+export function openCreateIssueModal(postId) {
+    return {
+        type: ActionTypes.OPEN_CREATE_ISSUE_MODAL,
+        data: {
+            postId,
+        },
+    };
+}
+
+export function openCreateIssueModalWithoutPost(title, channelId) {
+    return {
+        type: ActionTypes.OPEN_CREATE_ISSUE_MODAL_WITHOUT_POST,
+        data: {
+            title,
+            channelId,
+        },
+    };
+}
+
+export function closeCreateIssueModal() {
+    return {
+        type: ActionTypes.CLOSE_CREATE_ISSUE_MODAL,
+    };
+}
+
+export function createIssue(payload) {
+    return async (dispatch) => {
+        let data;
+        try {
+            data = await Client.createIssue(payload);
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await dispatch(checkAndHandleNotConnected(data));
+        if (!connected) {
+            return {error: data};
+        }
+        return {data};
+    };
+}
+
+export function openAttachCommentToIssueModal(postId) {
+    return {
+        type: ActionTypes.OPEN_ATTACH_COMMENT_TO_ISSUE_MODAL,
+        data: {
+            postId,
+        },
+    };
+}
+
+export function closeAttachCommentToIssueModal() {
+    return {
+        type: ActionTypes.CLOSE_ATTACH_COMMENT_TO_ISSUE_MODAL,
+    };
+}
+
+export function attachCommentToIssue(payload) {
+    return async (dispatch) => {
+        let data;
+        try {
+            data = await Client.attachCommentToIssue(payload);
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await dispatch(checkAndHandleNotConnected(data));
+        if (!connected) {
+            return {error: data};
+        }
+        return {data};
+    };
+}
+
+export function getProjects() {
+    return async (dispatch, getState) => {
+        let data;
+        try {
+            data = await Client.getProjects();
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        if (!connected) {
+            return {error: data};
+        }
+
+        dispatch({
+            type: ActionTypes.RECEIVED_PROJECTS,
+            data,
+        });
+
+        return {data};
+    };
+}
+
+export function getLabelOptions(projectID) {
+    return async (dispatch, getState) => {
+        let data;
+        try {
+            data = await Client.getLabels(projectID);
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        if (!connected) {
+            return {error: data};
+        }
+
+        return {data};
+    };
+}
+
+export function getMilestoneOptions(projectID) {
+    return async (dispatch, getState) => {
+        let data;
+        try {
+            data = await Client.getMilestones(projectID);
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        if (!connected) {
+            return {error: data};
+        }
+
+        return {data};
+    };
+}
+
+export function getAssigneeOptions(projectID) {
+    return async (dispatch, getState) => {
+        let data;
+        try {
+            data = await Client.getAssignees(projectID);
+        } catch (error) {
+            return {error};
+        }
+
+        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        if (!connected) {
+            return {error: data};
+        }
+
+        return {data};
+    };
+}
+
 export function getChannelSubscriptions(channelId: string) {
     return async (dispatch: Dispatch<AnyAction>) => {
         if (!channelId) {

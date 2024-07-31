@@ -2,6 +2,8 @@ import {getConfig} from 'mattermost-redux/selectors/entities/general';
 
 import {createSelector} from 'reselect';
 
+import {getPost} from 'mattermost-redux/selectors/entities/posts';
+
 import manifest from '../manifest';
 import {Item} from 'src/types/gitlab_items';
 import {GlobalState, PluginState, pluginStateKey} from 'src/types/store';
@@ -44,6 +46,8 @@ function mapPrsToDetails(prs?: Item[], details?: Item[]): Item[] {
 
 export const getPluginState = (state: GlobalState) => state[pluginStateKey];
 
+export const isUserConnectedToGitlab = (state) => state[`plugins-${manifest.id}`].connected;
+
 export const getSidebarData = createSelector(
     getPluginState,
     (pluginState: PluginState): SideBarData => {
@@ -61,6 +65,28 @@ export const getSidebarData = createSelector(
         };
     },
 );
+
+export const isCreateIssueModalVisible = (state) => state[`plugins-${manifest.id}`].isCreateIssueModalVisible;
+
+export const isAttachCommentToIssueModalVisible = (state) => state[`plugins-${manifest.id}`].isAttachCommentToIssueModalVisible;
+
+export const getCreateIssueModalContents = (state) => {
+    const {postId, title, channelId} = state[`plugins-${manifest.id}`].createIssueModal;
+
+    const post = postId ? getPost(state, postId) : null;
+    return {
+        post,
+        title,
+        channelId,
+    };
+};
+
+export const getAttachCommentModalContents = (state) => {
+    const postId = state[`plugins-${manifest.id}`].postIdForAttachCommentToIssueModal;
+    const post = getPost(state, postId);
+
+    return post;
+};
 
 export const getConnected = (state: GlobalState) => getPluginState(state).connected;
 

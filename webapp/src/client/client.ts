@@ -41,6 +41,35 @@ export default class Client {
         return this.doGet<SubscriptionData>(`${this.url}/channel/${channelID}/subscriptions`);
     };
 
+
+    createIssue = async (payload) => {
+        return this.doPost(`${this.url}/issue`, payload);
+    }
+
+    attachCommentToIssue = async (payload) => {
+        return this.doPost(`${this.url}/attachcommenttoissue`, payload);
+    }
+
+    searchIssues = async (searchTerm) => {
+        return this.doGet(`${this.url}/searchissues?search=${searchTerm}`);
+    }
+
+    getProjects = async () => {
+        return this.doGet(`${this.url}/projects`);
+    }
+
+    getLabels = async (projectID) => {
+        return this.doGet(`${this.url}/labels?projectID=${projectID}`);
+    }
+
+    getMilestones = async (projectID) => {
+        return this.doGet(`${this.url}/milestones?projectID=${projectID}`);
+    }
+
+    getAssignees = async (projectID) => {
+        return this.doGet(`${this.url}/assignees?projectID=${projectID}`);
+    }
+
     private async doGet<Response>(url: string, headers: { [x: string]: string; } = {}): Promise<Response > {
         headers['X-Timezone-Offset'] = String(new Date().getTimezoneOffset());
 
