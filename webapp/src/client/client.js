@@ -26,6 +26,34 @@ export default class Client {
         return this.doPost(`${this.url}/user`, {user_id: userID});
     };
 
+    createIssue = async (payload) => {
+        return this.doPost(`${this.url}/issue`, payload);
+    }
+
+    attachCommentToIssue = async (payload) => {
+        return this.doPost(`${this.url}/attachcommenttoissue`, payload);
+    }
+
+    searchIssues = async (searchTerm) => {
+        return this.doGet(`${this.url}/searchissues?search=${searchTerm}`);
+    }
+
+    getProjects = async () => {
+        return this.doGet(`${this.url}/projects`);
+    }
+
+    getLabels = async (projectID) => {
+        return this.doGet(`${this.url}/labels?projectID=${projectID}`);
+    }
+
+    getMilestones = async (projectID) => {
+        return this.doGet(`${this.url}/milestones?projectID=${projectID}`);
+    }
+
+    getAssignees = async (projectID) => {
+        return this.doGet(`${this.url}/assignees?projectID=${projectID}`);
+    }
+
     getIssue = async (owner, repo, issueNumber) => {
         return this.doGet(`${this.url}/issue?owner=${owner}&repo=${repo}&number=${issueNumber}`);
     }

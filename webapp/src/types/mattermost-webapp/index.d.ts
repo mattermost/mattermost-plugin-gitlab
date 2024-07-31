@@ -23,6 +23,8 @@ export interface PluginRegistry {
     registerPopoverUserAttributesComponent(component: React.ReactNode)
     registerLinkTooltipComponent(component: React.ReactNode)
     registerReconnectHandler(handler: any)
+    registerPostDropdownMenuComponent(component: React.ReactNode)
+    registerRootComponent(component: React.ElementType)
 
     // Add more if needed from https://developers.mattermost.com/extend/plugins/webapp/reference
 }

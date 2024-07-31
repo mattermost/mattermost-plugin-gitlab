@@ -3,6 +3,8 @@ import * as CSS from 'csstype';
 
 import {notificationReasons} from 'src/components/sidebar_right/gitlab_items';
 
+import {Project} from './gitlab_types';
+
 export interface Label {
     id: number;
     name: string;
@@ -19,10 +21,6 @@ export interface User {
 
 export interface References {
     full: string;
-}
-
-export interface Project {
-    path_with_namespace: string;
 }
 
 export interface Target {
