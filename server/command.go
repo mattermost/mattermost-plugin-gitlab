@@ -62,7 +62,6 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 * |/gitlab about| - Display build information about the plugin
 `
 const (
-	webhookHowToURL                   = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
 	inboundWebhookURL                 = "plugins/com.github.manland.mattermost-plugin-gitlab/webhook"
 	specifyRepositoryMessage          = "Please specify a repository."
 	specifyRepositoryAndBranchMessage = "Please specify a repository and a branch."
@@ -655,31 +654,32 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		)
 		return subscribeErr.Error()
 	}
+
 	var hasHook bool
+	hasHookError := false
 	if project != "" {
 		hasHook, err = p.HasProjectHook(ctx, info, namespace, project)
 		if err != nil {
-			return fmt.Sprintf(
-				"Unable to determine status of Webhook. See [setup instructions](%s) to validate.",
-				webhookHowToURL,
-			)
+			p.client.Log.Debug("Unable to fetch project webhook data", "Error", err.Error())
+			hasHookError = true
 		}
 	} else {
 		hasHook, err = p.HasGroupHook(ctx, info, namespace)
 		if err != nil {
-			return fmt.Sprintf(
-				"Unable to determine status of Webhook. See [setup instructions](%s) to validate.",
-				webhookHowToURL,
-			)
+			p.client.Log.Debug("Unable to fetch group webhook data", "Error", err.Error())
+			hasHookError = true
 		}
 	}
+
+	hookErrorMessage := ""
+	if hasHookError {
+		hookErrorMessage = "\n**Note:** We are unable to determine the webhook status for this project. Please contact your project administrator"
+	}
+
 	var hookStatusMessage string
 	if !hasHook {
 		// no web hook found
-		hookStatusMessage = fmt.Sprintf(
-			"\nA Webhook is needed, run ```/gitlab webhook add %s``` to create one now.",
-			fullPath,
-		)
+		hookStatusMessage = fmt.Sprintf("\nA Webhook is needed, run ```/gitlab webhook add %s``` to create one now.%s", fullPath, hookErrorMessage)
 	}
 
 	p.sendChannelSubscriptionsUpdated(updatedSubscriptions, channelID)
