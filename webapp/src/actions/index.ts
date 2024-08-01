@@ -10,6 +10,7 @@ import {APIError, ConnectedData, GitlabUsersData, LHSData, ShowRhsPluginActionDa
 import {Item} from 'src/types/gitlab_items';
 import {GlobalState} from 'src/types/store';
 import {getPluginState} from 'src/selectors';
+import {CommentBody, IssueBody} from 'src/types/gitlab_types';
 
 export function getConnected(reminder = false) {
     return async (dispatch: Dispatch<AnyAction>) => {
@@ -179,7 +180,7 @@ export function getGitlabUser(userID: string) {
     };
 }
 
-export function openCreateIssueModal(postId) {
+export function openCreateIssueModal(postId: string) {
     return {
         type: ActionTypes.OPEN_CREATE_ISSUE_MODAL,
         data: {
@@ -188,7 +189,7 @@ export function openCreateIssueModal(postId) {
     };
 }
 
-export function openCreateIssueModalWithoutPost(title, channelId) {
+export function openCreateIssueModalWithoutPost(title: string, channelId: string) {
     return {
         type: ActionTypes.OPEN_CREATE_ISSUE_MODAL_WITHOUT_POST,
         data: {
@@ -204,8 +205,8 @@ export function closeCreateIssueModal() {
     };
 }
 
-export function createIssue(payload) {
-    return async (dispatch) => {
+export function createIssue(payload: IssueBody) {
+    return async (dispatch: Dispatch<AnyAction>) => {
         let data;
         try {
             data = await Client.createIssue(payload);
@@ -213,7 +214,7 @@ export function createIssue(payload) {
             return {error};
         }
 
-        const connected = await dispatch(checkAndHandleNotConnected(data));
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }
@@ -221,7 +222,7 @@ export function createIssue(payload) {
     };
 }
 
-export function openAttachCommentToIssueModal(postId) {
+export function openAttachCommentToIssueModal(postId: string) {
     return {
         type: ActionTypes.OPEN_ATTACH_COMMENT_TO_ISSUE_MODAL,
         data: {
@@ -236,8 +237,8 @@ export function closeAttachCommentToIssueModal() {
     };
 }
 
-export function attachCommentToIssue(payload) {
-    return async (dispatch) => {
+export function attachCommentToIssue(payload: CommentBody) {
+    return async (dispatch: Dispatch<AnyAction>) => {
         let data;
         try {
             data = await Client.attachCommentToIssue(payload);
@@ -245,7 +246,7 @@ export function attachCommentToIssue(payload) {
             return {error};
         }
 
-        const connected = await dispatch(checkAndHandleNotConnected(data));
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }
@@ -254,7 +255,7 @@ export function attachCommentToIssue(payload) {
 }
 
 export function getProjects() {
-    return async (dispatch, getState) => {
+    return async (dispatch: Dispatch<AnyAction>) => {
         let data;
         try {
             data = await Client.getProjects();
@@ -262,7 +263,7 @@ export function getProjects() {
             return {error};
         }
 
-        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }
@@ -276,8 +277,8 @@ export function getProjects() {
     };
 }
 
-export function getLabelOptions(projectID) {
-    return async (dispatch, getState) => {
+export function getLabelOptions(projectID: number) {
+    return async (dispatch: Dispatch<AnyAction>) => {
         let data;
         try {
             data = await Client.getLabels(projectID);
@@ -285,7 +286,7 @@ export function getLabelOptions(projectID) {
             return {error};
         }
 
-        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }
@@ -294,8 +295,8 @@ export function getLabelOptions(projectID) {
     };
 }
 
-export function getMilestoneOptions(projectID) {
-    return async (dispatch, getState) => {
+export function getMilestoneOptions(projectID: number) {
+    return async (dispatch: Dispatch<AnyAction>) => {
         let data;
         try {
             data = await Client.getMilestones(projectID);
@@ -303,7 +304,7 @@ export function getMilestoneOptions(projectID) {
             return {error};
         }
 
-        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }
@@ -312,8 +313,8 @@ export function getMilestoneOptions(projectID) {
     };
 }
 
-export function getAssigneeOptions(projectID) {
-    return async (dispatch, getState) => {
+export function getAssigneeOptions(projectID: number) {
+    return async (dispatch: Dispatch<AnyAction>, getState: () => GlobalState) => {
         let data;
         try {
             data = await Client.getAssignees(projectID);
@@ -321,7 +322,7 @@ export function getAssigneeOptions(projectID) {
             return {error};
         }
 
-        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }

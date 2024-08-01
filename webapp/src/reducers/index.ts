@@ -3,7 +3,8 @@ import {combineReducers, Reducer} from 'redux';
 import ActionTypes from '../action_types';
 import Constants from '../constants';
 import {Item} from 'src/types/gitlab_items';
-import {ConnectedData, GitlabUsersData, LHSData, ShowRhsPluginActionData, SubscriptionData} from 'src/types';
+import {ConnectedData, CreateIssueModalData, GitlabUsersData, LHSData, ShowRhsPluginActionData, SubscriptionData} from 'src/types';
+import {Project} from 'src/types/gitlab_types';
 
 const connected: Reducer<boolean, {type: string, data: ConnectedData}> = (state = false, action) => {
     switch (action.type) {
@@ -130,7 +131,7 @@ const gitlabUsers: Reducer<Record<string, GitlabUsersData>, {type: string, data:
     }
 };
 
-const isCreateIssueModalVisible = (state = false, action) => {
+const isCreateIssueModalVisible = (state = false, action: {type: string}) => {
     switch (action.type) {
     case ActionTypes.OPEN_CREATE_ISSUE_MODAL:
     case ActionTypes.OPEN_CREATE_ISSUE_MODAL_WITHOUT_POST:
@@ -142,7 +143,7 @@ const isCreateIssueModalVisible = (state = false, action) => {
     }
 };
 
-const isAttachCommentToIssueModalVisible = (state = false, action) => {
+const isAttachCommentToIssueModalVisible = (state = false, action: {type: string}) => {
     switch (action.type) {
     case ActionTypes.OPEN_ATTACH_COMMENT_TO_ISSUE_MODAL:
         return true;
@@ -153,7 +154,7 @@ const isAttachCommentToIssueModalVisible = (state = false, action) => {
     }
 };
 
-const postIdForAttachCommentToIssueModal = (state = {}, action) => {
+const postIdForAttachCommentToIssueModal = (state = '', action: {type: string, data: {postId: string}}) => {
     switch (action.type) {
     case ActionTypes.OPEN_ATTACH_COMMENT_TO_ISSUE_MODAL:
         return action.data.postId;
@@ -164,12 +165,13 @@ const postIdForAttachCommentToIssueModal = (state = {}, action) => {
     }
 };
 
-const createIssueModal = (state = {}, action) => {
+const createIssueModal: Reducer<CreateIssueModalData, {type: string, data: CreateIssueModalData}> = (state = {}, action) => {
     switch (action.type) {
     case ActionTypes.OPEN_CREATE_ISSUE_MODAL:
     case ActionTypes.OPEN_CREATE_ISSUE_MODAL_WITHOUT_POST:
         return {
             ...state,
+
             postId: action.data.postId,
             title: action.data.title,
             channelId: action.data.channelId,
@@ -181,7 +183,7 @@ const createIssueModal = (state = {}, action) => {
     }
 };
 
-function yourProjects(state = [], action) {
+function yourProjects(state = [] as Project[], action: {type: string, data: Project[]}) {
     switch (action.type) {
     case ActionTypes.RECEIVED_PROJECTS:
         return action.data;

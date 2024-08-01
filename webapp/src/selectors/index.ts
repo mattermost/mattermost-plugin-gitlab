@@ -46,8 +46,6 @@ function mapPrsToDetails(prs?: Item[], details?: Item[]): Item[] {
 
 export const getPluginState = (state: GlobalState) => state[pluginStateKey];
 
-export const isUserConnectedToGitlab = (state) => state[`plugins-${manifest.id}`].connected;
-
 export const getSidebarData = createSelector(
     getPluginState,
     (pluginState: PluginState): SideBarData => {
@@ -66,12 +64,12 @@ export const getSidebarData = createSelector(
     },
 );
 
-export const isCreateIssueModalVisible = (state) => state[`plugins-${manifest.id}`].isCreateIssueModalVisible;
+export const isCreateIssueModalVisible = (state: GlobalState) => getPluginState(state).isCreateIssueModalVisible;
 
-export const isAttachCommentToIssueModalVisible = (state) => state[`plugins-${manifest.id}`].isAttachCommentToIssueModalVisible;
+export const isAttachCommentToIssueModalVisible = (state: GlobalState) => getPluginState(state).isAttachCommentToIssueModalVisible;
 
-export const getCreateIssueModalContents = (state) => {
-    const {postId, title, channelId} = state[`plugins-${manifest.id}`].createIssueModal;
+export const getCreateIssueModalContents = (state: GlobalState) => {
+    const {postId, title, channelId} = getPluginState(state).createIssueModal;
 
     const post = postId ? getPost(state, postId) : null;
     return {
@@ -81,12 +79,14 @@ export const getCreateIssueModalContents = (state) => {
     };
 };
 
-export const getAttachCommentModalContents = (state) => {
-    const postId = state[`plugins-${manifest.id}`].postIdForAttachCommentToIssueModal;
+export const getAttachCommentModalContents = (state: GlobalState) => {
+    const postId = getPluginState(state).postIdForAttachCommentToIssueModal;
     const post = getPost(state, postId);
 
     return post;
 };
+
+export const getYourProjects = (state: GlobalState) => getPluginState(state).yourProjects;
 
 export const getConnected = (state: GlobalState) => getPluginState(state).connected;
 

@@ -5,6 +5,7 @@ import {Options} from 'mattermost-redux/types/client4';
 
 import {Item, TooltipData} from 'src/types/gitlab_items';
 import {APIError, ConnectedData, GitlabUsersData, LHSData, SubscriptionData} from 'src/types';
+import {CommentBody, IssueBody} from 'src/types/gitlab_types';
 
 export default class Client {
     private url = '';
@@ -41,16 +42,15 @@ export default class Client {
         return this.doGet<SubscriptionData>(`${this.url}/channel/${channelID}/subscriptions`);
     };
 
-
-    createIssue = async (payload) => {
+    createIssue = async (payload: IssueBody) => {
         return this.doPost(`${this.url}/issue`, payload);
     }
 
-    attachCommentToIssue = async (payload) => {
+    attachCommentToIssue = async (payload: CommentBody) => {
         return this.doPost(`${this.url}/attachcommenttoissue`, payload);
     }
 
-    searchIssues = async (searchTerm) => {
+    searchIssues = async (searchTerm: string) => {
         return this.doGet(`${this.url}/searchissues?search=${searchTerm}`);
     }
 
@@ -58,15 +58,15 @@ export default class Client {
         return this.doGet(`${this.url}/projects`);
     }
 
-    getLabels = async (projectID) => {
+    getLabels = async (projectID: number) => {
         return this.doGet(`${this.url}/labels?projectID=${projectID}`);
     }
 
-    getMilestones = async (projectID) => {
+    getMilestones = async (projectID: number) => {
         return this.doGet(`${this.url}/milestones?projectID=${projectID}`);
     }
 
-    getAssignees = async (projectID) => {
+    getAssignees = async (projectID: number) => {
         return this.doGet(`${this.url}/assignees?projectID=${projectID}`);
     }
 

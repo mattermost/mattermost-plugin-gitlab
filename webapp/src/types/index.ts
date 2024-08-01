@@ -58,3 +58,9 @@ export type SideBarData = {
     gitlabURL: string;
     rhsState: string;
 }
+
+export type CreateIssueModalData = {
+    postId?: string;
+    title?: string;
+    channelId?: string;
+}
