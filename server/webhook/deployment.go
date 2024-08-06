@@ -26,6 +26,8 @@ func (w *webhook) handleChannelDeployment(ctx context.Context, event *gitlab.Dep
 		message += fmt.Sprintf(":rocket: **Status**: %s\n", event.Status)
 	case statusCreated:
 		message += fmt.Sprintf(":clock1: **Status**: %s\n", event.Status)
+	case statusCanceled:
+		message += fmt.Sprintf(":no_entry_sign: **Status**: %s\n", event.Status)
 	case statusSuccess:
 		message += fmt.Sprintf(":large_green_circle: **Status**: %s\n", event.Status)
 	case statusFailed:

@@ -18,6 +18,7 @@ const (
 	statusPending = "pending"
 	statusFailed  = "failed"
 	statusCreated = "created"
+	statusCanceled = "canceled"
 
 	statusCreate = "create"
 	statusUpdate = "update"

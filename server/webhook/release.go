@@ -40,6 +40,8 @@ func (w *webhook) handleChannelRelease(ctx context.Context, event *gitlab.Releas
 	message += fmt.Sprintf("**Repository**: [%s](%s)\n", fullNamespacePath, event.Project.GitHTTPURL)
 	if event.Action != statusDelete {
 		message += fmt.Sprintf("**Release**: [%s](%s)\n", event.Name, event.URL)
+	} else {
+		message += fmt.Sprintf("**Release**: %s\n", event.Name)
 	}
 
 	toChannels := make([]string, 0)
