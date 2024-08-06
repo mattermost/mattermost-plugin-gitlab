@@ -17,7 +17,7 @@ func (w *webhook) HandleDeployment(ctx context.Context, event *gitlab.Deployment
 
 func (w *webhook) handleChannelDeployment(ctx context.Context, event *gitlab.DeploymentEvent) ([]*HandleWebhook, error) {
 	senderGitlabUsername := event.User.Username
-	repo := event.Project
+	project := event.Project
 	res := []*HandleWebhook{}
 	message := fmt.Sprintf("### Deployment Stage: **%s**\n", event.Status)
 
@@ -33,18 +33,22 @@ func (w *webhook) handleChannelDeployment(ctx context.Context, event *gitlab.Dep
 	default:
 		return res, nil
 	}
+
 	namespaceMetadata, err := normalizeNamespacedProjectByHomepage(event.Project.Homepage)
 	if err != nil {
 		return nil, err
 	}
+
 	fullNamespacePath := fmt.Sprintf("%s/%s", namespaceMetadata.Namespace, namespaceMetadata.Project)
 	message += fmt.Sprintf("**Repository**: [%s](%s)\n", fullNamespacePath, event.Project.GitHTTPURL)
 	message += fmt.Sprintf("**Triggered By**: %s\n", senderGitlabUsername)
-	message += fmt.Sprintf("**Visit job [here](%s)** \n", event.DeployableURL)
+	message += fmt.Sprintf("**Visit deployment [here](%s)** \n", event.DeployableURL)
+
 	toChannels := make([]string, 0)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
-		ctx, namespaceMetadata.Namespace, namespaceMetadata.Project,
-		repo.VisibilityLevel == PublicVisibilityLevel,
+		ctx, namespaceMetadata.Namespace,
+		namespaceMetadata.Project,
+		project.VisibilityLevel == PublicVisibilityLevel,
 	)
 	for _, sub := range subs {
 		if !sub.Deployments() {
@@ -53,6 +57,7 @@ func (w *webhook) handleChannelDeployment(ctx context.Context, event *gitlab.Dep
 
 		toChannels = append(toChannels, sub.ChannelID)
 	}
+
 	if len(toChannels) > 0 {
 		res = append(res, &HandleWebhook{
 			From:       senderGitlabUsername,

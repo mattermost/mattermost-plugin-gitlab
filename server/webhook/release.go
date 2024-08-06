@@ -16,7 +16,7 @@ func (w *webhook) HandleRelease(ctx context.Context, event *gitlab.ReleaseEvent)
 }
 
 func (w *webhook) handleChannelRelease(ctx context.Context, event *gitlab.ReleaseEvent) ([]*HandleWebhook, error) {
-	repo := event.Project
+	release := event.Project
 	res := []*HandleWebhook{}
 	message := fmt.Sprintf("### Release: **%s**\n", event.Action)
 
@@ -30,19 +30,23 @@ func (w *webhook) handleChannelRelease(ctx context.Context, event *gitlab.Releas
 	default:
 		return res, nil
 	}
+
 	namespaceMetadata, err := normalizeNamespacedProjectByHomepage(event.Project.Homepage)
 	if err != nil {
 		return nil, err
 	}
+
 	fullNamespacePath := fmt.Sprintf("%s/%s", namespaceMetadata.Namespace, namespaceMetadata.Project)
 	message += fmt.Sprintf("**Repository**: [%s](%s)\n", fullNamespacePath, event.Project.GitHTTPURL)
 	if event.Action != statusDelete {
 		message += fmt.Sprintf("**Release**: [%s](%s)\n", event.Name, event.URL)
 	}
+
 	toChannels := make([]string, 0)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
-		ctx, namespaceMetadata.Namespace, namespaceMetadata.Project,
-		repo.VisibilityLevel == PublicVisibilityLevel,
+		ctx, namespaceMetadata.Namespace,
+		namespaceMetadata.Project,
+		release.VisibilityLevel == PublicVisibilityLevel,
 	)
 	for _, sub := range subs {
 		if !sub.Releases() {
@@ -51,6 +55,7 @@ func (w *webhook) handleChannelRelease(ctx context.Context, event *gitlab.Releas
 
 		toChannels = append(toChannels, sub.ChannelID)
 	}
+
 	if len(toChannels) > 0 {
 		res = append(res, &HandleWebhook{
 			From:       "",
