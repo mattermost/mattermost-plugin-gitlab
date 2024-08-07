@@ -16,7 +16,7 @@ func (w *webhook) HandleRelease(ctx context.Context, event *gitlab.ReleaseEvent)
 }
 
 func (w *webhook) handleChannelRelease(ctx context.Context, event *gitlab.ReleaseEvent) ([]*HandleWebhook, error) {
-	release := event.Project
+	project := event.Project
 	res := []*HandleWebhook{}
 	message := fmt.Sprintf("### Release: **%s**\n", event.Action)
 
@@ -48,7 +48,7 @@ func (w *webhook) handleChannelRelease(ctx context.Context, event *gitlab.Releas
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
 		ctx, namespaceMetadata.Namespace,
 		namespaceMetadata.Project,
-		release.VisibilityLevel == PublicVisibilityLevel,
+		project.VisibilityLevel == PublicVisibilityLevel,
 	)
 	for _, sub := range subs {
 		if !sub.Releases() {
