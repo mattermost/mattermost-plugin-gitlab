@@ -13,11 +13,11 @@ const (
 	stateClosed = "closed"
 	stateMerged = "merged"
 
-	statusSuccess = "success"
-	statusRunning = "running"
-	statusPending = "pending"
-	statusFailed  = "failed"
-	statusCreated = "created"
+	statusSuccess  = "success"
+	statusRunning  = "running"
+	statusPending  = "pending"
+	statusFailed   = "failed"
+	statusCreated  = "created"
 	statusCanceled = "canceled"
 
 	statusCreate = "create"
