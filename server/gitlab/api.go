@@ -114,7 +114,7 @@ func (g *gitlab) NewProjectHook(ctx context.Context, user *UserInfo, token *oaut
 		PipelineEvents:           &webhookOptions.PipelineEvents,
 		WikiPageEvents:           &webhookOptions.WikiPageEvents,
 		DeploymentEvents:         &webhookOptions.DeploymentEvents,
-		ReleaseEvents:            &webhookOptions.ReleaseEvents,
+		ReleasesEvents:           &webhookOptions.ReleaseEvents,
 		EnableSSLVerification:    &webhookOptions.EnableSSLVerification,
 		Token:                    &webhookOptions.Token,
 	}
@@ -219,7 +219,7 @@ func getProjectHookInfo(hook *internGitlab.ProjectHook) *WebhookInfo {
 		PipelineEvents:           hook.PipelineEvents,
 		WikiPageEvents:           hook.WikiPageEvents,
 		DeploymentEvents:         hook.DeploymentEvents,
-		ReleaseEvents:            hook.ReleaseEvents,
+		ReleaseEvents:            hook.ReleasesEvents,
 		EnableSSLVerification:    hook.EnableSSLVerification,
 		CreatedAt:                hook.CreatedAt,
 	}
