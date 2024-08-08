@@ -59,7 +59,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	 * PipelineEvents 
 	 * WikiPageEvents
 	 * DeploymentEvents
-	 * RelaseEvents
+	 * ReleaseEvents
 	 * SSLverification
   * |url| is the URL that will be called when triggered. Defaults to this plugins URL
   * |token| Secret token. Defaults to secret token used in plugin's settings.
@@ -545,7 +545,7 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 		if all || strings.EqualFold(trigger, "DeploymentEvents") {
 			deploymentEvents = true
 		}
-		if all || strings.EqualFold(trigger, "releaseEvents") {
+		if all || strings.EqualFold(trigger, "ReleaseEvents") {
 			releaseEvents = true
 		}
 	}
