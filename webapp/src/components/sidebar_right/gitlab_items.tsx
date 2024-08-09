@@ -10,6 +10,8 @@ import TickIcon from 'src/images/icons/tick';
 import SignIcon from 'src/images/icons/sign';
 import {formatTimeSince} from 'src/utils/date_utils';
 import {GitlabItemsProps, Label} from 'src/types/gitlab_items';
+import {useSelector} from 'react-redux';
+import {getSidebarExpanded} from 'src/selectors';
 
 export const notificationReasons: Record<string | symbol, string> = {
     assigned: 'You were assigned to the issue/merge request.',
@@ -52,8 +54,13 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
         );
     }
 
+    const isSidebarExpanded = useSelector(getSidebarExpanded);
+
     let titleText = item.title || item.target?.title || item.body || '';
-    titleText = titleText.length > MAX_TITLE_LENGTH ? `${titleText.substring(0, MAX_TITLE_LENGTH)}...` : titleText;
+    if (!isSidebarExpanded){
+        titleText = titleText.length > MAX_TITLE_LENGTH ? `${titleText.substring(0, MAX_TITLE_LENGTH)}...` : titleText;
+    }
+
     let title: React.ReactNode = titleText;
     if (item.web_url || item.target_url) {
         title = (
