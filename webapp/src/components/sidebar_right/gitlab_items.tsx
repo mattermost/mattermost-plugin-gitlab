@@ -4,13 +4,14 @@ import {makeStyleFromTheme, changeOpacity} from 'mattermost-redux/utils/theme_ut
 import {Badge, Tooltip, OverlayTrigger} from 'react-bootstrap';
 import * as CSS from 'csstype';
 
+import {useSelector} from 'react-redux';
+
 import CrossIcon from 'src/images/icons/cross';
 import DotIcon from 'src/images/icons/dot';
 import TickIcon from 'src/images/icons/tick';
 import SignIcon from 'src/images/icons/sign';
 import {formatTimeSince} from 'src/utils/date_utils';
 import {GitlabItemsProps, Label} from 'src/types/gitlab_items';
-import {useSelector} from 'react-redux';
 import {getSidebarExpanded} from 'src/selectors';
 
 export const notificationReasons: Record<string | symbol, string> = {
@@ -57,7 +58,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
     const isSidebarExpanded = useSelector(getSidebarExpanded);
 
     let titleText = item.title || item.target?.title || item.body || '';
-    if (!isSidebarExpanded){
+    if (!isSidebarExpanded) {
         titleText = titleText.length > MAX_TITLE_LENGTH ? `${titleText.substring(0, MAX_TITLE_LENGTH)}...` : titleText;
     }
 
