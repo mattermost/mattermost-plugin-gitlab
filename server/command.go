@@ -78,7 +78,8 @@ const (
 	projectNotFoundError   = "404 {message: 404 Project Not Found}"
 	projectNotFoundMessage = "Unable to find project with namespace: "
 
-	invalidSubscribeSubCommand = "Invalid subscribe command. Available commands are add, delete, and list"
+	invalidSubscribeSubCommand          = "Invalid subscribe command. Available commands are add, delete, and list"
+	missingOgOrRepoFromSubscribeCommand = "Please provide the owner[/repo] [features]"
 
 	invalidPipelinesSubCommand = "Invalid pipelines command. Available commands are run, list"
 )
@@ -701,8 +702,10 @@ func (p *Plugin) subscribeCommand(ctx context.Context, parameters []string, chan
 		return p.subscriptionsListCommand(channelID)
 	case commandAdd:
 		features := "merges,issues,tag"
-		if len(parameters) > 2 {
-			features = strings.Join(parameters[2:], " ")
+		if len(parameters) < 2 {
+			return missingOgOrRepoFromSubscribeCommand
+		} else if len(parameters) > 2 {
+			features = strings.Join(parameters[1:], " ")
 		}
 		// Resolve namespace and project name
 		fullPath := normalizePath(parameters[1], config.GitlabURL)
