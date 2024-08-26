@@ -703,7 +703,7 @@ func (p *Plugin) subscribeCommand(ctx context.Context, parameters []string, chan
 	case commandAdd:
 		features := "merges,issues,tag"
 		if len(parameters) < 2 {
-			return missingOgOrRepoFromSubscribeCommand
+			return missingOrgOrRepoFromSubscribeCommand
 		} else if len(parameters) > 2 {
 			features = strings.Join(parameters[1:], " ")
 		}
