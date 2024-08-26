@@ -79,7 +79,7 @@ const (
 	projectNotFoundMessage = "Unable to find project with namespace: "
 
 	invalidSubscribeSubCommand          = "Invalid subscribe command. Available commands are add, delete, and list"
-	missingOgOrRepoFromSubscribeCommand = "Please provide the owner[/repo] [features]"
+	missingOgOrRepoFromSubscribeCommand = "Please provide the owner[/repo]"
 
 	invalidPipelinesSubCommand = "Invalid pipelines command. Available commands are run, list"
 )
