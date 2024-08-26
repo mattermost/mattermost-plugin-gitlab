@@ -78,8 +78,8 @@ const (
 	projectNotFoundError   = "404 {message: 404 Project Not Found}"
 	projectNotFoundMessage = "Unable to find project with namespace: "
 
-	invalidSubscribeSubCommand          = "Invalid subscribe command. Available commands are add, delete, and list"
-	missingOgOrRepoFromSubscribeCommand = "Please provide the owner[/repo]"
+	invalidSubscribeSubCommand           = "Invalid subscribe command. Available commands are add, delete, and list"
+	missingOrgOrRepoFromSubscribeCommand = "Please provide the owner[/repo]"
 
 	invalidPipelinesSubCommand = "Invalid pipelines command. Available commands are run, list"
 )
