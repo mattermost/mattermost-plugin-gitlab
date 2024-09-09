@@ -49,7 +49,7 @@ func (w *webhook) handleChannelTag(ctx context.Context, event *gitlab.TagEvent) 
 	res := []*HandleWebhook{}
 
 	if len(event.Message) > 0 {
-		event.Message = ": " + event.Message
+		event.Message = fmt.Sprintf(": %s", event.Message)
 	}
 
 	var message string
