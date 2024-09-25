@@ -740,9 +740,7 @@ func (p *Plugin) validateCommentBody(issue *gitlab.IssueRequest) error {
 }
 
 func (p *Plugin) getPermalink(postID string) string {
-	siteURL := *p.API.GetConfig().ServiceSettings.SiteURL
-
-	return fmt.Sprintf("%v/_redirect/pl/%v", siteURL, postID)
+	return getSiteURL(p.client) + "/" + path.Join("_redirect", "pl", postID)
 }
 
 func (p *Plugin) searchIssues(c *UserContext, w http.ResponseWriter, r *http.Request) {

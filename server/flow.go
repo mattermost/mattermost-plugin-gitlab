@@ -477,7 +477,7 @@ You must first register the Mattermost GitLab Plugin as an authorized OAuth app.
 		"3. Unselect **Expire access tokens**.\n"+
 		"4. Select `api` and `read_user` in Scopes.\n"+
 		"5. Select **Save application**\n",
-		fm.pluginID,
+		getPluginURL(fm.client),
 	)
 
 	return flow.NewStep(stepOAuthInfo).
@@ -576,7 +576,7 @@ func (fm *FlowManager) submitOAuthConfig(f *flow.Flow, submitted map[string]inte
 
 func (fm *FlowManager) stepOAuthConnect() flow.Step {
 	connectPretext := "##### :white_check_mark: Step {{ if .UsePreregisteredApplication }}1{{ else }}2{{ end }}: Connect your GitLab account"
-	connectURL := fmt.Sprintf("%s/oauth/connect", fm.pluginID)
+	connectURL := fmt.Sprintf("%s/oauth/connect", getPluginURL(fm.client))
 	connectText := fmt.Sprintf("Go [here](%s) to connect your account.", connectURL)
 	return flow.NewStep(stepOAuthConnect).
 		WithText(connectText).
@@ -685,7 +685,7 @@ func (fm *FlowManager) submitWebhook(f *flow.Flow, submitted map[string]interfac
 	}
 
 	hookOptions := &gitlab.AddWebhookOptions{
-		URL:                      fmt.Sprintf("%s/webhook", fm.pluginID),
+		URL:                      fmt.Sprintf("%s/webhook", getPluginURL(fm.client)),
 		ConfidentialNoteEvents:   true,
 		PushEvents:               true,
 		IssuesEvents:             true,

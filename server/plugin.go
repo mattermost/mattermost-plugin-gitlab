@@ -93,8 +93,8 @@ func (p *Plugin) OnActivate() error {
 	if p.client == nil {
 		p.client = pluginapi.NewClient(p.API, p.Driver)
 	}
-	siteURL := p.client.Configuration.GetConfig().ServiceSettings.SiteURL
-	if siteURL == nil || *siteURL == "" {
+	siteURL := getSiteURL(p.client)
+	if siteURL == "" {
 		return errors.New("siteURL is not set. Please set it and restart the plugin")
 	}
 
@@ -253,7 +253,8 @@ func (p *Plugin) getOAuthConfig() *oauth2.Config {
 	config := p.getConfiguration()
 
 	scopes := []string{"api", "read_user"}
-	redirectURL := fmt.Sprintf("%s/plugins/%s/oauth/complete", *p.client.Configuration.GetConfig().ServiceSettings.SiteURL, manifest.Id)
+
+	redirectURL := fmt.Sprintf("%s/oauth/complete", getPluginURL(p.client))
 
 	if config.UsePreregisteredApplication {
 		p.client.Log.Debug("Using Chimera Proxy OAuth configuration")
@@ -759,8 +760,7 @@ func (p *Plugin) HasProjectHook(ctx context.Context, user *gitlab.UserInfo, name
 		return true, err
 	}
 
-	siteURL := *p.client.Configuration.GetConfig().ServiceSettings.SiteURL
-
+	siteURL := getSiteURL(p.client)
 	found := false
 	for _, hook := range hooks {
 		if strings.Contains(hook.URL, siteURL) {
@@ -786,8 +786,7 @@ func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namesp
 		return false, errors.New("unable to connect to GitLab")
 	}
 
-	siteURL := *p.client.Configuration.GetConfig().ServiceSettings.SiteURL
-
+	siteURL := getSiteURL(p.client)
 	found := false
 	for _, hook := range hooks {
 		if strings.Contains(hook.URL, siteURL) {
