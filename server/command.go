@@ -203,12 +203,12 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 	}
 
 	if action == "connect" {
-		config := p.client.Configuration.GetConfig()
-		if config.ServiceSettings.SiteURL == nil {
+		pluginURL := getPluginURL(p.client)
+		if pluginURL == "" {
 			return p.getCommandResponse(args, "Encountered an error connecting to GitLab."), nil
 		}
 
-		resp := p.getCommandResponse(args, fmt.Sprintf("[Click here to link your GitLab account.](%s/plugins/%s/oauth/connect)", *config.ServiceSettings.SiteURL, manifest.Id))
+		resp := p.getCommandResponse(args, fmt.Sprintf("[Click here to link your GitLab account.](%s/oauth/connect)", pluginURL))
 		return resp, nil
 	}
 
@@ -464,7 +464,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 			return unknownActionMessage
 		}
 
-		siteURL := *p.client.Configuration.GetConfig().ServiceSettings.SiteURL
+		siteURL := getSiteURL(p.client)
 		if siteURL == "" {
 			return newWebhookEmptySiteURLmessage
 		}
