@@ -11,7 +11,7 @@ import {
 } from '../../actions';
 import {getPluginServerRoute} from '../../selectors';
 
-import RHSSidebar from './rhs_sidebar.jsx';
+import RHSSidebar from './rhs_sidebar';
 
 const noSubscriptions = [];
 
