@@ -90,6 +90,8 @@ func (g *gitlab) NewGroupHook(ctx context.Context, user *UserInfo, token *oauth2
 		JobEvents:                &webhookOptions.JobEvents,
 		PipelineEvents:           &webhookOptions.PipelineEvents,
 		WikiPageEvents:           &webhookOptions.WikiPageEvents,
+		DeploymentEvents:         &webhookOptions.DeploymentEvents,
+		ReleasesEvents:           &webhookOptions.ReleaseEvents,
 		EnableSSLVerification:    &webhookOptions.EnableSSLVerification,
 		Token:                    &webhookOptions.Token,
 	}
@@ -127,6 +129,8 @@ func (g *gitlab) NewProjectHook(ctx context.Context, user *UserInfo, token *oaut
 		JobEvents:                &webhookOptions.JobEvents,
 		PipelineEvents:           &webhookOptions.PipelineEvents,
 		WikiPageEvents:           &webhookOptions.WikiPageEvents,
+		DeploymentEvents:         &webhookOptions.DeploymentEvents,
+		ReleasesEvents:           &webhookOptions.ReleaseEvents,
 		EnableSSLVerification:    &webhookOptions.EnableSSLVerification,
 		Token:                    &webhookOptions.Token,
 	}
@@ -205,6 +209,12 @@ func (w *WebhookInfo) String() string {
 	if w.WikiPageEvents {
 		formatedTriggers += "* Wiki Page Events\n"
 	}
+	if w.ReleaseEvents {
+		formatedTriggers += "* Release Events\n"
+	}
+	if w.DeploymentEvents {
+		formatedTriggers += "* Deployment Events\n"
+	}
 
 	return "\n\n`" + w.URL + "`\n" + formatedTriggers
 }
@@ -224,6 +234,8 @@ func getProjectHookInfo(hook *internGitlab.ProjectHook) *WebhookInfo {
 		JobEvents:                hook.JobEvents,
 		PipelineEvents:           hook.PipelineEvents,
 		WikiPageEvents:           hook.WikiPageEvents,
+		DeploymentEvents:         hook.DeploymentEvents,
+		ReleaseEvents:            hook.ReleasesEvents,
 		EnableSSLVerification:    hook.EnableSSLVerification,
 		CreatedAt:                hook.CreatedAt,
 	}
@@ -245,6 +257,8 @@ func getGroupHookInfo(hook *internGitlab.GroupHook) *WebhookInfo {
 		JobEvents:                hook.JobEvents,
 		PipelineEvents:           hook.PipelineEvents,
 		WikiPageEvents:           hook.WikiPageEvents,
+		DeploymentEvents:         hook.DeploymentEvents,
+		ReleaseEvents:            hook.ReleasesEvents,
 		EnableSSLVerification:    hook.EnableSSLVerification,
 		CreatedAt:                hook.CreatedAt,
 	}
