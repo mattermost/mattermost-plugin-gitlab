@@ -63,8 +63,8 @@ const UserHeader = (props: UserHeaderProps) => (
 
 interface UserHeaderProps {
     currentUserId: string;
-    username: string;
-    gitlabURL: string;
+    username?: string;
+    gitlabURL?: string;
 }
 
 const Subscription = (props: SubscriptionProps) => {
@@ -125,7 +125,7 @@ const Subscriptions = (props: SubscriptionsProps) => {
 };
 
 interface SubscriptionsProps {
-    currentChannelId: string;
+    currentChannelId?: string;
     subscriptions: Subscription[];
 }
 
@@ -138,13 +138,13 @@ interface Subscription {
 interface RhsSidebarProps {
     currentUserId: string,
     connected: boolean,
-    username: string,
-    gitlabURL: string,
-    currentChannelId: string,
-    currentChannelSubscriptions: Subscription[],
+    username?: string,
+    gitlabURL?: string,
+    currentChannelId?: string,
+    currentChannelSubscriptions: Partial<Subscription>[],
     pluginServerRoute: string,
     actions: {
-        getChannelSubscriptions: (channel: string) => Promise<void>,
+        getChannelSubscriptions: (channel: string) => Promise<any>,
         sendEphemeralPost: (message: string) => void;
     }
 }
@@ -184,7 +184,7 @@ export default class RHSSidebar extends React.PureComponent<RhsSidebarProps, Rhs
         }
 
         this.setState({refreshing: true});
-        await this.props.actions.getChannelSubscriptions(this.props.currentChannelId);
+        await this.props.actions.getChannelSubscriptions(this.props.currentChannelId as string);
         this.setState({refreshing: false});
     }
 
@@ -207,7 +207,7 @@ export default class RHSSidebar extends React.PureComponent<RhsSidebarProps, Rhs
                 />
                 <Subscriptions
                     currentChannelId={this.props.currentChannelId}
-                    subscriptions={this.props.currentChannelSubscriptions}
+                    subscriptions={this.props.currentChannelSubscriptions as Subscription[]}
                 />
             </div>
         );
