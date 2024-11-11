@@ -7,6 +7,7 @@ toolchain go1.22.2
 require (
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.8.1
+	github.com/hashicorp/go-multierror v1.1.1
 	github.com/mattermost/mattermost/server/public v0.1.7
 	github.com/microcosm-cc/bluemonday v1.0.19
 	github.com/pkg/errors v0.9.1
@@ -14,6 +15,7 @@ require (
 	github.com/xanzy/go-gitlab v0.97.0
 	golang.org/x/oauth2 v0.21.0
 	golang.org/x/sync v0.7.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -34,7 +36,6 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
-	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-plugin v1.6.1 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
@@ -73,5 +74,4 @@ require (
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
