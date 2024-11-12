@@ -312,11 +312,11 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.We
 	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil)
 	api.On("PublishWebSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	api.On("LogWarn",
-		mock.AnythingOfTypeArgument("string"),
-		mock.AnythingOfTypeArgument("string"),
-		mock.AnythingOfTypeArgument("string"),
-		mock.AnythingOfTypeArgument("string"),
-		mock.AnythingOfTypeArgument("string"))
+		mock.AnythingOfType("string"),
+		mock.AnythingOfType("string"),
+		mock.AnythingOfType("string"),
+		mock.AnythingOfType("string"),
+		mock.AnythingOfType("string"))
 
 	p.SetAPI(api)
 	p.client = pluginapi.NewClient(api, p.Driver)
