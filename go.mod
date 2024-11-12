@@ -2,13 +2,13 @@ module github.com/mattermost/mattermost-plugin-gitlab
 
 go 1.22
 
-toolchain go1.22.2
+toolchain go1.22.8
 
 require (
 	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/mattermost/mattermost/server/public v0.1.7
+	github.com/mattermost/mattermost/server/public v0.1.8
 	github.com/microcosm-cc/bluemonday v1.0.19
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.9.0
