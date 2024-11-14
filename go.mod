@@ -5,13 +5,13 @@ go 1.22
 toolchain go1.22.2
 
 require (
-	github.com/golang/mock v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/mattermost/mattermost/server/public v0.1.7
 	github.com/microcosm-cc/bluemonday v1.0.19
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.9.0
 	github.com/xanzy/go-gitlab v0.97.0
+	go.uber.org/mock v0.4.0
 	golang.org/x/oauth2 v0.21.0
 	golang.org/x/sync v0.7.0
 )
