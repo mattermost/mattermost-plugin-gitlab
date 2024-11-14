@@ -7,8 +7,7 @@ import {Theme} from 'mattermost-redux/types/preferences';
 
 import {getProjects} from 'src/actions';
 import ReactSelectSetting from 'src/components/react_select_setting';
-import {GlobalState} from 'src/types/global_state';
-import {getPluginState} from 'src/selectors';
+import {getYourProjects} from 'src/selectors';
 import {getErrorMessage} from 'src/utils/user_utils';
 import {Project, ProjectSelection} from 'src/types/gitlab_types';
 import {ErrorType, SelectionType} from 'src/types/common';
@@ -26,7 +25,7 @@ const GitlabProjectSelector = ({theme, required, onChange, value, addValidate, r
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string>('');
 
-    const myProjects = useSelector((state: GlobalState) => getPluginState(state).yourProjects);
+    const myProjects = useSelector(getYourProjects);
 
     const dispatch = useDispatch();
 

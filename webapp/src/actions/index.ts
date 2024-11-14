@@ -2,13 +2,19 @@ import {getCurrentChannelId, getCurrentUserId} from 'mattermost-redux/selectors/
 
 import {PostTypes} from 'mattermost-redux/action_types';
 
+import {AnyAction, Dispatch} from 'redux';
+
 import Client from '../client';
 import ActionTypes from '../action_types';
-import manifest from '../manifest';
+import {APIError, ConnectedData, GitlabUsersData, LHSData, ShowRhsPluginActionData, SubscriptionData} from 'src/types';
+import {Item} from 'src/types/gitlab_items';
+import {GlobalState} from 'src/types/store';
+import {getPluginState} from 'src/selectors';
+import {CommentBody, IssueBody} from 'src/types/gitlab_types';
 
 export function getConnected(reminder = false) {
-    return async (dispatch) => {
-        let data;
+    return async (dispatch: Dispatch<AnyAction>) => {
+        let data: ConnectedData;
         try {
             data = await Client.getConnected(reminder);
         } catch (error) {
@@ -24,8 +30,8 @@ export function getConnected(reminder = false) {
     };
 }
 
-function checkAndHandleNotConnected(data) {
-    return async (dispatch) => {
+function checkAndHandleNotConnected(data: APIError) {
+    return async (dispatch: Dispatch<AnyAction>) => {
         if (data && data.id === 'not_connected') {
             dispatch({
                 type: ActionTypes.RECEIVED_CONNECTED,
@@ -34,7 +40,7 @@ function checkAndHandleNotConnected(data) {
                     gitlab_username: '',
                     gitlab_client_id: '',
                     settings: {},
-                },
+                } as ConnectedData,
             });
             return false;
         }
@@ -42,16 +48,16 @@ function checkAndHandleNotConnected(data) {
     };
 }
 
-export function getReviewDetails(prList) {
-    return async (dispatch, getState) => {
-        let data;
+export function getReviewDetails(prList: Item[]) {
+    return async (dispatch: Dispatch<AnyAction>) => {
+        let data: Item | APIError;
         try {
             data = await Client.getPrsDetails(prList);
         } catch (error) {
             return {error};
         }
 
-        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }
@@ -65,16 +71,16 @@ export function getReviewDetails(prList) {
     };
 }
 
-export function getYourPrDetails(prList) {
-    return async (dispatch, getState) => {
-        let data;
+export function getYourPrDetails(prList: Item[]) {
+    return async (dispatch: Dispatch<AnyAction>) => {
+        let data: Item | APIError;
         try {
             data = await Client.getPrsDetails(prList);
         } catch (error) {
             return {error};
         }
 
-        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }
@@ -88,45 +94,16 @@ export function getYourPrDetails(prList) {
     };
 }
 
-export function getMentions() {
-    return async (dispatch, getState) => {
-        let data;
-        try {
-            data = await Client.getMentions();
-        } catch (error) {
-            return {error};
-        }
-
-        const connected = await checkAndHandleNotConnected(data)(
-            dispatch,
-            getState,
-        );
-        if (!connected) {
-            return {error: data};
-        }
-
-        dispatch({
-            type: ActionTypes.RECEIVED_MENTIONS,
-            data,
-        });
-
-        return {data};
-    };
-}
-
 export function getLHSData() {
-    return async (dispatch, getState) => {
-        let data;
+    return async (dispatch: Dispatch<AnyAction>) => {
+        let data: LHSData | APIError;
         try {
             data = await Client.getLHSData();
         } catch (error) {
             return {error};
         }
 
-        const connected = await checkAndHandleNotConnected(data)(
-            dispatch,
-            getState,
-        );
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }
@@ -144,14 +121,14 @@ export function getLHSData() {
  * Stores "showRHSPlugin" action returned by
  * "registerRightHandSidebarComponent" in plugin initialization.
  */
-export function setShowRHSAction(showRHSPluginAction) {
+export function setShowRHSAction(showRHSPluginAction: () => ShowRhsPluginActionData) {
     return {
         type: ActionTypes.RECEIVED_SHOW_RHS_ACTION,
         showRHSPluginAction,
     };
 }
 
-export function updateRHSState(rhsState) {
+export function updateRHSState(rhsState: string) {
     return {
         type: ActionTypes.UPDATE_RHS_STATE,
         state: rhsState,
@@ -160,13 +137,13 @@ export function updateRHSState(rhsState) {
 
 const GITLAB_USER_GET_TIMEOUT_MILLISECONDS = 1000 * 60 * 60; // 1 hour
 
-export function getGitlabUser(userID) {
-    return async (dispatch, getState) => {
+export function getGitlabUser(userID: string) {
+    return async (dispatch: Dispatch<AnyAction>, getState: () => GlobalState) => {
         if (!userID) {
             return {};
         }
 
-        const user = getState()[`plugins-${manifest.id}`].gitlabUsers[userID];
+        const user = getPluginState(getState()).gitlabUsers[userID];
         if (
             user &&
             user.last_try &&
@@ -179,11 +156,11 @@ export function getGitlabUser(userID) {
             return {data: user};
         }
 
-        let data;
+        let data: GitlabUsersData;
         try {
             data = await Client.getGitlabUser(userID);
-        } catch (error) {
-            if (error.status === 404) {
+        } catch (error: unknown) {
+            if ((error as APIError).status === 404) {
                 dispatch({
                     type: ActionTypes.RECEIVED_GITLAB_USER,
                     userID,
@@ -203,7 +180,7 @@ export function getGitlabUser(userID) {
     };
 }
 
-export function openCreateIssueModal(postId) {
+export function openCreateIssueModal(postId: string) {
     return {
         type: ActionTypes.OPEN_CREATE_ISSUE_MODAL,
         data: {
@@ -212,7 +189,7 @@ export function openCreateIssueModal(postId) {
     };
 }
 
-export function openCreateIssueModalWithoutPost(title, channelId) {
+export function openCreateIssueModalWithoutPost(title: string, channelId: string) {
     return {
         type: ActionTypes.OPEN_CREATE_ISSUE_MODAL_WITHOUT_POST,
         data: {
@@ -228,8 +205,8 @@ export function closeCreateIssueModal() {
     };
 }
 
-export function createIssue(payload) {
-    return async (dispatch) => {
+export function createIssue(payload: IssueBody) {
+    return async (dispatch: Dispatch<AnyAction>) => {
         let data;
         try {
             data = await Client.createIssue(payload);
@@ -237,7 +214,7 @@ export function createIssue(payload) {
             return {error};
         }
 
-        const connected = await dispatch(checkAndHandleNotConnected(data));
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }
@@ -245,7 +222,7 @@ export function createIssue(payload) {
     };
 }
 
-export function openAttachCommentToIssueModal(postId) {
+export function openAttachCommentToIssueModal(postId: string) {
     return {
         type: ActionTypes.OPEN_ATTACH_COMMENT_TO_ISSUE_MODAL,
         data: {
@@ -260,8 +237,8 @@ export function closeAttachCommentToIssueModal() {
     };
 }
 
-export function attachCommentToIssue(payload) {
-    return async (dispatch) => {
+export function attachCommentToIssue(payload: CommentBody) {
+    return async (dispatch: Dispatch<AnyAction>) => {
         let data;
         try {
             data = await Client.attachCommentToIssue(payload);
@@ -269,7 +246,7 @@ export function attachCommentToIssue(payload) {
             return {error};
         }
 
-        const connected = await dispatch(checkAndHandleNotConnected(data));
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }
@@ -278,7 +255,7 @@ export function attachCommentToIssue(payload) {
 }
 
 export function getProjects() {
-    return async (dispatch, getState) => {
+    return async (dispatch: Dispatch<AnyAction>) => {
         let data;
         try {
             data = await Client.getProjects();
@@ -286,7 +263,7 @@ export function getProjects() {
             return {error};
         }
 
-        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }
@@ -300,8 +277,8 @@ export function getProjects() {
     };
 }
 
-export function getLabelOptions(projectID) {
-    return async (dispatch, getState) => {
+export function getLabelOptions(projectID: number) {
+    return async (dispatch: Dispatch<AnyAction>) => {
         let data;
         try {
             data = await Client.getLabels(projectID);
@@ -309,7 +286,7 @@ export function getLabelOptions(projectID) {
             return {error};
         }
 
-        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }
@@ -318,8 +295,8 @@ export function getLabelOptions(projectID) {
     };
 }
 
-export function getMilestoneOptions(projectID) {
-    return async (dispatch, getState) => {
+export function getMilestoneOptions(projectID: number) {
+    return async (dispatch: Dispatch<AnyAction>) => {
         let data;
         try {
             data = await Client.getMilestones(projectID);
@@ -327,7 +304,7 @@ export function getMilestoneOptions(projectID) {
             return {error};
         }
 
-        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }
@@ -336,8 +313,8 @@ export function getMilestoneOptions(projectID) {
     };
 }
 
-export function getAssigneeOptions(projectID) {
-    return async (dispatch, getState) => {
+export function getAssigneeOptions(projectID: number) {
+    return async (dispatch: Dispatch<AnyAction>, getState: () => GlobalState) => {
         let data;
         try {
             data = await Client.getAssignees(projectID);
@@ -345,7 +322,7 @@ export function getAssigneeOptions(projectID) {
             return {error};
         }
 
-        const connected = await checkAndHandleNotConnected(data)(dispatch, getState);
+        const connected = await checkAndHandleNotConnected(data as APIError)(dispatch);
         if (!connected) {
             return {error: data};
         }
@@ -354,13 +331,13 @@ export function getAssigneeOptions(projectID) {
     };
 }
 
-export function getChannelSubscriptions(channelId) {
-    return async (dispatch) => {
+export function getChannelSubscriptions(channelId: string) {
+    return async (dispatch: Dispatch<AnyAction>) => {
         if (!channelId) {
             return {};
         }
 
-        let subscriptions;
+        let subscriptions: SubscriptionData;
         try {
             subscriptions = await Client.getChannelSubscriptions(channelId);
         } catch (error) {
@@ -379,8 +356,8 @@ export function getChannelSubscriptions(channelId) {
     };
 }
 
-export function sendEphemeralPost(message) {
-    return (dispatch, getState) => {
+export function sendEphemeralPost(message: string) {
+    return (dispatch: Dispatch<AnyAction>, getState: () => GlobalState) => {
         const timestamp = Date.now();
         const state = getState();
 

@@ -2,9 +2,6 @@
 // See License.txt for license information.
 
 import {getConfig} from 'mattermost-redux/selectors/entities/general';
-
-import {GlobalState} from 'mattermost-redux/types/store';
-
 import {Store, Action} from 'redux';
 
 import SidebarHeader from './components/sidebar_header';
@@ -17,6 +14,8 @@ import CreateIssueModal from './components/modals/create_issue/create_issue_moda
 import AttachCommentToIssueModal from './components/modals/attach_comment_to_issue/attach_comment_to_issue_modal';
 import SidebarRight from './components/sidebar_right';
 import LinkTooltip from './components/link_tooltip';
+
+import {GlobalState} from './types/store';
 
 import Reducer from './reducers';
 import {getConnected, setShowRHSAction} from './actions';

@@ -72,6 +72,7 @@ export interface GitlabItemsProps {
 }
 
 export interface TooltipData {
+    owner: string;
     state: string;
     type: string;
     repo: string;
