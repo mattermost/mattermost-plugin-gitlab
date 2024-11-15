@@ -17,6 +17,8 @@ var allFeatures = map[string]bool{
 	"tag":                    true,
 	"pull_reviews":           true,
 	"confidential_issues":    true,
+	"deployments":            true,
+	"releases":               true,
 	// "label:":                 true,//particular case for label:XXX
 }
 
@@ -97,4 +99,12 @@ func (s *Subscription) Label() string {
 		return ""
 	}
 	return strings.Split(s.Features, "\"")[1]
+}
+
+func (s *Subscription) Releases() bool {
+	return strings.Contains(s.Features, "releases")
+}
+
+func (s *Subscription) Deployments() bool {
+	return strings.Contains(s.Features, "deployments")
 }
