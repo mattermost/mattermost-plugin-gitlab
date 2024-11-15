@@ -34,14 +34,14 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 	case stateOpened:
 		switch event.ObjectAttributes.Action {
 		case actionOpen:
-			message = fmt.Sprintf("[%s](%s) requested your review on [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+			message = fmt.Sprintf("[%s](%s) requested your review on [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
 			handlers = []*HandleWebhook{{
 				Message: message,
 				ToUsers: toUsers,
 				From:    senderGitlabUsername,
 			}}
 		case actionReopen:
-			message = fmt.Sprintf("[%s](%s) reopened your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+			message = fmt.Sprintf("[%s](%s) reopened your merge request [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
 			handlers = []*HandleWebhook{{
 				Message: message,
 				ToUsers: toUsers,
@@ -58,7 +58,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 				updatedCurrentUsers := w.calculateUserDiffs(event.Changes.Assignees.Previous, event.Changes.Assignees.Current)
 
 				if len(updatedCurrentUsers) != 0 {
-					message = fmt.Sprintf("[%s](%s) assigned you to merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+					message = fmt.Sprintf("[%s](%s) assigned you to merge request [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
 					handlers = append(handlers, &HandleWebhook{
 						Message: message,
 						ToUsers: updatedCurrentUsers,
@@ -72,7 +72,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 				updatedCurrentUsers := w.calculateUserDiffs(event.Changes.Reviewers.Previous, event.Changes.Reviewers.Current)
 
 				if len(updatedCurrentUsers) != 0 {
-					message = fmt.Sprintf("[%s](%s) requested your review on merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+					message = fmt.Sprintf("[%s](%s) requested your review on merge request [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
 					handlers = append(handlers, &HandleWebhook{
 						Message: message,
 						ToUsers: updatedCurrentUsers,
@@ -81,14 +81,14 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 				}
 			}
 		case actionApproved:
-			message = fmt.Sprintf("[%s](%s) approved your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+			message = fmt.Sprintf("[%s](%s) approved your merge request [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
 			handlers = []*HandleWebhook{{
 				Message: message,
 				ToUsers: toUsers,
 				From:    senderGitlabUsername,
 			}}
 		case actionUnapproved:
-			message = fmt.Sprintf("[%s](%s) requested changes to your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+			message = fmt.Sprintf("[%s](%s) requested changes to your merge request [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
 			handlers = []*HandleWebhook{{
 				Message: message,
 				ToUsers: toUsers,
@@ -96,7 +96,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 			}}
 		}
 	case stateClosed:
-		message = fmt.Sprintf("[%s](%s) closed your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+		message = fmt.Sprintf("[%s](%s) closed your merge request [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
 		handlers = []*HandleWebhook{{
 			Message: message,
 			ToUsers: toUsers,
@@ -104,7 +104,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 		}}
 	case stateMerged:
 		if event.ObjectAttributes.Action == actionMerge {
-			message = fmt.Sprintf("[%s](%s) merged your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+			message = fmt.Sprintf("[%s](%s) merged your merge request [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
 			handlers = []*HandleWebhook{{
 				Message: message,
 				ToUsers: toUsers,
