@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	stateOpened = "opened"
-	scopeAll    = "all"
+	stateOpened   = "opened"
+	scopeAll      = "all"
+	getLabelsTrue = true
 
 	perPage = 20
 )
@@ -48,19 +49,19 @@ type PRDetails struct {
 
 type MergeRequest struct {
 	*internGitlab.MergeRequest
-	LabelsWithDetails []*internGitlab.Label `json:"labels_with_details,omitempty"`
+	LabelsWithDetails []*internGitlab.Label `json:"label_details,omitempty"`
 }
 
 type Issue struct {
 	*internGitlab.Issue
-	LabelsWithDetails []*internGitlab.Label `json:"labels_with_details,omitempty"`
+	LabelsWithDetails []*internGitlab.Label `json:"label_details,omitempty"`
 }
 
 type LHSContent struct {
-	AssignedPRs    []*MergeRequest      `json:"yourAssignedPrs"`
-	Reviews        []*MergeRequest      `json:"reviews"`
-	AssignedIssues []*Issue             `json:"yourAssignedIssues"`
-	Todos          []*internGitlab.Todo `json:"todos"`
+	AssignedPRs    []*internGitlab.MergeRequest `json:"yourAssignedPrs"`
+	Reviews        []*internGitlab.MergeRequest `json:"reviews"`
+	AssignedIssues []*internGitlab.Issue        `json:"yourAssignedIssues"`
+	Todos          []*internGitlab.Todo         `json:"todos"`
 }
 
 // NewGroupHook creates a webhook associated with a GitLab group
@@ -313,19 +314,19 @@ func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.T
 
 	grp, ctx := errgroup.WithContext(ctx)
 
-	var reviews []*MergeRequest
+	var reviews []*internGitlab.MergeRequest
 	grp.Go(func() error {
 		reviews, err = g.GetReviews(ctx, user, client)
 		return err
 	})
 
-	var issues []*Issue
+	var issues []*internGitlab.Issue
 	grp.Go(func() error {
 		issues, err = g.GetYourAssignedIssues(ctx, user, client)
 		return err
 	})
 
-	var mergeRequests []*MergeRequest
+	var mergeRequests []*internGitlab.MergeRequest
 	grp.Go(func() error {
 		mergeRequests, err = g.GetYourAssignedPrs(ctx, user, client)
 		return err
@@ -349,17 +350,18 @@ func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.T
 	}, nil
 }
 
-func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*MergeRequest, error) {
+func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*internGitlab.MergeRequest, error) {
 	opened := stateOpened
 	scope := scopeAll
-
+	getLabelDetails := getLabelsTrue
 	var mrs []*internGitlab.MergeRequest
 	if g.gitlabGroup == "" {
 		opt := &internGitlab.ListMergeRequestsOptions{
-			ReviewerID:  internGitlab.ReviewerID(user.GitlabUserID),
-			State:       &opened,
-			Scope:       &scope,
-			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: perPage},
+			ReviewerID:        internGitlab.ReviewerID(user.GitlabUserID),
+			State:             &opened,
+			Scope:             &scope,
+			WithLabelsDetails: &getLabelDetails,
+			ListOptions:       internGitlab.ListOptions{Page: 1, PerPage: perPage},
 		}
 		for {
 			current, resp, err := client.MergeRequests.ListMergeRequests(opt)
@@ -374,10 +376,11 @@ func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo, client *internG
 		}
 	} else {
 		opt := &internGitlab.ListGroupMergeRequestsOptions{
-			ReviewerID:  internGitlab.ReviewerID(user.GitlabUserID),
-			State:       &opened,
-			Scope:       &scope,
-			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: perPage},
+			ReviewerID:        internGitlab.ReviewerID(user.GitlabUserID),
+			State:             &opened,
+			Scope:             &scope,
+			WithLabelsDetails: &getLabelDetails,
+			ListOptions:       internGitlab.ListOptions{Page: 1, PerPage: perPage},
 		}
 		for {
 			current, resp, err := client.MergeRequests.ListGroupMergeRequests(g.gitlabGroup, opt)
@@ -392,34 +395,21 @@ func (g *gitlab) GetReviews(ctx context.Context, user *UserInfo, client *internG
 		}
 	}
 
-	mergeRequests := []*MergeRequest{}
-	for _, mr := range mrs {
-		if mr.Labels != nil {
-			labelsWithDetails, err := g.GetLabelDetails(client, mr.ProjectID, mr.Labels)
-			if err != nil {
-				return nil, err
-			}
-			mergeRequest := &MergeRequest{
-				MergeRequest:      mr,
-				LabelsWithDetails: labelsWithDetails,
-			}
-			mergeRequests = append(mergeRequests, mergeRequest)
-		}
-	}
-
-	return mergeRequests, nil
+	return mrs, nil
 }
 
-func (g *gitlab) GetYourAssignedPrs(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*MergeRequest, error) {
+func (g *gitlab) GetYourAssignedPrs(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*internGitlab.MergeRequest, error) {
 	opened := stateOpened
 	scope := scopeAll
+	getLabelDetails := getLabelsTrue
 	var mrs []*internGitlab.MergeRequest
 	if g.gitlabGroup == "" {
 		opt := &internGitlab.ListMergeRequestsOptions{
-			AssigneeID:  internGitlab.AssigneeID(user.GitlabUserID),
-			State:       &opened,
-			Scope:       &scope,
-			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: perPage},
+			AssigneeID:        internGitlab.AssigneeID(user.GitlabUserID),
+			State:             &opened,
+			Scope:             &scope,
+			WithLabelsDetails: &getLabelDetails,
+			ListOptions:       internGitlab.ListOptions{Page: 1, PerPage: perPage},
 		}
 		for {
 			current, resp, err := client.MergeRequests.ListMergeRequests(opt)
@@ -434,10 +424,11 @@ func (g *gitlab) GetYourAssignedPrs(ctx context.Context, user *UserInfo, client 
 		}
 	} else {
 		opt := &internGitlab.ListGroupMergeRequestsOptions{
-			AssigneeID:  internGitlab.AssigneeID(user.GitlabUserID),
-			State:       &opened,
-			Scope:       &scope,
-			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: perPage},
+			AssigneeID:        internGitlab.AssigneeID(user.GitlabUserID),
+			State:             &opened,
+			Scope:             &scope,
+			WithLabelsDetails: &getLabelDetails,
+			ListOptions:       internGitlab.ListOptions{Page: 1, PerPage: perPage},
 		}
 		for {
 			current, resp, err := client.MergeRequests.ListGroupMergeRequests(g.gitlabGroup, opt)
@@ -452,21 +443,7 @@ func (g *gitlab) GetYourAssignedPrs(ctx context.Context, user *UserInfo, client 
 		}
 	}
 
-	mergeRequests := []*MergeRequest{}
-	for _, mr := range mrs {
-		if mr.Labels != nil {
-			labelsWithDetails, err := g.GetLabelDetails(client, mr.ProjectID, mr.Labels)
-			if err != nil {
-				return nil, err
-			}
-			mergeRequest := &MergeRequest{
-				MergeRequest:      mr,
-				LabelsWithDetails: labelsWithDetails,
-			}
-			mergeRequests = append(mergeRequests, mergeRequest)
-		}
-	}
-	return mergeRequests, nil
+	return mrs, nil
 }
 
 func (g *gitlab) GetLabelDetails(client *internGitlab.Client, pid int, labels internGitlab.Labels) ([]*internGitlab.Label, error) {
@@ -563,17 +540,18 @@ func (g *gitlab) fetchYourPrDetails(c context.Context, log logger.Logger, client
 	return nil
 }
 
-func (g *gitlab) GetYourAssignedIssues(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*Issue, error) {
+func (g *gitlab) GetYourAssignedIssues(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*internGitlab.Issue, error) {
 	opened := stateOpened
 	scope := scopeAll
 	var issues []*internGitlab.Issue
-
+	getLabelDetails := getLabelsTrue
 	if g.gitlabGroup == "" {
 		opt := &internGitlab.ListIssuesOptions{
-			AssigneeID:  internGitlab.AssigneeID(user.GitlabUserID),
-			State:       &opened,
-			Scope:       &scope,
-			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: perPage},
+			AssigneeID:       internGitlab.AssigneeID(user.GitlabUserID),
+			State:            &opened,
+			Scope:            &scope,
+			WithLabelDetails: &getLabelDetails,
+			ListOptions:      internGitlab.ListOptions{Page: 1, PerPage: perPage},
 		}
 		for {
 			current, resp, err := client.Issues.ListIssues(opt)
@@ -588,10 +566,11 @@ func (g *gitlab) GetYourAssignedIssues(ctx context.Context, user *UserInfo, clie
 		}
 	} else {
 		opt := &internGitlab.ListGroupIssuesOptions{
-			AssigneeID:  internGitlab.AssigneeID(user.GitlabUserID),
-			State:       &opened,
-			Scope:       &scope,
-			ListOptions: internGitlab.ListOptions{Page: 1, PerPage: perPage},
+			AssigneeID:       internGitlab.AssigneeID(user.GitlabUserID),
+			State:            &opened,
+			Scope:            &scope,
+			WithLabelDetails: &getLabelDetails,
+			ListOptions:      internGitlab.ListOptions{Page: 1, PerPage: perPage},
 		}
 		for {
 			current, resp, err := client.Issues.ListGroupIssues(g.gitlabGroup, opt)
@@ -605,22 +584,7 @@ func (g *gitlab) GetYourAssignedIssues(ctx context.Context, user *UserInfo, clie
 			opt.Page = resp.NextPage
 		}
 	}
-
-	var result []*Issue
-	for _, issue := range issues {
-		if issue.Labels != nil {
-			labelsWithDetails, err := g.GetLabelDetails(client, issue.ProjectID, issue.Labels)
-			if err != nil {
-				return nil, err
-			}
-			issue := &Issue{
-				Issue:             issue,
-				LabelsWithDetails: labelsWithDetails,
-			}
-			result = append(result, issue)
-		}
-	}
-	return result, nil
+	return issues, nil
 }
 
 func (g *gitlab) GetToDoList(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*internGitlab.Todo, error) {
@@ -962,7 +926,7 @@ func (g *gitlab) GetIssueByID(ctx context.Context, user *UserInfo, owner, repo s
 	gitlabIssue := &Issue{
 		Issue: issue,
 	}
-	if issue.Labels != nil {
+	if len(issue.Labels) > 0 {
 		labelsWithDetails, err := g.GetLabelDetails(client, issue.ProjectID, issue.Labels)
 		if err != nil {
 			return nil, err
@@ -990,7 +954,7 @@ func (g *gitlab) GetMergeRequestByID(ctx context.Context, user *UserInfo, owner,
 	gitlabMergeRequest := &MergeRequest{
 		MergeRequest: mergeRequest,
 	}
-	if mergeRequest.Labels != nil {
+	if len(mergeRequest.Labels) > 0 {
 		labelsWithDetails, err := g.GetLabelDetails(client, mergeRequest.ProjectID, mergeRequest.Labels)
 		if err != nil {
 			return nil, err
