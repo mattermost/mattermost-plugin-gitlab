@@ -7,7 +7,7 @@ import {GitLabIssueOpenIcon, GitLabMergeRequestIcon, GitLabMergeRequestClosedIco
 
 import Client from '../../client';
 import {getTruncatedText, validateGitlabUrl, isValidUrl, getInfoAboutLink} from '../../utils/tooltip_utils';
-import {TooltipData} from 'src/types/gitlab_items';
+import {Item} from 'src/types/gitlab_items';
 import {getConnected, getConnectedGitlabUrl} from 'src/selectors';
 
 import './tooltip.css';
@@ -39,7 +39,7 @@ type Props = {
 }
 
 const LinkTooltip = ({href, show}: Props) => {
-    const [data, setData] = useState<TooltipData | null>(null);
+    const [data, setData] = useState<Item | null>(null);
 
     const connected = useSelector(getConnected);
     const connectedGitlabUrl = useSelector(getConnectedGitlabUrl);
@@ -171,7 +171,7 @@ const LinkTooltip = ({href, show}: Props) => {
 
                         {/* Labels */}
                         <div className='labels mt-3'>
-                            {data.labels && data.labels_with_details?.length && data.labels_with_details.map((label) => {
+                            {data.labels && data.label_details?.length && data.label_details.map((label) => {
                                 return (
                                     <span
                                         key={label.name}

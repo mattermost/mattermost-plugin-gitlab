@@ -3,6 +3,8 @@ import * as CSS from 'csstype';
 
 import {notificationReasons} from 'src/components/sidebar_right/gitlab_items';
 
+import {Project} from './gitlab_types';
+
 export interface Label {
     id: number;
     name: string;
@@ -19,10 +21,6 @@ export interface User {
 
 export interface References {
     full: string;
-}
-
-export interface Project {
-    path_with_namespace: string;
 }
 
 export interface Target {
@@ -56,7 +54,7 @@ export interface Item {
     repository?: {
         full_name: string;
     };
-    labels_with_details?: Label[];
+    label_details?: Label[];
     target: Target;
     num_approvers: number;
     total_reviewers: number;
@@ -66,23 +64,12 @@ export interface Item {
     type: string;
     repo: string;
     description: string;
+    target_branch: string;
+    source_branch: string;
+    labels: string[];
 }
 
 export interface GitlabItemsProps {
     item: Item;
     theme: Theme;
-}
-
-export interface TooltipData {
-    state: string;
-    type: string;
-    repo: string;
-    description: string;
-    created_at: string;
-    iid: number;
-    title: string;
-    target_branch: string;
-    source_branch: string;
-    labels: string[];
-    labels_with_details: Label[];
 }

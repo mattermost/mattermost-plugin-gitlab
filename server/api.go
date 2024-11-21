@@ -20,6 +20,7 @@ import (
 	"github.com/mattermost/mattermost/server/public/plugin"
 	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/logger"
 	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/flow"
+	internGitlab "github.com/xanzy/go-gitlab"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
@@ -28,7 +29,9 @@ import (
 const (
 	APIErrorIDNotConnected = "not_connected"
 
-	requestTimeout = 30 * time.Second
+	queryParamSearch    = "search"
+	queryParamProjectID = "projectID"
+	requestTimeout      = 30 * time.Second
 )
 
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
@@ -54,6 +57,13 @@ func (p *Plugin) initializeAPI() {
 
 	apiRouter.HandleFunc("/user", p.checkAuth(p.attachContext(p.getGitlabUser), ResponseTypeJSON)).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/todo", p.checkAuth(p.attachUserContext(p.postToDo), ResponseTypeJSON)).Methods(http.MethodPost)
+	apiRouter.HandleFunc("/issue", p.checkAuth(p.attachUserContext(p.createIssue), ResponseTypePlain)).Methods(http.MethodPost)
+	apiRouter.HandleFunc("/attachcommenttoissue", p.checkAuth(p.attachUserContext(p.attachCommentToIssue), ResponseTypePlain)).Methods(http.MethodPost)
+	apiRouter.HandleFunc("/projects", p.checkAuth(p.attachUserContext(p.getYourProjects), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/labels", p.checkAuth(p.attachUserContext(p.getLabels), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/assignees", p.checkAuth(p.attachUserContext(p.getAssignees), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/milestones", p.checkAuth(p.attachUserContext(p.getMilestones), ResponseTypePlain)).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/searchissues", p.checkAuth(p.attachUserContext(p.searchIssues), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/lhs-data", p.checkAuth(p.attachUserContext(p.getLHSData), ResponseTypePlain)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/prdetails", p.checkAuth(p.attachUserContext(p.getPrDetails), ResponseTypePlain)).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/issue", p.checkAuth(p.attachUserContext(p.getIssueByNumber), ResponseTypeJSON)).Methods(http.MethodGet)
@@ -567,6 +577,266 @@ func (p *Plugin) getLHSData(c *UserContext, w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		c.Log.WithError(err).Warnf("Unable to list issue where assignee in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list issue in GitLab API.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	p.writeAPIResponse(w, result)
+}
+
+func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	var issue *gitlab.IssueRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&issue); err != nil {
+		c.Log.WithError(err).Warnf("There was an error while creating the issue")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("There was an error while creating the issue. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
+		return
+	}
+
+	var post *model.Post
+	var appErr *model.AppError
+	permalink := ""
+	if issue.PostID != "" {
+		post, appErr = p.API.GetPost(issue.PostID)
+		if appErr != nil {
+			p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to load post %s", issue.PostID), StatusCode: http.StatusInternalServerError})
+			return
+		}
+		if post == nil {
+			p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to load post %s : not found", issue.PostID), StatusCode: http.StatusNotFound})
+			return
+		}
+		permalink = p.getPermalink(issue.PostID)
+	}
+
+	var result *internGitlab.Issue
+	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.CreateIssue(c.Ctx, c.GitlabInfo, issue, token)
+		if err != nil {
+			return err
+		}
+		result = resp
+		return nil
+	})
+	if err != nil {
+		c.Log.WithError(err).Warnf("can't create issue in GitLab")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("unable to create issue in GitLab. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	rootID := issue.PostID
+	channelID := issue.ChannelID
+	message := fmt.Sprintf("Created GitLab issue [#%v](%v)", result.IID, result.WebURL)
+	if post != nil {
+		if post.RootId != "" {
+			rootID = post.RootId
+		}
+		channelID = post.ChannelId
+		message += fmt.Sprintf(" from a [message](%s)", permalink)
+	}
+
+	reply := &model.Post{
+		Message:   message,
+		ChannelId: channelID,
+		RootId:    rootID,
+		UserId:    p.BotUserID,
+	}
+
+	if post != nil {
+		_, appErr = p.API.CreatePost(reply)
+	} else {
+		p.API.SendEphemeralPost(c.UserID, reply)
+	}
+	if appErr != nil {
+		c.Log.WithError(appErr).Warnf("failed to create notification post")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to create notification post, postID: %s, channelID: %s", issue.PostID, channelID), StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	p.writeAPIResponse(w, result)
+}
+
+func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	var issue *gitlab.IssueRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&issue); err != nil {
+		c.Log.WithError(err).Warnf("There was an error while attaching a comment to the issue")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("There was an error while attaching a comment to the issue. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
+		return
+	}
+
+	if err := p.validateCommentBody(issue); err != nil {
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: err.Error(), StatusCode: http.StatusBadRequest})
+		return
+	}
+
+	post, appErr := p.API.GetPost(issue.PostID)
+	if appErr != nil {
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to load post %s", issue.PostID), StatusCode: appErr.StatusCode})
+		return
+	}
+	if post == nil {
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to load post %s : not found", issue.PostID), StatusCode: http.StatusNotFound})
+		return
+	}
+
+	commentUsername, apiErr := p.getUsername(post.UserId)
+	if apiErr != nil {
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to get username. Error: %s", apiErr.Message), StatusCode: apiErr.StatusCode})
+		return
+	}
+
+	permalink := p.getPermalink(issue.PostID)
+
+	var result *internGitlab.Note
+	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.AttachCommentToIssue(c.Ctx, c.GitlabInfo, issue, permalink, commentUsername, token)
+		if err != nil {
+			return err
+		}
+		result = resp
+		return nil
+	})
+	if err != nil {
+		c.Log.WithError(err).Warnf("can't add comment to issue in GitLab")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("cant't add comment to issue in GitLab. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	rootID := issue.PostID
+	if post.RootId != "" {
+		// The original post was a reply
+		rootID = post.RootId
+	}
+
+	permalinkReplyMessage := fmt.Sprintf("[Message](%s) attached to GitLab issue [#%d](%s)", permalink, issue.IID, issue.WebURL)
+	reply := &model.Post{
+		Message:   permalinkReplyMessage,
+		ChannelId: post.ChannelId,
+		RootId:    rootID,
+		UserId:    p.BotUserID,
+	}
+
+	_, appErr = p.API.CreatePost(reply)
+	if appErr != nil {
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to create notification post %s", issue.PostID), StatusCode: appErr.StatusCode})
+		return
+	}
+	p.writeAPIResponse(w, result)
+}
+
+func (p *Plugin) validateCommentBody(issue *gitlab.IssueRequest) error {
+	if issue.PostID == "" {
+		return errors.Errorf("please provide a valid post id")
+	}
+
+	if issue.IID == 0 {
+		return errors.Errorf("please provide a valid post iid")
+	}
+
+	if issue.Comment == "" {
+		return errors.Errorf("please provide a valid non empty comment")
+	}
+	return nil
+}
+
+func (p *Plugin) getPermalink(postID string) string {
+	return getSiteURL(p.client) + "/" + path.Join("_redirect", "pl", postID)
+}
+
+func (p *Plugin) searchIssues(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	search := r.FormValue(queryParamSearch)
+
+	var result []*internGitlab.Issue
+	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.SearchIssues(c.Ctx, c.GitlabInfo, search, token)
+		if err != nil {
+			return err
+		}
+		result = resp
+		return nil
+	})
+	if err != nil {
+		c.Log.WithError(err).Warnf("unable to search issues in GitLab")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("unable to search issues in GitLab. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	p.writeAPIResponse(w, result)
+}
+
+func (p *Plugin) getYourProjects(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	var result []*internGitlab.Project
+	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetYourProjects(c.Ctx, c.GitlabInfo, token)
+		if err != nil {
+			return err
+		}
+		result = resp
+		return nil
+	})
+	if err != nil {
+		c.Log.WithError(err).Warnf("can't list projects in GitLab")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list projects in GitLab.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	p.writeAPIResponse(w, result)
+}
+
+func (p *Plugin) getLabels(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	projectID := r.URL.Query().Get(queryParamProjectID)
+	var result []*internGitlab.Label
+	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetLabels(c.Ctx, c.GitlabInfo, projectID, token)
+		if err != nil {
+			return err
+		}
+		result = resp
+		return nil
+	})
+	if err != nil {
+		c.Log.WithError(err).Warnf("can't list labels of project in GitLab")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list labels in GitLab.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	p.writeAPIResponse(w, result)
+}
+
+func (p *Plugin) getMilestones(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	projectID := r.URL.Query().Get(queryParamProjectID)
+	var result []*internGitlab.Milestone
+	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetMilestones(c.Ctx, c.GitlabInfo, projectID, token)
+		if err != nil {
+			return err
+		}
+		result = resp
+		return nil
+	})
+	if err != nil {
+		c.Log.WithError(err).Warnf("can't list milestones of project in GitLab")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list milestones in GitLab.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+
+	p.writeAPIResponse(w, result)
+}
+
+func (p *Plugin) getAssignees(c *UserContext, w http.ResponseWriter, r *http.Request) {
+	projectID := r.URL.Query().Get(queryParamProjectID)
+	var result []*internGitlab.ProjectMember
+	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetProjectMembers(c.Ctx, c.GitlabInfo, projectID, token)
+		if err != nil {
+			return err
+		}
+		result = resp
+		return nil
+	})
+	if err != nil {
+		c.Log.WithError(err).Warnf("can't list assignees of the project in GitLab")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list assignees in GitLab.", StatusCode: http.StatusInternalServerError})
 		return
 	}
 

@@ -53,7 +53,8 @@
                 "type": "text",
                 "help_text": "The client secret for the OAuth app registered with GitLab.",
                 "placeholder": "",
-                "default": null
+                "default": null,
+                "secret": true
             },
             {
                 "key": "WebhookSecret",
@@ -61,7 +62,8 @@
                 "type": "generated",
                 "help_text": "The webhook secret set in GitLab.",
                 "placeholder": "",
-                "default": null
+                "default": null,
+                "secret": true
             },
             {
                 "key": "EncryptionKey",
@@ -69,7 +71,8 @@
                 "type": "generated",
                 "help_text": "The AES encryption key used to encrypt stored access tokens.",
                 "placeholder": "",
-                "default": null
+                "default": null,
+                "secret": true
             },
             {
                 "key": "GitlabGroup",
