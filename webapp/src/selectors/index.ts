@@ -91,3 +91,5 @@ export const getYourProjects = (state: GlobalState) => getPluginState(state).you
 export const getConnected = (state: GlobalState) => getPluginState(state).connected;
 
 export const getConnectedGitlabUrl = (state: GlobalState) => getPluginState(state).gitlabURL;
+
+export const getSidebarExpanded = (state) => state.views.rhs.isSidebarExpanded;
