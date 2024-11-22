@@ -73,7 +73,7 @@ const LinkTooltip = ({href, show}: Props) => {
                 }
 
                 if (res) {
-                    res = {...res, owner: {username: "", web_url: "", name: linkInfo.owner}, repo: linkInfo.repo, type: linkInfo.type};
+                    res = {...res, owner: {username: '', web_url: '', name: linkInfo.owner}, repo: linkInfo.repo, type: linkInfo.type};
                     setData(res);
                 }
             }
