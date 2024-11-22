@@ -92,4 +92,4 @@ export const getConnected = (state: GlobalState) => getPluginState(state).connec
 
 export const getConnectedGitlabUrl = (state: GlobalState) => getPluginState(state).gitlabURL;
 
-export const getSidebarExpanded = (state) => state.views.rhs.isSidebarExpanded;
+export const getSidebarExpanded = (state: any) => state.views.rhs.isSidebarExpanded;
