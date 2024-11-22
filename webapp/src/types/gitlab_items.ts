@@ -73,18 +73,3 @@ export interface GitlabItemsProps {
     item: Item;
     theme: Theme;
 }
-
-export interface TooltipData {
-    owner: string;
-    state: string;
-    type: string;
-    repo: string;
-    description: string;
-    created_at: string;
-    iid: number;
-    title: string;
-    target_branch: string;
-    source_branch: string;
-    labels: string[];
-    labels_with_details: Label[];
-}

@@ -3,7 +3,7 @@ import {ClientError} from 'mattermost-redux/client/client4';
 
 import {Options} from 'mattermost-redux/types/client4';
 
-import {Item, TooltipData} from 'src/types/gitlab_items';
+import {Item} from 'src/types/gitlab_items';
 import {APIError, ConnectedData, GitlabUsersData, LHSData, SubscriptionData} from 'src/types';
 import {CommentBody, IssueBody} from 'src/types/gitlab_types';
 
@@ -31,11 +31,11 @@ export default class Client {
     };
 
     getIssue = async (owner: string, repo: string, issueNumber: string) => {
-        return this.doGet<TooltipData>(`${this.url}/issue?owner=${owner}&repo=${repo}&number=${issueNumber}`);
+        return this.doGet<Item>(`${this.url}/issue?owner=${owner}&repo=${repo}&number=${issueNumber}`);
     };
 
     getPullRequest = async (owner: string, repo: string, prNumber: string) => {
-        return this.doGet<TooltipData>(`${this.url}/mergerequest?owner=${owner}&repo=${repo}&number=${prNumber}`);
+        return this.doGet<Item>(`${this.url}/mergerequest?owner=${owner}&repo=${repo}&number=${prNumber}`);
     };
 
     getChannelSubscriptions = async (channelID: string) => {
