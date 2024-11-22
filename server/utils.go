@@ -15,6 +15,8 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/mattermost/mattermost/server/public/pluginapi"
+
 	"github.com/pkg/errors"
 )
 
@@ -143,6 +145,19 @@ func isValidURL(rawURL string) error {
 	}
 
 	return nil
+}
+
+func getPluginURL(client *pluginapi.Client) string {
+	return getSiteURL(client) + "/" + path.Join("plugins", manifest.Id)
+}
+
+func getSiteURL(client *pluginapi.Client) string {
+	siteURL := client.Configuration.GetConfig().ServiceSettings.SiteURL
+	if siteURL == nil {
+		return ""
+	}
+
+	return strings.TrimSuffix(*siteURL, "/")
 }
 
 // filterLines filters lines in a string from start to end.

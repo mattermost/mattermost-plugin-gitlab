@@ -54,7 +54,7 @@ export interface Item {
     repository?: {
         full_name: string;
     };
-    labels_with_details?: Label[];
+    label_details?: Label[];
     target: Target;
     num_approvers: number;
     total_reviewers: number;
@@ -64,6 +64,9 @@ export interface Item {
     type: string;
     repo: string;
     description: string;
+    target_branch: string;
+    source_branch: string;
+    labels: string[];
 }
 
 export interface GitlabItemsProps {
