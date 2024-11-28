@@ -696,6 +696,8 @@ func (fm *FlowManager) submitWebhook(f *flow.Flow, submitted map[string]interfac
 		JobEvents:                true,
 		PipelineEvents:           true,
 		WikiPageEvents:           true,
+		DeploymentEvents:         true,
+		ReleaseEvents:            true,
 		EnableSSLVerification:    true,
 		Token:                    config.WebhookSecret,
 	}
