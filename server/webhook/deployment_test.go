@@ -7,8 +7,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/xanzy/go-gitlab"
-
-	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
 
 type testDataDeploymentStr struct {
@@ -20,11 +18,9 @@ type testDataDeploymentStr struct {
 
 var testDataDeployment = []testDataDeploymentStr{
 	{
-		testTitle: "running deployment",
-		fixture:   DeploymentEventRunning,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
-			{ChannelID: "channel1", CreatorID: "1", Features: "deployments", Repository: "myorg/myrepo"},
-		}),
+		testTitle:       "running deployment",
+		fixture:         DeploymentEventRunning,
+		gitlabRetreiver: newFakeWebhook(GetMockSubscriptions(DeploymentsKey)),
 		res: []*HandleWebhook{{
 			Message: "### Deployment Stage: **running**\n" +
 				":rocket: **Status**: running\n" +
@@ -37,11 +33,9 @@ var testDataDeployment = []testDataDeploymentStr{
 		}},
 	},
 	{
-		testTitle: "successful deployment",
-		fixture:   DeploymentEventSuccessful,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
-			{ChannelID: "channel1", CreatorID: "1", Features: "deployments", Repository: "myorg/myrepo"},
-		}),
+		testTitle:       "successful deployment",
+		fixture:         DeploymentEventSuccessful,
+		gitlabRetreiver: newFakeWebhook(GetMockSubscriptions(DeploymentsKey)),
 		res: []*HandleWebhook{{
 			Message: "### Deployment Stage: **success**\n" +
 				":large_green_circle: **Status**: success\n" +
@@ -54,11 +48,9 @@ var testDataDeployment = []testDataDeploymentStr{
 		}},
 	},
 	{
-		testTitle: "failed deployment",
-		fixture:   DeploymentEventFailed,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
-			{ChannelID: "channel1", CreatorID: "1", Features: "deployments", Repository: "myorg/myrepo"},
-		}),
+		testTitle:       "failed deployment",
+		fixture:         DeploymentEventFailed,
+		gitlabRetreiver: newFakeWebhook(GetMockSubscriptions(DeploymentsKey)),
 		res: []*HandleWebhook{{
 			Message: "### Deployment Stage: **failed**\n" +
 				":red_circle: **Status**: failed\n" +
@@ -71,12 +63,10 @@ var testDataDeployment = []testDataDeploymentStr{
 		}},
 	},
 	{
-		testTitle: "deployment with no action",
-		fixture:   DeploymentEventWithoutAction,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
-			{ChannelID: "channel1", CreatorID: "1", Features: "deployments", Repository: "myorg/myrepo"},
-		}),
-		res: nil,
+		testTitle:       "deployment with no action",
+		fixture:         DeploymentEventWithoutAction,
+		gitlabRetreiver: newFakeWebhook(GetMockSubscriptions(DeploymentsKey)),
+		res:             nil,
 	},
 }
 

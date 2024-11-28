@@ -7,8 +7,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/xanzy/go-gitlab"
-
-	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
 
 type testDataReleaseStr struct {
@@ -20,11 +18,9 @@ type testDataReleaseStr struct {
 
 var testDataRelease = []testDataReleaseStr{
 	{
-		testTitle: "create release",
-		fixture:   ReleaseEventCreate,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
-			{ChannelID: "channel1", CreatorID: "1", Features: "releases", Repository: "myorg/myrepo"},
-		}),
+		testTitle:       "create release",
+		fixture:         ReleaseEventCreate,
+		gitlabRetreiver: newFakeWebhook(GetMockSubscriptions(ReleasesKey)),
 		res: []*HandleWebhook{{
 			Message: "### Release: **create**\n" +
 				":new: **Status**: create\n" +
@@ -36,11 +32,9 @@ var testDataRelease = []testDataReleaseStr{
 		}},
 	},
 	{
-		testTitle: "update release",
-		fixture:   ReleaseEventUpdate,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
-			{ChannelID: "channel1", CreatorID: "1", Features: "releases", Repository: "myorg/myrepo"},
-		}),
+		testTitle:       "update release",
+		fixture:         ReleaseEventUpdate,
+		gitlabRetreiver: newFakeWebhook(GetMockSubscriptions(ReleasesKey)),
 		res: []*HandleWebhook{{
 			Message: "### Release: **update**\n" +
 				":arrows_counterclockwise: **Status**: update\n" +
@@ -52,11 +46,9 @@ var testDataRelease = []testDataReleaseStr{
 		}},
 	},
 	{
-		testTitle: "delete release",
-		fixture:   ReleaseEventDelete,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
-			{ChannelID: "channel1", CreatorID: "1", Features: "releases", Repository: "myorg/myrepo"},
-		}),
+		testTitle:       "delete release",
+		fixture:         ReleaseEventDelete,
+		gitlabRetreiver: newFakeWebhook(GetMockSubscriptions(ReleasesKey)),
 		res: []*HandleWebhook{{
 			Message: "### Release: **delete**\n" +
 				":red_circle: **Status**: delete\n" +
@@ -68,12 +60,10 @@ var testDataRelease = []testDataReleaseStr{
 		}},
 	},
 	{
-		testTitle: "release with no action",
-		fixture:   ReleaseEventWithoutAction,
-		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
-			{ChannelID: "channel1", CreatorID: "1", Features: "releases", Repository: "myorg/myrepo"},
-		}),
-		res: nil,
+		testTitle:       "release with no action",
+		fixture:         ReleaseEventWithoutAction,
+		gitlabRetreiver: newFakeWebhook(GetMockSubscriptions(ReleasesKey)),
+		res:             nil,
 	},
 }
 
