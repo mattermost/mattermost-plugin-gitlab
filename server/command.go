@@ -651,10 +651,13 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		return err.Error()
 	}
 
-	if hasPermission := p.permissionToProject(ctx, info.UserID, namespace, project); !hasPermission {
-		msg := "You don't have the permissions to create subscriptions for this project."
-		p.client.Log.Warn(msg)
-		return msg
+	// Only check the permissions for a project if the project subscription is created (Not a group or a subgroup subscription)
+	if project != "" {
+		if hasPermission := p.permissionToProject(ctx, info.UserID, namespace, project); !hasPermission {
+			msg := "You don't have the permissions to create subscriptions for this project."
+			p.client.Log.Warn(msg)
+			return msg
+		}
 	}
 
 	updatedSubscriptions, subscribeErr := p.Subscribe(info, namespace, project, channelID, features)
