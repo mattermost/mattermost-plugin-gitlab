@@ -18,6 +18,8 @@ type WebhookInfo struct {
 	JobEvents                bool
 	PipelineEvents           bool
 	WikiPageEvents           bool
+	DeploymentEvents         bool
+	ReleaseEvents            bool
 	EnableSSLVerification    bool
 	CreatedAt                *time.Time
 	Scope                    Scope
@@ -36,6 +38,8 @@ type AddWebhookOptions struct {
 	JobEvents                bool
 	PipelineEvents           bool
 	WikiPageEvents           bool
+	DeploymentEvents         bool
+	ReleaseEvents            bool
 	EnableSSLVerification    bool
 	Token                    string
 }

@@ -7,11 +7,10 @@ import {useDispatch, useSelector} from 'react-redux';
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
 import {isSystemMessage} from 'mattermost-redux/utils/post_utils';
 
-import manifest from 'src/manifest';
 import GitLabIcon from 'src/images/icons/gitlab';
 import {openAttachCommentToIssueModal} from 'src/actions';
-import {GlobalState} from 'src/types/global_state';
-import {isUserConnectedToGitlab} from 'src/selectors';
+import {getConnected} from 'src/selectors';
+import {GlobalState} from 'src/types/store';
 
 interface PropTypes {
     postId: string;
@@ -23,7 +22,7 @@ const AttachCommentToIssuePostMenuAction = ({postId}: PropTypes) => {
         const isPostSystemMessage = Boolean(!post || isSystemMessage(post));
 
         return {
-            show: isUserConnectedToGitlab(state) && !isPostSystemMessage,
+            show: getConnected(state) && !isPostSystemMessage,
         };
     });
 

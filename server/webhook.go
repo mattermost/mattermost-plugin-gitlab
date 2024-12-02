@@ -135,6 +135,15 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.UserName
 		handlers, errHandler = p.WebhookHandler.HandleTag(ctx, event)
+	case *gitlabLib.ReleaseEvent:
+		repoPrivate = event.Project.VisibilityLevel == webhook.PrivateVisibilityLevel
+		pathWithNamespace = event.Project.PathWithNamespace
+		handlers, errHandler = p.WebhookHandler.HandleRelease(ctx, event)
+	case *gitlabLib.DeploymentEvent:
+		repoPrivate = event.Project.VisibilityLevel == webhook.PrivateVisibilityLevel
+		pathWithNamespace = event.Project.PathWithNamespace
+		fromUser = event.User.Username
+		handlers, errHandler = p.WebhookHandler.HandleDeployment(ctx, event)
 	default:
 		p.client.Log.Debug("Event type not implemented", "type", string(gitlabLib.WebhookEventType(r)))
 		return
