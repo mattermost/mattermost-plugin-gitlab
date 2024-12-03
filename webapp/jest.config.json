@@ -7,5 +7,6 @@
         "^.+\\.(css|less|scss)$": "identity-obj-proxy",
         "^.*i18n.*\\.(json)$": "<rootDir>/tests/i18n_mock.json",
         "^bundle-loader\\?lazy\\!(.*)$": "$1"
-    }
+    },
+    "testEnvironment": "jsdom"
 }
