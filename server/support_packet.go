@@ -25,7 +25,7 @@ func (p *Plugin) GenerateSupportData(_ *plugin.Context) ([]*model.FileData, erro
 
 	connectedUserCount, err := p.getConnectedUserCount()
 	if err != nil {
-		result = multierror.Append(result, errors.Wrap(err, "Failed to get the number of connected users for Support Packet"))
+		result = multierror.Append(result, errors.Wrap(err, "failed to get the number of connected users for Support Packet"))
 	}
 
 	diagnostics := SupportPacket{
