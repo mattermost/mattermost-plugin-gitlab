@@ -720,7 +720,7 @@ func (p *Plugin) subscribeCommand(ctx context.Context, parameters []string, chan
 		if len(parameters) < 2 {
 			return missingOrgOrRepoFromSubscribeCommand
 		} else if len(parameters) > 2 {
-			features = strings.Join(parameters[1:], " ")
+			features = strings.Join(parameters[2:], " ")
 		}
 		// Resolve namespace and project name
 		fullPath := normalizePath(parameters[1], config.GitlabURL)
