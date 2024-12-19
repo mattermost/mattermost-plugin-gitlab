@@ -350,8 +350,6 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.We
 		mock.AnythingOfType("string"),
 		mock.AnythingOfType("string"),
 		mock.AnythingOfType("string"),
-		// mock.AnythingOfType("string"),
-		// mock.AnythingOfType("string"),
 		mock.AnythingOfType("string"))
 	api.On("LogDebug",
 		mock.AnythingOfType("string"),
