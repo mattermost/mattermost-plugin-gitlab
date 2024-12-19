@@ -339,7 +339,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 	}
 }
 
-func (p *Plugin) handleSetup(c *plugin.Context, args *model.CommandArgs, parameters []string) string {
+func (p *Plugin) handleSetup(_ *plugin.Context, args *model.CommandArgs, parameters []string) string {
 	userID := args.UserId
 	isSysAdmin, err := p.isAuthorizedSysAdmin(userID)
 	if err != nil {
@@ -590,7 +590,7 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 	}
 }
 
-func (p *Plugin) subscriptionDelete(info *gitlab.UserInfo, config *configuration, fullPath, channelID string) (string, error) {
+func (p *Plugin) subscriptionDelete(_ *gitlab.UserInfo, config *configuration, fullPath, channelID string) (string, error) {
 	normalizedPath := normalizePath(fullPath, config.GitlabURL)
 	deleted, updatedSubscriptions, err := p.Unsubscribe(channelID, normalizedPath)
 	if err != nil {
@@ -720,7 +720,7 @@ func (p *Plugin) subscribeCommand(ctx context.Context, parameters []string, chan
 		if len(parameters) < 2 {
 			return missingOrgOrRepoFromSubscribeCommand
 		} else if len(parameters) > 2 {
-			features = strings.Join(parameters[1:], " ")
+			features = strings.Join(parameters[2:], " ")
 		}
 		// Resolve namespace and project name
 		fullPath := normalizePath(parameters[1], config.GitlabURL)
@@ -740,6 +740,7 @@ func (p *Plugin) subscribeCommand(ctx context.Context, parameters []string, chan
 		return invalidSubscribeSubCommand
 	}
 }
+
 func (p *Plugin) pipelinesCommand(ctx context.Context, parameters []string, channelID string, info *gitlab.UserInfo) string {
 	if len(parameters) == 0 {
 		return invalidPipelinesSubCommand
