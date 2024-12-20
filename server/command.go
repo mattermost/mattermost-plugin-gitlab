@@ -604,7 +604,15 @@ func (p *Plugin) subscriptionDelete(_ *gitlab.UserInfo, config *configuration, f
 
 	p.sendChannelSubscriptionsUpdated(updatedSubscriptions, channelID)
 
-	return fmt.Sprintf("Successfully deleted subscription for %s.", normalizedPath), nil
+	baseURL := config.GitlabURL
+	if !strings.HasSuffix(baseURL, "/") {
+		baseURL += "/"
+	}
+
+	unsubscribeMessage := fmt.Sprintf("Successfully deleted subscription for %s.", fmt.Sprintf("[%s](%s)", normalizedPath, baseURL+normalizedPath))
+	unsubscribeMessage += fmt.Sprintf("\n Please delete the [webhook](%s) for this subscription unless it's required for other subscriptions.", fmt.Sprintf("%s%s/-/hooks", baseURL, normalizedPath))
+
+	return unsubscribeMessage, nil
 }
 
 // subscriptionsListCommand list GitLab subscriptions in a channel
