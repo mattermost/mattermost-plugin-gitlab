@@ -13,8 +13,17 @@ const (
 	stateClosed = "closed"
 	stateMerged = "merged"
 
-	statusSuccess = "success"
-	statusRunning = "running"
-	statusPending = "pending"
-	statusFailed  = "failed"
+	statusSuccess  = "success"
+	statusRunning  = "running"
+	statusPending  = "pending"
+	statusFailed   = "failed"
+	statusCreated  = "created"
+	statusCanceled = "canceled"
+
+	statusCreate = "create"
+	statusUpdate = "update"
+	statusDelete = "delete"
+
+	PrivateVisibilityLevel = 0
+	PublicVisibilityLevel  = 20
 )

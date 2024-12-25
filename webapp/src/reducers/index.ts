@@ -1,18 +1,21 @@
-import {combineReducers} from 'redux';
+import {combineReducers, Reducer} from 'redux';
 
 import ActionTypes from '../action_types';
 import Constants from '../constants';
+import {Item} from 'src/types/gitlab_items';
+import {ConnectedData, CreateIssueModalData, GitlabUsersData, LHSData, ShowRhsPluginActionData, SubscriptionData} from 'src/types';
+import {Project} from 'src/types/gitlab_types';
 
-function connected(state = false, action) {
+const connected: Reducer<boolean, {type: string, data: ConnectedData}> = (state = false, action) => {
     switch (action.type) {
     case ActionTypes.RECEIVED_CONNECTED:
         return action.data.connected;
     default:
         return state;
     }
-}
+};
 
-function gitlabURL(state = '', action) {
+const gitlabURL: Reducer<string, {type: string, data: ConnectedData}> = (state = '', action) => {
     switch (action.type) {
     case ActionTypes.RECEIVED_CONNECTED:
         if (action.data && action.data.gitlab_url) {
@@ -22,9 +25,9 @@ function gitlabURL(state = '', action) {
     default:
         return state;
     }
-}
+};
 
-function organization(state = '', action) {
+const organization: Reducer<string, {type: string, data: ConnectedData}> = (state = '', action) => {
     switch (action.type) {
     case ActionTypes.RECEIVED_CONNECTED:
         if (action.data && action.data.organization) {
@@ -34,79 +37,71 @@ function organization(state = '', action) {
     default:
         return state;
     }
-}
+};
 
-function username(state = '', action) {
+const username: Reducer<string, {type: string, data: ConnectedData}> = (state = '', action) => {
     switch (action.type) {
     case ActionTypes.RECEIVED_CONNECTED:
         return action.data.gitlab_username;
     default:
         return state;
     }
-}
+};
 
-function settings(
-    state = {
-        sidebar_buttons: Constants.SETTING_BUTTONS_TEAM,
-        daily_reminder: true,
-        notifications: true,
-    },
-    action,
-) {
+const settings: Reducer<{
+    sidebar_buttons: string,
+    daily_reminder: boolean,
+    notifications: boolean,
+}, {type: string, data: ConnectedData}> = (state = {
+    sidebar_buttons: Constants.SETTING_BUTTONS_TEAM,
+    daily_reminder: true,
+    notifications: true,
+}, action) => {
     switch (action.type) {
     case ActionTypes.RECEIVED_CONNECTED:
         return action.data.settings;
     default:
         return state;
     }
-}
+};
 
-function clientId(state = '', action) {
+const clientId: Reducer<string, {type: string, data: ConnectedData}> = (state = '', action) => {
     switch (action.type) {
     case ActionTypes.RECEIVED_CONNECTED:
         return action.data.gitlab_client_id;
     default:
         return state;
     }
-}
+};
 
-function reviewDetails(state = [], action) {
+const reviewDetails: Reducer<Item[] | null, {type: string, data: Item[]}> = (state = [], action) => {
     switch (action.type) {
     case ActionTypes.RECEIVED_REVIEW_DETAILS:
         return action.data;
     default:
         return state;
     }
-}
+};
 
-function yourPrDetails(state = [], action) {
+const yourPrDetails: Reducer<Item[] | null, {type: string, data: Item[]}> = (state = [], action) => {
     switch (action.type) {
     case ActionTypes.RECEIVED_YOUR_PR_DETAILS:
         return action.data;
     default:
         return state;
     }
-}
+};
 
-function lhsData(state = [], action) {
+const lhsData: Reducer<LHSData | null, {type: string, data: LHSData}> = (state = null, action) => {
     switch (action.type) {
     case ActionTypes.RECEIVED_LHS_DATA:
         return action.data;
     default:
         return state;
     }
-}
+};
 
-function mentions(state = [], action) {
-    switch (action.type) {
-    case ActionTypes.RECEIVED_MENTIONS:
-        return action.data;
-    default:
-        return state;
-    }
-}
-
-function rhsPluginAction(state = null, action) {
+function rhsPluginAction(state = null, action: {type: string, showRHSPluginAction: ShowRhsPluginActionData}) {
     switch (action.type) {
     case ActionTypes.RECEIVED_SHOW_RHS_ACTION:
         return action.showRHSPluginAction;
@@ -115,16 +110,16 @@ function rhsPluginAction(state = null, action) {
     }
 }
 
-function rhsState(state = null, action) {
+const rhsState: Reducer<string | null, {type: string, state: string}> = (state = null, action) => {
     switch (action.type) {
     case ActionTypes.UPDATE_RHS_STATE:
         return action.state;
     default:
         return state;
     }
-}
+};
 
-function gitlabUsers(state = {}, action) {
+const gitlabUsers: Reducer<Record<string, GitlabUsersData>, {type: string, data: GitlabUsersData, userID: string}> = (state = {}, action) => {
     switch (action.type) {
     case ActionTypes.RECEIVED_GITLAB_USER: {
         const nextState = {...state};
@@ -134,9 +129,9 @@ function gitlabUsers(state = {}, action) {
     default:
         return state;
     }
-}
+};
 
-const isCreateIssueModalVisible = (state = false, action) => {
+const isCreateIssueModalVisible = (state = false, action: {type: string}) => {
     switch (action.type) {
     case ActionTypes.OPEN_CREATE_ISSUE_MODAL:
     case ActionTypes.OPEN_CREATE_ISSUE_MODAL_WITHOUT_POST:
@@ -148,7 +143,7 @@ const isCreateIssueModalVisible = (state = false, action) => {
     }
 };
 
-const isAttachCommentToIssueModalVisible = (state = false, action) => {
+const isAttachCommentToIssueModalVisible = (state = false, action: {type: string}) => {
     switch (action.type) {
     case ActionTypes.OPEN_ATTACH_COMMENT_TO_ISSUE_MODAL:
         return true;
@@ -159,7 +154,7 @@ const isAttachCommentToIssueModalVisible = (state = false, action) => {
     }
 };
 
-const postIdForAttachCommentToIssueModal = (state = {}, action) => {
+const postIdForAttachCommentToIssueModal = (state = '', action: {type: string, data: {postId: string}}) => {
     switch (action.type) {
     case ActionTypes.OPEN_ATTACH_COMMENT_TO_ISSUE_MODAL:
         return action.data.postId;
@@ -170,12 +165,13 @@ const postIdForAttachCommentToIssueModal = (state = {}, action) => {
     }
 };
 
-const createIssueModal = (state = {}, action) => {
+const createIssueModal: Reducer<CreateIssueModalData, {type: string, data: CreateIssueModalData}> = (state = {}, action) => {
     switch (action.type) {
     case ActionTypes.OPEN_CREATE_ISSUE_MODAL:
     case ActionTypes.OPEN_CREATE_ISSUE_MODAL_WITHOUT_POST:
         return {
             ...state,
+
             postId: action.data.postId,
             title: action.data.title,
             channelId: action.data.channelId,
@@ -187,7 +183,7 @@ const createIssueModal = (state = {}, action) => {
     }
 };
 
-function yourProjects(state = [], action) {
+function yourProjects(state = [] as Project[], action: {type: string, data: Project[]}) {
     switch (action.type) {
     case ActionTypes.RECEIVED_PROJECTS:
         return action.data;
@@ -196,7 +192,7 @@ function yourProjects(state = [], action) {
     }
 }
 
-function subscriptions(state = {}, action) {
+const subscriptions: Reducer<Record<string, SubscriptionData>, {type: string, data: {channelId: string, subscriptions: SubscriptionData}}> = (state = {}, action) => {
     switch (action.type) {
     case ActionTypes.RECEIVED_CHANNEL_SUBSCRIPTIONS: {
         const nextState = {...state};
@@ -207,7 +203,7 @@ function subscriptions(state = {}, action) {
     default:
         return state;
     }
-}
+};
 
 export default combineReducers({
     connected,
@@ -216,7 +212,6 @@ export default combineReducers({
     username,
     settings,
     clientId,
-    mentions,
     gitlabUsers,
     isCreateIssueModalVisible,
     yourProjects,

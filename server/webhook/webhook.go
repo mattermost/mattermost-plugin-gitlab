@@ -45,6 +45,8 @@ type Webhook interface {
 	HandleTag(ctx context.Context, event *gitlab.TagEvent) ([]*HandleWebhook, error)
 	HandlePush(ctx context.Context, event *gitlab.PushEvent) ([]*HandleWebhook, error)
 	HandleJobs(ctx context.Context, event *gitlab.JobEvent) ([]*HandleWebhook, error)
+	HandleRelease(ctx context.Context, event *gitlab.ReleaseEvent) ([]*HandleWebhook, error)
+	HandleDeployment(ctx context.Context, event *gitlab.DeploymentEvent) ([]*HandleWebhook, error)
 }
 
 type webhook struct {

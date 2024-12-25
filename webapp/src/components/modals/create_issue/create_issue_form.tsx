@@ -43,7 +43,7 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
         if (post) {
             setIssueDescription(post.message);
         } else if (channelId) {
-            setIssueTitle(title.substring(0, MAX_TITLE_LENGTH));
+            setIssueTitle(title?.substring(0, MAX_TITLE_LENGTH) ?? '');
         }
     }, []);
 
@@ -68,7 +68,7 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
             assignees: assignees.map((assignee) => assignee.value),
             milestone: milestone?.value,
             post_id: postId,
-            channel_id: channelId,
+            channel_id: channelId as string,
         };
 
         setIsSubmitting(true);
@@ -186,7 +186,7 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
                     required={true}
                     disabled={false}
                     maxLength={MAX_TITLE_LENGTH}
-                    value={issueTitle}
+                    value={issueTitle ?? ''}
                     onChange={handleIssueTitleChange}
                 />
                 {issueTitleValidationError}
