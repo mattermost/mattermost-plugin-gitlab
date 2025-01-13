@@ -11,7 +11,7 @@ A GitLab plugin for Mattermost. This plugin supports a two-way integration betwe
 
 Originally developed by [Romain Maneschi](https://github.com/manland). This project is a fork of the [mattermost-plugin-github](https://github.com/mattermost/mattermost-plugin-github). Thanks to all contributors of it.
 
-**Maintainer:** [@mickmister](https://github.com/mickmister)
+**Maintainer:** [@wiggin77](https://github.com/wiggin77)
 
 **Co-Maintainer:** [@hanzei](https://github.com/hanzei)
 
