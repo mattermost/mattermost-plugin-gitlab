@@ -11,10 +11,6 @@ A GitLab plugin for Mattermost. This plugin supports a two-way integration betwe
 
 Originally developed by [Romain Maneschi](https://github.com/manland). This project is a fork of the [mattermost-plugin-github](https://github.com/mattermost/mattermost-plugin-github). Thanks to all contributors of it.
 
-**Maintainer:** [@wiggin77](https://github.com/wiggin77)
-
-**Co-Maintainer:** [@hanzei](https://github.com/hanzei)
-
 See the [Mattermost Product Documentation](https://docs.mattermost.com/integrate/gitlab-interoperability.html) for details on installing, configuring, enabling, and using this Mattermost integration.
 
 ## Feature summary of GitLab to Mattermost notifications
