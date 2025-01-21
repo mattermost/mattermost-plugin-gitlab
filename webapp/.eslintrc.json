@@ -14,7 +14,8 @@
   "plugins": [
     "@typescript-eslint",
     "react",
-    "import"
+    "import",
+    "header"
   ],
   "env": {
     "browser": true,
@@ -135,6 +136,12 @@
     ],
     "global-require": 2,
     "guard-for-in": 2,
+    "header/header": [
+      2,
+      "line",
+      " Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.\n See LICENSE.txt for license information.",
+      2
+    ],
     "id-blacklist": 0,
     "import/no-unresolved": 2,
     "import/order": [

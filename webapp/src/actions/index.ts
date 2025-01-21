@@ -1,3 +1,6 @@
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 import {getCurrentChannelId, getCurrentUserId} from 'mattermost-redux/selectors/entities/common';
 
 import {PostTypes} from 'mattermost-redux/action_types';

@@ -1,3 +1,6 @@
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 import React, {useMemo, useState} from 'react';
 import {Theme} from 'mattermost-redux/types/preferences';
 import {useDispatch, useSelector} from 'react-redux';

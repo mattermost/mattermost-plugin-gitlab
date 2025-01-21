@@ -1,3 +1,6 @@
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 export function formatTimeSince(date: string): string {
     const pastDateInSeconds = new Date(date).getTime();
     const secondsSince = Math.trunc((Date.now() - pastDateInSeconds) / 1000);

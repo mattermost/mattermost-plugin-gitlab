@@ -1,3 +1,6 @@
+// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 import {beforeAll, describe, expect, it, jest} from '@jest/globals';
 
 import {formatTimeSince} from './date_utils';
