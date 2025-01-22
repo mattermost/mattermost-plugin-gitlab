@@ -1,18 +1,14 @@
 import React from 'react';
-import {GitPullRequestIcon, IssueOpenedIcon, IconProps} from '@primer/octicons-react';
-import {makeStyleFromTheme, changeOpacity} from 'mattermost-redux/utils/theme_utils';
-import {Badge, Tooltip, OverlayTrigger} from 'react-bootstrap';
+import { GitPullRequestIcon, IssueOpenedIcon, DotFillIcon, XIcon, MilestoneIcon, CheckIcon, IconProps } from '@primer/octicons-react';
+import { makeStyleFromTheme, changeOpacity } from 'mattermost-redux/utils/theme_utils';
+import { Badge, Tooltip, OverlayTrigger } from 'react-bootstrap';
 import * as CSS from 'csstype';
 
-import {useSelector} from 'react-redux';
+import { useSelector } from 'react-redux';
 
-import CrossIcon from 'src/images/icons/cross';
-import DotIcon from 'src/images/icons/dot';
-import TickIcon from 'src/images/icons/tick';
-import SignIcon from 'src/images/icons/sign';
-import {formatTimeSince} from 'src/utils/date_utils';
-import {GitlabItemsProps, Label} from 'src/types/gitlab_items';
-import {getSidebarExpanded} from 'src/selectors';
+import { formatTimeSince } from 'src/utils/date_utils';
+import { GitlabItemsProps, Label } from 'src/types/gitlab_items';
+import { getSidebarExpanded } from 'src/selectors';
 
 export const notificationReasons: Record<string | symbol, string> = {
     assigned: 'You were assigned to the issue/merge request.',
@@ -32,7 +28,7 @@ const ACTION_NAME_MEMBER_ACCESS_REQUESTED = 'member_access_requested';
 const MAX_TITLE_LENGTH = 100;
 const MAX_LABEL_LENGTH = 20;
 
-function GitlabItems({item, theme}: GitlabItemsProps) {
+function GitlabItems({ item, theme }: GitlabItemsProps) {
     const style = getStyle(theme);
 
     const repoName = item.references?.full || item.project?.path_with_namespace || '';
@@ -45,11 +41,11 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
             verticalAlign: 'text-bottom',
         };
         const icon = item.merge_status ?
-            <GitPullRequestIcon {...iconProps}/> : // item is a pull request
-            <IssueOpenedIcon {...iconProps}/>;
+            <GitPullRequestIcon {...iconProps} /> : // item is a pull request
+            <IssueOpenedIcon {...iconProps} />;
         number = (
             <strong>
-                <span style={{...style.icon}}>{icon}</span>
+                <span style={{ ...style.icon }}>{icon}</span>
                 {`#${item.iid} `}
             </strong>
         );
@@ -100,7 +96,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
                 }),
             }}
         >
-            <SignIcon/>
+            <MilestoneIcon size="small" />
             {item.milestone.title}
         </span>
     );
@@ -132,32 +128,32 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
     let status: React.ReactNode | undefined;
     if (item.status) {
         switch (item.status) {
-        case SUCCESS:
-            status = (
-                <span
-                    style={{...style.icon, ...style.iconSuccess}}
-                >
-                    <TickIcon/>
-                </span>
-            );
-            break;
-        case PENDING:
-            status = (
-                <span
-                    style={{...style.icon, ...style.iconPending}}
-                >
-                    <DotIcon/>
-                </span>
-            );
-            break;
-        default:
-            status = (
-                <span
-                    style={{...style.icon, ...style.iconFailed}}
-                >
-                    <CrossIcon/>
-                </span>
-            );
+            case SUCCESS:
+                status = (
+                    <span
+                        style={{ ...style.icon, ...style.iconSuccess }}
+                    >
+                        <CheckIcon size="small" />
+                    </span>
+                );
+                break;
+            case PENDING:
+                status = (
+                    <span
+                        style={{ ...style.icon, ...style.iconPending }}
+                    >
+                        <DotFillIcon size="small" />
+                    </span>
+                );
+                break;
+            default:
+                status = (
+                    <span
+                        style={{ ...style.icon, ...style.iconFailed }}
+                    >
+                        <XIcon size="small" />
+                    </span>
+                );
         }
     }
 
