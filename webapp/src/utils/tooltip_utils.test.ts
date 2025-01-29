@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 import {describe, expect, it} from '@jest/globals';
 
 import {validateGitlabUrl, isValidUrl} from './tooltip_utils';
