@@ -17,6 +17,7 @@
     },
     "dependencies": {
         "@primer/octicons-react": "10.1.0",
+        "@reduxjs/toolkit": "2.5.1",
         "core-js": "3.6.5",
         "csstype": "3.0.3",
         "debounce-promise": "3.1.2",
@@ -33,9 +34,6 @@
         "reselect": "4.1.6"
     },
     "devDependencies": {
-        "enzyme": "3.11.0",
-        "enzyme-adapter-react-16": "1.15.7",
-        "enzyme-to-json": "3.6.2",
         "@babel/cli": "7.11.6",
         "@babel/core": "7.11.6",
         "@babel/eslint-parser": "7.22.15",
@@ -68,6 +66,9 @@
         "babel-loader": "8.1.0",
         "babel-plugin-typescript-to-proptypes": "1.4.1",
         "css-loader": "6.11.0",
+        "enzyme": "3.11.0",
+        "enzyme-adapter-react-16": "1.15.7",
+        "enzyme-to-json": "3.6.2",
         "eslint": "7.9.0",
         "eslint-import-resolver-typescript": "3.6.1",
         "eslint-import-resolver-webpack": "0.12.2",
