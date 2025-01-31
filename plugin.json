@@ -27,9 +27,10 @@
                 "key": "UsePreregisteredApplication",
                 "display_name": "Use Preregistered OAuth Application:",
                 "type": "bool",
-                "help_text": "When true, instructs the plugin to use the preregistered GitLab OAuth application - application registration steps can be skipped. Requires [Chimera Proxy](https://github.com/mattermost/chimera) URL to be configured for the server. Can only be used with official gitlab.com. **This setting is intended to be used with Mattermost Cloud instances only.**",
+                "help_text": "When true, instructs the plugin to use the preregistered GitLab OAuth application - application registration steps can be skipped. Requires [Chimera Proxy](https://github.com/mattermost/chimera) URL to be configured for the server. Can only be used with official gitlab.com.",
                 "placeholder": "",
-                "default": false
+                "default": false,
+                "hosting": "cloud"
             },
             {
                 "key": "GitlabURL",
@@ -53,7 +54,8 @@
                 "type": "text",
                 "help_text": "The client secret for the OAuth app registered with GitLab.",
                 "placeholder": "",
-                "default": null
+                "default": null,
+                "secret": true
             },
             {
                 "key": "WebhookSecret",
@@ -61,7 +63,8 @@
                 "type": "generated",
                 "help_text": "The webhook secret set in GitLab.",
                 "placeholder": "",
-                "default": null
+                "default": null,
+                "secret": true
             },
             {
                 "key": "EncryptionKey",
@@ -69,7 +72,8 @@
                 "type": "generated",
                 "help_text": "The AES encryption key used to encrypt stored access tokens.",
                 "placeholder": "",
-                "default": null
+                "default": null,
+                "secret": true
             },
             {
                 "key": "GitlabGroup",

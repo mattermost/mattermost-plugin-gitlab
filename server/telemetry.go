@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 package main
 
 import (
@@ -84,7 +87,7 @@ func (p *Plugin) initializeTelemetry() {
 	// Get config values
 	p.tracker = telemetry.NewTracker(
 		p.telemetryClient,
-		p.API.GetDiagnosticId(),
+		p.API.GetTelemetryId(),
 		p.API.GetServerVersion(),
 		manifest.Id,
 		manifest.Version,

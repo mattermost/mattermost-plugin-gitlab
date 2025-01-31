@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 package subscription
 
 import (
@@ -16,7 +19,10 @@ var allFeatures = map[string]bool{
 	"pipeline":               true,
 	"tag":                    true,
 	"pull_reviews":           true,
-	// "label:":              true,//particular case for label:XXX
+	"confidential_issues":    true,
+	"deployments":            true,
+	"releases":               true,
+	// "label:":                 true,//particular case for label:XXX
 }
 
 type Subscription struct {
@@ -63,6 +69,10 @@ func (s *Subscription) Issues() bool {
 	return strings.Contains(s.Features, "issues")
 }
 
+func (s *Subscription) ConfidentialIssues() bool {
+	return strings.Contains(s.Features, "confidential_issues")
+}
+
 func (s *Subscription) Pushes() bool {
 	return strings.Contains(s.Features, "pushes")
 }
@@ -92,4 +102,12 @@ func (s *Subscription) Label() string {
 		return ""
 	}
 	return strings.Split(s.Features, "\"")[1]
+}
+
+func (s *Subscription) Releases() bool {
+	return strings.Contains(s.Features, "releases")
+}
+
+func (s *Subscription) Deployments() bool {
+	return strings.Contains(s.Features, "deployments")
 }

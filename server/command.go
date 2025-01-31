@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 package main
 
 import (
@@ -24,6 +27,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 * |/gitlab subscriptions add owner[/repo] [features]| - Subscribe the current channel to receive notifications about opened merge requests and issues for a group or repository
   * |features| is a comma-delimited list of one or more the following:
     * issues - includes new and closed issues
+	* confidential_issues - includes new and closed confidential issues
 	* jobs - includes jobs status updates
 	* merges - includes new and closed merge requests
     * pushes - includes pushes
@@ -33,6 +37,8 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	* tag - include tag creation
     * pull_reviews - includes merge request reviews
 	* label:"<labelname>" - must include "merges" or "issues" in feature list when using a label
+	* deployments - includes deployments
+	* releases - includes releases
     * Defaults to "merges,issues,tag"
 * |/gitlab subscriptions delete owner/repo| - Unsubscribe the current channel from a repository
 * |/gitlab pipelines run [owner]/repo [ref]| - Run a pipeline for specific repository and ref (branch/tag)
@@ -55,13 +61,14 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	 * JobEvents 
 	 * PipelineEvents 
 	 * WikiPageEvents
+	 * DeploymentEvents
+	 * ReleaseEvents
 	 * SSLverification
   * |url| is the URL that will be called when triggered. Defaults to this plugins URL
   * |token| Secret token. Defaults to secret token used in plugin's settings.
 * |/gitlab about| - Display build information about the plugin
 `
 const (
-	webhookHowToURL                   = "https://github.com/mattermost/mattermost-plugin-gitlab#step-3-create-a-gitlab-webhook"
 	inboundWebhookURL                 = "plugins/com.github.manland.mattermost-plugin-gitlab/webhook"
 	specifyRepositoryMessage          = "Please specify a repository."
 	specifyRepositoryAndBranchMessage = "Please specify a repository and a branch."
@@ -77,7 +84,8 @@ const (
 	projectNotFoundError   = "404 {message: 404 Project Not Found}"
 	projectNotFoundMessage = "Unable to find project with namespace: "
 
-	invalidSubscribeSubCommand = "Invalid subscribe command. Available commands are add, delete, and list"
+	invalidSubscribeSubCommand           = "Invalid subscribe command. Available commands are add, delete, and list"
+	missingOrgOrRepoFromSubscribeCommand = "Please provide the owner[/repo]"
 
 	invalidPipelinesSubCommand = "Invalid pipelines command. Available commands are run, list"
 )
@@ -202,12 +210,12 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 	}
 
 	if action == "connect" {
-		config := p.client.Configuration.GetConfig()
-		if config.ServiceSettings.SiteURL == nil {
+		pluginURL := getPluginURL(p.client)
+		if pluginURL == "" {
 			return p.getCommandResponse(args, "Encountered an error connecting to GitLab."), nil
 		}
 
-		resp := p.getCommandResponse(args, fmt.Sprintf("[Click here to link your GitLab account.](%s/plugins/%s/oauth/connect)", *config.ServiceSettings.SiteURL, manifest.Id))
+		resp := p.getCommandResponse(args, fmt.Sprintf("[Click here to link your GitLab account.](%s/oauth/connect)", pluginURL))
 		return resp, nil
 	}
 
@@ -255,6 +263,12 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 			return p.getCommandResponse(args, "Encountered an error getting your todo items."), nil
 		}
 		return p.getCommandResponse(args, text), nil
+	case "issue":
+		message := p.handleIssue(c, args, parameters)
+		if message != "" {
+			p.postCommandResponse(args, message)
+		}
+		return &model.CommandResponse{}, nil
 	case "me":
 		var gitUser *gitlabLib.User
 		err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
@@ -328,7 +342,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 	}
 }
 
-func (p *Plugin) handleSetup(c *plugin.Context, args *model.CommandArgs, parameters []string) string {
+func (p *Plugin) handleSetup(_ *plugin.Context, args *model.CommandArgs, parameters []string) string {
 	userID := args.UserId
 	isSysAdmin, err := p.isAuthorizedSysAdmin(userID)
 	if err != nil {
@@ -363,6 +377,23 @@ func (p *Plugin) handleSetup(c *plugin.Context, args *model.CommandArgs, paramet
 	}
 
 	return ""
+}
+
+func (p *Plugin) handleIssue(_ *plugin.Context, args *model.CommandArgs, parameters []string) string {
+	if len(parameters) == 0 {
+		return "Invalid issue command. Available command is 'create'."
+	}
+
+	command := parameters[0]
+	parameters = parameters[1:]
+
+	switch {
+	case command == "create":
+		p.openIssueCreateModal(args.UserId, args.ChannelId, strings.Join(parameters, " "))
+		return ""
+	default:
+		return fmt.Sprintf("This command is not implemented yet. Command: %v", command)
+	}
 }
 
 // webhookCommand processes the /gitlab webhook commands
@@ -440,7 +471,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 			return unknownActionMessage
 		}
 
-		siteURL := *p.client.Configuration.GetConfig().ServiceSettings.SiteURL
+		siteURL := getSiteURL(p.client)
 		if siteURL == "" {
 			return newWebhookEmptySiteURLmessage
 		}
@@ -492,7 +523,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 
 func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 	var sslVerification, pushEvents, tagPushEvents, issuesEvents, confidentialIssuesEvents, noteEvents bool
-	var confidentialNoteEvents, mergeRequestsEvents, jobEvents, pipelineEvents, wikiPageEvents bool
+	var confidentialNoteEvents, mergeRequestsEvents, jobEvents, pipelineEvents, wikiPageEvents, deploymentEvents, releaseEvents bool
 	var all bool
 	if triggersCsv == "*" {
 		all = true
@@ -537,6 +568,12 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 		if all || strings.EqualFold(trigger, "WikiPageEvents") {
 			wikiPageEvents = true
 		}
+		if all || strings.EqualFold(trigger, "DeploymentEvents") {
+			deploymentEvents = true
+		}
+		if all || strings.EqualFold(trigger, "ReleaseEvents") {
+			releaseEvents = true
+		}
 	}
 
 	return &gitlab.AddWebhookOptions{
@@ -551,10 +588,12 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 		JobEvents:                jobEvents,
 		PipelineEvents:           pipelineEvents,
 		WikiPageEvents:           wikiPageEvents,
+		DeploymentEvents:         deploymentEvents,
+		ReleaseEvents:            releaseEvents,
 	}
 }
 
-func (p *Plugin) subscriptionDelete(info *gitlab.UserInfo, config *configuration, fullPath, channelID string) (string, error) {
+func (p *Plugin) subscriptionDelete(_ *gitlab.UserInfo, config *configuration, fullPath, channelID string) (string, error) {
 	normalizedPath := normalizePath(fullPath, config.GitlabURL)
 	deleted, updatedSubscriptions, err := p.Unsubscribe(channelID, normalizedPath)
 	if err != nil {
@@ -578,6 +617,7 @@ func (p *Plugin) subscriptionsListCommand(channelID string) string {
 	if err != nil {
 		return err.Error()
 	}
+
 	if len(subs) == 0 {
 		txt = "Currently there are no subscriptions in this channel"
 	} else {
@@ -614,6 +654,15 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		return err.Error()
 	}
 
+	// Only check the permissions for a project if the project subscription is created (Not a group or a subgroup subscription)
+	if project != "" {
+		if hasPermission := p.permissionToProject(ctx, info.UserID, namespace, project); !hasPermission {
+			msg := "You don't have the permissions to create subscriptions for this project."
+			p.client.Log.Warn(msg)
+			return msg
+		}
+	}
+
 	updatedSubscriptions, subscribeErr := p.Subscribe(info, namespace, project, channelID, features)
 	if subscribeErr != nil {
 		p.client.Log.Warn(
@@ -624,31 +673,32 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		)
 		return subscribeErr.Error()
 	}
+
 	var hasHook bool
+	hasHookError := false
 	if project != "" {
 		hasHook, err = p.HasProjectHook(ctx, info, namespace, project)
 		if err != nil {
-			return fmt.Sprintf(
-				"Unable to determine status of Webhook. See [setup instructions](%s) to validate.",
-				webhookHowToURL,
-			)
+			p.client.Log.Debug("Unable to fetch project webhook data", "Error", err.Error())
+			hasHookError = true
 		}
 	} else {
 		hasHook, err = p.HasGroupHook(ctx, info, namespace)
 		if err != nil {
-			return fmt.Sprintf(
-				"Unable to determine status of Webhook. See [setup instructions](%s) to validate.",
-				webhookHowToURL,
-			)
+			p.client.Log.Debug("Unable to fetch group webhook data", "Error", err.Error())
+			hasHookError = true
 		}
 	}
+
+	hookErrorMessage := ""
+	if hasHookError {
+		hookErrorMessage = "\n**Note:** We are unable to determine the webhook status for this project. Please contact your project administrator"
+	}
+
 	var hookStatusMessage string
 	if !hasHook {
 		// no web hook found
-		hookStatusMessage = fmt.Sprintf(
-			"\nA Webhook is needed, run ```/gitlab webhook add %s``` to create one now.",
-			fullPath,
-		)
+		hookStatusMessage = fmt.Sprintf("\nA Webhook is needed, run ```/gitlab webhook add %s``` to create one now.%s", fullPath, hookErrorMessage)
 	}
 
 	p.sendChannelSubscriptionsUpdated(updatedSubscriptions, channelID)
@@ -670,7 +720,9 @@ func (p *Plugin) subscribeCommand(ctx context.Context, parameters []string, chan
 		return p.subscriptionsListCommand(channelID)
 	case commandAdd:
 		features := "merges,issues,tag"
-		if len(parameters) > 2 {
+		if len(parameters) < 2 {
+			return missingOrgOrRepoFromSubscribeCommand
+		} else if len(parameters) > 2 {
 			features = strings.Join(parameters[2:], " ")
 		}
 		// Resolve namespace and project name
@@ -691,6 +743,7 @@ func (p *Plugin) subscribeCommand(ctx context.Context, parameters []string, chan
 		return invalidSubscribeSubCommand
 	}
 }
+
 func (p *Plugin) pipelinesCommand(ctx context.Context, parameters []string, channelID string, info *gitlab.UserInfo) string {
 	if len(parameters) == 0 {
 		return invalidPipelinesSubCommand
@@ -800,6 +853,12 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 	todo := model.NewAutocompleteData("todo", "", "Get a list of todos, assigned issues, assigned merge requests and merge requests awaiting your review")
 	gitlab.AddCommand(todo)
 
+	issue := model.NewAutocompleteData("issue", "[command]", "Available commands: create")
+	gitlab.AddCommand(issue)
+
+	issueCreate := model.NewAutocompleteData("create", "[title]", "Open a dialog to create a new issue in Gitlab, using the title if provided")
+	issue.AddCommand(issueCreate)
+
 	subscriptions := model.NewAutocompleteData("subscriptions", "[command]", "Available commands: Add, List, Delete")
 
 	subscriptionsList := model.NewAutocompleteData(commandList, "", "List current channel subscriptions")
@@ -807,7 +866,7 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 
 	subscriptionsAdd := model.NewAutocompleteData(commandAdd, "owner[/repo] [features]", "Subscribe the current channel to receive notifications from a project")
 	subscriptionsAdd.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
-	subscriptionsAdd.AddTextArgument("comma-delimited list of features to subscribe to: issues, merges, pushes, issue_comments, merge_request_comments, pipeline, tag, pull_reviews, label:<labelName>", "[features] (optional)", `/[^,-\s]+(,[^,-\s]+)*/`)
+	subscriptionsAdd.AddTextArgument("comma-delimited list of features to subscribe to: issues, confidential_issues, merges, pushes, issue_comments, merge_request_comments, pipeline, tag, pull_reviews, label:<labelName>, deployments, releases", "[features] (optional)", `/[^,-\s]+(,[^,-\s]+)*/`)
 	subscriptions.AddCommand(subscriptionsAdd)
 
 	subscriptionsDelete := model.NewAutocompleteData(commandDelete, "owner[/repo]", "Unsubscribe the current channel from a repository")

@@ -1,4 +1,4 @@
-// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
 import {Store} from 'redux';
@@ -7,8 +7,7 @@ import {isDesktopApp} from 'src/utils/user_agent';
 import {connectUsingBrowserMessage} from 'src/constants';
 
 import {sendEphemeralPost} from '../actions';
-
-type ContextArgs = {channel_id: string};
+import {ContextArgs} from '../types/mattermost-webapp';
 
 const connectCommand = '/gitlab connect';
 

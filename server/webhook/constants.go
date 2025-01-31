@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 package webhook
 
 const (
@@ -13,8 +16,17 @@ const (
 	stateClosed = "closed"
 	stateMerged = "merged"
 
-	statusSuccess = "success"
-	statusRunning = "running"
-	statusPending = "pending"
-	statusFailed  = "failed"
+	statusSuccess  = "success"
+	statusRunning  = "running"
+	statusPending  = "pending"
+	statusFailed   = "failed"
+	statusCreated  = "created"
+	statusCanceled = "canceled"
+
+	statusCreate = "create"
+	statusUpdate = "update"
+	statusDelete = "delete"
+
+	PrivateVisibilityLevel = 0
+	PublicVisibilityLevel  = 20
 )

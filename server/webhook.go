@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 package main
 
 import (
@@ -73,7 +76,8 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	event, err := gitlabLib.ParseWebhook(gitlabLib.WebhookEventType(r), body)
+	eventType := gitlabLib.WebhookEventType(r)
+	event, err := gitlabLib.ParseWebhook(eventType, body)
 	if err != nil {
 		p.client.Log.Debug("Can't parse webhook", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"), "event", string(body))
 		http.Error(w, "Unable to handle request", http.StatusBadRequest)
@@ -99,7 +103,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
-		handlers, errHandler = p.WebhookHandler.HandleIssue(ctx, event)
+		handlers, errHandler = p.WebhookHandler.HandleIssue(ctx, event, eventType)
 	case *gitlabLib.IssueCommentEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
@@ -134,6 +138,15 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.UserName
 		handlers, errHandler = p.WebhookHandler.HandleTag(ctx, event)
+	case *gitlabLib.ReleaseEvent:
+		repoPrivate = event.Project.VisibilityLevel == webhook.PrivateVisibilityLevel
+		pathWithNamespace = event.Project.PathWithNamespace
+		handlers, errHandler = p.WebhookHandler.HandleRelease(ctx, event)
+	case *gitlabLib.DeploymentEvent:
+		repoPrivate = event.Project.VisibilityLevel == webhook.PrivateVisibilityLevel
+		pathWithNamespace = event.Project.PathWithNamespace
+		fromUser = event.User.Username
+		handlers, errHandler = p.WebhookHandler.HandleDeployment(ctx, event)
 	default:
 		p.client.Log.Debug("Event type not implemented", "type", string(gitlabLib.WebhookEventType(r)))
 		return
@@ -224,10 +237,19 @@ func (p *Plugin) permissionToProject(ctx context.Context, userID, namespace, pro
 	})
 	if result == nil || err != nil {
 		if err != nil {
-			p.client.Log.Warn("can't get project in webhook", "err", err.Error(), "project", namespace+"/"+project)
+			p.client.Log.Warn("Can't get project in webhook", "err", err.Error(), "project", namespace+"/"+project)
 		}
 		return false
 	}
+
+	// User permission for the project
+	userPermission := result.Permissions
+
+	// Check if the user has guest permission or less for both project and group level
+	if (userPermission.ProjectAccess != nil && userPermission.ProjectAccess.AccessLevel <= gitlabLib.GuestPermissions) || (userPermission.GroupAccess != nil && userPermission.GroupAccess.AccessLevel <= gitlabLib.GuestPermissions) {
+		return false
+	}
+
 	return true
 }
 

@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 package gitlab
 
 import (
@@ -25,15 +28,22 @@ var (
 type Gitlab interface {
 	GitlabConnect(token oauth2.Token) (*internGitlab.Client, error)
 	GetCurrentUser(ctx context.Context, userID string, token oauth2.Token) (*UserInfo, error)
+	CreateIssue(ctx context.Context, user *UserInfo, issue *IssueRequest, token *oauth2.Token) (*internGitlab.Issue, error)
+	AttachCommentToIssue(ctx context.Context, user *UserInfo, issue *IssueRequest, permalink, commentUsername string, token *oauth2.Token) (*internGitlab.Note, error)
+	SearchIssues(ctx context.Context, user *UserInfo, search string, token *oauth2.Token) ([]*internGitlab.Issue, error)
+	GetYourProjects(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.Project, error)
+	GetLabels(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.Label, error)
+	GetProjectMembers(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.ProjectMember, error)
+	GetMilestones(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.Milestone, error)
 	GetIssueByID(ctx context.Context, user *UserInfo, owner, repo string, issueID int, token *oauth2.Token) (*Issue, error)
 	GetMergeRequestByID(ctx context.Context, user *UserInfo, owner, repo string, mergeRequestID int, token *oauth2.Token) (*MergeRequest, error)
 	GetUserDetails(ctx context.Context, user *UserInfo, token *oauth2.Token) (*internGitlab.User, error)
 	GetProject(ctx context.Context, user *UserInfo, token *oauth2.Token, owner, repo string) (*internGitlab.Project, error)
 	GetYourPrDetails(ctx context.Context, log logger.Logger, user *UserInfo, token *oauth2.Token, prList []*PRDetails) ([]*PRDetails, error)
-	GetReviews(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*MergeRequest, error)
-	GetYourAssignedPrs(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*MergeRequest, error)
+	GetReviews(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*internGitlab.MergeRequest, error)
+	GetYourAssignedPrs(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*internGitlab.MergeRequest, error)
 	GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.Token) (*LHSContent, error)
-	GetYourAssignedIssues(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*Issue, error)
+	GetYourAssignedIssues(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*internGitlab.Issue, error)
 	GetToDoList(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*internGitlab.Todo, error)
 	GetProjectHooks(ctx context.Context, user *UserInfo, token *oauth2.Token, owner string, repo string) ([]*WebhookInfo, error)
 	GetGroupHooks(ctx context.Context, user *UserInfo, token *oauth2.Token, owner string) ([]*WebhookInfo, error)

@@ -1,8 +1,11 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 var path = require('path');
 
 module.exports = {
     entry: [
-        './src/index.js',
+        './src/index.ts',
     ],
     resolve: {
         modules: [

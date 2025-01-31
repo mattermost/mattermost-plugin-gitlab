@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 package webhook
 
 import (
@@ -29,57 +32,91 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 	}
 
 	message := ""
-
+	handlers := []*HandleWebhook{}
 	switch event.ObjectAttributes.State {
 	case stateOpened:
 		switch event.ObjectAttributes.Action {
 		case actionOpen:
-			message = fmt.Sprintf("[%s](%s) requested your review on [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+			message = fmt.Sprintf("[%s](%s) requested your review on [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
+			handlers = []*HandleWebhook{{
+				Message: message,
+				ToUsers: toUsers,
+				From:    senderGitlabUsername,
+			}}
 		case actionReopen:
-			message = fmt.Sprintf("[%s](%s) reopened your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+			message = fmt.Sprintf("[%s](%s) reopened your merge request [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
+			handlers = []*HandleWebhook{{
+				Message: message,
+				ToUsers: toUsers,
+				From:    senderGitlabUsername,
+			}}
 		case actionUpdate:
-			toUsers = []string{authorGitlabUsername}
-
 			// Not going to show notification in case of commit push.
 			if event.ObjectAttributes.OldRev != "" {
 				break
 			}
 
-			for _, currentAssigneeID := range event.ObjectAttributes.AssigneeIDs {
-				assignedInPrevious := false
-				for _, previousAssignee := range event.Changes.Assignees.Previous {
-					if previousAssignee.ID == currentAssigneeID {
-						assignedInPrevious = true
-						break
-					}
-				}
-				if !assignedInPrevious {
-					toUsers = append(toUsers, w.gitlabRetreiver.GetUsernameByID(currentAssigneeID))
+			// Handle change in assignees
+			if event.Changes.Assignees.Current != nil || event.Changes.Assignees.Previous != nil {
+				updatedCurrentUsers := w.calculateUserDiffs(event.Changes.Assignees.Previous, event.Changes.Assignees.Current)
+
+				if len(updatedCurrentUsers) != 0 {
+					message = fmt.Sprintf("[%s](%s) assigned you to merge request [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
+					handlers = append(handlers, &HandleWebhook{
+						Message: message,
+						ToUsers: updatedCurrentUsers,
+						From:    senderGitlabUsername,
+					})
 				}
 			}
 
-			message = fmt.Sprintf("[%s](%s) assigned you to merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+			// Handle change in reviewers
+			if event.Changes.Reviewers.Current != nil || event.Changes.Reviewers.Previous != nil {
+				updatedCurrentUsers := w.calculateUserDiffs(event.Changes.Reviewers.Previous, event.Changes.Reviewers.Current)
+
+				if len(updatedCurrentUsers) != 0 {
+					message = fmt.Sprintf("[%s](%s) requested your review on merge request [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
+					handlers = append(handlers, &HandleWebhook{
+						Message: message,
+						ToUsers: updatedCurrentUsers,
+						From:    senderGitlabUsername,
+					})
+				}
+			}
 		case actionApproved:
-			message = fmt.Sprintf("[%s](%s) approved your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+			message = fmt.Sprintf("[%s](%s) approved your merge request [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
+			handlers = []*HandleWebhook{{
+				Message: message,
+				ToUsers: toUsers,
+				From:    senderGitlabUsername,
+			}}
 		case actionUnapproved:
-			message = fmt.Sprintf("[%s](%s) requested changes to your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+			message = fmt.Sprintf("[%s](%s) requested changes to your merge request [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
+			handlers = []*HandleWebhook{{
+				Message: message,
+				ToUsers: toUsers,
+				From:    senderGitlabUsername,
+			}}
 		}
 	case stateClosed:
-		message = fmt.Sprintf("[%s](%s) closed your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+		message = fmt.Sprintf("[%s](%s) closed your merge request [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
+		handlers = []*HandleWebhook{{
+			Message: message,
+			ToUsers: toUsers,
+			From:    senderGitlabUsername,
+		}}
 	case stateMerged:
 		if event.ObjectAttributes.Action == actionMerge {
-			message = fmt.Sprintf("[%s](%s) merged your merge request [%s!%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.Target.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+			message = fmt.Sprintf("[%s](%s) merged your merge request [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
+			handlers = []*HandleWebhook{{
+				Message: message,
+				ToUsers: toUsers,
+				From:    senderGitlabUsername,
+			}}
 		}
 	}
 
-	if len(message) > 0 {
-		handlers := []*HandleWebhook{{
-			Message:    message,
-			ToUsers:    toUsers,
-			ToChannels: []string{},
-			From:       senderGitlabUsername,
-		}}
-
+	if len(handlers) > 0 {
 		if mention := w.handleMention(mentionDetails{
 			senderUsername:    senderGitlabUsername,
 			pathWithNamespace: event.Project.PathWithNamespace,
@@ -147,4 +184,22 @@ func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.M
 	}
 
 	return res, nil
+}
+
+// calculateUserDiffs function takes previousUsers and currentUsers of an event,
+// finds the change in the user list, and returns the updated current user list.
+func (w *webhook) calculateUserDiffs(previousUsers, currentUsers []*gitlab.EventUser) []string {
+	mapPreviousUsers := map[int]*gitlab.EventUser{}
+	updatedCurrentUsers := []string{}
+	for _, previousUser := range previousUsers {
+		mapPreviousUsers[previousUser.ID] = previousUser
+	}
+
+	for _, currentUser := range currentUsers {
+		if _, exist := mapPreviousUsers[currentUser.ID]; !exist {
+			updatedCurrentUsers = append(updatedCurrentUsers, w.gitlabRetreiver.GetUsernameByID(currentUser.ID))
+		}
+	}
+
+	return updatedCurrentUsers
 }

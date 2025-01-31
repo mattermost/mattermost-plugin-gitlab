@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 package main
 
 import (
@@ -18,7 +21,7 @@ import (
 
 type fakeWebhookHandler struct{}
 
-func (fakeWebhookHandler) HandleIssue(_ context.Context, _ *gitlabLib.IssueEvent) ([]*webhook.HandleWebhook, error) {
+func (fakeWebhookHandler) HandleIssue(_ context.Context, _ *gitlabLib.IssueEvent, _ gitlabLib.EventType) ([]*webhook.HandleWebhook, error) {
 	return []*webhook.HandleWebhook{{
 		Message: "hello",
 		From:    "test",
@@ -49,6 +52,14 @@ func (fakeWebhookHandler) HandlePush(_ context.Context, _ *gitlabLib.PushEvent) 
 }
 
 func (fakeWebhookHandler) HandleJobs(_ context.Context, _ *gitlabLib.JobEvent) ([]*webhook.HandleWebhook, error) {
+	return nil, nil
+}
+
+func (fakeWebhookHandler) HandleDeployment(_ context.Context, _ *gitlabLib.DeploymentEvent) ([]*webhook.HandleWebhook, error) {
+	return nil, nil
+}
+
+func (fakeWebhookHandler) HandleRelease(_ context.Context, _ *gitlabLib.ReleaseEvent) ([]*webhook.HandleWebhook, error) {
 	return nil, nil
 }
 

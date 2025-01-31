@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 package main
 
 import (
@@ -39,11 +42,12 @@ const (
 	WsEventConnect                = "gitlab_connect"
 	WsEventDisconnect             = "gitlab_disconnect"
 	WsEventRefresh                = "gitlab_refresh"
-	WsChannelSubscriptionsUpdated = "gitlab_channel_subscriptions_updated"
+	wsEventCreateIssue            = "create_issue"
 	SettingNotifications          = "notifications"
 	SettingReminders              = "reminders"
 	SettingOn                     = "on"
 	SettingOff                    = "off"
+	WsChannelSubscriptionsUpdated = "gitlab_channel_subscriptions_updated"
 
 	chimeraGitLabAppIdentifier = "plugin-gitlab"
 
@@ -92,8 +96,8 @@ func (p *Plugin) OnActivate() error {
 	if p.client == nil {
 		p.client = pluginapi.NewClient(p.API, p.Driver)
 	}
-	siteURL := p.client.Configuration.GetConfig().ServiceSettings.SiteURL
-	if siteURL == nil || *siteURL == "" {
+	siteURL := getSiteURL(p.client)
+	if siteURL == "" {
 		return errors.New("siteURL is not set. Please set it and restart the plugin")
 	}
 
@@ -130,7 +134,11 @@ func (p *Plugin) OnActivate() error {
 	p.WebhookHandler = webhook.NewWebhook(&gitlabRetreiver{p: p})
 
 	p.poster = poster.NewPoster(&p.client.Post, p.BotUserID)
-	p.flowManager = p.NewFlowManager()
+	flowManager, err := p.NewFlowManager()
+	if err != nil {
+		return errors.Wrap(err, "failed to create flow manager")
+	}
+	p.flowManager = flowManager
 
 	return nil
 }
@@ -248,7 +256,8 @@ func (p *Plugin) getOAuthConfig() *oauth2.Config {
 	config := p.getConfiguration()
 
 	scopes := []string{"api", "read_user"}
-	redirectURL := fmt.Sprintf("%s/plugins/%s/oauth/complete", *p.client.Configuration.GetConfig().ServiceSettings.SiteURL, manifest.Id)
+
+	redirectURL := fmt.Sprintf("%s/oauth/complete", getPluginURL(p.client))
 
 	if config.UsePreregisteredApplication {
 		p.client.Log.Debug("Using Chimera Proxy OAuth configuration")
@@ -692,6 +701,17 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 	)
 }
 
+func (p *Plugin) openIssueCreateModal(userID, channelID, title string) {
+	p.API.PublishWebSocketEvent(
+		wsEventCreateIssue,
+		map[string]interface{}{
+			"title":      title,
+			"channel_id": channelID,
+		},
+		&model.WebsocketBroadcast{UserId: userID},
+	)
+}
+
 func (p *Plugin) sendChannelSubscriptionsUpdated(subs *Subscriptions, channelID string) {
 	config := p.getConfiguration()
 
@@ -743,8 +763,7 @@ func (p *Plugin) HasProjectHook(ctx context.Context, user *gitlab.UserInfo, name
 		return true, err
 	}
 
-	siteURL := *p.client.Configuration.GetConfig().ServiceSettings.SiteURL
-
+	siteURL := getSiteURL(p.client)
 	found := false
 	for _, hook := range hooks {
 		if strings.Contains(hook.URL, siteURL) {
@@ -770,8 +789,7 @@ func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namesp
 		return false, errors.New("unable to connect to GitLab")
 	}
 
-	siteURL := *p.client.Configuration.GetConfig().ServiceSettings.SiteURL
-
+	siteURL := getSiteURL(p.client)
 	found := false
 	for _, hook := range hooks {
 		if strings.Contains(hook.URL, siteURL) {
@@ -780,6 +798,29 @@ func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namesp
 	}
 
 	return found, err
+}
+
+// getUsername returns the GitLab username for a given Mattermost user,
+// if the user is connected to GitLab via this plugin.
+// Otherwise it returns the Mattermost username.
+// One use of this function is to include an at-mention username in the GitLab comment itself.
+func (p *Plugin) getUsername(userID string) (string, *APIErrorResponse) {
+	info, err := p.getGitlabUserInfoByMattermostID(userID)
+	if err != nil && err.ID != APIErrorIDNotConnected {
+		return "", err
+	} else if err != nil {
+		user, appErr := p.API.GetUser(userID)
+		if appErr != nil {
+			return "", &APIErrorResponse{
+				StatusCode: appErr.StatusCode,
+				Message:    appErr.Message,
+			}
+		}
+
+		return user.Username, nil
+	}
+
+	return info.GitlabUsername, nil
 }
 
 func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*oauth2.Token, error) {

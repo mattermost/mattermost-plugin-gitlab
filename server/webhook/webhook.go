@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 package webhook
 
 import (
@@ -37,7 +40,7 @@ type HandleWebhook struct {
 }
 
 type Webhook interface {
-	HandleIssue(ctx context.Context, event *gitlab.IssueEvent) ([]*HandleWebhook, error)
+	HandleIssue(ctx context.Context, event *gitlab.IssueEvent, eventType gitlab.EventType) ([]*HandleWebhook, error)
 	HandleMergeRequest(ctx context.Context, event *gitlab.MergeEvent) ([]*HandleWebhook, error)
 	HandleIssueComment(ctx context.Context, event *gitlab.IssueCommentEvent) ([]*HandleWebhook, error)
 	HandleMergeRequestComment(ctx context.Context, event *gitlab.MergeCommentEvent) ([]*HandleWebhook, error)
@@ -45,6 +48,8 @@ type Webhook interface {
 	HandleTag(ctx context.Context, event *gitlab.TagEvent) ([]*HandleWebhook, error)
 	HandlePush(ctx context.Context, event *gitlab.PushEvent) ([]*HandleWebhook, error)
 	HandleJobs(ctx context.Context, event *gitlab.JobEvent) ([]*HandleWebhook, error)
+	HandleRelease(ctx context.Context, event *gitlab.ReleaseEvent) ([]*HandleWebhook, error)
+	HandleDeployment(ctx context.Context, event *gitlab.DeploymentEvent) ([]*HandleWebhook, error)
 }
 
 type webhook struct {

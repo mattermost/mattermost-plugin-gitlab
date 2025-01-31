@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 package webhook
 
 import (
@@ -27,7 +30,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[root](http://my.gitlab.com/root) requested your review on [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			Message:    "[root](http://my.gitlab.com/root) requested your review on [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
 			ToUsers:    []string{"manland"},
 			ToChannels: []string{},
 			From:       "root",
@@ -44,7 +47,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/subgroup/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[root](http://my.gitlab.com/root) requested your review on [manland/subgroup/webhook!4](http://localhost:3000/manland/subgroup/webhook/merge_requests/4)",
+			Message:    "[root](http://my.gitlab.com/root) requested your review on [#4](http://localhost:3000/manland/subgroup/webhook/merge_requests/4) in [manland/subgroup/webhook](http://localhost:3000/manland/subgroup/webhook)",
 			ToUsers:    []string{"manland"},
 			ToChannels: []string{},
 			From:       "root",
@@ -61,7 +64,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[manland](http://my.gitlab.com/manland) closed your merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			Message:    "[manland](http://my.gitlab.com/manland) closed your merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
 			ToUsers:    []string{"root"},
 			ToChannels: []string{},
 			From:       "manland",
@@ -78,7 +81,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[manland](http://my.gitlab.com/manland) reopened your merge request [manland/webhook!1](http://localhost:3000/manland/webhook/merge_requests/1)",
+			Message:    "[manland](http://my.gitlab.com/manland) reopened your merge request [#1](http://localhost:3000/manland/webhook/merge_requests/1) in [manland/webhook](http://localhost:3000/manland/webhook)",
 			ToUsers:    []string{"root"},
 			ToChannels: []string{},
 			From:       "manland",
@@ -89,15 +92,53 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			From:       "manland",
 		}},
 	}, {
-		testTitle:       "root affect manland to merge-request",
-		fixture:         AssigneeMergeRequest,
+		testTitle:       "root assign manland to the merge-request",
+		fixture:         RootUpdateAssigneeMergeRequest,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
-		res: []*HandleWebhook{{
-			Message:    "[root](http://my.gitlab.com/root) assigned you to merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
-			ToUsers:    []string{"manland"},
-			ToChannels: []string{},
-			From:       "root",
-		}},
+		res: []*HandleWebhook{
+			{
+				Message:    "[root](http://my.gitlab.com/root) assigned you to merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+		},
+	}, {
+		testTitle:       "root assign manland as reviewer to the merge-request",
+		fixture:         RootUpdateReviewerMergeRequest,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
+		res: []*HandleWebhook{
+			{
+				Message:    "[root](http://my.gitlab.com/root) requested your review on merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+		},
+	}, {
+		testTitle:       "user assign manland as assignee to the merge-request",
+		fixture:         UserUpdateAssigneeToManlandMergeRequest,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
+		res: []*HandleWebhook{
+			{
+				Message:    "[user](http://my.gitlab.com/user) assigned you to merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "user",
+			},
+		},
+	}, {
+		testTitle:       "user assign itself to the merge-request",
+		fixture:         UserUpdateAssigneeToUserMergeRequest,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
+		res: []*HandleWebhook{
+			{
+				Message:    "[user](http://my.gitlab.com/user) assigned you to merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
+				ToUsers:    []string{},
+				ToChannels: []string{},
+				From:       "user",
+			},
+		},
 	}, {
 		testTitle: "manland merge root merge-request and display in channel1",
 		fixture:   MergeRequestMerged,
@@ -105,7 +146,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[manland](http://my.gitlab.com/manland) merged your merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			Message:    "[manland](http://my.gitlab.com/manland) merged your merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
 			ToUsers:    []string{"root"},
 			ToChannels: []string{},
 			From:       "manland",
@@ -122,7 +163,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[manland](http://my.gitlab.com/manland) approved your merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			Message:    "[manland](http://my.gitlab.com/manland) approved your merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
 			ToUsers:    []string{"root"},
 			ToChannels: []string{},
 			From:       "manland",
@@ -139,7 +180,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[manland](http://my.gitlab.com/manland) requested changes to your merge request [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			Message:    "[manland](http://my.gitlab.com/manland) requested changes to your merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
 			ToUsers:    []string{"root"},
 			ToChannels: []string{},
 			From:       "manland",
@@ -156,7 +197,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[root](http://my.gitlab.com/root) closed your merge request [manland/webhook!1](http://localhost:3000/manland/webhook/merge_requests/1)",
+			Message:    "[root](http://my.gitlab.com/root) closed your merge request [#1](http://localhost:3000/manland/webhook/merge_requests/1) in [manland/webhook](http://localhost:3000/manland/webhook)",
 			ToUsers:    []string{}, // no assignee
 			ToChannels: []string{},
 			From:       "root",
@@ -173,7 +214,7 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			{ChannelID: "channel1", CreatorID: "1", Features: "issues", Repository: "manland/webhook"},
 		}),
 		res: []*HandleWebhook{{
-			Message:    "[root](http://my.gitlab.com/root) requested your review on [manland/webhook!4](http://localhost:3000/manland/webhook/merge_requests/4)",
+			Message:    "[root](http://my.gitlab.com/root) requested your review on [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
 			ToUsers:    []string{"manland"},
 			ToChannels: []string{},
 			From:       "root",

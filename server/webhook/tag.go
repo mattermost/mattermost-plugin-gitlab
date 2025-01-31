@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 package webhook
 
 import (
@@ -41,14 +44,23 @@ func (w *webhook) handleDMTag(event *gitlab.TagEvent) ([]*HandleWebhook, error) 
 }
 
 func (w *webhook) handleChannelTag(ctx context.Context, event *gitlab.TagEvent) ([]*HandleWebhook, error) {
-	senderGitlabUsername := w.gitlabRetreiver.GetUsernameByID(event.UserID)
+	senderGitlabUsername := event.UserUsername
 	repo := event.Project
 	tagNames := strings.Split(event.Ref, "/")
 	tagName := tagNames[len(tagNames)-1]
 	URL := fmt.Sprintf("%s/-/tags/%s", repo.WebURL, tagName)
 	res := []*HandleWebhook{}
 
-	message := fmt.Sprintf("[%s](%s) New tag [%s](%s) by [%s](%s): %s", repo.PathWithNamespace, repo.WebURL, tagName, URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Message)
+	if len(event.Message) > 0 {
+		event.Message = fmt.Sprintf(": %s", event.Message)
+	}
+
+	var message string
+	if len(event.Commits) > 0 {
+		message = fmt.Sprintf("[%s](%s) New tag [%s](%s) by [%s](%s)%s", repo.PathWithNamespace, repo.WebURL, tagName, URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Message)
+	} else {
+		message = fmt.Sprintf("[%s](%s): [%s](%s) Tag deleted by [%s](%s)%s", repo.PathWithNamespace, repo.WebURL, tagName, URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Message)
+	}
 
 	toChannels := make([]string, 0)
 	namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)

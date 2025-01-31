@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 import React, {PureComponent, ReactElement} from 'react';
 import {Tooltip, OverlayTrigger} from 'react-bootstrap';
 
@@ -10,7 +13,8 @@ import {Theme} from 'mattermost-redux/types/preferences';
 import {RHSStates, connectUsingBrowserMessage} from '../../constants';
 import {isDesktopApp} from '../../utils/user_agent';
 
-import {GitLabIssuesIcon, GitLabMergeRequestIcon, GitLabReviewsIcon, GitLabTodosIcon} from './button_icons';
+import {GitLabIssuesIcon, GitLabMergeRequestIcon, GitLabReviewsIcon, GitLabTodosIcon} from '../../utils/icons';
+import {Item} from 'src/types/gitlab_items';
 
 interface SidebarButtonsProps {
     theme: Theme;
@@ -19,10 +23,10 @@ interface SidebarButtonsProps {
     org: string;
     clientId: string;
     gitlabURL: string;
-    reviews: unknown[];
-    todos: unknown[];
-    yourAssignedPrs: unknown[];
-    yourAssignedIssues: unknown[];
+    reviews?: Item[];
+    todos?: Item[];
+    yourAssignedPrs?: Item[];
+    yourAssignedIssues?: Item[];
     isTeamSidebar: boolean;
     pluginServerRoute: string;
     showRHSPlugin: () => void;
