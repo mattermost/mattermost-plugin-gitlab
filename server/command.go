@@ -609,8 +609,15 @@ func (p *Plugin) subscriptionDelete(_ *gitlab.UserInfo, config *configuration, f
 		baseURL += "/"
 	}
 
+	var webhookPath string
+	if strings.Contains(normalizedPath, "/") {
+		webhookPath = fmt.Sprintf("%s%s/-/hooks", baseURL, normalizedPath)
+	} else {
+		webhookPath = fmt.Sprintf("%sgroups/%s/-/hooks", baseURL, normalizedPath)
+	}
+
 	unsubscribeMessage := fmt.Sprintf("Successfully deleted subscription for %s.", fmt.Sprintf("[%s](%s)", normalizedPath, baseURL+normalizedPath))
-	unsubscribeMessage += fmt.Sprintf("\n Please delete the [webhook](%s) for this subscription unless it's required for other subscriptions.", fmt.Sprintf("%s%s/-/hooks", baseURL, normalizedPath))
+	unsubscribeMessage += fmt.Sprintf("\n Please delete the [webhook](%s) for this subscription unless it's required for other subscriptions.", webhookPath)
 
 	return unsubscribeMessage, nil
 }
