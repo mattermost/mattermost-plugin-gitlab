@@ -8,9 +8,9 @@ import {createSelector} from 'reselect';
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
 
 import manifest from '../manifest';
-import {Item} from 'src/types/gitlab_items';
-import {GlobalState, PluginState, pluginStateKey} from 'src/types/store';
-import {SideBarData} from 'src/types';
+import {Item} from '../types/gitlab_items';
+import {GlobalState, PluginState, pluginStateKey} from '../types/store';
+import {SideBarData} from '../types';
 
 export const getPluginServerRoute = (state: GlobalState) => {
     const config = getConfig(state);
