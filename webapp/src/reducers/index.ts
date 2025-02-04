@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 import {combineReducers, Reducer} from 'redux';
 
 import ActionTypes from '../action_types';
