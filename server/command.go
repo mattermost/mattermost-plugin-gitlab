@@ -590,7 +590,7 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 	}
 }
 
-func (p *Plugin) subscriptionDelete(info *gitlab.UserInfo, config *configuration, fullPath, channelID string) (string, error) {
+func (p *Plugin) subscriptionDelete(userInfo *gitlab.UserInfo, config *configuration, fullPath, channelID string) (string, error) {
 	normalizedPath := normalizePath(fullPath, config.GitlabURL)
 	deleted, updatedSubscriptions, err := p.Unsubscribe(channelID, normalizedPath)
 	if err != nil {
@@ -617,7 +617,7 @@ func (p *Plugin) subscriptionDelete(info *gitlab.UserInfo, config *configuration
 
 	var project *gitlabLib.Project
 	var getProjectError error
-	err = p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+	err = p.useGitlabClient(userInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		//nolint:govet // Ignore variable shadowing warning
 		resp, err := p.GitlabClient.GetProject(ctx, info, token, owner, strings.Join(remainingPath, "/"))
 		if err != nil {
@@ -639,7 +639,7 @@ func (p *Plugin) subscriptionDelete(info *gitlab.UserInfo, config *configuration
 	} else {
 		var group *gitlabLib.Group
 		var getGroupError error
-		err = p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		err = p.useGitlabClient(userInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 			//nolint:govet // Ignore variable shadowing warning
 			resp, err := p.GitlabClient.GetGroup(ctx, info, token, owner, strings.Join(remainingPath, "/"))
 			if err != nil {
