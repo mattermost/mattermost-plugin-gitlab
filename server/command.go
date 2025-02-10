@@ -590,7 +590,7 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 	}
 }
 
-func (p *Plugin) subscriptionDelete(_ *gitlab.UserInfo, config *configuration, fullPath, channelID string) (string, error) {
+func (p *Plugin) subscriptionDelete(info *gitlab.UserInfo, config *configuration, fullPath, channelID string) (string, error) {
 	normalizedPath := normalizePath(fullPath, config.GitlabURL)
 	deleted, updatedSubscriptions, err := p.Unsubscribe(channelID, normalizedPath)
 	if err != nil {
@@ -609,15 +609,58 @@ func (p *Plugin) subscriptionDelete(_ *gitlab.UserInfo, config *configuration, f
 		baseURL += "/"
 	}
 
-	var webhookPath string
-	if strings.Contains(normalizedPath, "/") {
-		webhookPath = fmt.Sprintf("%s%s/-/hooks", baseURL, normalizedPath)
+	owner := strings.Split(normalizedPath, "/")[0]
+	remainingPath := strings.Split(normalizedPath, "/")[1:]
+
+	ctx, cancel := context.WithTimeout(context.Background(), webhookTimeout)
+	defer cancel()
+
+	var project *gitlabLib.Project
+	var getProjectError error
+	err = p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := p.GitlabClient.GetProject(ctx, info, token, owner, strings.Join(remainingPath, "/")) //nolint:govet // Ignore variable shadowing warning
+		if err != nil {
+			getProjectError = err
+		} else {
+			project = resp
+		}
+		return nil
+	})
+	if project == nil || err != nil {
+		if err != nil {
+			p.client.Log.Warn("Can't get group in subscription delete", "err", err.Error(), "group", normalizedPath)
+		}
+	}
+
+	var webhookMsg string
+	if getProjectError == nil && project != nil {
+		webhookMsg = fmt.Sprintf("\n Please delete the [webhook](%s) for this subscription unless it's required for other subscriptions.", fmt.Sprintf("%s%s/-/hooks", baseURL, normalizedPath))
 	} else {
-		webhookPath = fmt.Sprintf("%sgroups/%s/-/hooks", baseURL, normalizedPath)
+		var group *gitlabLib.Group
+		var getGroupError error
+		err = p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+			resp, err := p.GitlabClient.GetGroup(ctx, info, token, owner, strings.Join(remainingPath, "/")) //nolint:govet // Ignore variable shadowing warning
+			if err != nil {
+				getGroupError = err
+			} else {
+				group = resp
+			}
+			return nil
+		})
+		if group == nil || err != nil {
+			if err != nil {
+				p.client.Log.Warn("Can't get project in subscription delete", "err", err.Error(), "project", normalizedPath)
+			}
+		}
+		if getGroupError == nil && group != nil {
+			webhookMsg = fmt.Sprintf("\n Please delete the [webhook](%s) for this subscription unless it's required for other subscriptions.", fmt.Sprintf("%sgroups/%s/-/hooks", baseURL, normalizedPath))
+		} else {
+			webhookMsg = "\n Please delete the webhook for this subscription unless it's required for other subscriptions."
+		}
 	}
 
 	unsubscribeMessage := fmt.Sprintf("Successfully deleted subscription for %s.", fmt.Sprintf("[%s](%s)", normalizedPath, baseURL+normalizedPath))
-	unsubscribeMessage += fmt.Sprintf("\n Please delete the [webhook](%s) for this subscription unless it's required for other subscriptions.", webhookPath)
+	unsubscribeMessage += webhookMsg
 
 	return unsubscribeMessage, nil
 }
