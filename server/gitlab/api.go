@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 package gitlab
 
 import (
@@ -664,7 +667,7 @@ func (g *gitlab) GetYourProjects(ctx context.Context, user *UserInfo, token *oau
 	if g.gitlabGroup == "" {
 		result, resp, err := client.Projects.ListProjects(
 			&internGitlab.ListProjectsOptions{
-				Owned: model.NewBool(true),
+				Owned: model.NewPointer(true),
 			},
 			internGitlab.WithContext(ctx),
 		)
@@ -680,7 +683,7 @@ func (g *gitlab) GetYourProjects(ctx context.Context, user *UserInfo, token *oau
 		result, resp, err := client.Groups.ListGroupProjects(
 			g.gitlabGroup,
 			&internGitlab.ListGroupProjectsOptions{
-				Owned: model.NewBool(true),
+				Owned: model.NewPointer(true),
 			},
 			internGitlab.WithContext(ctx),
 		)

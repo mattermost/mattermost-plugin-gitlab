@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 package main
 
 import (
@@ -780,7 +783,7 @@ func (p *Plugin) subscribeCommand(ctx context.Context, parameters []string, chan
 		if len(parameters) < 2 {
 			return missingOrgOrRepoFromSubscribeCommand
 		} else if len(parameters) > 2 {
-			features = strings.Join(parameters[1:], " ")
+			features = strings.Join(parameters[2:], " ")
 		}
 		// Resolve namespace and project name
 		fullPath := normalizePath(parameters[1], config.GitlabURL)
@@ -800,6 +803,7 @@ func (p *Plugin) subscribeCommand(ctx context.Context, parameters []string, chan
 		return invalidSubscribeSubCommand
 	}
 }
+
 func (p *Plugin) pipelinesCommand(ctx context.Context, parameters []string, channelID string, info *gitlab.UserInfo) string {
 	if len(parameters) == 0 {
 		return invalidPipelinesSubCommand

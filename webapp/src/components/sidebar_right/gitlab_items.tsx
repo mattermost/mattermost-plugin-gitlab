@@ -1,15 +1,14 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 import React from 'react';
-import {GitPullRequestIcon, IssueOpenedIcon, IconProps} from '@primer/octicons-react';
+import {GitPullRequestIcon, IssueOpenedIcon, DotFillIcon, XIcon, MilestoneIcon, CheckIcon, IconProps} from '@primer/octicons-react';
 import {makeStyleFromTheme, changeOpacity} from 'mattermost-redux/utils/theme_utils';
 import {Badge, Tooltip, OverlayTrigger} from 'react-bootstrap';
 import * as CSS from 'csstype';
 
 import {useSelector} from 'react-redux';
 
-import CrossIcon from 'src/images/icons/cross';
-import DotIcon from 'src/images/icons/dot';
-import TickIcon from 'src/images/icons/tick';
-import SignIcon from 'src/images/icons/sign';
 import {formatTimeSince} from 'src/utils/date_utils';
 import {GitlabItemsProps, Label} from 'src/types/gitlab_items';
 import {getSidebarExpanded} from 'src/selectors';
@@ -100,7 +99,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
                 }),
             }}
         >
-            <SignIcon/>
+            <MilestoneIcon size='small'/>
             {item.milestone.title}
         </span>
     );
@@ -137,7 +136,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
                 <span
                     style={{...style.icon, ...style.iconSuccess}}
                 >
-                    <TickIcon/>
+                    <CheckIcon size='small'/>
                 </span>
             );
             break;
@@ -146,7 +145,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
                 <span
                     style={{...style.icon, ...style.iconPending}}
                 >
-                    <DotIcon/>
+                    <DotFillIcon size='small'/>
                 </span>
             );
             break;
@@ -155,7 +154,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
                 <span
                     style={{...style.icon, ...style.iconFailed}}
                 >
-                    <CrossIcon/>
+                    <XIcon size='small'/>
                 </span>
             );
         }

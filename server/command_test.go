@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 package main
 
 import (
@@ -40,6 +43,11 @@ var subscribeCommandTests = []subscribeCommandTest{
 		testName:   "No Subscriptions",
 		parameters: []string{"list"},
 		want:       "Currently there are no subscriptions in this channel",
+	},
+	{
+		testName:   "No Subcommand",
+		parameters: []string{},
+		want:       invalidSubscribeSubCommand,
 	},
 	{
 		testName:      "No Repository permissions",
@@ -92,6 +100,35 @@ var subscribeCommandTests = []subscribeCommandTest{
 		webhookInfo:    []*gitlab.WebhookInfo{{}},
 		want:           "Successfully subscribed to group.\nA Webhook is needed, run ```/gitlab webhook add group``` to create one now.\n**Note:** We are unable to determine the webhook status for this project. Please contact your project administrator",
 		projectHookErr: errors.New("unable to get project hooks"),
+	},
+	{
+		testName:   "Missing Organization/Repository",
+		parameters: []string{"add"},
+		want:       missingOrgOrRepoFromSubscribeCommand,
+	},
+
+	{
+		testName:   "Additional Features Provided",
+		parameters: []string{"add", "group/project", "merges", "tag"},
+		mockGitlab: true,
+		noAccess:   true,
+		want:       "You don't have the permissions to create subscriptions for this project.",
+	},
+
+	{
+		testName:   "Delete Missing Repository",
+		parameters: []string{"delete"},
+		want:       specifyRepositoryMessage,
+	},
+	{
+		testName:   "Error Deleting Subscription",
+		parameters: []string{"delete", ""},
+		want:       "Encountered an error trying to unsubscribe. Please try again.",
+	},
+	{
+		testName:   "Invalid Subcommand",
+		parameters: []string{"unknown"},
+		want:       invalidSubscribeSubCommand,
 	},
 }
 
@@ -445,7 +482,7 @@ func TestAddWebhookCommand(t *testing.T) {
 			p.GitlabClient = mockedClient
 
 			conf := &model.Config{}
-			conf.ServiceSettings.SiteURL = model.NewString(test.siteURL)
+			conf.ServiceSettings.SiteURL = model.NewPointer(test.siteURL)
 
 			encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
 
