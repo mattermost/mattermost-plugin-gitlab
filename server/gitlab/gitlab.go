@@ -39,6 +39,7 @@ type Gitlab interface {
 	GetMergeRequestByID(ctx context.Context, user *UserInfo, owner, repo string, mergeRequestID int, token *oauth2.Token) (*MergeRequest, error)
 	GetUserDetails(ctx context.Context, user *UserInfo, token *oauth2.Token) (*internGitlab.User, error)
 	GetProject(ctx context.Context, user *UserInfo, token *oauth2.Token, owner, repo string) (*internGitlab.Project, error)
+	GetGroup(ctx context.Context, user *UserInfo, token *oauth2.Token, owner, repo string) (*internGitlab.Group, error)
 	GetYourPrDetails(ctx context.Context, log logger.Logger, user *UserInfo, token *oauth2.Token, prList []*PRDetails) ([]*PRDetails, error)
 	GetReviews(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*internGitlab.MergeRequest, error)
 	GetYourAssignedPrs(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*internGitlab.MergeRequest, error)
