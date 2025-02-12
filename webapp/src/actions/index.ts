@@ -9,11 +9,11 @@ import {AnyAction, Dispatch} from 'redux';
 
 import Client from '../client';
 import ActionTypes from '../action_types';
-import {APIError, ConnectedData, GitlabUsersData, LHSData, ShowRhsPluginActionData, SubscriptionData} from 'src/types';
-import {Item} from 'src/types/gitlab_items';
-import {GlobalState} from 'src/types/store';
-import {getPluginState} from 'src/selectors';
-import {CommentBody, IssueBody} from 'src/types/gitlab_types';
+import {APIError, ConnectedData, GitlabUsersData, LHSData, ShowRhsPluginActionData, SubscriptionData} from '../types';
+import {Item} from '../types/gitlab_items';
+import {GlobalState} from '../types/store';
+import {getPluginState} from '../selectors';
+import {CommentBody, IssueBody} from '../types/gitlab_types';
 
 export function getConnected(reminder = false) {
     return async (dispatch: Dispatch<AnyAction>) => {
