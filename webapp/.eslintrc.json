@@ -14,7 +14,8 @@
   "plugins": [
     "@typescript-eslint",
     "react",
-    "import"
+    "import",
+    "header"
   ],
   "env": {
     "browser": true,
@@ -35,7 +36,9 @@
   "settings": {
     "import/resolver": {
       "typescript": {
-        "project": ["tsconfig.json"]
+        "project": [
+          "tsconfig.json"
+        ]
       }
     },
     "react": {
@@ -135,6 +138,12 @@
     ],
     "global-require": 2,
     "guard-for-in": 2,
+    "header/header": [
+      2,
+      "line",
+      " Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.\n See LICENSE.txt for license information.",
+      2
+    ],
     "id-blacklist": 0,
     "import/no-unresolved": 2,
     "import/order": [

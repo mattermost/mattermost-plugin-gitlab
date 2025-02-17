@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 import {getUsernameAndProjectName} from './gitlab_issue_selector';
 
 describe('getUsernameAndProjectName should work as expected', () => {

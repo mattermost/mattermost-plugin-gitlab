@@ -187,6 +187,15 @@ func (m *MockGitlab) GetProject(arg0 context.Context, arg1 *gitlab.UserInfo, arg
 	return ret0, ret1
 }
 
+// GetGroup mocks base method.
+func (m *MockGitlab) GetGroup(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token, arg3, arg4 string) (*gitlab0.Group, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGroup", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(*gitlab0.Group)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
 // GetProject indicates an expected call of GetProject.
 func (mr *MockGitlabMockRecorder) GetProject(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()

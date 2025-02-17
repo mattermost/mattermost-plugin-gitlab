@@ -1,3 +1,6 @@
+// Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
+// See LICENSE.txt for license information.
+
 package gitlab
 
 import (
@@ -318,6 +321,26 @@ func (g *gitlab) GetProject(ctx context.Context, user *UserInfo, token *oauth2.T
 	}
 
 	return project, nil
+}
+
+func (g *gitlab) GetGroup(ctx context.Context, user *UserInfo, token *oauth2.Token, group, subgroup string) (*internGitlab.Group, error) {
+	client, err := g.GitlabConnect(*token)
+	if err != nil {
+		return nil, err
+	}
+
+	groupData, resp, err := client.Groups.GetGroup(group,
+		&internGitlab.GetGroupOptions{},
+		internGitlab.WithContext(ctx),
+	)
+	if respErr := checkResponse(resp); respErr != nil {
+		return nil, respErr
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return groupData, nil
 }
 
 func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.Token) (*LHSContent, error) {
