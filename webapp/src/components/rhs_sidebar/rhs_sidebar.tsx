@@ -2,7 +2,6 @@
 // See LICENSE.txt for license information.
 
 import React from 'react';
-import PropTypes from 'prop-types';
 
 import {isDesktopApp} from 'src/utils/user_agent';
 import {connectUsingBrowserMessage} from 'src/constants';
@@ -12,8 +11,8 @@ import NoSubscriptionsSVG from './no_subscriptions';
 
 import './rhs_sidebar.css';
 
-const NotSignedIn = (props) => {
-    const openConnectWindow = (e) => {
+const NotSignedIn = (props: NotSignedInProps) => {
+    const openConnectWindow = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
         e.preventDefault();
         if (isDesktopApp()) {
             props.sendEphemeralPost(connectUsingBrowserMessage);
@@ -41,12 +40,12 @@ const NotSignedIn = (props) => {
     );
 };
 
-NotSignedIn.propTypes = {
-    pluginServerRoute: PropTypes.string.isRequired,
-    sendEphemeralPost: PropTypes.func.isRequired,
-};
+interface NotSignedInProps {
+    pluginServerRoute: string;
+    sendEphemeralPost: (message: string) => void;
+}
 
-const UserHeader = (props) => (
+const UserHeader = (props: UserHeaderProps) => (
     <div className='gitlab-rhs-UserHeaderContainer'>
         <img
             className='gitlab-rhs-UserProfile Avatar Avatar-lg'
@@ -65,13 +64,13 @@ const UserHeader = (props) => (
     </div>
 );
 
-UserHeader.propTypes = {
-    currentUserId: PropTypes.string.isRequired,
-    username: PropTypes.string.isRequired,
-    gitlabURL: PropTypes.string.isRequired,
-};
+interface UserHeaderProps {
+    currentUserId: string;
+    username?: string;
+    gitlabURL?: string;
+}
 
-const Subscription = (props) => {
+const Subscription = (props: SubscriptionProps) => {
     return (
         <div className='gitlab-rhs-SubscriptionContainer'>
             <div>
@@ -94,13 +93,13 @@ const Subscription = (props) => {
     );
 };
 
-Subscription.propTypes = {
-    url: PropTypes.string.isRequired,
-    name: PropTypes.string.isRequired,
-    features: PropTypes.arrayOf(PropTypes.string).isRequired,
-};
+interface SubscriptionProps {
+    url: string;
+    name: string;
+    features: string[];
+}
 
-const Subscriptions = (props) => {
+const Subscriptions = (props: SubscriptionsProps) => {
     if (props.subscriptions.length === 0) {
         return (
             <div className='gitlab-rhs-NoSubscriptionsContainer'>
@@ -128,34 +127,37 @@ const Subscriptions = (props) => {
     );
 };
 
-Subscriptions.propTypes = {
-    currentChannelId: PropTypes.string,
-    subscriptions: PropTypes.arrayOf(PropTypes.shape({
-        repository_name: PropTypes.string.isRequired,
-        repository_url: PropTypes.string.isRequired,
-    })).isRequired,
-};
+interface SubscriptionsProps {
+    currentChannelId?: string;
+    subscriptions: Subscription[];
+}
 
-export default class RHSSidebar extends React.PureComponent {
-    static propTypes = {
-        currentUserId: PropTypes.string.isRequired,
-        connected: PropTypes.bool.isRequired,
-        username: PropTypes.string,
-        gitlabURL: PropTypes.string,
-        currentChannelId: PropTypes.string,
-        currentChannelSubscriptions: PropTypes.arrayOf(PropTypes.shape({
-            repository_name: PropTypes.string,
-            repository_url: PropTypes.string,
-            features: PropTypes.arrayOf(PropTypes.string),
-        })).isRequired,
-        pluginServerRoute: PropTypes.string.isRequired,
-        actions: PropTypes.shape({
-            getChannelSubscriptions: PropTypes.func.isRequired,
-            sendEphemeralPost: PropTypes.func.isRequired,
-        }).isRequired,
-    };
+interface Subscription {
+    repository_name: string;
+    repository_url: string;
+    features: string[];
+}
 
-    constructor(props) {
+interface RhsSidebarProps {
+    currentUserId: string,
+    connected: boolean,
+    username?: string,
+    gitlabURL?: string,
+    currentChannelId?: string,
+    currentChannelSubscriptions: Partial<Subscription>[],
+    pluginServerRoute: string,
+    actions: {
+        getChannelSubscriptions: (channel: string) => Promise<any>,
+        sendEphemeralPost: (message: string) => void;
+    }
+}
+
+interface RhsSidebarState {
+    refreshing: boolean;
+}
+
+export default class RHSSidebar extends React.PureComponent<RhsSidebarProps, RhsSidebarState> {
+    constructor(props: RhsSidebarProps) {
         super(props);
 
         this.state = {
@@ -169,13 +171,13 @@ export default class RHSSidebar extends React.PureComponent {
         }
     }
 
-    componentDidUpdate(prevProps) {
+    componentDidUpdate(prevProps: RhsSidebarProps) {
         if ((this.props.connected && !prevProps.connected) || (this.props.currentChannelId !== prevProps.currentChannelId)) {
             this.getData();
         }
     }
 
-    getData = async (e) => {
+    getData = async (e?: React.MouseEvent<HTMLAnchorElement, MouseEvent>): Promise<void> => {
         if (this.state.refreshing) {
             return;
         }
@@ -185,7 +187,7 @@ export default class RHSSidebar extends React.PureComponent {
         }
 
         this.setState({refreshing: true});
-        await this.props.actions.getChannelSubscriptions(this.props.currentChannelId);
+        await this.props.actions.getChannelSubscriptions(this.props.currentChannelId as string);
         this.setState({refreshing: false});
     }
 
@@ -208,7 +210,7 @@ export default class RHSSidebar extends React.PureComponent {
                 />
                 <Subscriptions
                     currentChannelId={this.props.currentChannelId}
-                    subscriptions={this.props.currentChannelSubscriptions}
+                    subscriptions={this.props.currentChannelSubscriptions as Subscription[]}
                 />
             </div>
         );
