@@ -21,7 +21,7 @@
         "core-js": "3.6.5",
         "csstype": "3.0.3",
         "debounce-promise": "3.1.2",
-        "jest": "29.5.0",
+        "jest": "29.7.0",
         "mattermost-redux": "5.33.1",
         "prop-types": "15.7.2",
         "react": "16.14.0",
