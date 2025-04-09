@@ -828,9 +828,7 @@ func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*
 
 	if err != nil {
 		if strings.Contains(err.Error(), "\"error\":\"invalid_grant\"") {
-			fmt.Println("\n\n\n\n\n")
 			p.client.Log.Error("Token revoked while refreshing the token", "userInfo", userInfo, "error", err.Error())
-			fmt.Println("\n\n\n\n\n")
 			p.handleRevokedToken(userInfo)
 		}
 		return nil, errors.Wrap(err, "unable to get the new refreshed token")
@@ -906,9 +904,7 @@ func (p *Plugin) useGitlabClient(info *gitlab.UserInfo, toRun func(info *gitlab.
 	err = toRun(info, token)
 
 	if err != nil && strings.Contains(err.Error(), invalidTokenError) {
-		fmt.Println("\n\n\n\n\n")
 		p.client.Log.Error("Token revoked while using Gitlab client", "userInfo", info, "error", err.Error())
-		fmt.Println("\n\n\n\n\n")
 		p.handleRevokedToken(info)
 	}
 
