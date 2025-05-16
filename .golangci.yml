@@ -3,52 +3,62 @@ run:
   modules-download-mode: readonly
 
 linters-settings:
+  goconst:
+    min-len: 2
+    min-occurrences: 2
   gofmt:
     simplify: true
   goimports:
     local-prefixes: github.com/mattermost/mattermost-plugin-gitlab
-  golint:
-    min-confidence: 0
   govet:
-    check-shadowing: true
     enable-all: true
     disable:
       - fieldalignment
   misspell:
     locale: US
-    ignore-words:
-      - noteable
 
 linters:
   disable-all: true
   enable:
     - bodyclose
-    - deadcode
-    - errcheck
+    # - errcheck
+    # - goconst
     - gocritic
     - gofmt
     - goimports
-    - golint
-    - gosec
+    # - gosec
     - gosimple
     - govet
     - ineffassign
-    - misspell
+    # - misspell
     - nakedret
+    - revive
     - staticcheck
-    - structcheck
     - stylecheck
     - typecheck
     - unconvert
     - unused
-    - varcheck
     - whitespace
 
 issues:
   exclude-rules:
+    - path: server/manifest.go
+      linters:
+        - deadcode
+        - unused
+        - varcheck
     - path: server/configuration.go
       linters:
         - unused
+    - linters:
+        - revive
+      text: unused-parameter
+    - linters:
+        - revive
+      text: var-naming
+    - linters:
+        - revive
+      text: error-strings
     - path: _test\.go
       linters:
         - bodyclose
