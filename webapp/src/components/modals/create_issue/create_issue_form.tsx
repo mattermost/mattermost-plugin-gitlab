@@ -4,7 +4,7 @@
 import React, {useEffect, useMemo, useState} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 import {Modal} from 'react-bootstrap';
-import {Theme} from 'mattermost-redux/types/preferences';
+import {Theme} from 'mattermost-redux/selectors/entities/preferences';
 
 import {getErrorMessage} from 'src/utils/user_utils';
 import GitlabLabelSelector from 'src/components/gitlab_label_selector';

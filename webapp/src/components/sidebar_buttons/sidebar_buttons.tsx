@@ -8,7 +8,7 @@ import {makeStyleFromTheme, changeOpacity} from 'mattermost-redux/utils/theme_ut
 
 import {Placement} from 'react-bootstrap/esm/Overlay';
 
-import {Theme} from 'mattermost-redux/types/preferences';
+import {Theme} from 'mattermost-redux/selectors/entities/preferences';
 
 import {RHSStates, connectUsingBrowserMessage} from '../../constants';
 import {isDesktopApp} from '../../utils/user_agent';
