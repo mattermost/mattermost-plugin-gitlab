@@ -904,7 +904,7 @@ func (p *Plugin) useGitlabClient(info *gitlab.UserInfo, toRun func(info *gitlab.
 	err = toRun(info, token)
 
 	if err != nil && strings.Contains(err.Error(), invalidTokenError) {
-		p.client.Log.Error("Token revoked while using Gitlab client", "userInfo", info, "error", err.Error())
+		p.client.Log.Warn("Revoking OAuth token while using Gitlab client as it is invalid", "userInfo", info, "error", err.Error())
 		p.handleRevokedToken(info)
 	}
 
