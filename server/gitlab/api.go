@@ -664,37 +664,70 @@ func (g *gitlab) GetYourProjects(ctx context.Context, user *UserInfo, token *oau
 	}
 
 	var projects []*internGitlab.Project
+
 	if g.gitlabGroup == "" {
-		result, resp, err := client.Projects.ListProjects(
-			&internGitlab.ListProjectsOptions{
-				Owned: model.NewPointer(true),
+		// ─── “No Group” branch: list all projects you belong to
+		opts := &internGitlab.ListProjectsOptions{
+			Membership:        model.NewPointer(true),
+			WithIssuesEnabled: model.NewPointer(true),
+			MinAccessLevel:    model.NewPointer(internGitlab.AccessLevelValue(10)), // Guest = 10
+			ListOptions: internGitlab.ListOptions{
+				Page:    1,
+				PerPage: 100,
 			},
-			internGitlab.WithContext(ctx),
-		)
-		if respErr := checkResponse(resp); respErr != nil {
-			return nil, respErr
-		}
-		if err != nil {
-			return nil, err
 		}
 
-		projects = append(projects, result...)
+		var allProjects []*internGitlab.Project
+		for {
+			pageProjects, resp, err := client.Projects.ListProjects(opts, internGitlab.WithContext(ctx))
+			if respErr := checkResponse(resp); respErr != nil {
+				return nil, respErr
+			}
+			if err != nil {
+				return nil, err
+			}
+
+			allProjects = append(allProjects, pageProjects...)
+			if resp.CurrentPage >= resp.TotalPages {
+				break
+			}
+			opts.ListOptions.Page = resp.NextPage
+		}
+
+		projects = append(projects, allProjects...)
 	} else {
-		result, resp, err := client.Groups.ListGroupProjects(
-			g.gitlabGroup,
-			&internGitlab.ListGroupProjectsOptions{
-				Owned: model.NewPointer(true),
+		// ─── “With Group” branch: list all projects in that group you have access to
+		opts := &internGitlab.ListGroupProjectsOptions{
+			WithIssuesEnabled: model.NewPointer(true),
+			MinAccessLevel:    model.NewPointer(internGitlab.AccessLevelValue(10)), // Guest = 10
+			ListOptions: internGitlab.ListOptions{
+				Page:    1,
+				PerPage: 100,
 			},
-			internGitlab.WithContext(ctx),
-		)
-		if respErr := checkResponse(resp); respErr != nil {
-			return nil, respErr
-		}
-		if err != nil {
-			return nil, err
 		}
 
-		projects = append(projects, result...)
+		var allGroupProjects []*internGitlab.Project
+		for {
+			pageProjects, resp, err := client.Groups.ListGroupProjects(
+				g.gitlabGroup,
+				opts,
+				internGitlab.WithContext(ctx),
+			)
+			if respErr := checkResponse(resp); respErr != nil {
+				return nil, respErr
+			}
+			if err != nil {
+				return nil, err
+			}
+
+			allGroupProjects = append(allGroupProjects, pageProjects...)
+			if resp.CurrentPage >= resp.TotalPages {
+				break
+			}
+			opts.ListOptions.Page = resp.NextPage
+		}
+
+		projects = append(projects, allGroupProjects...)
 	}
 
 	return projects, nil
