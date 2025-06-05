@@ -661,8 +661,7 @@ func (g *gitlab) GetToDoList(ctx context.Context, user *UserInfo, client *intern
 }
 
 // Helper function for pagination
-func paginateAll(ctx context.Context, perPage int, projects []*internGitlab.Project, listFn listPageFunc,
-	) ([]*internGitlab.Project, error) {
+func paginateAll(ctx context.Context, perPage int, projects []*internGitlab.Project, listFn listPageFunc,) ([]*internGitlab.Project, error) {
 	page := 1
 
 	for {
@@ -676,6 +675,8 @@ func paginateAll(ctx context.Context, perPage int, projects []*internGitlab.Proj
 
 		projects = append(projects, pageProjects...)
 
+		// resp.CurrentPage >= resp.TotalPages: we have fetched the last page
+        // resp.NextPage == 0: GitLab did not set a next-page number (no further pages)
 		if resp.CurrentPage >= resp.TotalPages || resp.NextPage == 0 {
 			break
 		}
@@ -716,7 +717,6 @@ func (g *gitlab) GetYourProjects(ctx context.Context, user *UserInfo, token *oau
 		}
 
 		return paginateAll(ctx, perPage, projects, listFn)
-
 	}
 	// ─── “With Group” branch: list all projects in that group you have access to
 	opts := &internGitlab.ListGroupProjectsOptions{
