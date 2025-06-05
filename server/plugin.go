@@ -828,7 +828,7 @@ func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*
 
 	if err != nil {
 		if strings.Contains(err.Error(), "\"error\":\"invalid_grant\"") {
-			p.client.Log.Error("Token revoked while refreshing the token", "userInfo", userInfo, "error", err.Error())
+			p.client.Log.Error("Failed to refresh OAuth token as the existing one has an invalid grant. Revoking the token.", "userInfo", userInfo, "error", err.Error())
 			p.handleRevokedToken(userInfo)
 		}
 		return nil, errors.Wrap(err, "unable to get the new refreshed token")
