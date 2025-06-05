@@ -661,7 +661,7 @@ func (g *gitlab) GetToDoList(ctx context.Context, user *UserInfo, client *intern
 }
 
 // Helper function for pagination
-func paginateAll(ctx context.Context, perPage int, projects []*internGitlab.Project, listFn listPageFunc,) ([]*internGitlab.Project, error) {
+func paginateAll(ctx context.Context, perPage int, projects []*internGitlab.Project, listFn listPageFunc) ([]*internGitlab.Project, error) {
 	page := 1
 
 	for {
