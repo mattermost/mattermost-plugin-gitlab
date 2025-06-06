@@ -67,6 +67,9 @@ type LHSContent struct {
 	Todos          []*internGitlab.Todo         `json:"todos"`
 }
 
+// Pagination helper for both ListProjects and ListGroupProjects
+type listPageFunc func(page, perPage int) ([]*internGitlab.Project, *internGitlab.Response, error)
+
 // NewGroupHook creates a webhook associated with a GitLab group
 func (g *gitlab) NewGroupHook(ctx context.Context, user *UserInfo, token *oauth2.Token, groupName string, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
 	client, err := g.GitlabConnect(*token)
@@ -657,47 +660,85 @@ func (g *gitlab) GetToDoList(ctx context.Context, user *UserInfo, client *intern
 	return notifications, nil
 }
 
+// Helper function for pagination
+func paginateAll(ctx context.Context, perPage int, projects []*internGitlab.Project, listFn listPageFunc) ([]*internGitlab.Project, error) {
+	page := 1
+
+	for {
+		pageProjects, resp, err := listFn(page, perPage)
+		if err != nil {
+			if respErr := checkResponse(resp); respErr != nil {
+				return nil, respErr
+			}
+			return nil, err
+		}
+
+		projects = append(projects, pageProjects...)
+
+		// resp.CurrentPage >= resp.TotalPages: we have fetched the last page
+		// resp.NextPage == 0: GitLab did not set a next-page number (no further pages)
+		if resp.CurrentPage >= resp.TotalPages || resp.NextPage == 0 {
+			break
+		}
+
+		page = resp.NextPage
+	}
+
+	return projects, nil
+}
+
 func (g *gitlab) GetYourProjects(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.Project, error) {
 	client, err := g.GitlabConnect(*token)
 	if err != nil {
 		return nil, err
 	}
 
+	const guestLevel = internGitlab.AccessLevelValue(10) // Guest = 10
+	const perPage = 100
+
 	var projects []*internGitlab.Project
+
 	if g.gitlabGroup == "" {
-		result, resp, err := client.Projects.ListProjects(
-			&internGitlab.ListProjectsOptions{
-				Owned: model.NewPointer(true),
+		// ─── “No Group” branch: list all projects you belong to
+		opts := &internGitlab.ListProjectsOptions{
+			Membership:        model.NewPointer(true),
+			WithIssuesEnabled: model.NewPointer(true),
+			MinAccessLevel:    model.NewPointer(guestLevel),
+			ListOptions: internGitlab.ListOptions{
+				Page:    1,
+				PerPage: perPage,
 			},
-			internGitlab.WithContext(ctx),
-		)
-		if respErr := checkResponse(resp); respErr != nil {
-			return nil, respErr
-		}
-		if err != nil {
-			return nil, err
 		}
 
-		projects = append(projects, result...)
-	} else {
-		result, resp, err := client.Groups.ListGroupProjects(
-			g.gitlabGroup,
-			&internGitlab.ListGroupProjectsOptions{
-				Owned: model.NewPointer(true),
-			},
-			internGitlab.WithContext(ctx),
-		)
-		if respErr := checkResponse(resp); respErr != nil {
-			return nil, respErr
-		}
-		if err != nil {
-			return nil, err
+		listFn := func(page, perPage int) ([]*internGitlab.Project, *internGitlab.Response, error) {
+			opts.ListOptions.Page = page
+			opts.ListOptions.PerPage = perPage
+			return client.Projects.ListProjects(opts, internGitlab.WithContext(ctx))
 		}
 
-		projects = append(projects, result...)
+		return paginateAll(ctx, perPage, projects, listFn)
+	}
+	// ─── “With Group” branch: list all projects in that group you have access to
+	opts := &internGitlab.ListGroupProjectsOptions{
+		WithIssuesEnabled: model.NewPointer(true),
+		MinAccessLevel:    model.NewPointer(guestLevel),
+		ListOptions: internGitlab.ListOptions{
+			Page:    1,
+			PerPage: perPage,
+		},
 	}
 
-	return projects, nil
+	listFn := func(page, perPage int) ([]*internGitlab.Project, *internGitlab.Response, error) {
+		opts.ListOptions.Page = page
+		opts.ListOptions.PerPage = perPage
+		return client.Groups.ListGroupProjects(
+			g.gitlabGroup,
+			opts,
+			internGitlab.WithContext(ctx),
+		)
+	}
+
+	return paginateAll(ctx, perPage, projects, listFn)
 }
 
 func (g *gitlab) GetLabels(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.Label, error) {
