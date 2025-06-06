@@ -674,7 +674,7 @@ func paginateAll(ctx context.Context, perPage int, projects []*internGitlab.Proj
 		}
 
 		projects = append(projects, pageProjects...)
-		
+
 		// resp.CurrentPage >= resp.TotalPages: we have fetched the last page
 		// resp.NextPage == 0: GitLab did not set a next-page number (no further pages)
 		if resp.CurrentPage >= resp.TotalPages || resp.NextPage == 0 {
