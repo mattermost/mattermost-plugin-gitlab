@@ -201,4 +201,3 @@ func sanitizeDescription(description string) string {
 	policy.SkipElementsContent("details")
 	return strings.TrimSpace(policy.Sanitize(description))
 }
-s

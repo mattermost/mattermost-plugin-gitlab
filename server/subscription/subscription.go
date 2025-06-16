@@ -43,12 +43,6 @@ func New(channelID, creatorID, features, repository string) (*Subscription, erro
 			}
 		}
 	}
-	//if strings.Contains(features, "label:") && len(strings.Split(features, "\"")) < 3 {
-	//	return nil, errors.New("the label is formatted incorrectly")
-	//}
-	//if strings.Contains(features, "label:") && len(strings.Split(features, "\"")) > 3 {
-	//	return nil, errors.New("can't add multiple labels on the same subscription")
-	//}
 
 	badFeatures := make([]string, 0)
 	for _, feature := range strings.Split(features, ",") {
