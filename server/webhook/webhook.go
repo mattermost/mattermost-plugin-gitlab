@@ -140,6 +140,16 @@ func containsLabel(a []*gitlab.EventLabel, labelName string) bool {
 	return false
 }
 
+// containsAnyLabel returns true if *any* of the names in labelNames is present.
+func containsAnyLabel(a []*gitlab.EventLabel, labelNames []string) bool {
+	for _, name := range labelNames {
+		if containsLabel(a, name) {
+			return true
+		}
+	}
+	return false
+}
+
 func labelToString(a []*gitlab.EventLabel) string {
 	names := make([]string, len(a))
 	for index, l := range a {
@@ -191,3 +201,4 @@ func sanitizeDescription(description string) string {
 	policy.SkipElementsContent("details")
 	return strings.TrimSpace(policy.Sanitize(description))
 }
+s

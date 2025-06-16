@@ -21,7 +21,7 @@ func TestNewSubscriptionSimple(t *testing.T) {
 	assert.False(t, s.Pipeline())
 	assert.False(t, s.Tag())
 	assert.False(t, s.PullReviews())
-	assert.Equal(t, "", s.Label())
+	assert.Equal(t, []string{}, s.Labels())
 }
 
 func TestNewSubscriptionMultiple(t *testing.T) {
@@ -36,7 +36,7 @@ func TestNewSubscriptionMultiple(t *testing.T) {
 	assert.False(t, s.Pipeline())
 	assert.False(t, s.Tag())
 	assert.False(t, s.PullReviews())
-	assert.Equal(t, "", s.Label())
+	assert.Equal(t, []string{}, s.Labels())
 }
 
 func TestNewSubscriptionAll(t *testing.T) {
@@ -51,7 +51,7 @@ func TestNewSubscriptionAll(t *testing.T) {
 	assert.True(t, s.Pipeline())
 	assert.True(t, s.Tag())
 	assert.True(t, s.PullReviews())
-	assert.Equal(t, "", s.Label())
+	assert.Equal(t, []string{}, s.Labels())
 }
 
 func TestNewSubscriptionUnknown(t *testing.T) {
@@ -65,7 +65,7 @@ func TestNewSubscriptionLabel(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, s.Merges())
 	assert.True(t, s.Issues())
-	assert.Equal(t, "test", s.Label())
+	assert.Equal(t, []string{"test"}, s.Labels())
 }
 
 func TestNewSubscriptionBadFormated(t *testing.T) {
@@ -76,6 +76,6 @@ func TestNewSubscriptionBadFormated(t *testing.T) {
 
 func TestNewSubscriptionMultipleLabel(t *testing.T) {
 	s, err := New("", "", `label:"1",label:"2"`, "")
-	assert.Nil(t, s)
-	assert.Equal(t, err.Error(), "can't add multiple labels on the same subscription")
+	assert.Nil(t, err)
+	assert.ElementsMatch(t, []string{"1", "2"}, s.Labels())
 }
