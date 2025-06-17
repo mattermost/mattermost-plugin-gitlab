@@ -4,6 +4,7 @@
 package subscription
 
 import (
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,7 +22,9 @@ func TestNewSubscriptionSimple(t *testing.T) {
 	assert.False(t, s.Pipeline())
 	assert.False(t, s.Tag())
 	assert.False(t, s.PullReviews())
-	assert.Equal(t, []string{}, s.Labels())
+	labels, err := s.Labels()
+	require.NoError(t, err)
+	assert.Equal(t, []string{}, labels)
 }
 
 func TestNewSubscriptionMultiple(t *testing.T) {
@@ -36,7 +39,9 @@ func TestNewSubscriptionMultiple(t *testing.T) {
 	assert.False(t, s.Pipeline())
 	assert.False(t, s.Tag())
 	assert.False(t, s.PullReviews())
-	assert.Equal(t, []string{}, s.Labels())
+	labels, err := s.Labels()
+	require.NoError(t, err)
+	assert.Equal(t, []string{}, labels)
 }
 
 func TestNewSubscriptionAll(t *testing.T) {
@@ -51,7 +56,9 @@ func TestNewSubscriptionAll(t *testing.T) {
 	assert.True(t, s.Pipeline())
 	assert.True(t, s.Tag())
 	assert.True(t, s.PullReviews())
-	assert.Equal(t, []string{}, s.Labels())
+	labels, err := s.Labels()
+	require.NoError(t, err)
+	assert.Equal(t, []string{}, labels)
 }
 
 func TestNewSubscriptionUnknown(t *testing.T) {
@@ -65,7 +72,9 @@ func TestNewSubscriptionLabel(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, s.Merges())
 	assert.True(t, s.Issues())
-	assert.Equal(t, []string{"test"}, s.Labels())
+	labels, err := s.Labels()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"test"}, labels)
 }
 
 func TestNewSubscriptionBadFormated(t *testing.T) {
@@ -77,5 +86,7 @@ func TestNewSubscriptionBadFormated(t *testing.T) {
 func TestNewSubscriptionMultipleLabel(t *testing.T) {
 	s, err := New("", "", `label:"1",label:"2"`, "")
 	assert.Nil(t, err)
-	assert.ElementsMatch(t, []string{"1", "2"}, s.Labels())
+	labels, err := s.Labels()
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"1", "2"}, nil, labels)
 }

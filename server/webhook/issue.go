@@ -105,7 +105,11 @@ func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEve
 				continue
 			}
 
-			if len(sub.Labels()) > 0 && !containsAnyLabel(event.Labels, sub.Labels()) {
+			labels, err := sub.Labels()
+			if err != nil {
+				return nil, err
+			}
+			if len(labels) > 0 && !containsAnyLabel(event.Labels, labels) {
 				continue
 			}
 

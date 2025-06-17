@@ -38,13 +38,16 @@ func extractLabels(features string) ([]string, error) {
 	labels := []string{}
 	for _, t := range strings.Split(features, ",") {
 		t = strings.TrimSpace(t)
-		if strings.HasPrefix(t, "label:") {
-			raw := strings.TrimPrefix(t, "label:")
+		raw, found := strings.CutPrefix(t, "label:")
+		if found {
+			raw := strings.TrimSpace(raw)
 			unquoted, err := strconv.Unquote(raw)
 			if err != nil {
 				return nil, errors.New(`each label must be wrapped in quotes, e.g. label:"bug"`)
 			}
-			labels = append(labels, unquoted)
+			if unquoted != "" {
+				labels = append(labels, unquoted)
+			}
 		}
 	}
 	return labels, nil
@@ -117,10 +120,10 @@ func (s *Subscription) PullReviews() bool {
 	return strings.Contains(s.Features, "pull_reviews")
 }
 
-func (s *Subscription) Labels() []string {
-	// Re‑use the same extraction logic; if it somehow fails, return an empty slice
-	labels, _ := extractLabels(s.Features)
-	return labels
+func (s *Subscription) Labels() ([]string, error) {
+	// Re‑use the same extraction logic that is used to validate label format
+	labels, err := extractLabels(s.Features)
+	return labels, err
 }
 
 func (s *Subscription) Releases() bool {

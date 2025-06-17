@@ -141,8 +141,8 @@ func containsLabel(a []*gitlab.EventLabel, labelName string) bool {
 }
 
 // containsAnyLabel returns true if *any* of the names in labelNames is present.
-func containsAnyLabel(a []*gitlab.EventLabel, labelNames []string) bool {
-	for _, name := range labelNames {
+func containsAnyLabel(a []*gitlab.EventLabel, labels []string) bool {
+	for _, name := range labels {
 		if containsLabel(a, name) {
 			return true
 		}

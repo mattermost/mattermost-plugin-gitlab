@@ -72,7 +72,11 @@ func (w *webhook) handleChannelIssueComment(ctx context.Context, event *gitlab.I
 			continue
 		}
 
-		if len(sub.Labels()) > 0 && !containsAnyLabel(event.Issue.Labels, sub.Labels()) {
+		labels, err := sub.Labels()
+		if err != nil {
+			return nil, err
+		}
+		if len(labels) > 0 && !containsAnyLabel(event.Issue.Labels, labels) {
 			continue
 		}
 
