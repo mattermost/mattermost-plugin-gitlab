@@ -83,10 +83,31 @@ func TestNewSubscriptionBadFormated(t *testing.T) {
 	assert.Equal(t, err.Error(), `each label must be wrapped in quotes, e.g. label:"bug"`)
 }
 
-func TestNewSubscriptionMultipleLabel(t *testing.T) {
-	s, err := New("", "", `label:"1",label:"2"`, "")
+func TestNewSubscriptionMultipleLabelWithIssues(t *testing.T) {
+	s, err := New("", "", `issues,label:"1",label:"2"`, "")
 	assert.Nil(t, err)
 	labels, err := s.Labels()
 	require.NoError(t, err)
-	assert.ElementsMatch(t, []string{"1", "2"}, nil, labels)
+	assert.ElementsMatch(t, []string{"1", "2"}, labels)
+}
+
+func TestNewSubscriptionMultipleLabelWithMerges(t *testing.T) {
+	s, err := New("", "", `merges,label:"1",label:"2"`, "")
+	assert.Nil(t, err)
+	labels, err := s.Labels()
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"1", "2"}, labels)
+}
+
+func TestNewSubscriptionMultipleLabelWithoutIssuesMerges(t *testing.T) {
+	_, err := New("", "", `label:"1",label:"2"`, "")
+	assert.Equal(t, err.Error(), "label filters require 'merges' or 'issues' feature")
+}
+
+func TestNewSubscriptionMultipleLabelWithSpaces(t *testing.T) {
+	s, err := New("", "", `merges,label: "1",label: "2"`, "")
+	assert.Nil(t, err)
+	labels, err := s.Labels()
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"1", "2"}, labels)
 }

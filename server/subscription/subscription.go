@@ -57,8 +57,12 @@ func New(channelID, creatorID, features, repository string) (*Subscription, erro
 
 	// Validate label format ― allow any number of label tokens, but each must be quoted
 	if strings.Contains(features, "label:") {
-		if _, err := extractLabels(features); err != nil {
+		labels, err := extractLabels(features)
+		if err != nil {
 			return nil, err
+		}
+		if len(labels) > 0 && !(strings.Contains(features, "merges") || strings.Contains(features, "issues")) {
+			return nil, errors.New("label filters require 'merges' or 'issues' feature")
 		}
 	}
 
