@@ -40,7 +40,7 @@ func extractLabels(features string) ([]string, error) {
 		t = strings.TrimSpace(t)
 		raw, found := strings.CutPrefix(t, "label:")
 		if found {
-			raw := strings.TrimSpace(raw)
+			raw = strings.TrimSpace(raw)
 			unquoted, err := strconv.Unquote(raw)
 			if err != nil {
 				return nil, errors.New(`each label must be wrapped in quotes, e.g. label:"bug"`)
@@ -54,14 +54,13 @@ func extractLabels(features string) ([]string, error) {
 }
 
 func New(channelID, creatorID, features, repository string) (*Subscription, error) {
-
 	// Validate label format ― allow any number of label tokens, but each must be quoted
 	if strings.Contains(features, "label:") {
 		labels, err := extractLabels(features)
 		if err != nil {
 			return nil, err
 		}
-		if len(labels) > 0 && !(strings.Contains(features, "merges") || strings.Contains(features, "issues")) {
+		if len(labels) > 0 && !strings.Contains(features, "merges") && !strings.Contains(features, "issues") {
 			return nil, errors.New("label filters require 'merges' or 'issues' feature")
 		}
 	}
