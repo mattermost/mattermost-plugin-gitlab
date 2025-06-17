@@ -71,7 +71,7 @@ func TestNewSubscriptionLabel(t *testing.T) {
 func TestNewSubscriptionBadFormated(t *testing.T) {
 	s, err := New("", "", `label:"`, "")
 	assert.Nil(t, s)
-	assert.Equal(t, err.Error(), "the label is formatted incorrectly")
+	assert.Equal(t, err.Error(), `each label must be wrapped in quotes, e.g. label:"bug"`)
 }
 
 func TestNewSubscriptionMultipleLabel(t *testing.T) {

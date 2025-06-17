@@ -4,6 +4,7 @@
 package subscription
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -32,15 +33,29 @@ type Subscription struct {
 	Repository string
 }
 
+// extractLabels robust parsing method for quoted label tokens
+func extractLabels(features string) ([]string, error) {
+	labels := []string{}
+	for _, t := range strings.Split(features, ",") {
+		t = strings.TrimSpace(t)
+		if strings.HasPrefix(t, "label:") {
+			raw := strings.TrimPrefix(t, "label:")
+			unquoted, err := strconv.Unquote(raw)
+			if err != nil {
+				return nil, errors.New(`each label must be wrapped in quotes, e.g. label:"bug"`)
+			}
+			labels = append(labels, unquoted)
+		}
+	}
+	return labels, nil
+}
+
 func New(channelID, creatorID, features, repository string) (*Subscription, error) {
 
 	// Validate label format ― allow any number of label tokens, but each must be quoted
 	if strings.Contains(features, "label:") {
-		for _, t := range strings.Split(features, ",") {
-			t = strings.TrimSpace(t)
-			if strings.HasPrefix(t, "label:") && len(strings.Split(t, "\"")) < 3 {
-				return nil, errors.New("each label must be wrapped in quotes, e.g. label:\"bug\"")
-			}
+		if _, err := extractLabels(features); err != nil {
+			return nil, err
 		}
 	}
 
@@ -103,16 +118,8 @@ func (s *Subscription) PullReviews() bool {
 }
 
 func (s *Subscription) Labels() []string {
-	labels := []string{}
-	for _, f := range strings.Split(s.Features, ",") {
-		f = strings.TrimSpace(f)
-		if strings.HasPrefix(f, "label:") {
-			parts := strings.Split(f, "\"")
-			if len(parts) >= 2 {
-				labels = append(labels, parts[1])
-			}
-		}
-	}
+	// Re‑use the same extraction logic; if it somehow fails, return an empty slice
+	labels, _ := extractLabels(s.Features)
 	return labels
 }
 
