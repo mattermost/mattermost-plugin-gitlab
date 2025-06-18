@@ -4,6 +4,7 @@
 package subscription
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -32,12 +33,47 @@ type Subscription struct {
 	Repository string
 }
 
-func New(channelID, creatorID, features, repository string) (*Subscription, error) {
-	if strings.Contains(features, "label:") && len(strings.Split(features, "\"")) < 3 {
-		return nil, errors.New("the label is formatted incorrectly")
+// extractLabels scans a comma-separated feature string for any tokens
+// prefixed with `label:`, unquotes them, and returns all non-empty labels.
+// Valid input examples include:
+//
+//	label:"bug"
+//	label: "test label"
+//	label: " with leading space"
+//	label: "with trailing space "
+//
+// Valid input pattern
+//
+//	label:"bug",label: " with spaces ",label: "test label"
+func extractLabels(features string) ([]string, error) {
+	labels := []string{}
+	for _, t := range strings.Split(features, ",") {
+		t = strings.TrimSpace(t)
+		raw, found := strings.CutPrefix(t, "label:")
+		if found {
+			raw = strings.TrimSpace(raw)
+			unquoted, err := strconv.Unquote(raw)
+			if err != nil {
+				return nil, errors.New(`each label must be wrapped in quotes, e.g. label:"bug"`)
+			}
+			if unquoted != "" {
+				labels = append(labels, unquoted)
+			}
+		}
 	}
-	if strings.Contains(features, "label:") && len(strings.Split(features, "\"")) > 3 {
-		return nil, errors.New("can't add multiple labels on the same subscription")
+	return labels, nil
+}
+
+func New(channelID, creatorID, features, repository string) (*Subscription, error) {
+	// Validate label format ― allow any number of label tokens, but each must be quoted
+	if strings.Contains(features, "label:") {
+		labels, err := extractLabels(features)
+		if err != nil {
+			return nil, err
+		}
+		if len(labels) > 0 && !strings.Contains(features, "merges") && !strings.Contains(features, "issues") {
+			return nil, errors.New("label filters require 'merges' or 'issues' feature")
+		}
 	}
 
 	badFeatures := make([]string, 0)
@@ -46,6 +82,7 @@ func New(channelID, creatorID, features, repository string) (*Subscription, erro
 			badFeatures = append(badFeatures, feature)
 		}
 	}
+
 	if len(badFeatures) > 0 {
 		return nil, errors.Errorf("unknown features %s", strings.Join(badFeatures, ","))
 	}
@@ -97,11 +134,9 @@ func (s *Subscription) PullReviews() bool {
 	return strings.Contains(s.Features, "pull_reviews")
 }
 
-func (s *Subscription) Label() string {
-	if !strings.Contains(s.Features, "label:") {
-		return ""
-	}
-	return strings.Split(s.Features, "\"")[1]
+func (s *Subscription) Labels() ([]string, error) {
+	labels, err := extractLabels(s.Features)
+	return labels, err
 }
 
 func (s *Subscription) Releases() bool {

@@ -140,6 +140,15 @@ func containsLabel(a []*gitlab.EventLabel, labelName string) bool {
 	return false
 }
 
+func containsAnyLabel(a []*gitlab.EventLabel, labels []string) bool {
+	for _, name := range labels {
+		if containsLabel(a, name) {
+			return true
+		}
+	}
+	return false
+}
+
 func labelToString(a []*gitlab.EventLabel) string {
 	names := make([]string, len(a))
 	for index, l := range a {

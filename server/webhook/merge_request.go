@@ -166,7 +166,11 @@ func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.M
 				continue
 			}
 
-			if sub.Label() != "" && !containsLabel(event.Labels, sub.Label()) {
+			labels, err := sub.Labels()
+			if err != nil {
+				return nil, err
+			}
+			if len(labels) > 0 && !containsAnyLabel(event.Labels, labels) {
 				continue
 			}
 
