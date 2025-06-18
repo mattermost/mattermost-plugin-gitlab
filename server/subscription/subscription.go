@@ -33,7 +33,18 @@ type Subscription struct {
 	Repository string
 }
 
-// extractLabels robust parsing method for quoted label tokens
+// extractLabels scans a comma-separated feature string for any tokens
+// prefixed with `label:`, unquotes them, and returns all non-empty labels.
+// Valid input examples include:
+//
+//	label:"bug"
+//	label: "test label"
+//	label: " with leading space"
+//	label: "with trailing space "
+//
+// Valid input pattern
+//
+//	label:"bug",label: " with spaces ",label: "test label"
 func extractLabels(features string) ([]string, error) {
 	labels := []string{}
 	for _, t := range strings.Split(features, ",") {
@@ -124,7 +135,6 @@ func (s *Subscription) PullReviews() bool {
 }
 
 func (s *Subscription) Labels() ([]string, error) {
-	// Re‑use the same extraction logic that is used to validate label format
 	labels, err := extractLabels(s.Features)
 	return labels, err
 }

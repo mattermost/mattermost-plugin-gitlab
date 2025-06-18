@@ -140,7 +140,6 @@ func containsLabel(a []*gitlab.EventLabel, labelName string) bool {
 	return false
 }
 
-// containsAnyLabel returns true if *any* of the names in labelNames is present.
 func containsAnyLabel(a []*gitlab.EventLabel, labels []string) bool {
 	for _, name := range labels {
 		if containsLabel(a, name) {
