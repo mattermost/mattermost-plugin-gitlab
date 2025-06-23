@@ -40,10 +40,10 @@ type HandleWebhook struct {
 }
 
 type Webhook interface {
-	HandleIssue(ctx context.Context, event *gitlab.IssueEvent, eventType gitlab.EventType) ([]*HandleWebhook, error)
-	HandleMergeRequest(ctx context.Context, event *gitlab.MergeEvent) ([]*HandleWebhook, error)
-	HandleIssueComment(ctx context.Context, event *gitlab.IssueCommentEvent) ([]*HandleWebhook, error)
-	HandleMergeRequestComment(ctx context.Context, event *gitlab.MergeCommentEvent) ([]*HandleWebhook, error)
+	HandleIssue(ctx context.Context, event *gitlab.IssueEvent, eventType gitlab.EventType) ([]*HandleWebhook, []string, error)
+	HandleMergeRequest(ctx context.Context, event *gitlab.MergeEvent) ([]*HandleWebhook, []string, error)
+	HandleIssueComment(ctx context.Context, event *gitlab.IssueCommentEvent) ([]*HandleWebhook, []string, error)
+	HandleMergeRequestComment(ctx context.Context, event *gitlab.MergeCommentEvent) ([]*HandleWebhook, []string, error)
 	HandlePipeline(ctx context.Context, event *gitlab.PipelineEvent) ([]*HandleWebhook, error)
 	HandleTag(ctx context.Context, event *gitlab.TagEvent) ([]*HandleWebhook, error)
 	HandlePush(ctx context.Context, event *gitlab.PushEvent) ([]*HandleWebhook, error)
@@ -138,6 +138,27 @@ func containsLabel(a []*gitlab.EventLabel, labelName string) bool {
 		}
 	}
 	return false
+}
+
+func containsAnyLabel(a []*gitlab.EventLabel, labels []string) bool {
+	for _, name := range labels {
+		if containsLabel(a, name) {
+			return true
+		}
+	}
+	return false
+}
+
+func anyEventLabelInSubs(sub *subscription.Subscription, eventLabels []*gitlab.EventLabel) (bool, string) {
+	labels, err := sub.Labels()
+	var warning string
+	if err != nil {
+		warning = err.Error()
+		return false, warning
+	} else if len(labels) > 0 && !containsAnyLabel(eventLabels, labels) {
+		return false, warning
+	}
+	return true, warning
 }
 
 func labelToString(a []*gitlab.EventLabel) string {
