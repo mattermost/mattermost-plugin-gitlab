@@ -10,16 +10,17 @@ import (
 	"github.com/xanzy/go-gitlab"
 )
 
-func (w *webhook) HandleIssueComment(ctx context.Context, event *gitlab.IssueCommentEvent) ([]*HandleWebhook, error) {
+func (w *webhook) HandleIssueComment(ctx context.Context, event *gitlab.IssueCommentEvent) ([]*HandleWebhook, []string, error) {
+	var warnings []string
 	handlers, err := w.handleDMIssueComment(event)
 	if err != nil {
-		return nil, err
+		return nil, warnings, err
 	}
-	handlers2, err := w.handleChannelIssueComment(ctx, event)
+	handlers2, warnings, err := w.handleChannelIssueComment(ctx, event)
 	if err != nil {
-		return nil, err
+		return nil, warnings, err
 	}
-	return cleanWebhookHandlers(append(handlers, handlers2...)), nil
+	return cleanWebhookHandlers(append(handlers, handlers2...)), warnings, nil
 }
 
 func (w *webhook) handleDMIssueComment(event *gitlab.IssueCommentEvent) ([]*HandleWebhook, error) {
@@ -53,7 +54,7 @@ func (w *webhook) handleDMIssueComment(event *gitlab.IssueCommentEvent) ([]*Hand
 	return handlers, nil
 }
 
-func (w *webhook) handleChannelIssueComment(ctx context.Context, event *gitlab.IssueCommentEvent) ([]*HandleWebhook, error) {
+func (w *webhook) handleChannelIssueComment(ctx context.Context, event *gitlab.IssueCommentEvent) ([]*HandleWebhook, []string, error) {
 	senderGitlabUsername := event.User.Username
 	repo := event.Project
 	body := event.ObjectAttributes.Description
@@ -67,16 +68,17 @@ func (w *webhook) handleChannelIssueComment(ctx context.Context, event *gitlab.I
 		ctx, namespace, project,
 		repo.Visibility == gitlab.PublicVisibility,
 	)
+	var warnings []string
 	for _, sub := range subs {
 		if !sub.IssueComments() {
 			continue
 		}
 
-		labels, err := sub.Labels()
-		if err != nil {
-			return nil, err
-		}
-		if len(labels) > 0 && !containsAnyLabel(event.Issue.Labels, labels) {
+		ok, warning := anyEventLabelInSubs(sub, event.Issue.Labels)
+		if !ok {
+			if len(warning) > 0 {
+				warnings = append(warnings, warning)
+			}
 			continue
 		}
 
@@ -90,19 +92,20 @@ func (w *webhook) handleChannelIssueComment(ctx context.Context, event *gitlab.I
 			ToChannels: toChannels,
 		})
 	}
-	return res, nil
+	return res, warnings, nil
 }
 
-func (w *webhook) HandleMergeRequestComment(ctx context.Context, event *gitlab.MergeCommentEvent) ([]*HandleWebhook, error) {
+func (w *webhook) HandleMergeRequestComment(ctx context.Context, event *gitlab.MergeCommentEvent) ([]*HandleWebhook, []string, error) {
+	var warnings []string
 	handlers, err := w.handleDMMergeRequestComment(event)
 	if err != nil {
-		return nil, err
+		return nil, warnings, err
 	}
-	handlers2, err := w.handleChannelMergeRequestComment(ctx, event)
+	handlers2, warnings, err := w.handleChannelMergeRequestComment(ctx, event)
 	if err != nil {
-		return nil, err
+		return nil, warnings, err
 	}
-	return cleanWebhookHandlers(append(handlers, handlers2...)), nil
+	return cleanWebhookHandlers(append(handlers, handlers2...)), warnings, nil
 }
 
 func (w *webhook) handleDMMergeRequestComment(event *gitlab.MergeCommentEvent) ([]*HandleWebhook, error) {
@@ -127,14 +130,14 @@ func (w *webhook) handleDMMergeRequestComment(event *gitlab.MergeCommentEvent) (
 	return handlers, nil
 }
 
-func (w *webhook) handleChannelMergeRequestComment(ctx context.Context, event *gitlab.MergeCommentEvent) ([]*HandleWebhook, error) {
+func (w *webhook) handleChannelMergeRequestComment(ctx context.Context, event *gitlab.MergeCommentEvent) ([]*HandleWebhook, []string, error) {
 	senderGitlabUsername := event.User.Username
 	repo := event.Project
 	body := event.ObjectAttributes.Description
 	res := []*HandleWebhook{}
 
 	message := fmt.Sprintf("[%s](%s) New comment by [%s](%s) on [#%v %s](%s):\n\n%s", repo.PathWithNamespace, repo.WebURL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.MergeRequest.IID, event.MergeRequest.Title, event.ObjectAttributes.URL, body)
-
+	var warnings []string
 	toChannels := make([]string, 0)
 	namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
@@ -143,6 +146,14 @@ func (w *webhook) handleChannelMergeRequestComment(ctx context.Context, event *g
 	)
 	for _, sub := range subs {
 		if !sub.MergeRequestComments() {
+			continue
+		}
+
+		ok, warning := anyEventLabelInSubs(sub, event.MergeRequest.Labels)
+		if !ok {
+			if len(warning) > 0 {
+				warnings = append(warnings, warning)
+			}
 			continue
 		}
 
@@ -156,5 +167,5 @@ func (w *webhook) handleChannelMergeRequestComment(ctx context.Context, event *g
 			ToChannels: toChannels,
 		})
 	}
-	return res, nil
+	return res, warnings, nil
 }

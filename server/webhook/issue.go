@@ -10,16 +10,17 @@ import (
 	"github.com/xanzy/go-gitlab"
 )
 
-func (w *webhook) HandleIssue(ctx context.Context, event *gitlab.IssueEvent, eventType gitlab.EventType) ([]*HandleWebhook, error) {
+func (w *webhook) HandleIssue(ctx context.Context, event *gitlab.IssueEvent, eventType gitlab.EventType) ([]*HandleWebhook, []string, error) {
+	var warnings []string
 	handlers, err := w.handleDMIssue(event)
 	if err != nil {
-		return nil, err
+		return nil, warnings, err
 	}
-	handlers2, err := w.handleChannelIssue(ctx, event, eventType)
+	handlers2, warnings, err := w.handleChannelIssue(ctx, event, eventType)
 	if err != nil {
-		return nil, err
+		return nil, warnings, err
 	}
-	return cleanWebhookHandlers(append(handlers, handlers2...)), nil
+	return cleanWebhookHandlers(append(handlers, handlers2...)), warnings, nil
 }
 
 func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, error) {
@@ -68,13 +69,14 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 	return []*HandleWebhook{}, nil
 }
 
-func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEvent, eventType gitlab.EventType) ([]*HandleWebhook, error) {
+func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEvent, eventType gitlab.EventType) ([]*HandleWebhook, []string, error) {
 	issue := event.ObjectAttributes
 	senderGitlabUsername := event.User.Username
 	repo := event.Project
 	res := []*HandleWebhook{}
 
 	message := ""
+	var warnings []string
 
 	switch issue.Action {
 	case actionOpen:
@@ -107,9 +109,8 @@ func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEve
 
 			labels, err := sub.Labels()
 			if err != nil {
-				return nil, err
-			}
-			if len(labels) > 0 && !containsAnyLabel(event.Labels, labels) {
+				warnings = append(warnings, err.Error())
+			} else if len(labels) > 0 && !containsAnyLabel(event.Labels, labels) {
 				continue
 			}
 
@@ -125,5 +126,5 @@ func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEve
 			})
 		}
 	}
-	return res, nil
+	return res, warnings, nil
 }
