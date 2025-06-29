@@ -2,7 +2,7 @@
 // See LICENSE.txt for license information.
 
 import {useEffect, useRef} from 'react';
-import {Post} from 'mattermost-redux/types/posts';
+import {Post} from '@mattermost/types/posts';
 
 // Extension of https://stackoverflow.com/a/53446665
 export const usePrevious = (value: string | Post | null | undefined) => {
