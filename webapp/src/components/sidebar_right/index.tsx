@@ -5,7 +5,7 @@ import React, {useEffect} from 'react';
 import Scrollbars from 'react-custom-scrollbars';
 import {useDispatch, useSelector} from 'react-redux';
 
-import {Theme} from 'mattermost-redux/types/preferences';
+import {Theme} from 'mattermost-redux/selectors/entities/preferences';
 import {makeStyleFromTheme, changeOpacity} from 'mattermost-redux/utils/theme_utils';
 
 import {getYourPrDetails, getReviewDetails} from 'src/actions';
