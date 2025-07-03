@@ -1,7 +1,7 @@
 // Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import {GenericAction} from 'mattermost-redux/types/actions';
+import {Action} from 'redux';
 
 import {Dispatch} from 'react';
 
@@ -38,7 +38,7 @@ export type pluginReduxStoreKey = 'plugins-com.github.manland.mattermost-plugin-
 
 export type AttributeType = Assignee | Milestone | Label;
 
-export type FetchIssueAttributeOptionsForProject<T> = (projectID?: number) => (dispatch: Dispatch<GenericAction>) => Promise<{
+export type FetchIssueAttributeOptionsForProject<T> = (projectID?: number) => (dispatch: Dispatch<Action>) => Promise<{
     error?: ErrorType;
     data?: T[];
 }>
