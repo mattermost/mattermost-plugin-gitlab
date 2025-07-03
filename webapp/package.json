@@ -86,6 +86,6 @@
         "webpack-cli": "5.1.4"
     },
     "overrides": {
-        "@mattermost/types": "10.8.0"
+        "@mattermost/types": "$@mattermost/types"
     }
 }
