@@ -913,3 +913,9 @@ func (p *Plugin) useGitlabClient(info *gitlab.UserInfo, toRun func(info *gitlab.
 
 	return err
 }
+
+func (p *Plugin) logWarnings(warnings []string) {
+	for _, warning := range warnings {
+		p.client.Log.Warn(warning)
+	}
+}

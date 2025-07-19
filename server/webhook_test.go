@@ -21,25 +21,25 @@ import (
 
 type fakeWebhookHandler struct{}
 
-func (fakeWebhookHandler) HandleIssue(_ context.Context, _ *gitlabLib.IssueEvent, _ gitlabLib.EventType) ([]*webhook.HandleWebhook, error) {
+func (fakeWebhookHandler) HandleIssue(_ context.Context, _ *gitlabLib.IssueEvent, _ gitlabLib.EventType) ([]*webhook.HandleWebhook, []string, error) {
 	return []*webhook.HandleWebhook{{
 		Message: "hello",
 		From:    "test",
 		ToUsers: []string{"unknown"},
-	}}, nil
+	}}, []string{}, nil
 }
-func (fakeWebhookHandler) HandleMergeRequest(_ context.Context, _ *gitlabLib.MergeEvent) ([]*webhook.HandleWebhook, error) {
+func (fakeWebhookHandler) HandleMergeRequest(_ context.Context, _ *gitlabLib.MergeEvent) ([]*webhook.HandleWebhook, []string, error) {
 	return []*webhook.HandleWebhook{{
 		Message:    "hello",
 		From:       "test",
 		ToChannels: []string{"town-square"},
-	}}, nil
+	}}, []string{}, nil
 }
-func (fakeWebhookHandler) HandleIssueComment(_ context.Context, _ *gitlabLib.IssueCommentEvent) ([]*webhook.HandleWebhook, error) {
-	return nil, nil
+func (fakeWebhookHandler) HandleIssueComment(_ context.Context, _ *gitlabLib.IssueCommentEvent) ([]*webhook.HandleWebhook, []string, error) {
+	return nil, []string{}, nil
 }
-func (fakeWebhookHandler) HandleMergeRequestComment(_ context.Context, _ *gitlabLib.MergeCommentEvent) ([]*webhook.HandleWebhook, error) {
-	return nil, nil
+func (fakeWebhookHandler) HandleMergeRequestComment(_ context.Context, _ *gitlabLib.MergeCommentEvent) ([]*webhook.HandleWebhook, []string, error) {
+	return nil, []string{}, nil
 }
 func (fakeWebhookHandler) HandlePipeline(_ context.Context, _ *gitlabLib.PipelineEvent) ([]*webhook.HandleWebhook, error) {
 	return nil, nil

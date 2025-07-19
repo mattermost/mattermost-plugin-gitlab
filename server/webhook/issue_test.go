@@ -20,6 +20,7 @@ type testDataIssueStr struct {
 	fixture         string
 	gitlabRetreiver *fakeWebhook
 	res             []*HandleWebhook
+	warnings        []string
 }
 
 var testDataIssue = []testDataIssueStr{
@@ -40,6 +41,7 @@ var testDataIssue = []testDataIssueStr{
 			ToChannels: []string{"channel1"},
 			From:       "root",
 		}},
+		warnings: []string{},
 	}, {
 		testTitle: "root open issue with manland assignee and display in channel1 (subgroup)",
 		fixture:   strings.ReplaceAll(NewIssue, "manland/webhook", "manland/subgroup/webhook"),
@@ -57,6 +59,7 @@ var testDataIssue = []testDataIssueStr{
 			ToChannels: []string{"channel1"},
 			From:       "root",
 		}},
+		warnings: []string{},
 	}, {
 		testTitle: "root open unassigned issue and display in channel",
 		fixture:   NewIssueUnassigned,
@@ -69,6 +72,7 @@ var testDataIssue = []testDataIssueStr{
 			ToChannels: []string{"channel1"},
 			From:       "root",
 		}}, // no DM message because root don't received its own action and manland is not assigned
+		warnings: []string{},
 	}, {
 		testTitle: "manland close issue of root",
 		fixture:   CloseIssue,
@@ -86,6 +90,7 @@ var testDataIssue = []testDataIssueStr{
 			ToChannels: []string{"channel1"},
 			From:       "manland",
 		}},
+		warnings: []string{},
 	}, {
 		testTitle: "manland reopen issue of root and display in channel",
 		fixture:   ReopenIssue,
@@ -102,6 +107,25 @@ var testDataIssue = []testDataIssueStr{
 			ToChannels: []string{"channel1"},
 			From:       "manland",
 		}},
+		warnings: []string{},
+	},
+	{
+		testTitle: "manland reopen issue of root and display in channel with subscription label warning",
+		fixture:   ReopenIssue,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "issues,label:1", Repository: "manland/webhook"},
+		}),
+		res: []*HandleWebhook{{
+			Message: "[manland](http://my.gitlab.com/manland) reopened your issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
+			ToUsers: []string{"root"},
+			From:    "manland",
+		}, {
+			Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Issue [test new issue](http://localhost:3000/manland/webhook/issues/1) reopened by [manland](http://my.gitlab.com/manland)",
+			ToUsers:    []string{},
+			ToChannels: []string{"channel1"},
+			From:       "manland",
+		}},
+		warnings: []string{"each label must be wrapped in quotes, e.g. label:\"bug\""},
 	},
 }
 
@@ -114,9 +138,10 @@ func TestIssueWebhook(t *testing.T) {
 			if err := json.Unmarshal([]byte(test.fixture), issueEvent); err != nil {
 				assert.Fail(t, "can't unmarshal fixture")
 			}
-			res, err := w.HandleIssue(context.Background(), issueEvent, gitlab.EventTypeIssue)
+			res, warnings, err := w.HandleIssue(context.Background(), issueEvent, gitlab.EventTypeIssue)
 			assert.Empty(t, err)
 			assert.Equal(t, len(test.res), len(res))
+			assert.ElementsMatch(t, test.warnings, warnings)
 			for index := range res {
 				assert.Equal(t, test.res[index].Message, res[index].Message)
 				assert.EqualValues(t, test.res[index].ToUsers, res[index].ToUsers)
