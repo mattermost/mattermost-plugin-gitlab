@@ -4,7 +4,7 @@
 import React, {useEffect, useState} from 'react';
 import ReactSelect, {SingleValue} from 'react-select';
 import AsyncSelect from 'react-select/async';
-import {Theme} from 'mattermost-redux/types/preferences';
+import {Theme} from 'mattermost-redux/selectors/entities/preferences';
 
 import {getStyleForReactSelect} from 'src/utils/styles';
 

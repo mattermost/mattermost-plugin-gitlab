@@ -4,11 +4,11 @@
 import {connect} from 'react-redux';
 import {AnyAction, Dispatch, bindActionCreators} from 'redux';
 
-import {UserProfile} from 'mattermost-redux/types/users';
-
-import {getGitlabUser} from '../../actions';
+import {UserProfile} from '@mattermost/types/users';
 
 import {GlobalState, pluginStateKey} from 'src/types/store';
+
+import {getGitlabUser} from '../../actions';
 
 import UserAttribute from './user_attribute';
 
