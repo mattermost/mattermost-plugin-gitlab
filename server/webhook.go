@@ -91,6 +91,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	var pathWithNamespace string
 	var handlers []*webhook.HandleWebhook
 	var errHandler error
+	var warnings []string
 	fromUser := ""
 
 	switch event := event.(type) {
@@ -98,22 +99,22 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
-		handlers, errHandler = p.WebhookHandler.HandleMergeRequest(ctx, event)
+		handlers, warnings, errHandler = p.WebhookHandler.HandleMergeRequest(ctx, event)
 	case *gitlabLib.IssueEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
-		handlers, errHandler = p.WebhookHandler.HandleIssue(ctx, event, eventType)
+		handlers, warnings, errHandler = p.WebhookHandler.HandleIssue(ctx, event, eventType)
 	case *gitlabLib.IssueCommentEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
-		handlers, errHandler = p.WebhookHandler.HandleIssueComment(ctx, event)
+		handlers, warnings, errHandler = p.WebhookHandler.HandleIssueComment(ctx, event)
 	case *gitlabLib.MergeCommentEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
-		handlers, errHandler = p.WebhookHandler.HandleMergeRequestComment(ctx, event)
+		handlers, warnings, errHandler = p.WebhookHandler.HandleMergeRequestComment(ctx, event)
 	case *gitlabLib.PushEvent:
 		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
 		pathWithNamespace = event.Project.PathWithNamespace
@@ -163,6 +164,10 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	if errHandler != nil {
 		p.client.Log.Debug("Error when handling webhook event", "err", errHandler)
 		return
+	}
+
+	if warnings != nil {
+		p.logWarnings(warnings)
 	}
 
 	alreadySentRefresh := make(map[string]bool)
