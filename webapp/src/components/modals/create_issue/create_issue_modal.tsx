@@ -4,7 +4,7 @@
 import React, {useState} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
 import {Modal} from 'react-bootstrap';
-import {Theme} from 'mattermost-redux/types/preferences';
+import {Theme} from 'mattermost-redux/selectors/entities/preferences';
 
 import {isCreateIssueModalVisible} from 'src/selectors';
 import {closeCreateIssueModal} from 'src/actions';
