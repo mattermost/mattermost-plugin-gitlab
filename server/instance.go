@@ -147,7 +147,7 @@ func (p *Plugin) deleteInstanceDetails(instanceName string) error {
 
 	_, err = p.client.KV.Set(instanceConfigMapKey, instanceConfigMap)
 	if err != nil {
-		return fmt.Errorf("failed to save updated config map")
+		return fmt.Errorf("failed to save updated config map: %w", err)
 	}
 
 	instanceNameList = removeStringFromSlice(instanceNameList, instanceName)
