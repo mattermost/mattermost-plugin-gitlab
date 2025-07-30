@@ -38,7 +38,7 @@ func (p *Plugin) saveInstanceDetails(instanceName string, config *InstanceConfig
 	var instanceConfigMap map[string]InstanceConfiguration
 	err = p.client.KV.Get(instanceConfigMapKey, &instanceConfigMap)
 	if err != nil {
-		return fmt.Errorf("failed to load instance config map")
+		return fmt.Errorf("failed to load instance config map: %w", err)
 	}
 
 	setAsDefaultInstance := false
