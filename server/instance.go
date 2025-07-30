@@ -90,7 +90,7 @@ func (p *Plugin) getInstanceDetails(instanceName string) (*InstanceConfiguration
 	var instanceNameList []string
 	err := p.client.KV.Get(instanceConfigNameListKey, &instanceNameList)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load instance name list")
+		return nil, fmt.Errorf("failed to load instance name list: %w", err)
 	}
 
 	if !containsString(instanceNameList, instanceName) {
