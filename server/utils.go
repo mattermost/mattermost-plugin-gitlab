@@ -309,6 +309,7 @@ func containsString(slice []string, value string) bool {
 	return false
 }
 
+//nolint:unused
 func removeStringFromSlice(list []string, target string) []string {
 	var updated []string
 	for _, item := range list {

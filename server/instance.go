@@ -108,6 +108,7 @@ func (p *Plugin) getInstanceDetails(instanceName string) (*InstanceConfiguration
 	return &config, nil
 }
 
+//nolint:unused
 func (p *Plugin) deleteInstanceDetails(instanceName string) error {
 	var instanceNameList []string
 	err := p.client.KV.Get(instanceConfigNameListKey, &instanceNameList)
