@@ -36,7 +36,7 @@ type FlowManager struct {
 	getGitlabClient                 func() gitlab.Gitlab
 	useGitlabClient                 func(info *gitlab.UserInfo, toRun func(info *gitlab.UserInfo, token *oauth2.Token) error) error
 	createHook                      func(ctx context.Context, gitlabClient gitlab.Gitlab, info *gitlab.UserInfo, group, project string, hookOptions *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error)
-	saveInstanceDetails             func(userID, instanceName string, config *InstanceConfiguration) error
+	saveInstanceDetails             func(instanceName string, config *InstanceConfiguration) error
 	setDefaultInstance              func(instanceName string) error
 
 	tracker Tracker
@@ -578,7 +578,7 @@ func (fm *FlowManager) submitOAuthConfig(f *flow.Flow, submitted map[string]inte
 		GitlabOAuthClientSecret: clientSecret,
 	}
 
-	err := fm.saveInstanceDetails(f.UserID, instanceName, instanceConfiguration)
+	err := fm.saveInstanceDetails(instanceName, instanceConfiguration)
 	if err != nil {
 		return "", nil, nil, errors.Wrap(err, "failed to save instance configuration")
 	}

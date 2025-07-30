@@ -20,7 +20,7 @@ const (
 	instanceConfigNameListKey = "Gitlab_Instance_Configuration_Name_List"
 )
 
-func (p *Plugin) saveInstanceDetails(userID, instanceName string, config *InstanceConfiguration) error {
+func (p *Plugin) saveInstanceDetails(instanceName string, config *InstanceConfiguration) error {
 	if config == nil {
 		return errors.New("config is nil")
 	}
