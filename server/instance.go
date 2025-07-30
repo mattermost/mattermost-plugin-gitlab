@@ -116,7 +116,7 @@ func (p *Plugin) deleteInstanceDetails(instanceName string) error {
 	var instanceNameList []string
 	err := p.client.KV.Get(instanceConfigNameListKey, &instanceNameList)
 	if err != nil {
-		return fmt.Errorf("failed to load instance name list")
+		return fmt.Errorf("failed to load instance name list: %w", err)
 	}
 
 	found := false
