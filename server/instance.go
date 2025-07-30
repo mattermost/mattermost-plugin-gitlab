@@ -52,7 +52,7 @@ func (p *Plugin) saveInstanceDetails(instanceName string, config *InstanceConfig
 
 	_, err = p.client.KV.Set(instanceConfigMapKey, instanceConfigMap)
 	if err != nil {
-		return fmt.Errorf("failed to save updated instance config map")
+		return fmt.Errorf("failed to save updated instance config map: %w", err)
 	}
 
 	instanceNameList = append(instanceNameList, instanceName)
