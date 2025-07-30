@@ -154,7 +154,7 @@ func (p *Plugin) deleteInstanceDetails(instanceName string) error {
 
 	_, err = p.client.KV.Set(instanceConfigNameListKey, instanceNameList)
 	if err != nil {
-		return fmt.Errorf("failed to save updated instance name list")
+		return fmt.Errorf("failed to save updated instance name list: %w", err)
 	}
 
 	return nil
