@@ -58,7 +58,7 @@ func (p *Plugin) saveInstanceDetails(instanceName string, config *InstanceConfig
 	instanceNameList = append(instanceNameList, instanceName)
 	_, err = p.client.KV.Set(instanceConfigNameListKey, instanceNameList)
 	if err != nil {
-		return fmt.Errorf("failed to save updated instance name list")
+		return fmt.Errorf("failed to save updated instance name list: %w", err)
 	}
 
 	if setAsDefaultInstance {
