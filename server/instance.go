@@ -133,7 +133,7 @@ func (p *Plugin) deleteInstanceDetails(instanceName string) error {
 	var instanceConfigMap map[string]InstanceConfiguration
 	err = p.client.KV.Get(instanceConfigMapKey, &instanceConfigMap)
 	if err != nil {
-		return fmt.Errorf("failed to load instance config map")
+		return fmt.Errorf("failed to load instance config map: %w", err)
 	}
 	if instanceConfigMap == nil {
 		return fmt.Errorf("instance config map is empty")
