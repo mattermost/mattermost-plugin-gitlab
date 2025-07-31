@@ -20,7 +20,7 @@ const (
 	instanceConfigNameListKey = "Gitlab_Instance_Configuration_Name_List"
 )
 
-func (p *Plugin) saveInstanceDetails(instanceName string, config *InstanceConfiguration) error {
+func (p *Plugin) installInstance(instanceName string, config *InstanceConfiguration) error {
 	if config == nil {
 		return errors.New("config is nil")
 	}
@@ -68,24 +68,6 @@ func (p *Plugin) saveInstanceDetails(instanceName string, config *InstanceConfig
 	return nil
 }
 
-func (p *Plugin) setDefaultInstance(instanceName string) error {
-	config := p.getConfiguration()
-	config.DefaultInstanceName = instanceName
-	config.sanitize()
-
-	configMap, err := config.ToMap()
-	if err != nil {
-		return err
-	}
-
-	err = p.client.Configuration.SavePluginConfig(configMap)
-	if err != nil {
-		return errors.Wrap(err, "failed to save default instance in plugin config")
-	}
-
-	return nil
-}
-
 func (p *Plugin) getInstanceDetails(instanceName string) (*InstanceConfiguration, error) {
 	var instanceNameList []string
 	err := p.client.KV.Get(instanceConfigNameListKey, &instanceNameList)
@@ -111,11 +93,23 @@ func (p *Plugin) getInstanceDetails(instanceName string) (*InstanceConfiguration
 	return &config, nil
 }
 
-//nolint:unused
-func (p *Plugin) deleteInstanceDetails(instanceName string) error {
-	var instanceNameList []string
-	err := p.client.KV.Get(instanceConfigNameListKey, &instanceNameList)
+func (p *Plugin) getDetailedInstanceList() (map[string]InstanceConfiguration, error) {
+	var instanceConfigMap map[string]InstanceConfiguration
+	err := p.client.KV.Get(instanceConfigMapKey, &instanceConfigMap)
 	if err != nil {
+		return nil, fmt.Errorf("failed to load instance config map")
+	}
+
+	if instanceConfigMap == nil {
+		return nil, fmt.Errorf("instance config map is empty")
+	}
+
+	return instanceConfigMap, nil
+}
+
+func (p *Plugin) uninstallInstance(instanceName string) error {
+	var instanceNameList []string
+	if err := p.client.KV.Get(instanceConfigNameListKey, &instanceNameList); err != nil {
 		return fmt.Errorf("failed to load instance name list")
 	}
 
@@ -131,8 +125,7 @@ func (p *Plugin) deleteInstanceDetails(instanceName string) error {
 	}
 
 	var instanceConfigMap map[string]InstanceConfiguration
-	err = p.client.KV.Get(instanceConfigMapKey, &instanceConfigMap)
-	if err != nil {
+	if err := p.client.KV.Get(instanceConfigMapKey, &instanceConfigMap); err != nil {
 		return fmt.Errorf("failed to load instance config map")
 	}
 	if instanceConfigMap == nil {
@@ -145,17 +138,44 @@ func (p *Plugin) deleteInstanceDetails(instanceName string) error {
 
 	delete(instanceConfigMap, instanceName)
 
-	_, err = p.client.KV.Set(instanceConfigMapKey, instanceConfigMap)
-	if err != nil {
+	if _, err := p.client.KV.Set(instanceConfigMapKey, instanceConfigMap); err != nil {
 		return fmt.Errorf("failed to save updated config map")
 	}
 
 	instanceNameList = removeStringFromSlice(instanceNameList, instanceName)
 
-	_, err = p.client.KV.Set(instanceConfigNameListKey, instanceNameList)
-	if err != nil {
+	if _, err := p.client.KV.Set(instanceConfigNameListKey, instanceNameList); err != nil {
 		return fmt.Errorf("failed to save updated instance name list")
 	}
 
 	return nil
+}
+
+func (p *Plugin) setDefaultInstance(instanceName string) error {
+	config := p.getConfiguration()
+	config.DefaultInstanceName = instanceName
+	config.sanitize()
+
+	configMap, err := config.ToMap()
+	if err != nil {
+		return err
+	}
+
+	err = p.client.Configuration.SavePluginConfig(configMap)
+	if err != nil {
+		return errors.Wrap(err, "failed to save default instance in plugin config")
+	}
+
+	return nil
+}
+
+func (p *Plugin) getInstanceList() []string {
+	var instanceList []string
+	err := p.client.KV.Get(instanceConfigNameListKey, &instanceList)
+	if err != nil {
+		p.client.Log.Error("Failed to load instance name list", "error", err)
+		return nil
+	}
+
+	return instanceList
 }

@@ -58,7 +58,7 @@ func (p *Plugin) NewFlowManager() (*FlowManager, error) {
 		getGitlabClient:                 p.getGitlabClient,
 		useGitlabClient:                 p.useGitlabClient,
 		createHook:                      p.createHook,
-		saveInstanceDetails:             p.saveInstanceDetails,
+		saveInstanceDetails:             p.installInstance,
 		setDefaultInstance:              p.setDefaultInstance,
 
 		tracker: p,
@@ -572,6 +572,10 @@ func (fm *FlowManager) submitOAuthConfig(f *flow.Flow, submitted map[string]inte
 		return "", nil, errorList, nil
 	}
 
+	fmt.Println("\n\n\n\n\n\n")
+	fmt.Println("fm.gitlabURL ", fm.gitlabURL)
+	fmt.Println("\n\n\n\n\n\n")
+
 	instanceConfiguration := &InstanceConfiguration{
 		GitlabURL:               fm.gitlabURL,
 		GitlabOAuthClientID:     clientID,
@@ -873,6 +877,9 @@ func (fm *FlowManager) submitChannelAnnouncement(f *flow.Flow, submitted map[str
 }
 
 func (fm *FlowManager) setGitlabURL(gitlabURL string) error {
+	fm.gitlabURL = gitlabURL
+
+	// will need to gitlab url from plugin config
 	config := fm.getConfiguration()
 	config.GitlabURL = gitlabURL
 
