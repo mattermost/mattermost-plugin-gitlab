@@ -1057,7 +1057,7 @@ func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteD
 	disconnect := model.NewAutocompleteData("disconnect", "", "disconnect your GitLab account")
 	gitlab.AddCommand(disconnect)
 
-	instance := model.NewAutocompleteData("instance", "[command]", "Install, Uninstall, List, Set Default Instance")
+	instance := model.NewAutocompleteData("instance", "[command]", "Install, Uninstall, List, Set-Default Instance")
 
 	install := model.NewAutocompleteData("install", "", "Install GitLab Instance")
 	instance.AddCommand(install)
