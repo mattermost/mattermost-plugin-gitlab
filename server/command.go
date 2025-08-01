@@ -1051,7 +1051,7 @@ func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteD
 	gitlab := model.NewAutocompleteData("gitlab", "[command]", "Available commands: connect, disconnect, todo, subscriptions, me, pipelines, settings, webhook, instance, setup, help, about")
 
 	connect := model.NewAutocompleteData("connect", "", "Connect your GitLab account")
-	connect.AddStaticListArgument("Instance Name", true, getConnectInstanceAutoCompleteData(p.getInstanceList()))
+	connect.AddStaticListArgument("Instance Name", true, p.getConnectInstanceAutoCompleteData())
 	gitlab.AddCommand(connect)
 
 	disconnect := model.NewAutocompleteData("disconnect", "", "disconnect your GitLab account")
@@ -1063,11 +1063,11 @@ func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteD
 	instance.AddCommand(install)
 
 	setDefault := model.NewAutocompleteData("set-default", "", "Set the default GitLab instance to use")
-	setDefault.AddStaticListArgument("Instance Name", true, getDefaultInstanceAutoCompleteData(p.getInstanceList()))
+	setDefault.AddStaticListArgument("Instance Name", true, p.getDefaultInstanceAutoCompleteData())
 	instance.AddCommand(setDefault)
 
 	uninstall := model.NewAutocompleteData("uninstall", "", "Uninstall GitLab Instance")
-	uninstall.AddStaticListArgument("Instance Name", true, getUninstallInstanceAutoCompleteData(p.getInstanceList()))
+	uninstall.AddStaticListArgument("Instance Name", true, p.getUninstallInstanceAutoCompleteData())
 	instance.AddCommand(uninstall)
 
 	list := model.NewAutocompleteData("list", "", "List all installed GitLab instances")
@@ -1160,14 +1160,14 @@ func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteD
 	return gitlab
 }
 
-func getDefaultInstanceAutoCompleteData(instanceList []string) []model.AutocompleteListItem {
-	return buildInstanceAutocompleteItems(instanceList, "Set '%s' as the default instance")
+func (p *Plugin) getDefaultInstanceAutoCompleteData() []model.AutocompleteListItem {
+	return buildInstanceAutocompleteItems(p.getInstanceList(), "Set '%s' as the default instance")
 }
 
-func getUninstallInstanceAutoCompleteData(instanceList []string) []model.AutocompleteListItem {
-	return buildInstanceAutocompleteItems(instanceList, "Uninstall '%s' instance")
+func (p *Plugin) getUninstallInstanceAutoCompleteData() []model.AutocompleteListItem {
+	return buildInstanceAutocompleteItems(p.getInstanceList(), "Uninstall '%s' instance")
 }
 
-func getConnectInstanceAutoCompleteData(instanceList []string) []model.AutocompleteListItem {
-	return buildInstanceAutocompleteItems(instanceList, "Connect your Mattermost account to '%s' instance")
+func (p *Plugin) getConnectInstanceAutoCompleteData() []model.AutocompleteListItem {
+	return buildInstanceAutocompleteItems(p.getInstanceList(), "Connect your Mattermost account to '%s' instance")
 }
