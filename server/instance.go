@@ -138,6 +138,11 @@ func (p *Plugin) uninstallInstance(instanceName string) error {
 }
 
 func (p *Plugin) setDefaultInstance(instanceName string) error {
+	instanceList := p.getInstanceList()
+	if !containsString(instanceList, instanceName) {
+		return fmt.Errorf("instance '%s' does not exist", instanceName)
+	}
+
 	config := p.getConfiguration()
 	config.DefaultInstanceName = instanceName
 	config.sanitize()
