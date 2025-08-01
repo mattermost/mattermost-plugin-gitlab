@@ -68,7 +68,7 @@ func (p *Plugin) installInstance(instanceName string, config *InstanceConfigurat
 	return nil
 }
 
-func (p *Plugin) getInstanceDetails(instanceName string) (*InstanceConfiguration, error) {
+func (p *Plugin) getInstance(instanceName string) (*InstanceConfiguration, error) {
 	var instanceNameList []string
 	err := p.client.KV.Get(instanceConfigNameListKey, &instanceNameList)
 	if err != nil {
@@ -91,20 +91,6 @@ func (p *Plugin) getInstanceDetails(instanceName string) (*InstanceConfiguration
 	}
 
 	return &config, nil
-}
-
-func (p *Plugin) getDetailedInstanceList() (map[string]InstanceConfiguration, error) {
-	var instanceConfigMap map[string]InstanceConfiguration
-	err := p.client.KV.Get(instanceConfigMapKey, &instanceConfigMap)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load instance config map")
-	}
-
-	if instanceConfigMap == nil {
-		return nil, fmt.Errorf("instance config map is empty")
-	}
-
-	return instanceConfigMap, nil
 }
 
 func (p *Plugin) uninstallInstance(instanceName string) error {
@@ -178,4 +164,18 @@ func (p *Plugin) getInstanceList() []string {
 	}
 
 	return instanceList
+}
+
+func (p *Plugin) getInstanceConfigMap() (map[string]InstanceConfiguration, error) {
+	var instanceConfigMap map[string]InstanceConfiguration
+	err := p.client.KV.Get(instanceConfigMapKey, &instanceConfigMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load instance config map")
+	}
+
+	if instanceConfigMap == nil {
+		return nil, fmt.Errorf("instance config map is empty")
+	}
+
+	return instanceConfigMap, nil
 }

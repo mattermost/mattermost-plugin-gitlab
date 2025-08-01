@@ -290,7 +290,7 @@ func (p *Plugin) handleSetDefaultInstance(args *model.CommandArgs, parameters []
 }
 
 func (p *Plugin) handleListInstance(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
-	instanceDetailMap, err := p.getDetailedInstanceList()
+	instanceDetailMap, err := p.getInstanceConfigMap()
 	if err != nil {
 		p.client.Log.Warn("Failed to get instance list", "error", err.Error())
 		return p.getCommandResponse(args, "Error retrieving instance list."), nil

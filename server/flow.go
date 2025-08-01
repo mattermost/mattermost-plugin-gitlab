@@ -572,10 +572,6 @@ func (fm *FlowManager) submitOAuthConfig(f *flow.Flow, submitted map[string]inte
 		return "", nil, errorList, nil
 	}
 
-	fmt.Println("\n\n\n\n\n\n")
-	fmt.Println("fm.gitlabURL ", fm.gitlabURL)
-	fmt.Println("\n\n\n\n\n\n")
-
 	instanceConfiguration := &InstanceConfiguration{
 		GitlabURL:               fm.gitlabURL,
 		GitlabOAuthClientID:     clientID,
