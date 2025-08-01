@@ -38,7 +38,7 @@ func (p *Plugin) installInstance(instanceName string, config *InstanceConfigurat
 	var instanceConfigMap map[string]InstanceConfiguration
 	err = p.client.KV.Get(instanceConfigMapKey, &instanceConfigMap)
 	if err != nil {
-		return fmt.Errorf("failed to load instance config map")
+		return fmt.Errorf("failed to load instance config map: %w", err)
 	}
 
 	setAsDefaultInstance := false
@@ -52,13 +52,13 @@ func (p *Plugin) installInstance(instanceName string, config *InstanceConfigurat
 
 	_, err = p.client.KV.Set(instanceConfigMapKey, instanceConfigMap)
 	if err != nil {
-		return fmt.Errorf("failed to save updated instance config map")
+		return fmt.Errorf("failed to save updated instance config map: %w", err)
 	}
 
 	instanceNameList = append(instanceNameList, instanceName)
 	_, err = p.client.KV.Set(instanceConfigNameListKey, instanceNameList)
 	if err != nil {
-		return fmt.Errorf("failed to save updated instance name list")
+		return fmt.Errorf("failed to save updated instance name list: %w", err)
 	}
 
 	if setAsDefaultInstance {
@@ -72,7 +72,7 @@ func (p *Plugin) getInstanceDetails(instanceName string) (*InstanceConfiguration
 	var instanceNameList []string
 	err := p.client.KV.Get(instanceConfigNameListKey, &instanceNameList)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load instance name list")
+		return nil, fmt.Errorf("failed to load instance name list: %w", err)
 	}
 
 	if !containsString(instanceNameList, instanceName) {
@@ -82,7 +82,7 @@ func (p *Plugin) getInstanceDetails(instanceName string) (*InstanceConfiguration
 	var instanceConfigMap map[string]InstanceConfiguration
 	err = p.client.KV.Get(instanceConfigMapKey, &instanceConfigMap)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load instance config map")
+		return nil, fmt.Errorf("failed to load instance config map: %w", err)
 	}
 
 	config, ok := instanceConfigMap[instanceName]
