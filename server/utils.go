@@ -18,6 +18,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/pluginapi"
 
 	"github.com/pkg/errors"
@@ -309,7 +310,6 @@ func containsString(slice []string, value string) bool {
 	return false
 }
 
-//nolint:unused
 func removeStringFromSlice(list []string, target string) []string {
 	var updated []string
 	for _, item := range list {
@@ -318,4 +318,15 @@ func removeStringFromSlice(list []string, target string) []string {
 		}
 	}
 	return updated
+}
+
+func buildInstanceAutocompleteItems(instanceList []string, helpTextTemplate string) []model.AutocompleteListItem {
+	items := make([]model.AutocompleteListItem, 0, len(instanceList))
+	for _, name := range instanceList {
+		items = append(items, model.AutocompleteListItem{
+			Item:     name,
+			HelpText: fmt.Sprintf(helpTextTemplate, name),
+		})
+	}
+	return items
 }
