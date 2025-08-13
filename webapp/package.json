@@ -84,8 +84,5 @@
         "typescript": "5.6.3",
         "webpack": "5.96.1",
         "webpack-cli": "5.1.4"
-    },
-    "overrides": {
-        "@mattermost/types": "$@mattermost/types"
     }
 }
