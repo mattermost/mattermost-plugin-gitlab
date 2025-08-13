@@ -3,7 +3,7 @@
 
 import React, {useEffect, useMemo, useState} from 'react';
 import {useDispatch, useSelector} from 'react-redux';
-import {Theme} from 'mattermost-redux/types/preferences';
+import {Theme} from 'mattermost-redux/selectors/entities/preferences';
 
 import {getProjects} from 'src/actions';
 import ReactSelectSetting from 'src/components/react_select_setting';
