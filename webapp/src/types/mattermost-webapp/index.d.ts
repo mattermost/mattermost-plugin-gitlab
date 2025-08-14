@@ -14,6 +14,12 @@ type MessageHtmlToComponentOptions = {
     mentionHighlight: boolean;
 }
 
+type PostDropdownMenuAction = {
+    text: React.ReactNode;
+    action: (postId: string) => void;
+    filter: (postId: string) => boolean;
+};
+
 export interface PluginRegistry {
     registerReducer(reducer)
     registerPostTypeComponent(typeName: string, component: React.ElementType)
@@ -27,6 +33,7 @@ export interface PluginRegistry {
     registerLinkTooltipComponent(component: React.ReactNode)
     registerReconnectHandler(handler: any)
     registerPostDropdownMenuComponent(component: React.ReactNode)
+    registerPostDropdownMenuAction(action: PostDropdownMenuAction)
     registerRootComponent(component: React.ElementType)
 
     // Add more if needed from https://developers.mattermost.com/extend/plugins/webapp/reference
