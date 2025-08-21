@@ -4,6 +4,12 @@
 import {getConfig} from 'mattermost-redux/selectors/entities/general';
 import {Store, Action} from 'redux';
 
+import {useSelector} from 'react-redux';
+
+import {getPost} from 'mattermost-redux/selectors/entities/posts';
+import {isSystemMessage} from 'mattermost-redux/utils/post_utils';
+
+import {getConnected as getConnectedState, getPluginServerRoute} from './selectors';
 import SidebarHeader from './components/sidebar_header';
 import TeamSidebar from './components/team_sidebar';
 import RHSSidebar from './components/rhs_sidebar';
@@ -18,7 +24,7 @@ import LinkTooltip from './components/link_tooltip';
 import {GlobalState} from './types/store';
 
 import Reducer from './reducers';
-import {getConnected, setShowRHSAction} from './actions';
+import {getConnected, openAttachCommentToIssueModal, openCreateIssueModal, setShowRHSAction} from './actions';
 import {
     handleConnect,
     handleDisconnect,
@@ -29,7 +35,6 @@ import {
 } from './websocket';
 import manifest from './manifest';
 import Client from './client';
-import {getPluginServerRoute} from './selectors';
 import Hooks from './hooks';
 
 import {FormatTextOptions, MessageHtmlToComponentOptions, PluginRegistry} from './types/mattermost-webapp';
@@ -52,7 +57,42 @@ class PluginClass {
         registry.registerBottomTeamSidebarComponent(TeamSidebar);
         registry.registerPopoverUserAttributesComponent(UserAttribute);
         registry.registerRootComponent(CreateIssueModal);
-        registry.registerPostDropdownMenuComponent(CreateIssuePostMenuAction);
+        registry.registerPostDropdownMenuAction({
+            text: CreateIssuePostMenuAction,
+            action: (postId: string) => {
+                openCreateIssueModal(postId);
+            },
+            filter: (postId: string) => {
+                const {show} = useSelector((state: GlobalState) => {
+                    const post = getPost(state, postId);
+                    const isPostSystemMessage = Boolean(!post || isSystemMessage(post));
+
+                    return {
+                        show: getConnectedState(state) && !isPostSystemMessage,
+                    };
+                });
+
+                return show;
+            },
+        });
+        registry.registerPostDropdownMenuAction({
+            text: AttachCommentToIssueModal,
+            action: (postId: string) => {
+                openAttachCommentToIssueModal(postId);
+            },
+            filter: (postId: string) => {
+                const {show} = useSelector((state: GlobalState) => {
+                    const post = getPost(state, postId);
+                    const isPostSystemMessage = Boolean(!post || isSystemMessage(post));
+
+                    return {
+                        show: getConnectedState(state) && !isPostSystemMessage,
+                    };
+                });
+
+                return show;
+            },
+        });
         registry.registerRootComponent(AttachCommentToIssueModal);
         registry.registerPostDropdownMenuComponent(AttachCommentToIssuePostMenuAction);
         registry.registerLinkTooltipComponent(LinkTooltip);
