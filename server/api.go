@@ -240,6 +240,10 @@ func (p *Plugin) connectUserToGitlab(c *Context, w http.ResponseWriter, r *http.
 	}
 
 	conf := p.getOAuthConfig()
+	if conf == nil {
+		http.Error(w, "OAuth configuration not found", http.StatusInternalServerError)
+		return
+	}
 
 	state := fmt.Sprintf("%v_%v", model.NewId()[0:15], userID)
 
