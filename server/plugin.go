@@ -254,7 +254,7 @@ func (p *Plugin) getGitlabClient() gitlab.Gitlab {
 
 func (p *Plugin) getOAuthConfig() *oauth2.Config {
 	config := p.getConfiguration()
-	instanceConfiguration, err := p.getInstanceDetails(config.DefaultInstanceName)
+	instanceConfiguration, err := p.getInstance(config.DefaultInstanceName)
 	if err != nil {
 		p.client.Log.Warn("Failed to get instance configuration", "error", err.Error())
 		return nil
