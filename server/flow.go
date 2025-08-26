@@ -875,9 +875,8 @@ func (fm *FlowManager) submitChannelAnnouncement(f *flow.Flow, submitted map[str
 func (fm *FlowManager) setGitlabURL(gitlabURL string) error {
 	fm.gitlabURL = gitlabURL
 
-	// will need to gitlab url from plugin config
+	// will need to get gitlab url from plugin config
 	config := fm.getConfiguration()
-	config.GitlabURL = gitlabURL
 
 	configMap, err := config.ToMap()
 	if err != nil {
