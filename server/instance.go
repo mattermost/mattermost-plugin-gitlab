@@ -119,15 +119,8 @@ func (p *Plugin) deleteInstanceDetails(instanceName string) error {
 		return fmt.Errorf("failed to load instance name list: %w", err)
 	}
 
-	found := false
-	for _, name := range instanceNameList {
-		if name == instanceName {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return fmt.Errorf("instance name '%s' not found in name list", instanceName)
+	if !containsString(instanceNameList, instanceName) {
+		return fmt.Errorf("instance name '%s' not found in the list", instanceName)
 	}
 
 	var instanceConfigMap map[string]InstanceConfiguration
