@@ -7,8 +7,6 @@ import {Store, Action} from 'redux';
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
 import {isSystemMessage} from 'mattermost-redux/utils/post_utils';
 
-import {useDispatch} from 'react-redux';
-
 import {getConnected as getConnectedState, getPluginServerRoute} from './selectors';
 import SidebarHeader from './components/sidebar_header';
 import TeamSidebar from './components/team_sidebar';
