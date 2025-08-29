@@ -60,8 +60,7 @@ class PluginClass {
         registry.registerPostDropdownMenuAction({
             text: CreateIssuePostMenuAction,
             action: (postId: string) => {
-                const dispatch = useDispatch();
-                dispatch(openCreateIssueModal(postId));
+                store.dispatch(openCreateIssueModal(postId));
             },
             filter: (postId: string): boolean => {
                 const state: GlobalState = store.getState();
@@ -74,8 +73,7 @@ class PluginClass {
         registry.registerPostDropdownMenuAction({
             text: AttachCommentToIssuePostMenuAction,
             action: (postId: string) => {
-                const dispatch = useDispatch();
-                dispatch(openAttachCommentToIssueModal(postId));
+                store.dispatch(openAttachCommentToIssueModal(postId));
             },
             filter: (postId: string): boolean => {
                 const state: GlobalState = store.getState();
