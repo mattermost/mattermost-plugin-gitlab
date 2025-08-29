@@ -4,8 +4,6 @@
 import {getConfig} from 'mattermost-redux/selectors/entities/general';
 import {Store, Action} from 'redux';
 
-import {useSelector} from 'react-redux';
-
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
 import {isSystemMessage} from 'mattermost-redux/utils/post_utils';
 
@@ -62,39 +60,28 @@ class PluginClass {
             action: (postId: string) => {
                 openCreateIssueModal(postId);
             },
-            filter: (postId: string) => {
-                const {show} = useSelector((state: GlobalState) => {
-                    const post = getPost(state, postId);
-                    const isPostSystemMessage = Boolean(!post || isSystemMessage(post));
+            filter: (postId: string): boolean => {
+                const state: GlobalState = store.getState();
+                const post = getPost(state, postId);
+                const isPostSystemMessage = Boolean(!post || isSystemMessage(post));
 
-                    return {
-                        show: getConnectedState(state) && !isPostSystemMessage,
-                    };
-                });
-
-                return show;
+                return getConnectedState(state) && !isPostSystemMessage;
             },
         });
         registry.registerPostDropdownMenuAction({
-            text: AttachCommentToIssueModal,
+            text: AttachCommentToIssuePostMenuAction,
             action: (postId: string) => {
                 openAttachCommentToIssueModal(postId);
             },
-            filter: (postId: string) => {
-                const {show} = useSelector((state: GlobalState) => {
-                    const post = getPost(state, postId);
-                    const isPostSystemMessage = Boolean(!post || isSystemMessage(post));
+            filter: (postId: string): boolean => {
+                const state: GlobalState = store.getState();
+                const post = getPost(state, postId);
+                const isPostSystemMessage = Boolean(!post || isSystemMessage(post));
 
-                    return {
-                        show: getConnectedState(state) && !isPostSystemMessage,
-                    };
-                });
-
-                return show;
+                return getConnectedState(state) && !isPostSystemMessage;
             },
         });
         registry.registerRootComponent(AttachCommentToIssueModal);
-        registry.registerPostDropdownMenuComponent(AttachCommentToIssuePostMenuAction);
         registry.registerLinkTooltipComponent(LinkTooltip);
 
         const hooks = new Hooks(store);
