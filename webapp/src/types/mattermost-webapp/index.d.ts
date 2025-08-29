@@ -14,12 +14,6 @@ type MessageHtmlToComponentOptions = {
     mentionHighlight: boolean;
 }
 
-// type PostDropdownMenuAction = {
-//     text: React.ReactNode;
-//     action: (postId: string) => void;
-//     filter: (postId: string) => boolean;
-// };
-
 export interface PluginRegistry {
     registerReducer(reducer)
     registerPostTypeComponent(typeName: string, component: React.ElementType)

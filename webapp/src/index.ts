@@ -7,6 +7,8 @@ import {Store, Action} from 'redux';
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
 import {isSystemMessage} from 'mattermost-redux/utils/post_utils';
 
+import {useDispatch} from 'react-redux';
+
 import {getConnected as getConnectedState, getPluginServerRoute} from './selectors';
 import SidebarHeader from './components/sidebar_header';
 import TeamSidebar from './components/team_sidebar';
@@ -58,7 +60,8 @@ class PluginClass {
         registry.registerPostDropdownMenuAction({
             text: CreateIssuePostMenuAction,
             action: (postId: string) => {
-                openCreateIssueModal(postId);
+                const dispatch = useDispatch();
+                dispatch(openCreateIssueModal(postId));
             },
             filter: (postId: string): boolean => {
                 const state: GlobalState = store.getState();
@@ -71,7 +74,8 @@ class PluginClass {
         registry.registerPostDropdownMenuAction({
             text: AttachCommentToIssuePostMenuAction,
             action: (postId: string) => {
-                openAttachCommentToIssueModal(postId);
+                const dispatch = useDispatch();
+                dispatch(openAttachCommentToIssueModal(postId));
             },
             filter: (postId: string): boolean => {
                 const state: GlobalState = store.getState();
