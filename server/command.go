@@ -763,7 +763,7 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 
 	var hookStatusMessage string
 	if !hasHook {
-		// no web hook found
+		// no web hook foundtrue
 		hookStatusMessage = fmt.Sprintf("\nA Webhook is needed, run ```/gitlab webhook add %s``` to create one now.%s", fullPath, hookErrorMessage)
 	}
 
@@ -794,7 +794,7 @@ func (p *Plugin) subscribeCommand(ctx context.Context, parameters []string, chan
 		// Resolve namespace and project name
 		fullPath := normalizePath(parameters[1], config.GitlabURL)
 
-		return p.subscriptionsAddCommand(ctx, info, config, fullPath, channelID, features), true
+		return p.subscriptionsAddCommand(ctx, info, config, fullPath, channelID, features), false
 	case commandDelete:
 		if len(parameters) < 2 {
 			return specifyRepositoryMessage, true
