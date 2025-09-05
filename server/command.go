@@ -290,7 +290,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 			return p.getCommandResponse(args, "Encountered an error getting your GitLab profile.", true), nil
 		}
 
-		text := fmt.Sprintf("You are connected to GitLab as:\n# [![image](%s =40x40)](%s) [%s](%s)", gitUser.AvatarURL, gitUser.WebURL, gitUser.Username, gitUser.WebsiteURL)
+		text := fmt.Sprintf("You are connected to GitLab as:\n# [![image](%s =40x40)](%s) [%s](%s)", gitUser.AvatarURL, gitUser.WebURL, gitUser.Username, gitUser.WebURL)
 		return p.getCommandResponse(args, text, true), nil
 	case "settings":
 		if len(parameters) < 2 {
