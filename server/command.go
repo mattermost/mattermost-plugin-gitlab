@@ -763,7 +763,7 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 
 	var hookStatusMessage string
 	if !hasHook {
-		// no web hook foundtrue
+		// no web hook found
 		hookStatusMessage = fmt.Sprintf("\nA Webhook is needed, run ```/gitlab webhook add %s``` to create one now.%s", fullPath, hookErrorMessage)
 	}
 
