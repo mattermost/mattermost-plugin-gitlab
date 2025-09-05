@@ -143,7 +143,7 @@ func TestSubscribeCommand(t *testing.T) {
 			}
 
 			p := getTestPlugin(t, mockCtrl, test.webhookInfo, test.mattermostURL, test.projectHookErr, test.getProjectErr, test.mockGitlab, test.noAccess)
-			subscribeMessage := p.subscribeCommand(context.Background(), test.parameters, channelID, &configuration{}, userInfo)
+			subscribeMessage, _ := p.subscribeCommand(context.Background(), test.parameters, channelID, &configuration{}, userInfo)
 
 			assert.Equal(t, test.want, subscribeMessage, "Subscribe command message should be the same.")
 		})
