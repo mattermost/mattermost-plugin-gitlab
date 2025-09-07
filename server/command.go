@@ -128,9 +128,12 @@ func (p *Plugin) postCommandResponse(args *model.CommandArgs, text string, isEph
 
 	if isEphemeralPost {
 		p.client.Post.SendEphemeralPost(args.UserId, post)
+		return
 	}
 
-	p.client.Post.CreatePost(post)
+	if err := p.client.Post.CreatePost(post); err != nil {
+		p.client.Log.Error("Failed to create post", "error", err.Error())
+	}
 }
 
 func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string, isEphemeralPost bool) *model.CommandResponse {
