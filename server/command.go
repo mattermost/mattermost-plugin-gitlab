@@ -36,7 +36,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	* pipeline - includes pipeline runs
 	* tag - include tag creation
     * pull_reviews - includes merge request reviews
-	* label:"<label-1-name>,<label-2-name>" - must include "merges" or "issues" in feature list when using labels
+	* label:"<label-1-name>","<label-2-name>" - must include "merges" or "issues" in feature list when using labels
 	* deployments - includes deployments
 	* releases - includes releases
     * Defaults to "merges,issues,tag"
