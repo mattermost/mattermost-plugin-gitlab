@@ -742,43 +742,107 @@ func (g *gitlab) GetYourProjects(ctx context.Context, user *UserInfo, token *oau
 }
 
 func (g *gitlab) GetLabels(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.Label, error) {
-	client, err := g.GitlabConnect(*token)
-	if err != nil {
-		return nil, err
-	}
-	result, resp, err := client.Labels.ListLabels(
-		projectID,
-		nil,
-		internGitlab.WithContext(ctx),
-	)
-	if respErr := checkResponse(resp); respErr != nil {
-		return nil, respErr
-	}
-	if err != nil {
-		return nil, err
-	}
+    client, err := g.GitlabConnect(*token)
+    if err != nil {
+        return nil, err
+    }
 
-	return result, nil
+    opts := &internGitlab.ListLabelsOptions{
+        ListOptions: internGitlab.ListOptions{
+			Page: 1,
+			PerPage: 100
+		},
+    }
+
+    var all []*internGitlab.Label
+    for {
+        page, resp, err := client.Labels.ListLabels(projectID, opts, internGitlab.WithContext(ctx))
+        if respErr := checkResponse(resp); respErr != nil {
+            return nil, respErr
+        }
+        if err != nil {
+            return nil, err
+        }
+        all = append(all, page...)
+        if resp.NextPage == 0 {
+            break
+        }
+        opts.Page = resp.NextPage
+    }
+
+    return all, nil
 }
 
 func (g *gitlab) GetMilestones(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.Milestone, error) {
-	client, err := g.GitlabConnect(*token)
-	if err != nil {
-		return nil, err
-	}
-	result, resp, err := client.Milestones.ListMilestones(
-		projectID,
-		nil,
-		internGitlab.WithContext(ctx),
-	)
-	if respErr := checkResponse(resp); respErr != nil {
-		return nil, respErr
-	}
-	if err != nil {
-		return nil, err
-	}
+    client, err := g.GitlabConnect(*token)
+    if err != nil {
+        return nil, err
+    }
 
-	return result, nil
+    // Resolve project to find its namespace and top-level group
+    project, resp, err := client.Projects.GetProject(projectID, nil, internGitlab.WithContext(ctx))
+    if respErr := checkResponse(resp); respErr != nil {
+        return nil, respErr
+    }
+    if err != nil {
+        return nil, err
+    }
+
+    var topGroup string
+    if project.Namespace != nil && strings.EqualFold(project.Namespace.Kind, "group") && project.Namespace.FullPath != "" {
+        parts := strings.Split(project.Namespace.FullPath, "/")
+        topGroup = parts[0]
+    }
+
+    if topGroup != "" {
+        opts := &internGitlab.ListGroupMilestonesOptions{
+            ListOptions: internGitlab.ListOptions{
+                Page:    1,
+                PerPage: 100,
+            },
+        }
+
+        var all []*internGitlab.Milestone
+        for {
+            page, resp, err := client.GroupMilestones.ListGroupMilestones(topGroup, opts, internGitlab.WithContext(ctx))
+            if respErr := checkResponse(resp); respErr != nil {
+                return nil, respErr
+            }
+            if err != nil {
+                return nil, err
+            }
+            all = append(all, page...)
+            if resp.NextPage == 0 {
+                break
+            }
+            opts.Page = resp.NextPage
+        }
+        return all, nil
+    }
+
+    popts := &internGitlab.ListMilestonesOptions{
+        ListOptions: internGitlab.ListOptions{
+            Page:    1,
+            PerPage: 100,
+        },
+    }
+
+    var all []*internGitlab.Milestone
+    for {
+        page, resp, err := client.Milestones.ListMilestones(projectID, popts, internGitlab.WithContext(ctx))
+        if respErr := checkResponse(resp); respErr != nil {
+            return nil, respErr
+        }
+        if err != nil {
+            return nil, err
+        }
+        all = append(all, page...)
+        if resp.NextPage == 0 {
+            break
+        }
+        popts.Page = resp.NextPage
+    }
+    return all, nil
 }
 
 func (g *gitlab) GetProjectMembers(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.ProjectMember, error) {
