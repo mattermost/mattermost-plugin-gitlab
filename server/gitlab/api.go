@@ -791,7 +791,12 @@ func (g *gitlab) GetMilestones(ctx context.Context, user *UserInfo, projectID st
     var topGroup string
     if project.Namespace != nil && strings.EqualFold(project.Namespace.Kind, "group") && project.Namespace.FullPath != "" {
         parts := strings.Split(project.Namespace.FullPath, "/")
-        topGroup = parts[0]
+        for _, part := range parts {
+            if part != "" {
+                topGroup = part
+                break
+            }
+        }
     }
 
     if topGroup != "" {
