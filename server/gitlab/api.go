@@ -789,6 +789,29 @@ func topLevelGroupFromProject(p *internGitlab.Project) string {
     return parts[0]
 }
 
+func convertGroupMilestones(gms []*internGitlab.GroupMilestone) []*internGitlab.Milestone {
+    out := make([]*internGitlab.Milestone, 0, len(gms))
+    for _, gm := range gms {
+        if gm == nil {
+            continue
+        }
+        out = append(out, &internGitlab.Milestone{
+            ID:          gm.ID,
+            IID:         gm.IID,
+            Title:       gm.Title,
+            Description: gm.Description,
+            State:       gm.State,
+            DueDate:     gm.DueDate,
+            StartDate:   gm.StartDate,
+            CreatedAt:   gm.CreatedAt,
+            UpdatedAt:   gm.UpdatedAt,
+            // GroupMilestone does not expose WebURL; leave empty.
+            WebURL:      "",
+        })
+    }
+    return out
+}
+
 func (g *gitlab) GetMilestones(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.Milestone, error) {
     client, err := g.GitlabConnect(*token)
     if err != nil {
@@ -823,7 +846,7 @@ func (g *gitlab) GetMilestones(ctx context.Context, user *UserInfo, projectID st
             if err != nil {
                 return nil, err
             }
-            all = append(all, page...)
+            all = append(all, convertGroupMilestones(page)...)
             if resp.NextPage == 0 {
                 break
             }
