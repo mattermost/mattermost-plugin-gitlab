@@ -1,0 +1,2 @@
+./build/bin/manifest apply
+cd webapp && /opt/homebrew/bin/npm install --verbose
