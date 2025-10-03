@@ -773,6 +773,22 @@ func (g *gitlab) GetLabels(ctx context.Context, user *UserInfo, projectID string
     return all, nil
 }
 
+// topLevelGroupFromProject returns the top-level group name (first path segment)
+// for a project under a group namespace. Returns empty string if not a group.
+func topLevelGroupFromProject(p *internGitlab.Project) string {
+    if p == nil || p.Namespace == nil {
+        return ""
+    }
+    if !strings.EqualFold(p.Namespace.Kind, "group") {
+        return ""
+    }
+    if p.Namespace.FullPath == "" {
+        return ""
+    }
+    parts := strings.Split(p.Namespace.FullPath, "/")
+    return parts[0]
+}
+
 func (g *gitlab) GetMilestones(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.Milestone, error) {
     client, err := g.GitlabConnect(*token)
     if err != nil {
@@ -788,16 +804,7 @@ func (g *gitlab) GetMilestones(ctx context.Context, user *UserInfo, projectID st
         return nil, err
     }
 
-    var topGroup string
-    if project.Namespace != nil && strings.EqualFold(project.Namespace.Kind, "group") && project.Namespace.FullPath != "" {
-        parts := strings.Split(project.Namespace.FullPath, "/")
-        for _, part := range parts {
-            if part != "" {
-                topGroup = part
-                break
-            }
-        }
-    }
+	topGroup := topLevelGroupFromProject(project)
 
     if topGroup != "" {
         opts := &internGitlab.ListGroupMilestonesOptions{
