@@ -750,7 +750,7 @@ func (g *gitlab) GetLabels(ctx context.Context, user *UserInfo, projectID string
     opts := &internGitlab.ListLabelsOptions{
         ListOptions: internGitlab.ListOptions{
             Page: 1,
-            PerPage: 100
+            PerPage: 100,
         },
     }
 
