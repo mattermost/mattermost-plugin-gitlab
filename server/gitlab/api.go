@@ -786,7 +786,7 @@ func (g *gitlab) GetProjectMembers(ctx context.Context, user *UserInfo, projectI
 	if err != nil {
 		return nil, err
 	}
-	result, resp, err := client.ProjectMembers.ListProjectMembers(
+	result, resp, err := client.ProjectMembers.ListAllProjectMembers(
 		projectID,
 		nil,
 		internGitlab.WithContext(ctx),

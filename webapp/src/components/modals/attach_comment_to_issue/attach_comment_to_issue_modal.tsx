@@ -3,7 +3,7 @@
 
 import React, {useState} from 'react';
 import {Modal} from 'react-bootstrap';
-import {Theme} from 'mattermost-redux/types/preferences';
+import {Theme} from 'mattermost-redux/selectors/entities/preferences';
 import {useDispatch, useSelector} from 'react-redux';
 
 import {isAttachCommentToIssueModalVisible} from 'src/selectors';

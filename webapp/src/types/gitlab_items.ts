@@ -1,7 +1,7 @@
 // Copyright (c) 2019-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import {Theme} from 'mattermost-redux/types/preferences';
+import {Theme} from 'mattermost-redux/selectors/entities/preferences';
 import * as CSS from 'csstype';
 
 import {notificationReasons} from 'src/components/sidebar_right/gitlab_items';

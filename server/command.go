@@ -36,7 +36,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	* pipeline - includes pipeline runs
 	* tag - include tag creation
     * pull_reviews - includes merge request reviews
-	* label:"<labelname>" - must include "merges" or "issues" in feature list when using a label
+	* label:"<label-1-name>","<label-2-name>" - must include "merges" or "issues" in feature list when using labels
 	* deployments - includes deployments
 	* releases - includes releases
     * Defaults to "merges,issues,tag"
@@ -118,18 +118,26 @@ func (p *Plugin) getCommand(config *configuration) (*model.Command, error) {
 	}, nil
 }
 
-func (p *Plugin) postCommandResponse(args *model.CommandArgs, text string) {
+func (p *Plugin) postCommandResponse(args *model.CommandArgs, text string, isEphemeralPost bool) {
 	post := &model.Post{
 		UserId:    p.BotUserID,
 		ChannelId: args.ChannelId,
 		RootId:    args.RootId,
 		Message:   text,
 	}
-	p.client.Post.SendEphemeralPost(args.UserId, post)
+
+	if isEphemeralPost {
+		p.client.Post.SendEphemeralPost(args.UserId, post)
+		return
+	}
+
+	if err := p.client.Post.CreatePost(post); err != nil {
+		p.client.Log.Error("Failed to create post", "error", err.Error())
+	}
 }
 
-func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string) *model.CommandResponse {
-	p.postCommandResponse(args, text)
+func (p *Plugin) getCommandResponse(args *model.CommandArgs, text string, isEphemeralPost bool) *model.CommandResponse {
+	p.postCommandResponse(args, text, isEphemeralPost)
 	return &model.CommandResponse{}
 }
 
@@ -636,16 +644,16 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 	}
 }
 
-func (p *Plugin) subscriptionDelete(userInfo *gitlab.UserInfo, config *configuration, fullPath, channelID string) (string, error) {
+func (p *Plugin) subscriptionDelete(userInfo *gitlab.UserInfo, config *configuration, fullPath, channelID string) (string, bool, error) {
 	normalizedPath := normalizePath(fullPath, config.GitlabURL)
 	deleted, updatedSubscriptions, err := p.Unsubscribe(channelID, normalizedPath)
 	if err != nil {
 		p.client.Log.Warn("can't unsubscribe channel in command", "err", err.Error())
-		return "Encountered an error trying to unsubscribe. Please try again.", nil
+		return "Encountered an error trying to unsubscribe. Please try again.", true, nil
 	}
 
 	if !deleted {
-		return "Subscription not found, please check repository name.", nil
+		return "Subscription not found, please check repository name.", true, nil
 	}
 
 	p.sendChannelSubscriptionsUpdated(updatedSubscriptions, channelID)
@@ -710,7 +718,7 @@ func (p *Plugin) subscriptionDelete(userInfo *gitlab.UserInfo, config *configura
 	unsubscribeMessage := fmt.Sprintf("Successfully deleted subscription for %s.", fmt.Sprintf("[%s](%s)", normalizedPath, baseURL+normalizedPath))
 	unsubscribeMessage += webhookMsg
 
-	return unsubscribeMessage, nil
+	return unsubscribeMessage, false, nil
 }
 
 // subscriptionsListCommand list GitLab subscriptions in a channel
@@ -811,39 +819,39 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 
 // subscribeCommand process the /gitlab subscribe command.
 // It returns a message and handles all errors my including helpful information in the message
-func (p *Plugin) subscribeCommand(ctx context.Context, parameters []string, channelID string, config *configuration, info *gitlab.UserInfo) string {
+func (p *Plugin) subscribeCommand(ctx context.Context, parameters []string, channelID string, config *configuration, info *gitlab.UserInfo) (string, bool) {
 	if len(parameters) == 0 {
-		return invalidSubscribeSubCommand
+		return invalidSubscribeSubCommand, true
 	}
 
 	subcommand := parameters[0]
 
 	switch subcommand {
 	case commandList:
-		return p.subscriptionsListCommand(channelID)
+		return p.subscriptionsListCommand(channelID), true
 	case commandAdd:
 		features := "merges,issues,tag"
 		if len(parameters) < 2 {
-			return missingOrgOrRepoFromSubscribeCommand
+			return missingOrgOrRepoFromSubscribeCommand, true
 		} else if len(parameters) > 2 {
 			features = strings.Join(parameters[2:], " ")
 		}
 		// Resolve namespace and project name
 		fullPath := normalizePath(parameters[1], config.GitlabURL)
 
-		return p.subscriptionsAddCommand(ctx, info, config, fullPath, channelID, features)
+		return p.subscriptionsAddCommand(ctx, info, config, fullPath, channelID, features), false
 	case commandDelete:
 		if len(parameters) < 2 {
-			return specifyRepositoryMessage
+			return specifyRepositoryMessage, true
 		}
 
-		message, err := p.subscriptionDelete(info, config, parameters[1], channelID)
+		message, isEphemeralPost, err := p.subscriptionDelete(info, config, parameters[1], channelID)
 		if err != nil {
-			return err.Error()
+			return err.Error(), true
 		}
-		return message
+		return message, isEphemeralPost
 	default:
-		return invalidSubscribeSubCommand
+		return invalidSubscribeSubCommand, true
 	}
 }
 
