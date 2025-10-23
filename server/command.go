@@ -223,7 +223,7 @@ func (p *Plugin) handleConfigError(args *model.CommandArgs, err error) (*model.C
 		text = "Please contact your system administrator to configure the GitLab plugin."
 	}
 
-	p.postCommandResponse(args, text)
+	p.postCommandResponse(args, text, true)
 	return &model.CommandResponse{}, nil
 }
 
@@ -244,7 +244,7 @@ func (p *Plugin) handleAbout(args *model.CommandArgs, parameters []string) (*mod
 	if err != nil {
 		text = errors.Wrap(err, "failed to get build info").Error()
 	}
-	p.postCommandResponse(args, text)
+	p.postCommandResponse(args, text, true)
 	return &model.CommandResponse{}, nil
 }
 
@@ -269,9 +269,9 @@ func (p *Plugin) recoverFromPanic(args *model.CommandArgs) {
 			"UserId", args.UserId,
 			"error", r,
 			"stack", string(debug.Stack()))
-		p.postCommandResponse(args, "An unexpected error occurred. Please try again later.")
+		p.postCommandResponse(args, "An unexpected error occurred. Please try again later.", true)
 		if *p.client.Configuration.GetConfig().ServiceSettings.EnableDeveloper {
-			p.postCommandResponse(args, fmt.Sprintf("error: %v, \nstack:\n```\n%s\n```", r, string(debug.Stack())))
+			p.postCommandResponse(args, fmt.Sprintf("error: %v, \nstack:\n```\n%s\n```", r, string(debug.Stack())), true)
 		}
 	}
 }
@@ -281,12 +281,12 @@ func (p *Plugin) handleSetup(args *model.CommandArgs, parameters []string) (*mod
 	isSysAdmin, err := p.isAuthorizedSysAdmin(userID)
 	if err != nil {
 		p.client.Log.Warn("Failed to check if user is System Admin", "error", err.Error())
-		p.postCommandResponse(args, "Error checking user's permissions")
+		p.postCommandResponse(args, "Error checking user's permissions", true)
 		return &model.CommandResponse{}, nil
 	}
 
 	if !isSysAdmin {
-		p.postCommandResponse(args, "Only System Admins are allowed to set up the plugin.")
+		p.postCommandResponse(args, "Only System Admins are allowed to set up the plugin.", true)
 		return &model.CommandResponse{}, nil
 	}
 
@@ -301,13 +301,13 @@ func (p *Plugin) handleSetup(args *model.CommandArgs, parameters []string) (*mod
 		case "announcement":
 			err = p.flowManager.StartAnnouncementWizard(userID)
 		default:
-			p.postCommandResponse(args, fmt.Sprintf("Unknown subcommand %v", parameters[0]))
+			p.postCommandResponse(args, fmt.Sprintf("Unknown subcommand %v", parameters[0]), true)
 			return &model.CommandResponse{}, nil
 		}
 	}
 
 	if err != nil {
-		p.postCommandResponse(args, err.Error())
+		p.postCommandResponse(args, err.Error(), true)
 	}
 
 	return &model.CommandResponse{}, nil
@@ -323,6 +323,7 @@ func (p *Plugin) handleUnsubscribe(ctx context.Context, args *model.CommandArgs,
 	config := p.getConfiguration()
 	var message string
 	var err error
+	var isEphemeralPost bool
 	if len(parameters) == 0 {
 		message = specifyRepositoryMessage
 	} else {
@@ -351,7 +352,7 @@ func (p *Plugin) handleTodo(ctx context.Context, args *model.CommandArgs, parame
 func (p *Plugin) handleIssue(ctx context.Context, args *model.CommandArgs, parameters []string, info *gitlab.UserInfo) (*model.CommandResponse, *model.AppError) {
 	message := p.handleIssueHelper(nil, args, parameters)
 	if message != "" {
-		p.postCommandResponse(args, message)
+		p.postCommandResponse(args, message, true)
 	}
 	return &model.CommandResponse{}, nil
 }
