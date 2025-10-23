@@ -271,7 +271,7 @@ func (p *Plugin) recoverFromPanic(args *model.CommandArgs) {
 			"stack", string(debug.Stack()))
 		p.postCommandResponse(args, "An unexpected error occurred. Please try again later.")
 		if *p.client.Configuration.GetConfig().ServiceSettings.EnableDeveloper {
-			p.postCommandResponse(args, fmt.Sprintf("error: %v, \nstack:\n```%s```", r, string(debug.Stack())))
+			p.postCommandResponse(args, fmt.Sprintf("error: %v, \nstack:\n```\n%s\n```", r, string(debug.Stack())))
 		}
 	}
 }
