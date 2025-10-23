@@ -207,7 +207,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 		return handler(ctx, args, parameters, info)
 	}
 
-	return p.getCommandResponse(args, unknownActionMessage), nil
+	return p.getCommandResponse(args, unknownActionMessage, true), nil
 }
 
 func (p *Plugin) handleConfigError(args *model.CommandArgs, err error) (*model.CommandResponse, *model.AppError) {
@@ -232,7 +232,7 @@ func (p *Plugin) handleUserNotConnected(args *model.CommandArgs, apiErr *APIErro
 	if apiErr.ID == APIErrorIDNotConnected {
 		text = "You must connect your account to GitLab first. Either click on the GitLab logo in the bottom left of the screen or enter `/gitlab connect`."
 	}
-	return p.getCommandResponse(args, text), nil
+	return p.getCommandResponse(args, text, true), nil
 }
 
 func (p *Plugin) handleAbout(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
@@ -251,15 +251,15 @@ func (p *Plugin) handleAbout(args *model.CommandArgs, parameters []string) (*mod
 func (p *Plugin) handleConnect(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
 	pluginURL := getPluginURL(p.client)
 	if pluginURL == "" {
-		return p.getCommandResponse(args, "Encountered an error connecting to GitLab."), nil
+		return p.getCommandResponse(args, "Encountered an error connecting to GitLab.", true), nil
 	}
-	resp := p.getCommandResponse(args, fmt.Sprintf("[Click here to link your GitLab account.](%s/oauth/connect)", pluginURL))
+	resp := p.getCommandResponse(args, fmt.Sprintf("[Click here to link your GitLab account.](%s/oauth/connect)", pluginURL), true)
 	return resp, nil
 }
 
 func (p *Plugin) handleHelp(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
 	text := "###### Mattermost GitLab Plugin - Slash Command Help\n" + strings.ReplaceAll(commandHelp, "|", "`")
-	return p.getCommandResponse(args, text), nil
+	return p.getCommandResponse(args, text, true), nil
 }
 
 func (p *Plugin) recoverFromPanic(args *model.CommandArgs) {
@@ -315,8 +315,8 @@ func (p *Plugin) handleSetup(args *model.CommandArgs, parameters []string) (*mod
 
 func (p *Plugin) handleSubscribe(ctx context.Context, args *model.CommandArgs, parameters []string, info *gitlab.UserInfo) (*model.CommandResponse, *model.AppError) {
 	config := p.getConfiguration()
-	message := p.subscribeCommand(ctx, parameters, args.ChannelId, config, info)
-	return p.getCommandResponse(args, message), nil
+	message, isEphemeralPost := p.subscribeCommand(ctx, parameters, args.ChannelId, config, info)
+	return p.getCommandResponse(args, message, isEphemeralPost), nil
 }
 
 func (p *Plugin) handleUnsubscribe(ctx context.Context, args *model.CommandArgs, parameters []string, info *gitlab.UserInfo) (*model.CommandResponse, *model.AppError) {
@@ -326,26 +326,26 @@ func (p *Plugin) handleUnsubscribe(ctx context.Context, args *model.CommandArgs,
 	if len(parameters) == 0 {
 		message = specifyRepositoryMessage
 	} else {
-		message, err = p.subscriptionDelete(info, config, parameters[0], args.ChannelId)
+		message, isEphemeralPost, err = p.subscriptionDelete(info, config, parameters[0], args.ChannelId)
 		if err != nil {
 			message = err.Error()
 		}
 	}
-	return p.getCommandResponse(args, message), nil
+	return p.getCommandResponse(args, message, isEphemeralPost), nil
 }
 
 func (p *Plugin) handleDisconnect(ctx context.Context, args *model.CommandArgs, parameters []string, info *gitlab.UserInfo) (*model.CommandResponse, *model.AppError) {
 	p.disconnectGitlabAccount(args.UserId)
-	return p.getCommandResponse(args, "Disconnected your GitLab account."), nil
+	return p.getCommandResponse(args, "Disconnected your GitLab account.", true), nil
 }
 
 func (p *Plugin) handleTodo(ctx context.Context, args *model.CommandArgs, parameters []string, info *gitlab.UserInfo) (*model.CommandResponse, *model.AppError) {
 	_, text, err := p.GetToDo(ctx, info)
 	if err != nil {
 		p.client.Log.Warn("can't get todo in command", "err", err.Error())
-		return p.getCommandResponse(args, "Encountered an error getting your todo items."), nil
+		return p.getCommandResponse(args, "Encountered an error getting your todo items.", true), nil
 	}
-	return p.getCommandResponse(args, text), nil
+	return p.getCommandResponse(args, text, true), nil
 }
 
 func (p *Plugin) handleIssue(ctx context.Context, args *model.CommandArgs, parameters []string, info *gitlab.UserInfo) (*model.CommandResponse, *model.AppError) {
@@ -368,16 +368,16 @@ func (p *Plugin) handleMe(ctx context.Context, args *model.CommandArgs, paramete
 	})
 
 	if err != nil {
-		return p.getCommandResponse(args, "Encountered an error getting your GitLab profile."), nil
+		return p.getCommandResponse(args, "Encountered an error getting your GitLab profile.", true), nil
 	}
 
 	text := fmt.Sprintf("You are connected to GitLab as:\n# [![image](%s =40x40)](%s) [%s](%s)", gitUser.AvatarURL, gitUser.WebURL, gitUser.Username, gitUser.WebsiteURL)
-	return p.getCommandResponse(args, text), nil
+	return p.getCommandResponse(args, text, true), nil
 }
 
 func (p *Plugin) handleSettings(ctx context.Context, args *model.CommandArgs, parameters []string, info *gitlab.UserInfo) (*model.CommandResponse, *model.AppError) {
 	if len(parameters) < 2 {
-		return p.getCommandResponse(args, "Please specify both a setting and value. Use `/gitlab help` for more usage information."), nil
+		return p.getCommandResponse(args, "Please specify both a setting and value. Use `/gitlab help` for more usage information.", true), nil
 	}
 
 	setting := parameters[0]
@@ -386,7 +386,7 @@ func (p *Plugin) handleSettings(ctx context.Context, args *model.CommandArgs, pa
 	if strValue == SettingOn {
 		value = true
 	} else if strValue != SettingOff {
-		return p.getCommandResponse(args, "Invalid value. Accepted values are: \"on\" or \"off\"."), nil
+		return p.getCommandResponse(args, "Invalid value. Accepted values are: \"on\" or \"off\".", true), nil
 	}
 
 	switch setting {
@@ -394,40 +394,40 @@ func (p *Plugin) handleSettings(ctx context.Context, args *model.CommandArgs, pa
 		if value {
 			if err := p.storeGitlabToUserIDMapping(info.GitlabUsername, info.UserID); err != nil {
 				p.client.Log.Warn("can't store GitLab to user id mapping", "err", err.Error())
-				return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
+				return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs", true), nil
 			}
 			if err := p.storeGitlabIDToUserIDMapping(info.GitlabUsername, info.GitlabUserID); err != nil {
 				p.client.Log.Warn("can't store GitLab to GitLab id mapping", "err", err.Error())
-				return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
+				return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs", true), nil
 			}
 		} else if err := p.deleteGitlabToUserIDMapping(info.GitlabUsername); err != nil {
 			p.client.Log.Warn("can't delete GitLab username in kvstore", "err", err.Error())
-			return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
+			return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs", true), nil
 		}
 		info.Settings.Notifications = value
 	case SettingReminders:
 		info.Settings.DailyReminder = value
 	default:
-		return p.getCommandResponse(args, "Unknown setting."), nil
+		return p.getCommandResponse(args, "Unknown setting.", true), nil
 	}
 
 	if err := p.storeGitlabUserInfo(info); err != nil {
 		p.client.Log.Warn("can't store user info after update by command", "err", err.Error())
-		return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs"), nil
+		return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs", true), nil
 	}
 
-	return p.getCommandResponse(args, "Settings updated."), nil
+	return p.getCommandResponse(args, "Settings updated.", true), nil
 }
 
 func (p *Plugin) handleWebhookHandler(ctx context.Context, args *model.CommandArgs, parameters []string, info *gitlab.UserInfo) (*model.CommandResponse, *model.AppError) {
 	config := p.getConfiguration()
 	message := p.webhookCommand(ctx, parameters, info, config.EnablePrivateRepo)
-	return p.getCommandResponse(args, message), nil
+	return p.getCommandResponse(args, message, true), nil
 }
 
 func (p *Plugin) handlePipelines(ctx context.Context, args *model.CommandArgs, parameters []string, info *gitlab.UserInfo) (*model.CommandResponse, *model.AppError) {
 	message := p.pipelinesCommand(ctx, parameters, args.ChannelId, info)
-	return p.getCommandResponse(args, message), nil
+	return p.getCommandResponse(args, message, true), nil
 }
 
 func (p *Plugin) handleIssueHelper(_ *plugin.Context, args *model.CommandArgs, parameters []string) string {
