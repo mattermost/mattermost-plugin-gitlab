@@ -28,12 +28,16 @@ type FlowManager struct {
 	client                          *pluginapi.Client
 	pluginID                        string
 	botUserID                       string
+	gitlabURL                       string
+	instanceName                    string
 	router                          *mux.Router
 	getConfiguration                func() *configuration
 	getGitlabUserInfoByMattermostID func(userID string) (*gitlab.UserInfo, *APIErrorResponse)
 	getGitlabClient                 func() gitlab.Gitlab
 	useGitlabClient                 func(info *gitlab.UserInfo, toRun func(info *gitlab.UserInfo, token *oauth2.Token) error) error
 	createHook                      func(ctx context.Context, gitlabClient gitlab.Gitlab, info *gitlab.UserInfo, group, project string, hookOptions *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error)
+	saveInstanceDetails             func(instanceName string, config *InstanceConfiguration) error
+	setDefaultInstance              func(instanceName string) error
 
 	tracker Tracker
 
@@ -54,6 +58,8 @@ func (p *Plugin) NewFlowManager() (*FlowManager, error) {
 		getGitlabClient:                 p.getGitlabClient,
 		useGitlabClient:                 p.useGitlabClient,
 		createHook:                      p.createHook,
+		saveInstanceDetails:             p.saveInstanceDetails,
+		setDefaultInstance:              p.setDefaultInstance,
 
 		tracker: p,
 	}
@@ -72,6 +78,7 @@ func (p *Plugin) NewFlowManager() (*FlowManager, error) {
 		fm.stepInstanceURL(),
 		fm.stepOAuthInfo(),
 		fm.stepOAuthInput(),
+		fm.stepSetDefaultInstance(),
 		fm.stepOAuthConnect(),
 
 		fm.stepWebhookQuestion(),
@@ -95,6 +102,7 @@ func (p *Plugin) NewFlowManager() (*FlowManager, error) {
 		fm.stepInstanceURL(),
 		fm.stepOAuthInfo(),
 		fm.stepOAuthInput(),
+		fm.stepSetDefaultInstance(),
 		fm.stepOAuthConnect().Terminal(),
 
 		fm.stepCancel("setup oauth"),
@@ -449,22 +457,10 @@ func (fm *FlowManager) submitGitlabURL(f *flow.Flow, submitted map[string]interf
 		return "", nil, errorList, nil
 	}
 
-	config := fm.getConfiguration()
-	config.GitlabURL = gitlabURL
-	config.sanitize()
-
-	configMap, err := config.ToMap()
-	if err != nil {
-		return "", nil, nil, err
-	}
-
-	err = fm.client.Configuration.SavePluginConfig(configMap)
-	if err != nil {
-		return "", nil, nil, errors.Wrap(err, "failed to save plugin config")
-	}
+	fm.gitlabURL = gitlabURL
 
 	return "", flow.State{
-		keyGitlabURL: config.GitlabURL,
+		keyGitlabURL: gitlabURL,
 	}, nil, nil
 }
 
@@ -493,15 +489,22 @@ You must first register the Mattermost GitLab Plugin as an authorized OAuth app.
 
 func (fm *FlowManager) stepOAuthInput() flow.Step {
 	return flow.NewStep(stepOAuthInput).
-		WithText("Click the Continue button below to open a dialog to enter the **Application ID** and **Secret**.").
+		WithText("Click the Continue button below to open a dialog to enter the **Instance Name**, **Application ID** and **Secret**.").
 		WithButton(flow.Button{
 			Name:  "Continue",
 			Color: flow.ColorPrimary,
 			Dialog: &model.Dialog{
 				Title:            "GitLab OAuth values",
-				IntroductionText: "Please enter the **Application ID** and **Secret** you copied in a previous step.{{ if .IsOAuthConfigured }}\n\n**Any existing OAuth configuration will be overwritten.**{{end}}",
+				IntroductionText: "Please enter the **Instance Name**, **Application ID** and **Secret** you copied in a previous step.{{ if .IsOAuthConfigured }}\n\n**Any existing OAuth configuration will be overwritten.**{{end}}",
 				SubmitLabel:      "Save & continue",
 				Elements: []model.DialogElement{
+					{
+						DisplayName: "GitLab Instance name",
+						Name:        "instance_name",
+						Type:        "text",
+						SubType:     "text",
+						Placeholder: "Enter GitLab Instance name",
+					},
 					{
 						DisplayName: "GitLab OAuth Application ID",
 						Name:        "client_id",
@@ -525,6 +528,15 @@ func (fm *FlowManager) stepOAuthInput() flow.Step {
 
 func (fm *FlowManager) submitOAuthConfig(f *flow.Flow, submitted map[string]interface{}) (flow.Name, flow.State, map[string]string, error) {
 	errorList := map[string]string{}
+
+	instanceNameRaw, ok := submitted["instance_name"]
+	if !ok {
+		return "", nil, nil, errors.New("instance_name missing")
+	}
+	instanceName, ok := instanceNameRaw.(string)
+	if !ok {
+		return "", nil, nil, errors.New("instance_name is not a string")
+	}
 
 	clientIDRaw, ok := submitted["client_id"]
 	if !ok {
@@ -560,19 +572,18 @@ func (fm *FlowManager) submitOAuthConfig(f *flow.Flow, submitted map[string]inte
 		return "", nil, errorList, nil
 	}
 
-	config := fm.getConfiguration()
-	config.GitlabOAuthClientID = clientID
-	config.GitlabOAuthClientSecret = clientSecret
-
-	configMap, err := config.ToMap()
-	if err != nil {
-		return "", nil, nil, err
+	instanceConfiguration := &InstanceConfiguration{
+		GitlabURL:               fm.gitlabURL,
+		GitlabOAuthClientID:     clientID,
+		GitlabOAuthClientSecret: clientSecret,
 	}
 
-	err = fm.client.Configuration.SavePluginConfig(configMap)
+	err := fm.saveInstanceDetails(instanceName, instanceConfiguration)
 	if err != nil {
-		return "", nil, nil, errors.Wrap(err, "failed to save plugin config")
+		return "", nil, nil, errors.Wrap(err, "failed to save instance configuration")
 	}
+
+	fm.instanceName = instanceName
 
 	return "", nil, nil, nil
 }
@@ -876,4 +887,24 @@ func (fm *FlowManager) setGitlabURL(gitlabURL string) error {
 	}
 
 	return nil
+}
+
+func (fm *FlowManager) stepSetDefaultInstance() flow.Step {
+	return flow.NewStep("set-default-instance").
+		WithText("Do you want to set this as your default GitLab instance?").
+		WithButton(flow.Button{
+			Name:  "Yes",
+			Color: flow.ColorPrimary,
+			OnClick: func(f *flow.Flow) (flow.Name, flow.State, error) {
+				if err := fm.setDefaultInstance(fm.instanceName); err != nil {
+					return "", nil, err
+				}
+				return stepOAuthConnect, nil, nil
+			},
+		}).
+		WithButton(flow.Button{
+			Name:    "No",
+			Color:   flow.ColorDefault,
+			OnClick: flow.Goto(stepDone),
+		})
 }
