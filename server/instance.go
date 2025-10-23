@@ -175,7 +175,7 @@ func (p *Plugin) getInstanceConfigMap() (map[string]InstanceConfiguration, error
 	var instanceConfigMap map[string]InstanceConfiguration
 	err := p.client.KV.Get(instanceConfigMapKey, &instanceConfigMap)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load instance config map")
+		return nil, errors.Wrap(err, "failed to load instance config map")
 	}
 
 	if instanceConfigMap == nil {
