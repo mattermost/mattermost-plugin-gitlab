@@ -111,7 +111,7 @@ func (p *Plugin) getCommand(config *configuration) (*model.Command, error) {
 	return &model.Command{
 		Trigger:              "gitlab",
 		AutoComplete:         true,
-		AutoCompleteDesc:     "Available commands: connect, disconnect, todo, subscriptions, me, pipelines, settings, webhook, setup, help, about",
+		AutoCompleteDesc:     "Available commands: connect, disconnect, install-instance, todo, subscriptions, me, pipelines, settings, webhook, setup, help, about",
 		AutoCompleteHint:     "[command]",
 		AutocompleteData:     getAutocompleteData(config),
 		AutocompleteIconData: iconData,
@@ -169,11 +169,12 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 	defer p.recoverFromPanic(args)
 
 	unauthenticatedHandlers := map[string]unauthenticatedCommandHandlerFunc{
-		"about":   p.handleAbout,
-		"setup":   p.handleSetup,
-		"connect": p.handleConnect,
-		"help":    p.handleHelp,
-		"":        p.handleHelp,
+		"about":            p.handleAbout,
+		"setup":            p.handleSetup,
+		"install-instance": p.handleInstallInstance,
+		"connect":          p.handleConnect,
+		"help":             p.handleHelp,
+		"":                 p.handleHelp,
 	}
 	if handler, ok := unauthenticatedHandlers[action]; ok {
 		return handler(args, parameters)
@@ -202,7 +203,6 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 		"webhook":       p.handleWebhookHandler,
 		"pipelines":     p.handlePipelines,
 	}
-
 	if handler, ok := authenticatedHandlers[action]; ok {
 		return handler(ctx, args, parameters, info)
 	}
@@ -224,6 +224,32 @@ func (p *Plugin) handleConfigError(args *model.CommandArgs, err error) (*model.C
 	}
 
 	p.postCommandResponse(args, text, true)
+	return &model.CommandResponse{}, nil
+}
+
+func (p *Plugin) handleInstallInstance(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
+	if len(parameters) < 1 {
+		return p.getCommandResponse(args, "Please specify the instance URL.", true), nil
+	}
+
+	userID := args.UserId
+	isSysAdmin, err := p.isAuthorizedSysAdmin(userID)
+	if err != nil {
+		p.client.Log.Warn("Failed to check if user is System Admin", "error", err.Error())
+		p.postCommandResponse(args, "Error checking user's permissions", true)
+		return &model.CommandResponse{}, nil
+	}
+
+	if !isSysAdmin {
+		p.postCommandResponse(args, "Only System Admins are allowed to set up the plugin.", true)
+		return &model.CommandResponse{}, nil
+	}
+
+	err = p.flowManager.StartOauthWizard(userID)
+	if err != nil {
+		p.postCommandResponse(args, err.Error(), true)
+	}
+
 	return &model.CommandResponse{}, nil
 }
 
@@ -961,6 +987,10 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 
 	disconnect := model.NewAutocompleteData("disconnect", "", "disconnect your GitLab account")
 	gitlab.AddCommand(disconnect)
+
+	installInstance := model.NewAutocompleteData("install-instance", "", "Install GitLab Instance")
+	installInstance.AddTextArgument("GitLab Instance URL", "GitLab Instance URL", "https://gitlab.com")
+	gitlab.AddCommand(installInstance)
 
 	todo := model.NewAutocompleteData("todo", "", "Get a list of todos, assigned issues, assigned merge requests and merge requests awaiting your review")
 	gitlab.AddCommand(todo)

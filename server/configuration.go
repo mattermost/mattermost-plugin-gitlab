@@ -33,6 +33,7 @@ type configuration struct {
 	GitlabURL                        string `json:"gitlaburl"`
 	GitlabOAuthClientID              string `json:"gitlaboauthclientid"`
 	GitlabOAuthClientSecret          string `json:"gitlaboauthclientsecret"`
+	DefaultInstanceName              string `json:"defaultinstancename"`
 	WebhookSecret                    string `json:"webhooksecret"`
 	EncryptionKey                    string `json:"encryptionkey"`
 	GitlabGroup                      string `json:"gitlabgroup"`

@@ -299,3 +299,23 @@ func lastN(s string, n int) string {
 
 	return string(out)
 }
+
+func containsString(slice []string, value string) bool {
+	for _, v := range slice {
+		if v == value {
+			return true
+		}
+	}
+	return false
+}
+
+//nolint:unused
+func removeStringFromSlice(list []string, target string) []string {
+	var updated []string
+	for _, item := range list {
+		if item != target {
+			updated = append(updated, item)
+		}
+	}
+	return updated
+}
