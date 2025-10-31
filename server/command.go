@@ -111,9 +111,9 @@ func (p *Plugin) getCommand(config *configuration) (*model.Command, error) {
 	return &model.Command{
 		Trigger:              "gitlab",
 		AutoComplete:         true,
-		AutoCompleteDesc:     "Available commands: connect, disconnect, install-instance, todo, subscriptions, me, pipelines, settings, webhook, setup, help, about",
+		AutoCompleteDesc:     "Available commands: connect, disconnect, instance, todo, subscriptions, me, pipelines, settings, webhook, setup, help, about",
 		AutoCompleteHint:     "[command]",
-		AutocompleteData:     getAutocompleteData(config),
+		AutocompleteData:     p.getAutocompleteData(config),
 		AutocompleteIconData: iconData,
 	}, nil
 }
@@ -169,12 +169,12 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 	defer p.recoverFromPanic(args)
 
 	unauthenticatedHandlers := map[string]unauthenticatedCommandHandlerFunc{
-		"about":            p.handleAbout,
-		"setup":            p.handleSetup,
-		"install-instance": p.handleInstallInstance,
-		"connect":          p.handleConnect,
-		"help":             p.handleHelp,
-		"":                 p.handleHelp,
+		"about":    p.handleAbout,
+		"setup":    p.handleSetup,
+		"instance": p.handleInstance,
+		"connect":  p.handleConnect,
+		"help":     p.handleHelp,
+		"":         p.handleHelp,
 	}
 	if handler, ok := unauthenticatedHandlers[action]; ok {
 		return handler(args, parameters)
@@ -227,11 +227,26 @@ func (p *Plugin) handleConfigError(args *model.CommandArgs, err error) (*model.C
 	return &model.CommandResponse{}, nil
 }
 
-func (p *Plugin) handleInstallInstance(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
+func (p *Plugin) handleInstance(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
 	if len(parameters) < 1 {
-		return p.getCommandResponse(args, "Please specify the instance URL.", true), nil
+		return p.getCommandResponse(args, "Please specify the instance command.", true), nil
 	}
 
+	switch parameters[0] {
+	case "install":
+		return p.handleInstallInstance(args, parameters[1:])
+	case "uninstall":
+		return p.handleUnInstallInstance(args, parameters[1:])
+	case "set-default":
+		return p.handleSetDefaultInstance(args, parameters[1:])
+	case "list":
+		return p.handleListInstance(args, parameters[1:])
+	default:
+		return p.getCommandResponse(args, "Unknown instance command. Available commands: install, uninstall, set-default, list", true), nil
+	}
+}
+
+func (p *Plugin) handleInstallInstance(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
 	userID := args.UserId
 	isSysAdmin, err := p.isAuthorizedSysAdmin(userID)
 	if err != nil {
@@ -251,6 +266,57 @@ func (p *Plugin) handleInstallInstance(args *model.CommandArgs, parameters []str
 	}
 
 	return &model.CommandResponse{}, nil
+}
+
+func (p *Plugin) handleUnInstallInstance(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
+	if len(parameters) < 1 {
+		return p.getCommandResponse(args, "Please specify the instance name.", true), nil
+	}
+
+	instanceName := parameters[0]
+
+	err := p.uninstallInstance(instanceName)
+	if err != nil {
+		return p.getCommandResponse(args, err.Error(), true), nil
+	}
+
+	return p.getCommandResponse(args, fmt.Sprintf("Instance '%s' has been uninstalled.", instanceName), true), nil
+}
+
+func (p *Plugin) handleSetDefaultInstance(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
+	if len(parameters) < 1 {
+		return p.getCommandResponse(args, "Please specify the instance name.", true), nil
+	}
+
+	instanceName := parameters[0]
+	err := p.setDefaultInstance(instanceName)
+	if err != nil {
+		return p.getCommandResponse(args, err.Error(), true), nil
+	}
+
+	return p.getCommandResponse(args, fmt.Sprintf("Instance '%s' has been set as the default.", instanceName), true), nil
+}
+
+func (p *Plugin) handleListInstance(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
+	instanceDetailMap, err := p.getInstanceConfigMap()
+	if err != nil {
+		p.client.Log.Warn("Failed to get instance list", "error", err.Error())
+		return p.getCommandResponse(args, "Error retrieving instance list.", true), nil
+	}
+
+	if len(instanceDetailMap) == 0 {
+		return p.getCommandResponse(args, "No GitLab instances are currently installed.", true), nil
+	}
+
+	var builder strings.Builder
+	builder.WriteString("### Installed GitLab Instances\n")
+	builder.WriteString("| Instance Name | Instance URL |\n")
+	builder.WriteString("|--------------|--------------|\n")
+	for name, instanceConfiguration := range instanceDetailMap {
+		builder.WriteString(fmt.Sprintf("| %s | %s |\n", name, instanceConfiguration.GitlabURL))
+	}
+
+	return p.getCommandResponse(args, builder.String(), true), nil
 }
 
 func (p *Plugin) handleUserNotConnected(args *model.CommandArgs, apiErr *APIErrorResponse) (*model.CommandResponse, *model.AppError) {
@@ -275,6 +341,17 @@ func (p *Plugin) handleAbout(args *model.CommandArgs, parameters []string) (*mod
 }
 
 func (p *Plugin) handleConnect(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
+	if len(parameters) < 1 {
+		return p.getCommandResponse(args, "Please specify the instance name.", true), nil
+	}
+
+	// Set the default instance for the user before connecting
+	instanceName := parameters[0]
+	err := p.setDefaultInstance(instanceName)
+	if err != nil {
+		return p.getCommandResponse(args, err.Error(), true), nil
+	}
+
 	pluginURL := getPluginURL(p.client)
 	if pluginURL == "" {
 		return p.getCommandResponse(args, "Encountered an error connecting to GitLab.", true), nil
@@ -297,7 +374,7 @@ func (p *Plugin) recoverFromPanic(args *model.CommandArgs) {
 			"stack", string(debug.Stack()))
 		p.postCommandResponse(args, "An unexpected error occurred. Please try again later.", true)
 		if *p.client.Configuration.GetConfig().ServiceSettings.EnableDeveloper {
-			p.postCommandResponse(args, fmt.Sprintf("error: %v, \nstack:\n```\n%s\n```", r, string(debug.Stack())), true)
+			p.postCommandResponse(args, fmt.Sprintf("error: %v, \nstack:\n```%s```", r, string(debug.Stack())), true)
 		}
 	}
 }
@@ -967,7 +1044,7 @@ func (p *Plugin) isAuthorizedSysAdmin(userID string) (bool, error) {
 	return true, nil
 }
 
-func getAutocompleteData(config *configuration) *model.AutocompleteData {
+func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteData {
 	if !config.IsOAuthConfigured() {
 		gitlab := model.NewAutocompleteData("gitlab", "[command]", "Available commands: setup, about")
 
@@ -980,17 +1057,32 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 		return gitlab
 	}
 
-	gitlab := model.NewAutocompleteData("gitlab", "[command]", "Available commands: connect, disconnect, todo, subscriptions, me, pipelines, settings, webhook, setup, help, about")
+	gitlab := model.NewAutocompleteData("gitlab", "[command]", "Available commands: connect, disconnect, todo, subscriptions, me, pipelines, settings, webhook, instance, setup, help, about")
 
 	connect := model.NewAutocompleteData("connect", "", "Connect your GitLab account")
+	connect.AddStaticListArgument("Instance Name", true, p.getConnectInstanceAutoCompleteData())
 	gitlab.AddCommand(connect)
 
 	disconnect := model.NewAutocompleteData("disconnect", "", "disconnect your GitLab account")
 	gitlab.AddCommand(disconnect)
 
-	installInstance := model.NewAutocompleteData("install-instance", "", "Install GitLab Instance")
-	installInstance.AddTextArgument("GitLab Instance URL", "GitLab Instance URL", "https://gitlab.com")
-	gitlab.AddCommand(installInstance)
+	instance := model.NewAutocompleteData("instance", "[command]", "Install, Uninstall, List, Set-Default Instance")
+
+	install := model.NewAutocompleteData("install", "", "Install GitLab Instance")
+	instance.AddCommand(install)
+
+	setDefault := model.NewAutocompleteData("set-default", "", "Set the default GitLab instance to use")
+	setDefault.AddStaticListArgument("Instance Name", true, p.getDefaultInstanceAutoCompleteData())
+	instance.AddCommand(setDefault)
+
+	uninstall := model.NewAutocompleteData("uninstall", "", "Uninstall GitLab Instance")
+	uninstall.AddStaticListArgument("Instance Name", true, p.getUninstallInstanceAutoCompleteData())
+	instance.AddCommand(uninstall)
+
+	list := model.NewAutocompleteData("list", "", "List all installed GitLab instances")
+	instance.AddCommand(list)
+
+	gitlab.AddCommand(instance)
 
 	todo := model.NewAutocompleteData("todo", "", "Get a list of todos, assigned issues, assigned merge requests and merge requests awaiting your review")
 	gitlab.AddCommand(todo)
@@ -1075,4 +1167,16 @@ func getAutocompleteData(config *configuration) *model.AutocompleteData {
 	gitlab.AddCommand(about)
 
 	return gitlab
+}
+
+func (p *Plugin) getDefaultInstanceAutoCompleteData() []model.AutocompleteListItem {
+	return buildInstanceAutocompleteItems(p.getInstanceList(), "Set '%s' as the default instance")
+}
+
+func (p *Plugin) getUninstallInstanceAutoCompleteData() []model.AutocompleteListItem {
+	return buildInstanceAutocompleteItems(p.getInstanceList(), "Uninstall '%s' instance")
+}
+
+func (p *Plugin) getConnectInstanceAutoCompleteData() []model.AutocompleteListItem {
+	return buildInstanceAutocompleteItems(p.getInstanceList(), "Connect your Mattermost account to '%s' instance")
 }
