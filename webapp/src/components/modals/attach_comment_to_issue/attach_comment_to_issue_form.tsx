@@ -2,7 +2,7 @@
 // See LICENSE.txt for license information.
 
 import React, {useMemo, useState} from 'react';
-import {Theme} from 'mattermost-redux/types/preferences';
+import {Theme} from 'mattermost-redux/selectors/entities/preferences';
 import {useDispatch, useSelector} from 'react-redux';
 import {Modal} from 'react-bootstrap';
 

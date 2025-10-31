@@ -10,16 +10,17 @@ import (
 	"github.com/xanzy/go-gitlab"
 )
 
-func (w *webhook) HandleMergeRequest(ctx context.Context, event *gitlab.MergeEvent) ([]*HandleWebhook, error) {
+func (w *webhook) HandleMergeRequest(ctx context.Context, event *gitlab.MergeEvent) ([]*HandleWebhook, []string, error) {
+	var warnings []string
 	handlers, err := w.handleDMMergeRequest(event)
 	if err != nil {
-		return nil, err
+		return nil, warnings, err
 	}
-	handlers2, err := w.handleChannelMergeRequest(ctx, event)
+	handlers2, warnings, err := w.handleChannelMergeRequest(ctx, event)
 	if err != nil {
-		return nil, err
+		return nil, warnings, err
 	}
-	return cleanWebhookHandlers(append(handlers, handlers2...)), nil
+	return cleanWebhookHandlers(append(handlers, handlers2...)), warnings, nil
 }
 
 func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebhook, error) {
@@ -131,12 +132,12 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 	return []*HandleWebhook{{From: senderGitlabUsername}}, nil
 }
 
-func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.MergeEvent) ([]*HandleWebhook, error) {
+func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.MergeEvent) ([]*HandleWebhook, []string, error) {
 	senderGitlabUsername := event.User.Username
 	pr := event.ObjectAttributes
 	repo := event.Project
 	res := []*HandleWebhook{}
-
+	var warnings []string
 	message := ""
 
 	switch pr.Action {
@@ -166,7 +167,10 @@ func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.M
 				continue
 			}
 
-			if sub.Label() != "" && !containsLabel(event.Labels, sub.Label()) {
+			labels, err := sub.Labels()
+			if err != nil {
+				warnings = append(warnings, err.Error())
+			} else if len(labels) > 0 && !containsAnyLabel(event.Labels, labels) {
 				continue
 			}
 
@@ -183,7 +187,7 @@ func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.M
 		}
 	}
 
-	return res, nil
+	return res, warnings, nil
 }
 
 // calculateUserDiffs function takes previousUsers and currentUsers of an event,
