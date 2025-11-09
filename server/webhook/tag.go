@@ -59,7 +59,7 @@ func (w *webhook) handleChannelTag(ctx context.Context, event *gitlab.TagEvent) 
 	if len(event.Commits) > 0 {
 		message = fmt.Sprintf("[%s](%s) New tag [%s](%s) by [%s](%s)%s", repo.PathWithNamespace, repo.WebURL, tagName, URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Message)
 	} else {
-		message = fmt.Sprintf("[%s](%s): [%s](%s) Tag deleted by [%s](%s)%s", repo.PathWithNamespace, repo.WebURL, tagName, URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Message)
+		message = fmt.Sprintf("[%s](%s): %s Tag deleted by [%s](%s)%s", repo.PathWithNamespace, repo.WebURL, tagName, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Message)
 	}
 
 	toChannels := make([]string, 0)
