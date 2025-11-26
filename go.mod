@@ -1,6 +1,6 @@
 module github.com/mattermost/mattermost-plugin-gitlab
 
-go 1.23.0
+go 1.24.6
 
 require (
 	github.com/gorilla/mux v1.8.1
