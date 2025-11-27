@@ -3,6 +3,7 @@
 
 package webhook
 
+//nolint:misspell // noteable is how GitLab spells it in their API
 const MergeRequestComment = `{
 	"object_kind":"note",
 	"event_type":"note",
@@ -144,6 +145,7 @@ const MergeRequestComment = `{
 	}
 	}`
 
+//nolint:misspell // noteable is how GitLab spells it in their API
 const IssueComment = `{
 		"object_kind":"note",
 		"event_type":"note",
