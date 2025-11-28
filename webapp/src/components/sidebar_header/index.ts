@@ -3,15 +3,16 @@
 
 import {connect} from 'react-redux';
 
-import manifest from '../../manifest';
+import {getConnected} from 'src/selectors';
+import {GlobalState} from 'src/types/store';
 
-import SidebarHeader from './sidebar_header.jsx';
+import SidebarHeader from './sidebar_header';
 
-function mapStateToProps(state) {
+function mapStateToProps(state: GlobalState) {
     const members = state.entities.teams.myMembers || {};
     return {
         show: Object.keys(members).length <= 1,
-        connected: state[`plugins-${manifest.id}`].connected,
+        connected: getConnected(state),
     };
 }
 
