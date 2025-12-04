@@ -5,7 +5,7 @@
     "homepage_url": "https://github.com/mattermost/mattermost-plugin-gitlab",
     "support_url": "https://github.com/mattermost/mattermost-plugin-gitlab/issues",
     "icon_path": "assets/icon.svg",
-    "min_server_version": "7.1.0",
+    "min_server_version": "10.7.0",
     "server": {
         "executables": {
             "darwin-amd64": "server/dist/plugin-darwin-amd64",
