@@ -302,6 +302,11 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 	config := p.getConfiguration()
 
 	conf := p.getOAuthConfig()
+	if conf == nil {
+		rErr = errors.New("OAuth configuration not available")
+		http.Error(w, rErr.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	code := r.URL.Query().Get("code")
 	if len(code) == 0 {
@@ -572,6 +577,9 @@ func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Req
 
 func (p *Plugin) getLHSData(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	var result *gitlab.LHSContent
+
+	p.client.Log.Info("Getting LHS data", "user_id", c.UserID, "gitlab_user_id", c.GitlabInfo.GitlabUserID, "gitlab_username", c.GitlabInfo.GitlabUsername)
+
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		resp, err := p.GitlabClient.GetLHSData(c.Ctx, info, token)
 		if err != nil {

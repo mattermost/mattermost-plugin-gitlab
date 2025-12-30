@@ -54,6 +54,9 @@ const (
 	NotificationActionNameMemberAccessRequest = "member_access_requested"
 
 	invalidTokenError = "401 {error: invalid_token}" //#nosec G101 -- False positive
+
+	// The duration before token expiry when we should refresh the token.
+	tokenExpiryBuffer = 10 * time.Second
 )
 
 type Plugin struct {
@@ -830,20 +833,52 @@ func (p *Plugin) getUsername(userID string) (string, *APIErrorResponse) {
 
 func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*oauth2.Token, error) {
 	conf := p.getOAuthConfig()
-	src := conf.TokenSource(context.Background(), token)
+	if conf == nil {
+		return nil, errors.New("OAuth configuration is not available")
+	}
+
+	// Use ReuseTokenSourceWithExpiry to ensure the oauth2 library uses the same expiry buffer
+	// as our plugin's check. This prevents a race condition where our check decides to refresh
+	// but oauth2's default 10-second buffer says the token is still valid.
+	src := oauth2.ReuseTokenSourceWithExpiry(token, conf.TokenSource(context.Background(), token), tokenExpiryBuffer)
+
+	p.client.Log.Info("Attempting to refresh GitLab OAuth token",
+		"user_id", userInfo.UserID,
+		"gitlab_user_id", userInfo.GitlabUserID,
+		"server_time", time.Now().UTC().Format(time.RFC3339Nano),
+		"token_expires_at", token.Expiry.UTC().Format(time.RFC3339Nano),
+		"time_until_expiry", time.Until(token.Expiry).String(),
+		"refresh_token_suffix", maskToken(token.RefreshToken),
+	)
 
 	newToken, err := src.Token() // this actually goes and renews the tokens
 
 	if err != nil {
 		if strings.Contains(err.Error(), "\"error\":\"invalid_grant\"") {
-			p.client.Log.Warn("Failed to refresh OAuth token as the existing one has an invalid grant. Revoking the token.", "userInfo", userInfo, "error", err.Error())
+			p.client.Log.Warn("Failed to refresh OAuth token - invalid grant. Revoking token.",
+				"user_id", userInfo.UserID,
+				"gitlab_user_id", userInfo.GitlabUserID,
+				"error", err.Error(),
+				"server_time", time.Now().UTC().Format(time.RFC3339Nano),
+				"token_expires_at", token.Expiry.UTC().Format(time.RFC3339Nano),
+				"refresh_token_suffix", maskToken(token.RefreshToken),
+			)
 			p.handleRevokedToken(userInfo)
 		}
 		return nil, errors.Wrap(err, "unable to get the new refreshed token")
 	}
 
 	if newToken.AccessToken != token.AccessToken {
-		p.client.Log.Debug("Gitlab token refreshed.", "UserID", userInfo.UserID)
+		p.client.Log.Info("GitLab OAuth token refreshed successfully",
+			"user_id", userInfo.UserID,
+			"gitlab_user_id", userInfo.GitlabUserID,
+			"server_time", time.Now().UTC().Format(time.RFC3339Nano),
+			"old_token_expires_at", token.Expiry.UTC().Format(time.RFC3339Nano),
+			"new_token_expires_at", newToken.Expiry.UTC().Format(time.RFC3339Nano),
+			"new_time_until_expiry", time.Until(newToken.Expiry).String(),
+			"old_refresh_token_suffix", maskToken(token.RefreshToken),
+			"new_refresh_token_suffix", maskToken(newToken.RefreshToken),
+		)
 
 		if err := p.storeGitlabUserToken(userInfo.UserID, newToken); err != nil {
 			return nil, errors.Wrap(err, "unable to store user info with refreshed token")
@@ -851,6 +886,12 @@ func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*
 
 		return newToken, nil
 	}
+
+	p.client.Log.Debug("GitLab OAuth token unchanged after refresh attempt",
+		"user_id", userInfo.UserID,
+		"server_time", time.Now().UTC().Format(time.RFC3339Nano),
+		"token_expires_at", token.Expiry.UTC().Format(time.RFC3339Nano),
+	)
 
 	return token, nil
 }
@@ -874,9 +915,27 @@ func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo) (*oauth2.Toke
 		}
 	}
 
-	if time.Until(token.Expiry) > 1*time.Minute {
+	timeUntilExpiry := time.Until(token.Expiry)
+	if timeUntilExpiry > tokenExpiryBuffer {
+		p.client.Log.Debug("Using existing GitLab OAuth token (not expiring soon)",
+			"user_id", info.UserID,
+			"gitlab_user_id", info.GitlabUserID,
+			"server_time", time.Now().UTC().Format(time.RFC3339Nano),
+			"token_expires_at", token.Expiry.UTC().Format(time.RFC3339Nano),
+			"time_until_expiry", timeUntilExpiry.String(),
+			"expiry_buffer", tokenExpiryBuffer.String(),
+		)
 		return token, nil
 	}
+
+	p.client.Log.Info("GitLab OAuth token expiring soon, attempting refresh",
+		"user_id", info.UserID,
+		"gitlab_user_id", info.GitlabUserID,
+		"server_time", time.Now().UTC().Format(time.RFC3339Nano),
+		"token_expires_at", token.Expiry.UTC().Format(time.RFC3339Nano),
+		"time_until_expiry", timeUntilExpiry.String(),
+		"expiry_buffer", tokenExpiryBuffer.String(),
+	)
 
 	mutex, err := cluster.NewMutex(p.API, info.UserID+TokenMutexKey)
 	if err != nil {
@@ -891,9 +950,25 @@ func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo) (*oauth2.Toke
 		return nil, apiErr
 	}
 
-	if time.Until(lockedToken.Expiry) > 1*time.Minute {
+	lockedTimeUntilExpiry := time.Until(lockedToken.Expiry)
+	if lockedTimeUntilExpiry > tokenExpiryBuffer {
+		p.client.Log.Info("GitLab OAuth token already refreshed by another request",
+			"user_id", info.UserID,
+			"gitlab_user_id", info.GitlabUserID,
+			"server_time", time.Now().UTC().Format(time.RFC3339Nano),
+			"token_expires_at", lockedToken.Expiry.UTC().Format(time.RFC3339Nano),
+			"time_until_expiry", lockedTimeUntilExpiry.String(),
+		)
 		return lockedToken, nil
 	}
+
+	p.client.Log.Info("Proceeding with GitLab OAuth token refresh",
+		"user_id", info.UserID,
+		"gitlab_user_id", info.GitlabUserID,
+		"server_time", time.Now().UTC().Format(time.RFC3339Nano),
+		"token_expires_at", lockedToken.Expiry.UTC().Format(time.RFC3339Nano),
+		"time_until_expiry", lockedTimeUntilExpiry.String(),
+	)
 
 	newToken, err := p.refreshToken(info, lockedToken)
 	if err != nil {
@@ -912,11 +987,36 @@ func (p *Plugin) useGitlabClient(info *gitlab.UserInfo, toRun func(info *gitlab.
 	err = toRun(info, token)
 
 	if err != nil && strings.Contains(err.Error(), invalidTokenError) {
-		p.client.Log.Warn("Revoking OAuth token while using Gitlab client as it is invalid", "userInfo", info, "error", err.Error())
+		p.client.Log.Warn("GitLab API returned invalid token error - revoking OAuth token",
+			"user_id", info.UserID,
+			"gitlab_user_id", info.GitlabUserID,
+			"gitlab_username", info.GitlabUsername,
+			"error", err.Error(),
+			"server_time", time.Now().UTC().Format(time.RFC3339Nano),
+			"token_expires_at", token.Expiry.UTC().Format(time.RFC3339Nano),
+			"time_until_expiry", time.Until(token.Expiry).String(),
+			"refresh_token_suffix", maskToken(token.RefreshToken),
+		)
 		p.handleRevokedToken(info)
 	}
 
 	return err
+}
+
+// maskToken returns a short, non-sensitive representation of a token value suitable for logging.
+// It returns the last 4 characters of the token (if present) prefixed with "***" so that
+// operators can correlate logs without exposing full secrets.
+func maskToken(token string) string {
+	if token == "" {
+		return ""
+	}
+
+	runes := []rune(token)
+	if len(runes) <= 4 {
+		return "***" + string(runes)
+	}
+
+	return "***" + string(runes[len(runes)-4:])
 }
 
 func (p *Plugin) logWarnings(warnings []string) {
