@@ -23,7 +23,6 @@ import (
 	"github.com/mattermost/mattermost/server/public/pluginapi"
 	"github.com/mattermost/mattermost/server/public/pluginapi/cluster"
 	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/poster"
-	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/telemetry"
 	"github.com/pkg/errors"
 	gitlabLib "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
@@ -71,9 +70,6 @@ type Plugin struct {
 
 	router *mux.Router
 
-	telemetryClient telemetry.Client
-	tracker         telemetry.Tracker
-
 	BotUserID   string
 	poster      poster.Poster
 	flowManager *FlowManager
@@ -116,7 +112,6 @@ func (p *Plugin) OnActivate() error {
 	}
 
 	p.initializeAPI()
-	p.initializeTelemetry()
 
 	p.oauthBroker = NewOAuthBroker(p.sendOAuthCompleteEvent)
 
@@ -146,10 +141,6 @@ func (p *Plugin) OnActivate() error {
 func (p *Plugin) OnDeactivate() error {
 	p.oauthBroker.Close()
 
-	if err := p.telemetryClient.Close(); err != nil {
-		p.client.Log.Warn("Telemetry client failed to close", "error", err.Error())
-	}
-
 	return nil
 }
 
@@ -166,10 +157,6 @@ func (p *Plugin) OnInstall(c *plugin.Context, event model.OnInstallEvent) error 
 	}
 
 	return p.flowManager.StartSetupWizard(event.UserId, "")
-}
-
-func (p *Plugin) OnSendDailyTelemetry() {
-	p.SendDailyTelemetry()
 }
 
 func (p *Plugin) OnPluginClusterEvent(c *plugin.Context, ev model.PluginClusterEvent) {

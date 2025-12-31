@@ -5,13 +5,14 @@ package main
 
 import (
 	"path/filepath"
+	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/pkg/errors"
-	"gopkg.in/yaml.v3"
-
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin"
+	"github.com/mattermost/mattermost/server/public/pluginapi"
+	"github.com/pkg/errors"
+	"gopkg.in/yaml.v3"
 )
 
 type SupportPacket struct {
@@ -45,4 +46,31 @@ func (p *Plugin) GenerateSupportData(_ *plugin.Context) ([]*model.FileData, erro
 		Filename: filepath.Join(manifest.Id, "diagnostics.yaml"),
 		Body:     body,
 	}}, result.ErrorOrNil()
+}
+
+const (
+	keysPerPage = 1000
+)
+
+func (p *Plugin) getConnectedUserCount() (int64, error) {
+	checker := func(key string) (keep bool, err error) {
+		return strings.HasSuffix(key, GitlabUserInfoKey), nil
+	}
+
+	var count int64
+
+	for i := 0; ; i++ {
+		keys, err := p.client.KV.ListKeys(i, keysPerPage, pluginapi.WithChecker(checker))
+		if err != nil {
+			return 0, errors.Wrapf(err, "failed to list keys - page, %d", i)
+		}
+
+		count += int64(len(keys))
+
+		if len(keys) < keysPerPage {
+			break
+		}
+	}
+
+	return count, nil
 }
