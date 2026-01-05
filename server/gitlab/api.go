@@ -13,8 +13,6 @@ import (
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/logger"
 
-	"time"
-
 	"github.com/pkg/errors"
 	internGitlab "github.com/xanzy/go-gitlab"
 	"golang.org/x/oauth2"
@@ -349,9 +347,6 @@ func (g *gitlab) GetGroup(ctx context.Context, user *UserInfo, token *oauth2.Tok
 }
 
 func (g *gitlab) GetLHSData(ctx context.Context, user *UserInfo, token *oauth2.Token) (*LHSContent, error) {
-	// TODO: MUST REMOVE AFTER TESTING AUTH ISSUE
-	time.Sleep(20 * time.Second)
-
 	client, err := g.GitlabConnect(*token)
 	if err != nil {
 		return nil, err
