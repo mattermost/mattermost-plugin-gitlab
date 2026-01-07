@@ -19,11 +19,6 @@ import (
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 )
 
-type Tracker interface {
-	TrackEvent(event string, properties map[string]interface{})
-	TrackUserEvent(event, userID string, properties map[string]interface{})
-}
-
 type FlowManager struct {
 	client                          *pluginapi.Client
 	pluginID                        string
@@ -38,8 +33,6 @@ type FlowManager struct {
 	createHook                      func(ctx context.Context, gitlabClient gitlab.Gitlab, info *gitlab.UserInfo, group, project string, hookOptions *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error)
 	saveInstanceDetails             func(instanceName string, config *InstanceConfiguration) error
 	setDefaultInstance              func(instanceName string) error
-
-	tracker Tracker
 
 	setupFlow        *flow.Flow
 	oauthFlow        *flow.Flow
@@ -60,8 +53,6 @@ func (p *Plugin) NewFlowManager() (*FlowManager, error) {
 		createHook:                      p.createHook,
 		saveInstanceDetails:             p.installInstance,
 		setDefaultInstance:              p.setDefaultInstance,
-
-		tracker: p,
 	}
 
 	setupFlow, err := fm.newFlow("setup")
@@ -145,8 +136,6 @@ func (fm *FlowManager) doneStep() flow.Step {
 }
 
 func (fm *FlowManager) onDone(f *flow.Flow) {
-	fm.trackCompleteSetupWizard(f.UserID)
-
 	delegatedFrom := f.GetState().GetString(keyDelegatedFrom)
 	if delegatedFrom != "" {
 		err := fm.setupFlow.ForUser(delegatedFrom).Go(stepDelegateComplete)
@@ -256,22 +245,7 @@ func (fm *FlowManager) StartSetupWizard(userID string, delegatedFrom string) err
 
 	fm.client.Log.Debug("Started setup wizard", "userID", userID, "delegatedFrom", delegatedFrom)
 
-	fm.trackStartSetupWizard(userID, delegatedFrom != "")
-
 	return nil
-}
-
-func (fm *FlowManager) trackStartSetupWizard(userID string, fromInvite bool) {
-	fm.tracker.TrackUserEvent("setup_wizard_start", userID, map[string]interface{}{
-		"from_invite": fromInvite,
-		"time":        model.GetMillis(),
-	})
-}
-
-func (fm *FlowManager) trackCompleteSetupWizard(userID string) {
-	fm.tracker.TrackUserEvent("setup_wizard_complete", userID, map[string]interface{}{
-		"time": model.GetMillis(),
-	})
 }
 
 func (fm *FlowManager) StartOauthWizard(userID string) error {
@@ -282,21 +256,7 @@ func (fm *FlowManager) StartOauthWizard(userID string) error {
 		return err
 	}
 
-	fm.trackStartOauthWizard(userID)
-
 	return nil
-}
-
-func (fm *FlowManager) trackStartOauthWizard(userID string) {
-	fm.tracker.TrackUserEvent("oauth_wizard_start", userID, map[string]interface{}{
-		"time": model.GetMillis(),
-	})
-}
-
-func (fm *FlowManager) trackCompleteOauthWizard(userID string) {
-	fm.tracker.TrackUserEvent("oauth_wizard_complete", userID, map[string]interface{}{
-		"time": model.GetMillis(),
-	})
 }
 
 func (fm *FlowManager) stepWelcome() flow.Step {
@@ -594,8 +554,7 @@ func (fm *FlowManager) stepOAuthConnect() flow.Step {
 	connectText := fmt.Sprintf("Go [here](%s) to connect your account.", connectURL)
 	return flow.NewStep(stepOAuthConnect).
 		WithText(connectText).
-		WithPretext(connectPretext).
-		OnRender(func(f *flow.Flow) { fm.trackCompleteOauthWizard(f.UserID) })
+		WithPretext(connectPretext)
 	// The API handler will advance to the next step and complete the flow
 }
 
@@ -607,21 +566,7 @@ func (fm *FlowManager) StartWebhookWizard(userID string) error {
 		return err
 	}
 
-	fm.trackStartWebhookWizard(userID)
-
 	return nil
-}
-
-func (fm *FlowManager) trackStartWebhookWizard(userID string) {
-	fm.tracker.TrackUserEvent("webhook_wizard_start", userID, map[string]interface{}{
-		"time": model.GetMillis(),
-	})
-}
-
-func (fm *FlowManager) trackCompleteWebhookWizard(userID string) {
-	fm.tracker.TrackUserEvent("webhook_wizard_complete", userID, map[string]interface{}{
-		"time": model.GetMillis(),
-	})
 }
 
 func (fm *FlowManager) stepWebhookQuestion() flow.Step {
@@ -758,7 +703,6 @@ func (fm *FlowManager) stepWebhookConfirmation() flow.Step {
 	return flow.NewStep(stepWebhookConfirmation).
 		WithTitle("Success! :tada: You've successfully set up your Mattermost GitLab integration! ").
 		WithText("Use `/gitlab subscriptions add` to subscribe any Mattermost channel to your GitLab repository. [Learn more](https://mattermost.gitbook.io/plugin-gitlab/feature-summary#subscribe-to-unsubscribe-from-a-repository)").
-		OnRender(func(f *flow.Flow) { fm.trackCompleteWebhookWizard(f.UserID) }).
 		Next("")
 }
 
@@ -770,21 +714,7 @@ func (fm *FlowManager) StartAnnouncementWizard(userID string) error {
 		return err
 	}
 
-	fm.trackStartAnnouncementWizard(userID)
-
 	return nil
-}
-
-func (fm *FlowManager) trackStartAnnouncementWizard(userID string) {
-	fm.tracker.TrackUserEvent("announcement_wizard_start", userID, map[string]interface{}{
-		"time": model.GetMillis(),
-	})
-}
-
-func (fm *FlowManager) trackCompletAnnouncementWizard(userID string) {
-	fm.tracker.TrackUserEvent("announcement_wizard_complete", userID, map[string]interface{}{
-		"time": model.GetMillis(),
-	})
 }
 
 func (fm *FlowManager) stepAnnouncementQuestion() flow.Step {
@@ -829,8 +759,7 @@ func (fm *FlowManager) stepAnnouncementQuestion() flow.Step {
 func (fm *FlowManager) stepAnnouncementConfirmation() flow.Step {
 	return flow.NewStep(stepAnnouncementConfirmation).
 		WithText("Message to ~{{ .ChannelName }} was sent.").
-		Next("").
-		OnRender(func(f *flow.Flow) { fm.trackCompletAnnouncementWizard(f.UserID) })
+		Next("")
 }
 
 func (fm *FlowManager) submitChannelAnnouncement(f *flow.Flow, submitted map[string]interface{}) (flow.Name, flow.State, map[string]string, error) {

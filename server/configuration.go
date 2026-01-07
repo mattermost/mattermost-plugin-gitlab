@@ -12,7 +12,6 @@ import (
 
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/pluginapi"
-	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/telemetry"
 	"github.com/pkg/errors"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
@@ -209,10 +208,6 @@ func (p *Plugin) OnConfigurationChange() error {
 	err = p.client.SlashCommand.Register(command)
 	if err != nil {
 		return errors.Wrap(err, "failed to register command")
-	}
-
-	if p.tracker != nil {
-		p.tracker.ReloadConfig(telemetry.NewTrackerConfig(p.API.GetConfig()))
 	}
 
 	p.GitlabClient = gitlab.New(configuration.GitlabURL, configuration.GitlabGroup, p.isNamespaceAllowed)
