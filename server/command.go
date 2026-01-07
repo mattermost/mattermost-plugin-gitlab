@@ -273,7 +273,7 @@ func (p *Plugin) handleUnInstallInstance(args *model.CommandArgs, parameters []s
 		return p.getCommandResponse(args, "Please specify the instance name.", true), nil
 	}
 
-	instanceName := parameters[0]
+	instanceName := strings.Join(parameters, " ")
 
 	err := p.uninstallInstance(instanceName)
 	if err != nil {
@@ -288,7 +288,7 @@ func (p *Plugin) handleSetDefaultInstance(args *model.CommandArgs, parameters []
 		return p.getCommandResponse(args, "Please specify the instance name.", true), nil
 	}
 
-	instanceName := parameters[0]
+	instanceName := strings.Join(parameters, " ")
 	err := p.setDefaultInstance(instanceName)
 	if err != nil {
 		return p.getCommandResponse(args, err.Error(), true), nil
