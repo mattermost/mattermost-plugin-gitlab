@@ -346,7 +346,7 @@ func (p *Plugin) handleConnect(args *model.CommandArgs, parameters []string) (*m
 	}
 
 	// Set the default instance for the user before connecting
-	instanceName := parameters[0]
+	instanceName := strings.Join(parameters, " ")
 	err := p.setDefaultInstance(instanceName)
 	if err != nil {
 		return p.getCommandResponse(args, err.Error(), true), nil
