@@ -53,6 +53,9 @@ const (
 	NotificationActionNameMemberAccessRequest = "member_access_requested"
 
 	invalidTokenError = "401 {error: invalid_token}" //#nosec G101 -- False positive
+
+	// The duration before token expiry when we should refresh the token.
+	tokenExpiryBuffer = 5 * time.Minute
 )
 
 type Plugin struct {
@@ -817,7 +820,11 @@ func (p *Plugin) getUsername(userID string) (string, *APIErrorResponse) {
 
 func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*oauth2.Token, error) {
 	conf := p.getOAuthConfig()
-	src := conf.TokenSource(context.Background(), token)
+
+	// Use ReuseTokenSourceWithExpiry to ensure the oauth2 library uses the same expiry buffer
+	// as our plugin's check. This prevents a race condition where our check decides to refresh
+	// but oauth2's default 10-second buffer says the token is still valid.
+	src := oauth2.ReuseTokenSourceWithExpiry(token, conf.TokenSource(context.Background(), token), tokenExpiryBuffer)
 
 	newToken, err := src.Token() // this actually goes and renews the tokens
 
@@ -861,7 +868,7 @@ func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo) (*oauth2.Toke
 		}
 	}
 
-	if time.Until(token.Expiry) > 1*time.Minute {
+	if time.Until(token.Expiry) > tokenExpiryBuffer {
 		return token, nil
 	}
 
@@ -878,7 +885,7 @@ func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo) (*oauth2.Toke
 		return nil, apiErr
 	}
 
-	if time.Until(lockedToken.Expiry) > 1*time.Minute {
+	if time.Until(lockedToken.Expiry) > tokenExpiryBuffer {
 		return lockedToken, nil
 	}
 
