@@ -131,7 +131,7 @@ func (p *Plugin) uninstallInstance(instanceName string) error {
 		return fmt.Errorf("failed to save updated config map")
 	}
 
-	instanceNameList = removeStringFromSlice(instanceNameList, instanceName)
+	instanceNameList = slices.DeleteFunc(instanceNameList, func(s string) bool { return s == instanceName })
 
 	if _, err := p.client.KV.Set(instanceConfigNameListKey, instanceNameList); err != nil {
 		p.client.Log.Error("Failed to save updated instance name list while uninstalling instance", "error", err)

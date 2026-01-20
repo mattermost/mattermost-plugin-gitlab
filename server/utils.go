@@ -301,16 +301,6 @@ func lastN(s string, n int) string {
 	return string(out)
 }
 
-func removeStringFromSlice(list []string, target string) []string {
-	var updated []string
-	for _, item := range list {
-		if item != target {
-			updated = append(updated, item)
-		}
-	}
-	return updated
-}
-
 func buildInstanceAutocompleteItems(instanceList []string, helpTextTemplate string) []model.AutocompleteListItem {
 	items := make([]model.AutocompleteListItem, 0, len(instanceList))
 	for _, name := range instanceList {
