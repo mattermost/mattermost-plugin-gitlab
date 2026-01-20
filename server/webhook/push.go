@@ -6,6 +6,7 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/xanzy/go-gitlab"
 )
@@ -56,10 +57,11 @@ func (w *webhook) handleChannelPush(ctx context.Context, event *gitlab.PushEvent
 		plural = "commit"
 	}
 
-	message := fmt.Sprintf("[%s](%s) has pushed %d %s to [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.TotalCommitsCount, plural, event.Project.PathWithNamespace, event.Project.WebURL)
+	var message strings.Builder
+	fmt.Fprintf(&message, "[%s](%s) has pushed %d %s to [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.TotalCommitsCount, plural, event.Project.PathWithNamespace, event.Project.WebURL)
 
 	for _, commit := range event.Commits {
-		message += fmt.Sprintf("\n%s [%s](%s)", commit.Message, "View Commit", commit.URL)
+		fmt.Fprintf(&message, "\n%s [%s](%s)", commit.Message, "View Commit", commit.URL)
 	}
 
 	toChannels := make([]string, 0)
@@ -79,7 +81,7 @@ func (w *webhook) handleChannelPush(ctx context.Context, event *gitlab.PushEvent
 	if len(toChannels) > 0 {
 		res = append(res, &HandleWebhook{
 			From:       senderGitlabUsername,
-			Message:    message,
+			Message:    message.String(),
 			ToUsers:    []string{},
 			ToChannels: toChannels,
 		})

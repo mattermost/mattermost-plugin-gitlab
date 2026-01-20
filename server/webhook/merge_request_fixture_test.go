@@ -551,6 +551,7 @@ const CloseMergeRequestByCreator = `{
 						}
 					}
 					`
+
 const RootUpdateAssigneeMergeRequest = `{
 				"object_kind":"merge_request",
 				"event_type":"merge_request",

@@ -34,9 +34,11 @@ type subscribeCommandTest struct {
 	mockGitlab     bool
 }
 
-const subscribeSuccessMessage = "Successfully subscribed to group/project.\nA Webhook is needed, run ```/gitlab webhook add group/project``` to create one now."
-const testGitlabToken = `{"access_token":"6328a1014b19f741489b48cdc4291d93aa2957b0cea67335a34dcdadaf212139","token_type":"Bearer","refresh_token":"e6453b621e8979214c9f8a1b0e1e39723df8af11cef5e0d613a2cb2e39bdfeb7","expiry":"3022-10-23T15:14:43.623638795-05:00"}`
-const testEncryptionKey = `shD-LC2DElnQzUO50cbvlOvjsNnzfEbk`
+const (
+	subscribeSuccessMessage = "Successfully subscribed to group/project.\nA Webhook is needed, run ```/gitlab webhook add group/project``` to create one now."
+	testGitlabToken         = `{"access_token":"6328a1014b19f741489b48cdc4291d93aa2957b0cea67335a34dcdadaf212139","token_type":"Bearer","refresh_token":"e6453b621e8979214c9f8a1b0e1e39723df8af11cef5e0d613a2cb2e39bdfeb7","expiry":"3022-10-23T15:14:43.623638795-05:00"}`
+	testEncryptionKey       = `shD-LC2DElnQzUO50cbvlOvjsNnzfEbk`
+)
 
 var subscribeCommandTests = []subscribeCommandTest{
 	{
@@ -270,11 +272,12 @@ func TestListWebhookCommand(t *testing.T) {
 			p.SetAPI(api)
 			p.client = pluginapi.NewClient(api, p.Driver)
 
-			if test.scope == "project" {
+			switch test.scope {
+			case "project":
 				mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, nil)
 				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "project", nil)
 				p.GitlabClient = mockedClient
-			} else if test.scope == "group" {
+			case "group":
 				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, nil)
 				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "", nil)
 				p.GitlabClient = mockedClient

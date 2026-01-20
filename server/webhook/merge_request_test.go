@@ -42,7 +42,8 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			From:       "root",
 		}},
 		warnings: []string{},
-	}, {
+	},
+	{
 		testTitle: "root open merge request for manland and display in channel1 (subgroup)",
 		fixture:   strings.ReplaceAll(OpenMergeRequest, "manland/webhook", "manland/subgroup/webhook"),
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
@@ -60,7 +61,8 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			From:       "root",
 		}},
 		warnings: []string{},
-	}, {
+	},
+	{
 		testTitle: "manland close merge request of root and display in channel1",
 		fixture:   CloseMergeRequestByAssignee,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
@@ -78,7 +80,8 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			From:       "manland",
 		}},
 		warnings: []string{},
-	}, {
+	},
+	{
 		testTitle: "manland reopened merge request of root and display in channel1",
 		fixture:   ReopenMerge,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
@@ -96,7 +99,8 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			From:       "manland",
 		}},
 		warnings: []string{},
-	}, {
+	},
+	{
 		testTitle:       "root assign manland to the merge-request",
 		fixture:         RootUpdateAssigneeMergeRequest,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
@@ -109,7 +113,8 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			},
 		},
 		warnings: []string{},
-	}, {
+	},
+	{
 		testTitle:       "root assign manland as reviewer to the merge-request",
 		fixture:         RootUpdateReviewerMergeRequest,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
@@ -122,7 +127,8 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			},
 		},
 		warnings: []string{},
-	}, {
+	},
+	{
 		testTitle:       "user assign manland as assignee to the merge-request",
 		fixture:         UserUpdateAssigneeToManlandMergeRequest,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
@@ -135,7 +141,8 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			},
 		},
 		warnings: []string{},
-	}, {
+	},
+	{
 		testTitle:       "user assign itself to the merge-request",
 		fixture:         UserUpdateAssigneeToUserMergeRequest,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
@@ -148,7 +155,8 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			},
 		},
 		warnings: []string{},
-	}, {
+	},
+	{
 		testTitle: "manland merge root merge-request and display in channel1",
 		fixture:   MergeRequestMerged,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
@@ -166,7 +174,8 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			From:       "manland",
 		}},
 		warnings: []string{},
-	}, {
+	},
+	{
 		testTitle: "manland approve root merge-request and display in channel1",
 		fixture:   ApproveMergeRequest,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
@@ -184,7 +193,8 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			From:       "manland",
 		}},
 		warnings: []string{},
-	}, {
+	},
+	{
 		testTitle: "manland unapprove root merge-request and display in channel1",
 		fixture:   strings.ReplaceAll(ApproveMergeRequest, "approved", "unapproved"),
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
@@ -202,7 +212,8 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			From:       "manland",
 		}},
 		warnings: []string{},
-	}, {
+	},
+	{
 		testTitle: "root close its own MR without assignee and display in channel1",
 		fixture:   CloseMergeRequestByCreator,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
@@ -220,7 +231,8 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 			From:       "root",
 		}},
 		warnings: []string{},
-	}, {
+	},
+	{
 		testTitle: "root open merge request for manland + channel but not subscription to merges",
 		fixture:   OpenMergeRequest,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{

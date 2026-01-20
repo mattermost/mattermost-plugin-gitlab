@@ -39,6 +39,7 @@ else
 	GO_BUILD_GCFLAGS =
 endif
 
+
 # ====================================================================================
 # Used for semver bumping
 PROTECTED_BRANCH := master
@@ -150,6 +151,11 @@ major-rc: ## to bump major release candidate version (semver)
 .PHONY: all
 all: check-style test dist
 
+## Ensures the plugin manifest is valid
+.PHONY: manifest-check
+manifest-check:
+	./build/bin/manifest check
+
 ## Propagates plugin manifest information into the server/ and webapp/ folders.
 .PHONY: apply
 apply:
@@ -158,13 +164,12 @@ apply:
 ## Install go tools
 install-go-tools:
 	@echo Installing go tools
-	$(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.6.0
-	$(GO) install gotest.tools/gotestsum@v1.7.0
-	$(GO) install github.com/mattermost/mattermost-govet/v2@7d8db289e508999dfcac47b97c9490a0fec12d66
+	$(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.8.0
+	$(GO) install gotest.tools/gotestsum@v1.13.0
 
 ## Runs eslint and golangci-lint
 .PHONY: check-style
-check-style: apply webapp/node_modules install-go-tools
+check-style: manifest-check apply webapp/node_modules install-go-tools
 	@echo Checking for style guide compliance
 
 ifneq ($(HAS_WEBAPP),)
@@ -179,10 +184,9 @@ ifneq ($(HAS_SERVER),)
 	@echo Running golangci-lint
 	$(GO) vet ./...
 	$(GOBIN)/golangci-lint run ./...
-	$(GO) vet -vettool=$(GOBIN)/mattermost-govet -license -license.year=2019 ./...
 endif
 
-## Builds the server, if it exists, for all supported architectures, unless MM_SERVICESETTINGS_ENABLEDEVELOPER is set
+## Builds the server, if it exists, for all supported architectures, unless MM_SERVICESETTINGS_ENABLEDEVELOPER is set.
 .PHONY: server
 server:
 ifneq ($(HAS_SERVER),)
@@ -205,7 +209,7 @@ endif
 ## Ensures NPM dependencies are installed without having to run this all the time.
 webapp/node_modules: $(wildcard webapp/package.json)
 ifneq ($(HAS_WEBAPP),)
-	cd webapp && $(NPM) install --verbose
+	cd webapp && $(NPM) install
 	touch $@
 endif
 
@@ -226,12 +230,6 @@ bundle:
 	rm -rf dist/
 	mkdir -p dist/$(PLUGIN_ID)
 	./build/bin/manifest dist
-ifneq ($(wildcard LICENSE.txt),)
-	cp -r LICENSE.txt dist/$(PLUGIN_ID)/
-endif
-ifneq ($(wildcard NOTICE.txt),)
-	cp -r NOTICE.txt dist/$(PLUGIN_ID)/
-endif
 ifneq ($(wildcard $(ASSETS_DIR)/.),)
 	cp -r $(ASSETS_DIR) dist/$(PLUGIN_ID)/
 endif
@@ -246,7 +244,11 @@ ifneq ($(HAS_WEBAPP),)
 	mkdir -p dist/$(PLUGIN_ID)/webapp
 	cp -r webapp/dist dist/$(PLUGIN_ID)/webapp/
 endif
+ifeq ($(shell uname),Darwin)
+	cd dist && tar --disable-copyfile -cvzf $(BUNDLE_NAME) $(PLUGIN_ID)
+else
 	cd dist && tar -cvzf $(BUNDLE_NAME) $(PLUGIN_ID)
+endif
 
 	@echo plugin built at: dist/$(BUNDLE_NAME)
 

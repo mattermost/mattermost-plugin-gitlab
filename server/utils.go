@@ -54,7 +54,7 @@ func encrypt(key []byte, text string) (string, error) {
 		return "", err
 	}
 
-	cfb := cipher.NewCFBEncrypter(block, iv)
+	cfb := cipher.NewCFBEncrypter(block, iv) //nolint:staticcheck // CFB mode is deprecated but kept for backwards compatibility
 	cfb.XORKeyStream(ciphertext[aes.BlockSize:], msg)
 	finalMsg := base64.URLEncoding.EncodeToString(ciphertext)
 	return finalMsg, nil
@@ -78,7 +78,7 @@ func decrypt(key []byte, text string) (string, error) {
 	iv := decodedMsg[:aes.BlockSize]
 	msg := decodedMsg[aes.BlockSize:]
 
-	cfb := cipher.NewCFBDecrypter(block, iv)
+	cfb := cipher.NewCFBDecrypter(block, iv) //nolint:staticcheck // CFB mode is deprecated but kept for backwards compatibility
 	cfb.XORKeyStream(msg, msg)
 
 	unpadMsg, err := unpad(msg)
@@ -105,7 +105,7 @@ func parseGitlabUsernamesFromText(text string) []string {
 	usernames := []string{}
 
 	for _, word := range strings.FieldsFunc(text, func(c rune) bool {
-		return !(c == '-' || c == '@' || unicode.IsLetter(c) || unicode.IsNumber(c))
+		return c != '-' && c != '@' && !unicode.IsLetter(c) && !unicode.IsNumber(c)
 	}) {
 		if len(word) < 2 || word[0] != '@' {
 			continue
@@ -299,15 +299,6 @@ func lastN(s string, n int) string {
 	}
 
 	return string(out)
-}
-
-func containsString(slice []string, value string) bool {
-	for _, v := range slice {
-		if v == value {
-			return true
-		}
-	}
-	return false
 }
 
 func removeStringFromSlice(list []string, target string) []string {

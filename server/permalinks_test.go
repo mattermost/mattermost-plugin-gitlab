@@ -376,7 +376,7 @@ func getClient() (*gitlab.Client, func()) {
 	apiHandler := http.NewServeMux()
 	apiHandler.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Path == requestURLPath {
-			fmt.Fprintln(w, `{
+			_, _ = fmt.Fprintln(w, `{
 				"file_name": "authentication.go",
 				"file_path": "app/authentication.go",
 				"size": 7950,
