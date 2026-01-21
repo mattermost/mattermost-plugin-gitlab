@@ -502,3 +502,125 @@ func TestAddWebhookCommand(t *testing.T) {
 		})
 	}
 }
+
+type instanceNameTestCase struct {
+	name         string
+	parameters   []string
+	instanceName string
+	exists       bool
+}
+
+var instanceNameTestCases = []instanceNameTestCase{
+	{"single word", []string{"SimpleInstance"}, "SimpleInstance", true},
+	{"whitespace in name", []string{"Gitlab", "Test", "Instance"}, "Gitlab Test Instance", true},
+	{"multiple whitespaces", []string{"My", "Corporate", "GitLab", "Server"}, "My Corporate GitLab Server", true},
+	{"leading and trailing whitespaces", []string{" Test", "Instance", "Name "}, "Test Instance Name", true},
+	{"non-existent instance", []string{"NonExistent", "Instance"}, "NonExistent Instance", false},
+}
+
+func setupInstanceCommandTest(t *testing.T, instanceList []string, instanceConfig map[string]InstanceConfiguration) (*Plugin, *string, *plugintest.API) {
+	t.Helper()
+	p := new(Plugin)
+	p.configuration = &configuration{EncryptionKey: testEncryptionKey}
+
+	instanceListJSON, _ := json.Marshal(instanceList)
+	instanceConfigJSON, _ := json.Marshal(instanceConfig)
+
+	var capturedMessage string
+	api := &plugintest.API{}
+	api.On("KVGet", instanceConfigNameListKey).Return(instanceListJSON, nil)
+	api.On("KVGet", instanceConfigMapKey).Return(instanceConfigJSON, nil)
+	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil)
+	api.On("SavePluginConfig", mock.Anything).Return(nil)
+	api.On("LogError", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	siteURL := "https://mattermost.example.com"
+	conf := &model.Config{}
+	conf.ServiceSettings.SiteURL = &siteURL
+	api.On("GetConfig", mock.Anything).Return(conf)
+
+	api.On("SendEphemeralPost", mock.Anything, mock.MatchedBy(func(post *model.Post) bool {
+		capturedMessage = post.Message
+		return true
+	})).Return(&model.Post{})
+
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	return p, &capturedMessage, api
+}
+
+func TestInstanceCommands(t *testing.T) {
+	args := &model.CommandArgs{UserId: "user_id", ChannelId: "channel_id"}
+
+	t.Run("set-default", func(t *testing.T) {
+		for _, tc := range instanceNameTestCases {
+			t.Run("set-default "+tc.name, func(t *testing.T) {
+				instanceList := []string{tc.instanceName}
+				if !tc.exists {
+					instanceList = []string{"Other Instance"}
+				}
+				p, msg, _ := setupInstanceCommandTest(t, instanceList, nil)
+				_, _ = p.handleSetDefaultInstance(args, tc.parameters)
+				if tc.exists {
+					assert.Contains(t, *msg, "Instance '"+tc.instanceName+"' has been set as the default.")
+				} else {
+					assert.Contains(t, *msg, "does not exist")
+				}
+			})
+		}
+		t.Run("no parameters", func(t *testing.T) {
+			p, msg, _ := setupInstanceCommandTest(t, nil, nil)
+			_, _ = p.handleSetDefaultInstance(args, []string{})
+			assert.Contains(t, *msg, "Please specify the instance name.")
+		})
+	})
+
+	t.Run("uninstall", func(t *testing.T) {
+		for _, tc := range instanceNameTestCases {
+			t.Run("uninstall "+tc.name, func(t *testing.T) {
+				instanceList := []string{tc.instanceName}
+				config := map[string]InstanceConfiguration{tc.instanceName: {GitlabURL: "https://gitlab.example.com"}}
+				if !tc.exists {
+					instanceList = []string{"Other Instance"}
+					config = map[string]InstanceConfiguration{"Other Instance": {GitlabURL: "https://gitlab.example.com"}}
+				}
+				p, msg, _ := setupInstanceCommandTest(t, instanceList, config)
+				_, _ = p.handleUnInstallInstance(args, tc.parameters)
+				if tc.exists {
+					assert.Contains(t, *msg, "Instance '"+tc.instanceName+"' has been uninstalled.")
+				} else {
+					assert.Contains(t, *msg, "not found in the list")
+				}
+			})
+		}
+		t.Run("no parameters", func(t *testing.T) {
+			p, msg, _ := setupInstanceCommandTest(t, nil, nil)
+			_, _ = p.handleUnInstallInstance(args, []string{})
+			assert.Contains(t, *msg, "Please specify the instance name.")
+		})
+	})
+
+	t.Run("connect", func(t *testing.T) {
+		for _, tc := range instanceNameTestCases {
+			t.Run("connect "+tc.name, func(t *testing.T) {
+				instanceList := []string{tc.instanceName}
+				if !tc.exists {
+					instanceList = []string{"Other Instance"}
+				}
+				p, msg, _ := setupInstanceCommandTest(t, instanceList, nil)
+				_, _ = p.handleConnect(args, tc.parameters)
+				if tc.exists {
+					assert.Contains(t, *msg, "Click here to link your GitLab account")
+				} else {
+					assert.Contains(t, *msg, "does not exist")
+				}
+			})
+		}
+		t.Run("no parameters", func(t *testing.T) {
+			p, msg, _ := setupInstanceCommandTest(t, nil, nil)
+			_, _ = p.handleConnect(args, []string{})
+			assert.Contains(t, *msg, "Please specify the instance name.")
+		})
+	})
+}
