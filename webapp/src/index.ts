@@ -2,6 +2,7 @@
 // See LICENSE.txt for license information.
 
 import {getConfig} from 'mattermost-redux/selectors/entities/general';
+import {getCurrentChannelId} from 'mattermost-redux/selectors/entities/common';
 import {Store, Action} from 'redux';
 
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
@@ -10,19 +11,19 @@ import {isSystemMessage} from 'mattermost-redux/utils/post_utils';
 import {getConnected as getConnectedState, getPluginServerRoute} from './selectors';
 import SidebarHeader from './components/sidebar_header';
 import TeamSidebar from './components/team_sidebar';
-import RHSSidebar from './components/rhs_sidebar';
 import UserAttribute from './components/user_attribute';
 import CreateIssuePostMenuAction from './components/post_options/create_issue';
 import AttachCommentToIssuePostMenuAction from './components/post_options/attach_comment_to_issue';
 import CreateIssueModal from './components/modals/create_issue/create_issue_modal';
 import AttachCommentToIssueModal from './components/modals/attach_comment_to_issue/attach_comment_to_issue_modal';
-import SidebarRight from './components/sidebar_right';
+import GitLabRHS from './components/gitlab_rhs';
 import LinkTooltip from './components/link_tooltip';
 
 import {GlobalState} from './types/store';
 
 import Reducer from './reducers';
-import {getConnected, openAttachCommentToIssueModal, openCreateIssueModal, setShowRHSAction} from './actions';
+import ActionTypes, {RHSViewType} from './action_types';
+import {getConnected, openAttachCommentToIssueModal, openCreateIssueModal, setShowRHSAction, getLHSData, updateRHSState, setRHSViewType, getChannelSubscriptions} from './actions';
 import {
     handleConnect,
     handleDisconnect,
@@ -87,8 +88,17 @@ class PluginClass {
         const hooks = new Hooks(store);
         registry.registerSlashCommandWillBePostedHook(hooks.slashCommandWillBePostedHook);
 
-        const {showRHSPlugin} = registry.registerRightHandSidebarComponent(SidebarRight, 'GitLab Plugin');
+        // Register the unified RHS component that handles both views
+        const {showRHSPlugin, toggleRHSPlugin} = registry.registerRightHandSidebarComponent(GitLabRHS, 'GitLab');
+
+        // Store the showRHSPlugin action for use by sidebar buttons
         store.dispatch(setShowRHSAction(() => store.dispatch(showRHSPlugin)));
+
+        // Helper to show RHS with subscriptions view (used by App Bar)
+        const showSubscriptionsRHS = () => {
+            store.dispatch(setRHSViewType(RHSViewType.SUBSCRIPTIONS));
+            store.dispatch(toggleRHSPlugin);
+        };
 
         registry.registerWebSocketEventHandler(
             `custom_${id}_gitlab_connect`,
@@ -122,16 +132,60 @@ class PluginClass {
 
         document.addEventListener('click', activityFunc);
 
-        // RHS Registration
-        const {toggleRHSPlugin} = registry.registerRightHandSidebarComponent(RHSSidebar, 'GitLab');
-        const boundToggleRHSAction = () => store.dispatch(toggleRHSPlugin);
-
-        // App Bar icon
+        // App Bar icon - opens subscriptions view
         if (registry.registerAppBarComponent) {
             const config = getConfig(store.getState());
             const siteUrl = (config && config.SiteURL) || '';
             const iconURL = `${siteUrl}/plugins/${id}/public/app-bar-icon.png`;
-            registry.registerAppBarComponent(iconURL, boundToggleRHSAction, 'GitLab');
+            registry.registerAppBarComponent(iconURL, showSubscriptionsRHS, 'GitLab');
+        }
+
+        // Popout support for the unified RHS component
+        if (registry.registerRHSPluginPopoutListener) {
+            registry.registerRHSPluginPopoutListener(id, (teamName, channelName, listeners) => {
+                listeners.onMessageFromPopout((channel: string) => {
+                    const pluginState = (store.getState() as any)[`plugins-${manifest.id}`];
+
+                    if (channel === 'GET_POPOUT_STATE') {
+                        // Send all state needed by the popout in a single message
+                        listeners.sendToPopout('SEND_POPOUT_STATE', {
+                            rhsViewType: pluginState.rhsViewType,
+                            rhsState: pluginState.rhsState,
+                            channelId: getCurrentChannelId(store.getState() as any),
+                        });
+                    }
+                });
+            });
+
+            if (window.WebappUtils?.popouts?.isPopoutWindow()) {
+                // Fetch fresh data via API
+                store.dispatch(getLHSData() as any);
+
+                // Set up listener for state from parent window
+                window.WebappUtils.popouts.onMessageFromParent((channel: string, data: any) => {
+                    if (channel === 'SEND_POPOUT_STATE') {
+                        // Set which view to display
+                        store.dispatch(setRHSViewType(data.rhsViewType));
+
+                        // Set the tab state for SidebarRight view
+                        if (data.rhsState) {
+                            store.dispatch(updateRHSState(data.rhsState));
+                        }
+
+                        // Set channel ID and fetch subscriptions for subscriptions view
+                        if (data.channelId) {
+                            store.dispatch({
+                                type: ActionTypes.SET_POPOUT_CHANNEL_ID,
+                                channelId: data.channelId,
+                            });
+                            store.dispatch(getChannelSubscriptions(data.channelId) as any);
+                        }
+                    }
+                });
+
+                // Request state from parent window
+                window.WebappUtils.popouts.sendToParent('GET_POPOUT_STATE');
+            }
         }
     }
 
@@ -148,6 +202,13 @@ declare global {
         PostUtils: {
             formatText(text: string, options?: FormatTextOptions): string,
             messageHtmlToComponent(html: string, isRHS: boolean, option?: MessageHtmlToComponentOptions): React.ReactNode,
+        }
+        WebappUtils?: {
+            popouts?: {
+                isPopoutWindow: () => boolean,
+                onMessageFromParent: (callback: (channel: string, state: any) => void) => void,
+                sendToParent: (channel: string, data?: any) => void,
+            }
         }
     }
 }
