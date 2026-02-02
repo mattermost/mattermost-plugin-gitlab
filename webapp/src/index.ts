@@ -132,7 +132,6 @@ class PluginClass {
 
         document.addEventListener('click', activityFunc);
 
-        // App Bar icon - opens subscriptions view
         if (registry.registerAppBarComponent) {
             const config = getConfig(store.getState());
             const siteUrl = (config && config.SiteURL) || '';
@@ -140,14 +139,12 @@ class PluginClass {
             registry.registerAppBarComponent(iconURL, showSubscriptionsRHS, 'GitLab');
         }
 
-        // Popout support for the unified RHS component
         if (registry.registerRHSPluginPopoutListener) {
             registry.registerRHSPluginPopoutListener(id, (teamName, channelName, listeners) => {
                 listeners.onMessageFromPopout((channel: string) => {
                     const pluginState = (store.getState() as any)[`plugins-${manifest.id}`];
 
                     if (channel === 'GET_POPOUT_STATE') {
-                        // Send all state needed by the popout in a single message
                         listeners.sendToPopout('SEND_POPOUT_STATE', {
                             rhsViewType: pluginState.rhsViewType,
                             rhsState: pluginState.rhsState,
@@ -158,21 +155,16 @@ class PluginClass {
             });
 
             if (window.WebappUtils?.popouts?.isPopoutWindow()) {
-                // Fetch fresh data via API
                 store.dispatch(getLHSData() as any);
 
-                // Set up listener for state from parent window
                 window.WebappUtils.popouts.onMessageFromParent((channel: string, data: any) => {
                     if (channel === 'SEND_POPOUT_STATE') {
-                        // Set which view to display
                         store.dispatch(setRHSViewType(data.rhsViewType));
 
-                        // Set the tab state for SidebarRight view
                         if (data.rhsState) {
                             store.dispatch(updateRHSState(data.rhsState));
                         }
 
-                        // Set channel ID and fetch subscriptions for subscriptions view
                         if (data.channelId) {
                             store.dispatch({
                                 type: ActionTypes.SET_POPOUT_CHANNEL_ID,
@@ -183,7 +175,6 @@ class PluginClass {
                     }
                 });
 
-                // Request state from parent window
                 window.WebappUtils.popouts.sendToParent('GET_POPOUT_STATE');
             }
         }
