@@ -20,7 +20,7 @@ interface GitLabRHSProps {
  * based on the rhsViewType state. This solves the issue of Mattermost not
  * properly handling multiple RHS components from the same plugin in popouts.
  */
-const GitLabRHS: React.FC<GitLabRHSProps> = ({rhsViewType, theme}) => {
+const GitLabRHS: React.FC<GitLabRHSProps> = ({rhsViewType, theme}: GitLabRHSProps) => {
     if (rhsViewType === RHSViewType.SIDEBAR_RIGHT) {
         return <SidebarRight theme={theme}/>;
     }
