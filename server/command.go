@@ -228,17 +228,14 @@ func (p *Plugin) handleConfigError(args *model.CommandArgs, err error) (*model.C
 }
 
 func (p *Plugin) handleInstance(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
-	userID := args.UserId
-	isSysAdmin, sysErr := p.isAuthorizedSysAdmin(userID)
+	isSysAdmin, sysErr := p.isAuthorizedSysAdmin(args.UserId)
 	if sysErr != nil {
 		p.client.Log.Warn("Failed to check if user is System Admin", "error", sysErr.Error())
-		p.postCommandResponse(args, "Error checking user's permissions", true)
-		return &model.CommandResponse{}, nil
+		return p.getCommandResponse(args, "Error checking user's permissions", true), nil
 	}
 
 	if !isSysAdmin {
-		p.postCommandResponse(args, "Only System Admins are allowed to manage instances.", true)
-		return &model.CommandResponse{}, nil
+		return p.getCommandResponse(args, "Only System Admins are allowed to manage instances.", true), nil
 	}
 	if len(parameters) < 1 {
 		return p.getCommandResponse(args, "Please specify the instance command.", true), nil
@@ -259,22 +256,9 @@ func (p *Plugin) handleInstance(args *model.CommandArgs, parameters []string) (*
 }
 
 func (p *Plugin) handleInstallInstance(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
-	userID := args.UserId
-	isSysAdmin, err := p.isAuthorizedSysAdmin(userID)
+	err := p.flowManager.StartOauthWizard(args.UserId)
 	if err != nil {
-		p.client.Log.Warn("Failed to check if user is System Admin", "error", err.Error())
-		p.postCommandResponse(args, "Error checking user's permissions", true)
-		return &model.CommandResponse{}, nil
-	}
-
-	if !isSysAdmin {
-		p.postCommandResponse(args, "Only System Admins are allowed to set up the plugin.", true)
-		return &model.CommandResponse{}, nil
-	}
-
-	err = p.flowManager.StartOauthWizard(userID)
-	if err != nil {
-		p.postCommandResponse(args, err.Error(), true)
+		return p.getCommandResponse(args, err.Error(), true), nil
 	}
 
 	return &model.CommandResponse{}, nil

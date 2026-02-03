@@ -625,35 +625,6 @@ func TestAdminProtectedCommands(t *testing.T) {
 		assert.Contains(t, capturedMessage, "No webhooks found")
 	})
 
-	t.Run("install instance requires admin", func(t *testing.T) {
-		p := new(Plugin)
-		p.configuration = &configuration{EncryptionKey: testEncryptionKey}
-
-		// Mock a non-admin user
-		nonAdminUser := &model.User{
-			Id:    "user_id",
-			Roles: "system_user",
-		}
-
-		api := &plugintest.API{}
-		api.On("GetUser", "user_id").Return(nonAdminUser, nil)
-
-		var capturedMessage string
-		api.On("SendEphemeralPost", mock.Anything, mock.MatchedBy(func(post *model.Post) bool {
-			capturedMessage = post.Message
-			return true
-		})).Return(&model.Post{})
-
-		p.SetAPI(api)
-		p.client = pluginapi.NewClient(api, p.Driver)
-
-		args := &model.CommandArgs{UserId: "user_id", ChannelId: "channel_id"}
-
-		_, _ = p.handleInstallInstance(args, []string{})
-
-		assert.Contains(t, capturedMessage, "Only System Admins are allowed to set up the plugin.")
-	})
-
 	t.Run("instance commands require admin", func(t *testing.T) {
 		testCases := []struct {
 			name       string
