@@ -3,12 +3,12 @@
 
 import {getConfig} from 'mattermost-redux/selectors/entities/general';
 import {getCurrentChannelId} from 'mattermost-redux/selectors/entities/common';
-import {Store, Action} from 'redux';
+import {Store, AnyAction} from 'redux';
 
 import {getPost} from 'mattermost-redux/selectors/entities/posts';
 import {isSystemMessage} from 'mattermost-redux/utils/post_utils';
 
-import {getConnected as getConnectedState, getPluginServerRoute} from './selectors';
+import {getConnected as getConnectedState, getPluginServerRoute, getPluginState} from './selectors';
 import SidebarHeader from './components/sidebar_header';
 import TeamSidebar from './components/team_sidebar';
 import UserAttribute from './components/user_attribute';
@@ -22,7 +22,7 @@ import LinkTooltip from './components/link_tooltip';
 import {GlobalState} from './types/store';
 
 import Reducer from './reducers';
-import ActionTypes, {RHSViewType} from './action_types';
+import ActionTypes, {RHSViewType, RHSViewTypeValue} from './action_types';
 import {getConnected, openAttachCommentToIssueModal, openCreateIssueModal, setShowRHSAction, getLHSData, updateRHSState, setRHSViewType, getChannelSubscriptions} from './actions';
 import {
     handleConnect,
@@ -43,8 +43,14 @@ let lastActivityTime = Number.MAX_SAFE_INTEGER;
 const activityTimeout = 60 * 60 * 1000; // 1 hour
 const {id} = manifest;
 
+interface PopoutState {
+    rhsViewType: RHSViewTypeValue;
+    rhsState: string;
+    channelId: string;
+}
+
 class PluginClass {
-    async initialize(registry: PluginRegistry, store: Store<GlobalState, Action<any>>) {
+    async initialize(registry: PluginRegistry, store: Store<GlobalState, AnyAction>) {
         registry.registerReducer(Reducer);
 
         // This needs to be called before any API calls below
@@ -97,7 +103,7 @@ class PluginClass {
         // Helper to show RHS with subscriptions view (used by App Bar)
         const showSubscriptionsRHS = () => {
             store.dispatch(setRHSViewType(RHSViewType.SUBSCRIPTIONS));
-            store.dispatch(toggleRHSPlugin);
+            store.dispatch(toggleRHSPlugin());
         };
 
         registry.registerWebSocketEventHandler(
@@ -142,35 +148,36 @@ class PluginClass {
         if (registry.registerRHSPluginPopoutListener) {
             registry.registerRHSPluginPopoutListener(id, (teamName, channelName, listeners) => {
                 listeners.onMessageFromPopout((channel: string) => {
-                    const pluginState = (store.getState() as any)[`plugins-${manifest.id}`];
+                    const state = store.getState();
+                    const pluginState = getPluginState(state);
 
                     if (channel === 'GET_POPOUT_STATE') {
                         listeners.sendToPopout('SEND_POPOUT_STATE', {
                             rhsViewType: pluginState.rhsViewType,
                             rhsState: pluginState.rhsState,
-                            channelId: getCurrentChannelId(store.getState() as any),
+                            channelId: getCurrentChannelId(state),
                         });
                     }
                 });
             });
 
             if (window.WebappUtils?.popouts?.isPopoutWindow()) {
-                store.dispatch(getLHSData() as any);
+                store.dispatch(getLHSData());
 
-                window.WebappUtils.popouts.onMessageFromParent((channel: string, data: any) => {
+                window.WebappUtils.popouts.onMessageFromParent((channel: string, state: PopoutState) => {
                     if (channel === 'SEND_POPOUT_STATE') {
-                        store.dispatch(setRHSViewType(data.rhsViewType));
+                        store.dispatch(setRHSViewType(state.rhsViewType));
 
-                        if (data.rhsState) {
-                            store.dispatch(updateRHSState(data.rhsState));
+                        if (state.rhsState) {
+                            store.dispatch(updateRHSState(state.rhsState));
                         }
 
-                        if (data.channelId) {
+                        if (state.channelId) {
                             store.dispatch({
                                 type: ActionTypes.SET_POPOUT_CHANNEL_ID,
-                                channelId: data.channelId,
+                                channelId: state.channelId,
                             });
-                            store.dispatch(getChannelSubscriptions(data.channelId) as any);
+                            store.dispatch(getChannelSubscriptions(state.channelId));
                         }
                     }
                 });
@@ -197,8 +204,8 @@ declare global {
         WebappUtils?: {
             popouts?: {
                 isPopoutWindow: () => boolean,
-                onMessageFromParent: (callback: (channel: string, state: any) => void) => void,
-                sendToParent: (channel: string, data?: any) => void,
+                onMessageFromParent: (callback: (channel: string, state: PopoutState) => void) => void,
+                sendToParent: (channel: string, data?: unknown) => void,
             }
         }
     }

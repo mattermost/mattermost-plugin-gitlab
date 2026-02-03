@@ -3,15 +3,17 @@
 
 import {connect} from 'react-redux';
 
-import manifest from '../../manifest';
+import {getTheme} from 'mattermost-redux/selectors/entities/preferences';
+
+import {GlobalState} from '../../types/store';
+import {getPluginState} from '../../selectors';
 
 import GitLabRHS from './gitlab_rhs';
 
-const {id} = manifest;
-
-function mapStateToProps(state: any) {
+function mapStateToProps(state: GlobalState) {
     return {
-        rhsViewType: state[`plugins-${id}`].rhsViewType,
+        rhsViewType: getPluginState(state).rhsViewType,
+        theme: getTheme(state),
     };
 }
 
