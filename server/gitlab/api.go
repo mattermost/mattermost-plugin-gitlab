@@ -887,6 +887,18 @@ func (g *gitlab) GetMilestones(ctx context.Context, user *UserInfo, projectID st
 	return all, nil
 }
 
+// ensureProjectInAllowedGroup fetches the project by ID and returns an error if it is not in the allowed GitLab group.
+func (g *gitlab) ensureProjectInAllowedGroup(ctx context.Context, client *internGitlab.Client, projectID int) error {
+	project, resp, err := client.Projects.GetProject(projectID, nil, internGitlab.WithContext(ctx))
+	if respErr := checkResponse(resp); respErr != nil {
+		return respErr
+	}
+	if err != nil {
+		return errors.Wrap(err, "failed to get project")
+	}
+	return g.checkGroup(project.PathWithNamespace)
+}
+
 func (g *gitlab) GetProjectMembers(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.ProjectMember, error) {
 	client, err := g.GitlabConnect(*token)
 	if err != nil {
@@ -910,6 +922,9 @@ func (g *gitlab) GetProjectMembers(ctx context.Context, user *UserInfo, projectI
 func (g *gitlab) CreateIssue(ctx context.Context, user *UserInfo, issue *IssueRequest, token *oauth2.Token) (*internGitlab.Issue, error) {
 	client, err := g.GitlabConnect(*token)
 	if err != nil {
+		return nil, err
+	}
+	if err := g.ensureProjectInAllowedGroup(ctx, client, issue.ProjectID); err != nil {
 		return nil, err
 	}
 
@@ -937,6 +952,9 @@ func (g *gitlab) CreateIssue(ctx context.Context, user *UserInfo, issue *IssueRe
 func (g *gitlab) AttachCommentToIssue(ctx context.Context, user *UserInfo, issue *IssueRequest, permalink, commentUsername string, token *oauth2.Token) (*internGitlab.Note, error) {
 	client, err := g.GitlabConnect(*token)
 	if err != nil {
+		return nil, err
+	}
+	if err := g.ensureProjectInAllowedGroup(ctx, client, issue.ProjectID); err != nil {
 		return nil, err
 	}
 

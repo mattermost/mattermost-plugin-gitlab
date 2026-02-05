@@ -220,6 +220,13 @@ func (p *Plugin) writeAPIError(w http.ResponseWriter, err *APIErrorResponse) {
 	}
 }
 
+func apiStatusCodeForGitlabError(err error) int {
+	if err != nil && errors.Is(err, ErrNamespaceNotAllowed) {
+		return http.StatusForbidden
+	}
+	return http.StatusInternalServerError
+}
+
 func (p *Plugin) writeAPIResponse(w http.ResponseWriter, resp interface{}) {
 	b, jsonErr := json.Marshal(resp)
 	if jsonErr != nil {
@@ -624,7 +631,7 @@ func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Requ
 	})
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't create issue in GitLab")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("unable to create issue in GitLab. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: err.Error(), StatusCode: apiStatusCodeForGitlabError(err)})
 		return
 	}
 
@@ -703,7 +710,7 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 	})
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't add comment to issue in GitLab")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("cant't add comment to issue in GitLab. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: err.Error(), StatusCode: apiStatusCodeForGitlabError(err)})
 		return
 	}
 
