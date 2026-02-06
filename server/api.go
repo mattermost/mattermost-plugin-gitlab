@@ -220,11 +220,13 @@ func (p *Plugin) writeAPIError(w http.ResponseWriter, err *APIErrorResponse) {
 	}
 }
 
-func apiStatusCodeForGitlabError(err error) int {
+// apiErrorForGitlabError returns (message, statusCode) for GitLab client errors. For ErrNamespaceNotAllowed
+// it returns the error message and 403; otherwise it returns the defaultMessage and 500.
+func apiErrorForGitlabError(err error, defaultMessage string) (message string, statusCode int) {
 	if err != nil && errors.Is(err, ErrNamespaceNotAllowed) {
-		return http.StatusForbidden
+		return err.Error(), http.StatusForbidden
 	}
-	return http.StatusInternalServerError
+	return defaultMessage, http.StatusInternalServerError
 }
 
 func (p *Plugin) writeAPIResponse(w http.ResponseWriter, resp interface{}) {
@@ -568,7 +570,8 @@ func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Req
 	})
 	if err != nil {
 		c.Log.WithError(err).Warnf("Can't list merge-request details in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Can't list merge-request details in GitLab API. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
+		msg, code := apiErrorForGitlabError(err, "Can't list merge-request details in GitLab API.")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
 
@@ -631,7 +634,8 @@ func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Requ
 	})
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't create issue in GitLab")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: err.Error(), StatusCode: apiStatusCodeForGitlabError(err)})
+		msg, code := apiErrorForGitlabError(err, "unable to create issue in GitLab.")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
 
@@ -710,7 +714,8 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 	})
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't add comment to issue in GitLab")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: err.Error(), StatusCode: apiStatusCodeForGitlabError(err)})
+		msg, code := apiErrorForGitlabError(err, "unable to add comment to issue in GitLab.")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
 
@@ -808,7 +813,8 @@ func (p *Plugin) getLabels(c *UserContext, w http.ResponseWriter, r *http.Reques
 	})
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't list labels of project in GitLab")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list labels in GitLab.", StatusCode: http.StatusInternalServerError})
+		msg, code := apiErrorForGitlabError(err, "unable to list labels in GitLab.")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
 
@@ -828,7 +834,8 @@ func (p *Plugin) getMilestones(c *UserContext, w http.ResponseWriter, r *http.Re
 	})
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't list milestones of project in GitLab")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list milestones in GitLab.", StatusCode: http.StatusInternalServerError})
+		msg, code := apiErrorForGitlabError(err, "unable to list milestones in GitLab.")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
 
@@ -848,7 +855,8 @@ func (p *Plugin) getAssignees(c *UserContext, w http.ResponseWriter, r *http.Req
 	})
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't list assignees of the project in GitLab")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list assignees in GitLab.", StatusCode: http.StatusInternalServerError})
+		msg, code := apiErrorForGitlabError(err, "unable to list assignees in GitLab.")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
 
@@ -914,7 +922,8 @@ func (p *Plugin) getIssueByNumber(c *UserContext, w http.ResponseWriter, r *http
 		return nil
 	}); cErr != nil {
 		c.Log.WithError(cErr).Warnf("Unable to get issue in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get issue in GitLab API.", StatusCode: http.StatusInternalServerError})
+		msg, code := apiErrorForGitlabError(cErr, "Unable to get issue in GitLab API.")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
 
@@ -941,7 +950,8 @@ func (p *Plugin) getMergeRequestByNumber(c *UserContext, w http.ResponseWriter, 
 		return nil
 	}); cErr != nil {
 		c.Log.WithError(cErr).Warnf("Unable to get merge request in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get merge request in GitLab API.", StatusCode: http.StatusInternalServerError})
+		msg, code := apiErrorForGitlabError(cErr, "Unable to get merge request in GitLab API.")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
 
