@@ -623,6 +623,23 @@ func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Requ
 		permalink = p.getPermalink(issue.PostID)
 	}
 
+	auditRec := plugin.MakeAuditRecord("createIssue", model.AuditStatusFail)
+	defer p.API.LogAuditRec(auditRec)
+
+	var labels []string
+	if issue.Labels != nil {
+		labels = []string(issue.Labels)
+	}
+	auditParams := CreateIssueAuditParams{
+		MattermostUserID: c.UserID, GitlabUsername: c.GitlabInfo.GitlabUsername,
+		ProjectID: issue.ProjectID, Title: issue.Title, DescriptionLen: len(issue.Description),
+		MilestoneID: issue.Milestone, AssigneeIDs: issue.Assignees, Labels: labels,
+		PostID: issue.PostID, ChannelID: issue.ChannelID,
+	}
+
+	model.AddEventParameterAuditableToAuditRec(auditRec, "create_issue", auditParams)
+	auditRec.Actor.UserId = c.UserID
+
 	var result *internGitlab.Issue
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		resp, err := p.GitlabClient.CreateIssue(c.Ctx, c.GitlabInfo, issue, token)
@@ -633,11 +650,15 @@ func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Requ
 		return nil
 	})
 	if err != nil {
+		auditRec.AddErrorDesc(err.Error())
 		c.Log.WithError(err).Warnf("can't create issue in GitLab")
 		msg, code := apiErrorForGitlabError(err, "unable to create issue in GitLab.")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
+
+	auditRec.Success()
+	auditRec.AddEventResultState(CreateIssueAuditResult{ProjectID: result.ProjectID, IssueIID: result.IID, WebURL: result.WebURL})
 
 	rootID := issue.PostID
 	channelID := issue.ChannelID
@@ -703,6 +724,20 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 
 	permalink := p.getPermalink(issue.PostID)
 
+	auditParams := AttachCommentToIssueAuditParams{
+		MattermostUserID:      c.UserID,
+		GitlabUsername:        c.GitlabInfo.GitlabUsername,
+		ProjectID:             issue.ProjectID,
+		IssueIID:              issue.IID,
+		PostID:                issue.PostID,
+		CommentAuthorUsername: commentUsername,
+	}
+
+	auditRec := plugin.MakeAuditRecord("attachCommentToIssue", model.AuditStatusFail)
+	defer p.API.LogAuditRec(auditRec)
+	auditRec.Actor.UserId = c.UserID
+	model.AddEventParameterAuditableToAuditRec(auditRec, "attach_comment_to_issue", auditParams)
+
 	var result *internGitlab.Note
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		resp, err := p.GitlabClient.AttachCommentToIssue(c.Ctx, c.GitlabInfo, issue, permalink, commentUsername, token)
@@ -713,11 +748,15 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 		return nil
 	})
 	if err != nil {
+		auditRec.AddErrorDesc(err.Error())
 		c.Log.WithError(err).Warnf("can't add comment to issue in GitLab")
 		msg, code := apiErrorForGitlabError(err, "unable to add comment to issue in GitLab.")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
+
+	auditRec.Success()
+	auditRec.AddEventResultState(AttachCommentToIssueAuditResult{ProjectID: result.ProjectID, NoteID: result.ID})
 
 	rootID := issue.PostID
 	if post.RootId != "" {
