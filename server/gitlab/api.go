@@ -521,12 +521,13 @@ func (g *gitlab) GetYourPrDetails(ctx context.Context, log logger.Logger, user *
 	var allowed []*PRDetails
 	for _, pr := range prList {
 		if err := g.ensureProjectInAllowedGroup(ctx, client, pr.ProjectID); err != nil {
+			log.WithError(err).Warnf("Failed to ensure project %d is in allowed group", pr.ProjectID)
 			continue
 		}
 		allowed = append(allowed, pr)
 	}
 
-	var result []*PRDetails
+	result := []*PRDetails{}
 	var resultMu sync.Mutex
 	var wg sync.WaitGroup
 	for _, pr := range allowed {
@@ -542,10 +543,6 @@ func (g *gitlab) GetYourPrDetails(ctx context.Context, log logger.Logger, user *
 		}(pr.ProjectID, pr.IID, pr.SHA)
 	}
 	wg.Wait()
-
-	if result == nil {
-		result = []*PRDetails{}
-	}
 
 	return result, nil
 }
@@ -950,7 +947,7 @@ func (g *gitlab) CreateIssue(ctx context.Context, user *UserInfo, issue *IssueRe
 	if err != nil {
 		return nil, err
 	}
-	if err := g.ensureProjectInAllowedGroup(ctx, client, interface{}(issue.ProjectID)); err != nil {
+	if err := g.ensureProjectInAllowedGroup(ctx, client, issue.ProjectID); err != nil {
 		return nil, err
 	}
 
@@ -980,7 +977,7 @@ func (g *gitlab) AttachCommentToIssue(ctx context.Context, user *UserInfo, issue
 	if err != nil {
 		return nil, err
 	}
-	if err := g.ensureProjectInAllowedGroup(ctx, client, interface{}(issue.ProjectID)); err != nil {
+	if err := g.ensureProjectInAllowedGroup(ctx, client, issue.ProjectID); err != nil {
 		return nil, err
 	}
 

@@ -140,31 +140,27 @@ func TestGetChannelSubscriptions(t *testing.T) {
 const testEncryptionKeyForAPI = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 const testGitlabTokenForAPI = `{"access_token":"token","token_type":"Bearer","refresh_token":"refresh","expiry":"3022-10-23T15:14:43.623638795-05:00"}`
 
-// fakeGitLabServer returns an httptest.Server that responds to GET /api/v4/projects/:id
-// with a project whose path_with_namespace is projectPathWithNamespace (e.g. "othergroup/repo").
-// This allows testing GitlabGroup enforcement by using the real plugin config and gitlab client.
+// fakeGitLabServer returns an httptest.Server that stubs GitLab API endpoints
+// used by the namespace-enforcement tests:
+//   - GET  /api/v4/projects/:id         → returns a project with the given path_with_namespace
+//   - POST /api/v4/projects/:id/issues  → returns a minimal created issue
 func fakeGitLabServer(t *testing.T, projectPathWithNamespace string) *httptest.Server {
 	t.Helper()
+	repoPath := "repo"
+	if idx := strings.LastIndex(projectPathWithNamespace, "/"); idx >= 0 {
+		repoPath = projectPathWithNamespace[idx+1:]
+	}
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
+		if !strings.HasPrefix(r.URL.Path, "/api/v4/projects/") {
+			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		// Match GET /api/v4/projects/123 (or any project ID)
-		if strings.HasPrefix(r.URL.Path, "/api/v4/projects/") {
-			projectID := strings.TrimPrefix(r.URL.Path, "/api/v4/projects/")
-			projectID = strings.TrimSuffix(projectID, "/")
-			if projectID == "" {
-				w.WriteHeader(http.StatusNotFound)
-				return
-			}
-			path := "repo"
-			if idx := strings.LastIndex(projectPathWithNamespace, "/"); idx >= 0 {
-				path = projectPathWithNamespace[idx+1:]
-			}
+
+		// GET /api/v4/projects/:id — project metadata (used by ensureProjectInAllowedGroup)
+		if r.Method == http.MethodGet {
 			project := map[string]interface{}{
 				"id":                  123,
-				"path":                path,
+				"path":                repoPath,
 				"path_with_namespace": projectPathWithNamespace,
 				"web_url":             "https://example.com/" + projectPathWithNamespace,
 			}
@@ -172,18 +168,31 @@ func fakeGitLabServer(t *testing.T, projectPathWithNamespace string) *httptest.S
 			_ = json.NewEncoder(w).Encode(project)
 			return
 		}
-		w.WriteHeader(http.StatusNotFound)
+
+		// POST /api/v4/projects/:id/issues — issue creation
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/issues") {
+			issue := map[string]interface{}{
+				"id": 1, "iid": 1, "project_id": 123, "title": "Test",
+				"web_url": "https://example.com/" + projectPathWithNamespace + "/-/issues/1",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(issue)
+			return
+		}
+
+		w.WriteHeader(http.StatusMethodNotAllowed)
 	}))
 }
 
-func TestCreateIssueReturns403WhenNamespaceNotAllowed(t *testing.T) {
-	fakeGitLab := fakeGitLabServer(t, "othergroup/repo")
-	defer fakeGitLab.Close()
-
-	allowedGroup := "mygroup"
+// setupNamespaceTestPlugin wires up a Plugin backed by the given fake GitLab URL
+// and gitlabGroup, with all common mocks pre-configured.
+// Use extraMocks to register additional expectations (e.g. SendEphemeralPost, GetPost).
+func setupNamespaceTestPlugin(t *testing.T, gitlabURL, gitlabGroup string, extraMocks func(*plugintest.API)) *Plugin {
+	t.Helper()
 	config := configuration{
-		GitlabURL:               fakeGitLab.URL,
-		GitlabGroup:             allowedGroup,
+		GitlabURL:               gitlabURL,
+		GitlabGroup:             gitlabGroup,
 		EncryptionKey:           testEncryptionKeyForAPI,
 		GitlabOAuthClientID:     "client_id",
 		GitlabOAuthClientSecret: "client_secret",
@@ -200,14 +209,26 @@ func TestCreateIssueReturns403WhenNamespaceNotAllowed(t *testing.T) {
 	mockAPI.On("GetConfig", mock.Anything).Return(conf)
 	mockAPI.On("KVGet", "user_id_userinfo").Return(jsonInfo, nil)
 	mockAPI.On("KVGet", "user_id_usertoken").Return([]byte(encryptedToken), nil)
+	mockAPI.On("LogAuditRec", mock.Anything).Maybe()
 	mockAPI.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
 	mockAPI.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
+	if extraMocks != nil {
+		extraMocks(mockAPI)
+	}
 
 	p := &Plugin{configuration: &config}
 	p.initializeAPI()
 	p.SetAPI(mockAPI)
 	p.client = pluginapi.NewClient(mockAPI, p.Driver)
 	p.GitlabClient = gitlab.New(config.GitlabURL, config.GitlabGroup, p.isNamespaceAllowed)
+	return p
+}
+
+func TestCreateIssueReturns403WhenNamespaceNotAllowed(t *testing.T) {
+	fakeGitLab := fakeGitLabServer(t, "othergroup/repo")
+	defer fakeGitLab.Close()
+
+	p := setupNamespaceTestPlugin(t, fakeGitLab.URL, "mygroup", nil)
 
 	body := `{"project_id":123,"title":"Test","description":""}`
 	w := httptest.NewRecorder()
@@ -220,45 +241,39 @@ func TestCreateIssueReturns403WhenNamespaceNotAllowed(t *testing.T) {
 	defer result.Body.Close()
 	data, _ := io.ReadAll(result.Body)
 	assert.Equal(t, http.StatusForbidden, result.StatusCode)
-	assert.Contains(t, string(data), "only repositories in the "+allowedGroup+" namespace are allowed")
+	assert.Contains(t, string(data), "only repositories in the mygroup namespace are allowed")
+}
+
+func TestCreateIssueAllowsWhenGitlabGroupEmpty(t *testing.T) {
+	fakeGitLab := fakeGitLabServer(t, "anygroup/repo")
+	defer fakeGitLab.Close()
+
+	p := setupNamespaceTestPlugin(t, fakeGitLab.URL, "", func(m *plugintest.API) {
+		m.On("SendEphemeralPost", mock.Anything, mock.Anything).Return(&model.Post{})
+	})
+
+	body := `{"project_id":123,"title":"Test","description":""}`
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/issue", bytes.NewReader([]byte(body)))
+	r.Header.Set("Mattermost-User-ID", "user_id")
+
+	p.ServeHTTP(nil, w, r)
+
+	result := w.Result()
+	defer result.Body.Close()
+	assert.NotEqual(t, http.StatusForbidden, result.StatusCode)
+	assert.Equal(t, http.StatusOK, result.StatusCode)
 }
 
 func TestAttachCommentToIssueReturns403WhenNamespaceNotAllowed(t *testing.T) {
 	fakeGitLab := fakeGitLabServer(t, "othergroup/repo")
 	defer fakeGitLab.Close()
 
-	allowedGroup := "mygroup"
-	config := configuration{
-		GitlabURL:               fakeGitLab.URL,
-		GitlabGroup:             allowedGroup,
-		EncryptionKey:           testEncryptionKeyForAPI,
-		GitlabOAuthClientID:     "client_id",
-		GitlabOAuthClientSecret: "client_secret",
-	}
-	info := gitlab.UserInfo{UserID: "user_id", GitlabUsername: "gitlab_username", GitlabUserID: 0}
-	jsonInfo, err := json.Marshal(info)
-	require.NoError(t, err)
-	encryptedToken, err := encrypt([]byte(testEncryptionKeyForAPI), testGitlabTokenForAPI)
-	require.NoError(t, err)
-
 	post := &model.Post{Id: "post_id", ChannelId: "channel_id", Message: "msg", UserId: "user_id"}
-
-	siteURL := "https://example.com"
-	conf := &model.Config{ServiceSettings: model.ServiceSettings{SiteURL: &siteURL}}
-	mockAPI := &plugintest.API{}
-	mockAPI.On("GetConfig", mock.Anything).Return(conf)
-	mockAPI.On("KVGet", "user_id_userinfo").Return(jsonInfo, nil)
-	mockAPI.On("KVGet", "user_id_usertoken").Return([]byte(encryptedToken), nil)
-	mockAPI.On("GetPost", "post_id").Return(post, nil)
-	mockAPI.On("GetUser", "user_id").Return(&model.User{Username: "testuser"}, nil)
-	mockAPI.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
-	mockAPI.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
-
-	p := &Plugin{configuration: &config}
-	p.initializeAPI()
-	p.SetAPI(mockAPI)
-	p.client = pluginapi.NewClient(mockAPI, p.Driver)
-	p.GitlabClient = gitlab.New(config.GitlabURL, config.GitlabGroup, p.isNamespaceAllowed)
+	p := setupNamespaceTestPlugin(t, fakeGitLab.URL, "mygroup", func(m *plugintest.API) {
+		m.On("GetPost", "post_id").Return(post, nil)
+		m.On("GetUser", "user_id").Return(&model.User{Username: "testuser"}, nil)
+	})
 
 	body := `{"project_id":123,"iid":1,"post_id":"post_id","comment":"a comment","web_url":"https://gitlab.com/group/repo/-/issues/1"}`
 	w := httptest.NewRecorder()
@@ -271,5 +286,5 @@ func TestAttachCommentToIssueReturns403WhenNamespaceNotAllowed(t *testing.T) {
 	defer result.Body.Close()
 	data, _ := io.ReadAll(result.Body)
 	assert.Equal(t, http.StatusForbidden, result.StatusCode)
-	assert.Contains(t, string(data), "only repositories in the "+allowedGroup+" namespace are allowed")
+	assert.Contains(t, string(data), "only repositories in the mygroup namespace are allowed")
 }
