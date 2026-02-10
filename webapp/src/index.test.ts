@@ -185,7 +185,6 @@ function createMockStore(): MockStore {
 // Helper to create mock registry
 function createMockRegistry(
     showRHSPlugin: jest.Mock,
-    toggleRHSPlugin: jest.Mock,
     capturePopoutListener: (callback: PopoutListenerCallback) => void,
 ): MockRegistry {
     return {
@@ -199,7 +198,6 @@ function createMockRegistry(
         registerSlashCommandWillBePostedHook: jest.fn(),
         registerRightHandSidebarComponent: jest.fn(() => ({
             showRHSPlugin,
-            toggleRHSPlugin,
         })),
         registerWebSocketEventHandler: jest.fn(),
         registerReconnectHandler: jest.fn(),
@@ -228,19 +226,16 @@ describe('GitLab Plugin Initialization', () => {
     let mockStore: MockStore;
     let mockRegistry: MockRegistry;
     let mockShowRHSPlugin: jest.Mock;
-    let mockToggleRHSPlugin: jest.Mock;
     let popoutListenerCallback: PopoutListenerCallback | null = null;
 
     beforeEach(() => {
         jest.clearAllMocks();
 
         mockShowRHSPlugin = jest.fn();
-        mockToggleRHSPlugin = jest.fn(() => ({type: 'TOGGLE_RHS'}));
 
         mockStore = createMockStore();
         mockRegistry = createMockRegistry(
             mockShowRHSPlugin,
-            mockToggleRHSPlugin,
             (callback) => {
                 popoutListenerCallback = callback;
             },
@@ -313,7 +308,7 @@ describe('GitLab Plugin Initialization', () => {
     });
 
     describe('showSubscriptionsRHS', () => {
-        test('should set RHS view type to SUBSCRIPTIONS and toggle RHS', async () => {
+        test('should set RHS view type to SUBSCRIPTIONS and show RHS', async () => {
             const PluginClass = getPluginClass();
             const plugin = new PluginClass();
             await plugin.initialize(mockRegistry, mockStore);
@@ -322,7 +317,7 @@ describe('GitLab Plugin Initialization', () => {
             showSubscriptionsRHS();
 
             expect(mockSetRHSViewType).toHaveBeenCalledWith(RHSViewType.SUBSCRIPTIONS);
-            expect(mockStore.dispatch).toHaveBeenCalledWith(mockToggleRHSPlugin());
+            expect(mockShowRHSPlugin).toHaveBeenCalled();
         });
     });
 
