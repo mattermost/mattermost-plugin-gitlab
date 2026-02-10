@@ -228,6 +228,15 @@ func (p *Plugin) handleConfigError(args *model.CommandArgs, err error) (*model.C
 }
 
 func (p *Plugin) handleInstance(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
+	isSysAdmin, sysErr := p.isAuthorizedSysAdmin(args.UserId)
+	if sysErr != nil {
+		p.client.Log.Warn("Failed to check if user is System Admin", "error", sysErr.Error())
+		return p.getCommandResponse(args, "Error checking user's permissions", true), nil
+	}
+
+	if !isSysAdmin {
+		return p.getCommandResponse(args, "Only System Admins are allowed to manage instances.", true), nil
+	}
 	if len(parameters) < 1 {
 		return p.getCommandResponse(args, "Please specify the instance command.", true), nil
 	}
@@ -247,22 +256,9 @@ func (p *Plugin) handleInstance(args *model.CommandArgs, parameters []string) (*
 }
 
 func (p *Plugin) handleInstallInstance(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
-	userID := args.UserId
-	isSysAdmin, err := p.isAuthorizedSysAdmin(userID)
+	err := p.flowManager.StartOauthWizard(args.UserId)
 	if err != nil {
-		p.client.Log.Warn("Failed to check if user is System Admin", "error", err.Error())
-		p.postCommandResponse(args, "Error checking user's permissions", true)
-		return &model.CommandResponse{}, nil
-	}
-
-	if !isSysAdmin {
-		p.postCommandResponse(args, "Only System Admins are allowed to set up the plugin.", true)
-		return &model.CommandResponse{}, nil
-	}
-
-	err = p.flowManager.StartOauthWizard(userID)
-	if err != nil {
-		p.postCommandResponse(args, err.Error(), true)
+		return p.getCommandResponse(args, err.Error(), true), nil
 	}
 
 	return &model.CommandResponse{}, nil
@@ -272,7 +268,6 @@ func (p *Plugin) handleUnInstallInstance(args *model.CommandArgs, parameters []s
 	if len(parameters) < 1 {
 		return p.getCommandResponse(args, "Please specify the instance name.", true), nil
 	}
-
 	instanceName := strings.TrimSpace(strings.Join(parameters, " "))
 
 	err := p.uninstallInstance(instanceName)
@@ -524,6 +519,15 @@ func (p *Plugin) handleSettings(ctx context.Context, args *model.CommandArgs, pa
 }
 
 func (p *Plugin) handleWebhookHandler(ctx context.Context, args *model.CommandArgs, parameters []string, info *gitlab.UserInfo) (*model.CommandResponse, *model.AppError) {
+	isSysAdmin, err := p.isAuthorizedSysAdmin(args.UserId)
+	if err != nil {
+		p.client.Log.Warn("Failed to check if user is System Admin", "error", err.Error())
+		return p.getCommandResponse(args, "Error checking user's permissions", true), nil
+	}
+	if !isSysAdmin {
+		return p.getCommandResponse(args, "Only System Admins are allowed to manage webhooks.", true), nil
+	}
+
 	config := p.getConfiguration()
 	message := p.webhookCommand(ctx, parameters, info, config.EnablePrivateRepo)
 	return p.getCommandResponse(args, message, true), nil
@@ -1067,6 +1071,7 @@ func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteD
 	gitlab.AddCommand(disconnect)
 
 	instance := model.NewAutocompleteData("instance", "[command]", "Install, Uninstall, List, Set-Default Instance")
+	instance.RoleID = model.SystemAdminRoleId
 
 	install := model.NewAutocompleteData("install", "", "Install GitLab Instance")
 	instance.AddCommand(install)
@@ -1140,6 +1145,7 @@ func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteD
 	gitlab.AddCommand(settings)
 
 	webhook := model.NewAutocompleteData("webhook", "[command]", "Available Commands: list, add")
+	webhook.RoleID = model.SystemAdminRoleId
 	webhookList := model.NewAutocompleteData(commandList, "owner/[repo]", "List existing project or group webhooks")
 	webhookList.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
 	webhook.AddCommand(webhookList)

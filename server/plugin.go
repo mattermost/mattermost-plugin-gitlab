@@ -683,10 +683,13 @@ var ErrNamespaceNotAllowed = errors.New("namespace not allowed")
 
 func (p *Plugin) isNamespaceAllowed(namespace string) error {
 	allowedNamespace := strings.TrimSpace(p.getConfiguration().GitlabGroup)
-	if allowedNamespace != "" && allowedNamespace != namespace && !strings.HasPrefix(namespace, allowedNamespace) {
-		return errors.Wrapf(ErrNamespaceNotAllowed, "only repositories in the %s namespace are allowed", allowedNamespace)
+	if allowedNamespace == "" {
+		return nil
 	}
 
+	if namespace != allowedNamespace && !strings.HasPrefix(namespace, allowedNamespace+"/") {
+		return errors.Wrapf(ErrNamespaceNotAllowed, "only repositories in the %s namespace are allowed", allowedNamespace)
+	}
 	return nil
 }
 
