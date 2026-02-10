@@ -5,6 +5,14 @@ import manifest from '../manifest';
 
 const {id} = manifest;
 
+// RHS view types - determines which content is shown in the single registered RHS component
+export const RHSViewType = {
+    SUBSCRIPTIONS: 'subscriptions', // Shows RHSSidebar content (channel subscriptions)
+    SIDEBAR_RIGHT: 'sidebar_right', // Shows SidebarRight content (PRs, reviews, issues, todos)
+} as const;
+
+export type RHSViewTypeValue = typeof RHSViewType[keyof typeof RHSViewType];
+
 export default {
     RECEIVED_YOUR_PR_DETAILS: `${id}_received_your_pr_details`,
     RECEIVED_REVIEW_DETAILS: `${id}_received_review_details`,
@@ -21,4 +29,6 @@ export default {
     RECEIVED_SHOW_RHS_ACTION: `${id}_received_rhs_action`,
     UPDATE_RHS_STATE: `${id}_update_rhs_state`,
     RECEIVED_CHANNEL_SUBSCRIPTIONS: `${id}_received_channel_subscriptions`,
+    SET_POPOUT_CHANNEL_ID: `${id}_set_popout_channel_id`,
+    SET_RHS_VIEW_TYPE: `${id}_set_rhs_view_type`,
 };

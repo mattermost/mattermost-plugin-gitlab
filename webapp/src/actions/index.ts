@@ -8,7 +8,7 @@ import {PostTypes} from 'mattermost-redux/action_types';
 import {AnyAction, Dispatch} from 'redux';
 
 import Client from '../client';
-import ActionTypes from '../action_types';
+import ActionTypes, {RHSViewTypeValue} from '../action_types';
 import {APIError, ConnectedData, GitlabUsersData, LHSData, ShowRhsPluginActionData, SubscriptionData} from 'src/types';
 import {Item} from 'src/types/gitlab_items';
 import {GlobalState} from 'src/types/store';
@@ -135,6 +135,17 @@ export function updateRHSState(rhsState: string) {
     return {
         type: ActionTypes.UPDATE_RHS_STATE,
         state: rhsState,
+    };
+}
+
+/**
+ * Sets which view is displayed in the unified RHS component.
+ * Used to switch between SidebarRight (PRs/reviews/etc) and RHSSidebar (subscriptions).
+ */
+export function setRHSViewType(viewType: RHSViewTypeValue) {
+    return {
+        type: ActionTypes.SET_RHS_VIEW_TYPE,
+        viewType,
     };
 }
 
