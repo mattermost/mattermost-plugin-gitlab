@@ -95,7 +95,7 @@ class PluginClass {
         registry.registerSlashCommandWillBePostedHook(hooks.slashCommandWillBePostedHook);
 
         // Register the unified RHS component that handles both views
-        const {showRHSPlugin, toggleRHSPlugin} = registry.registerRightHandSidebarComponent(GitLabRHS, 'GitLab');
+        const {showRHSPlugin} = registry.registerRightHandSidebarComponent(GitLabRHS, 'GitLab');
 
         // Store the showRHSPlugin action for use by sidebar buttons
         store.dispatch(setShowRHSAction(() => store.dispatch(showRHSPlugin)));
@@ -103,7 +103,7 @@ class PluginClass {
         // Helper to show RHS with subscriptions view (used by App Bar)
         const showSubscriptionsRHS = () => {
             store.dispatch(setRHSViewType(RHSViewType.SUBSCRIPTIONS));
-            store.dispatch(toggleRHSPlugin());
+            store.dispatch(showRHSPlugin());
         };
 
         registry.registerWebSocketEventHandler(
