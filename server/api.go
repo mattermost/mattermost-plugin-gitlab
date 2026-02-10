@@ -220,6 +220,15 @@ func (p *Plugin) writeAPIError(w http.ResponseWriter, err *APIErrorResponse) {
 	}
 }
 
+// apiErrorForGitlabError returns (message, statusCode) for GitLab client errors. For ErrNamespaceNotAllowed
+// it returns the error message and 403; otherwise it returns the defaultMessage and 500.
+func apiErrorForGitlabError(err error, defaultMessage string) (message string, statusCode int) {
+	if err != nil && errors.Is(err, ErrNamespaceNotAllowed) {
+		return err.Error(), http.StatusForbidden
+	}
+	return defaultMessage, http.StatusInternalServerError
+}
+
 func (p *Plugin) writeAPIResponse(w http.ResponseWriter, resp interface{}) {
 	b, jsonErr := json.Marshal(resp)
 	if jsonErr != nil {
@@ -561,7 +570,8 @@ func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Req
 	})
 	if err != nil {
 		c.Log.WithError(err).Warnf("Can't list merge-request details in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Can't list merge-request details in GitLab API. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
+		msg, code := apiErrorForGitlabError(err, "Can't list merge-request details in GitLab API.")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
 
@@ -613,6 +623,23 @@ func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Requ
 		permalink = p.getPermalink(issue.PostID)
 	}
 
+	auditRec := plugin.MakeAuditRecord("createIssue", model.AuditStatusFail)
+	defer p.API.LogAuditRec(auditRec)
+
+	var labels []string
+	if issue.Labels != nil {
+		labels = []string(issue.Labels)
+	}
+	auditParams := CreateIssueAuditParams{
+		MattermostUserID: c.UserID, GitlabUsername: c.GitlabInfo.GitlabUsername,
+		ProjectID: issue.ProjectID, Title: issue.Title, DescriptionLen: len(issue.Description),
+		MilestoneID: issue.Milestone, AssigneeIDs: issue.Assignees, Labels: labels,
+		PostID: issue.PostID, ChannelID: issue.ChannelID,
+	}
+
+	model.AddEventParameterAuditableToAuditRec(auditRec, "create_issue", auditParams)
+	auditRec.Actor.UserId = c.UserID
+
 	var result *internGitlab.Issue
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		resp, err := p.GitlabClient.CreateIssue(c.Ctx, c.GitlabInfo, issue, token)
@@ -623,10 +650,15 @@ func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Requ
 		return nil
 	})
 	if err != nil {
+		auditRec.AddErrorDesc(err.Error())
 		c.Log.WithError(err).Warnf("can't create issue in GitLab")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("unable to create issue in GitLab. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
+		msg, code := apiErrorForGitlabError(err, "unable to create issue in GitLab.")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
+
+	auditRec.Success()
+	auditRec.AddEventResultState(CreateIssueAuditResult{ProjectID: result.ProjectID, IssueIID: result.IID, WebURL: result.WebURL})
 
 	rootID := issue.PostID
 	channelID := issue.ChannelID
@@ -692,6 +724,20 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 
 	permalink := p.getPermalink(issue.PostID)
 
+	auditParams := AttachCommentToIssueAuditParams{
+		MattermostUserID:      c.UserID,
+		GitlabUsername:        c.GitlabInfo.GitlabUsername,
+		ProjectID:             issue.ProjectID,
+		IssueIID:              issue.IID,
+		PostID:                issue.PostID,
+		CommentAuthorUsername: commentUsername,
+	}
+
+	auditRec := plugin.MakeAuditRecord("attachCommentToIssue", model.AuditStatusFail)
+	defer p.API.LogAuditRec(auditRec)
+	auditRec.Actor.UserId = c.UserID
+	model.AddEventParameterAuditableToAuditRec(auditRec, "attach_comment_to_issue", auditParams)
+
 	var result *internGitlab.Note
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		resp, err := p.GitlabClient.AttachCommentToIssue(c.Ctx, c.GitlabInfo, issue, permalink, commentUsername, token)
@@ -702,10 +748,15 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 		return nil
 	})
 	if err != nil {
+		auditRec.AddErrorDesc(err.Error())
 		c.Log.WithError(err).Warnf("can't add comment to issue in GitLab")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("cant't add comment to issue in GitLab. Error: %s", err.Error()), StatusCode: http.StatusInternalServerError})
+		msg, code := apiErrorForGitlabError(err, "unable to add comment to issue in GitLab.")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
+
+	auditRec.Success()
+	auditRec.AddEventResultState(AttachCommentToIssueAuditResult{ProjectID: result.ProjectID, NoteID: result.ID})
 
 	rootID := issue.PostID
 	if post.RootId != "" {
@@ -801,7 +852,8 @@ func (p *Plugin) getLabels(c *UserContext, w http.ResponseWriter, r *http.Reques
 	})
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't list labels of project in GitLab")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list labels in GitLab.", StatusCode: http.StatusInternalServerError})
+		msg, code := apiErrorForGitlabError(err, "unable to list labels in GitLab.")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
 
@@ -821,7 +873,8 @@ func (p *Plugin) getMilestones(c *UserContext, w http.ResponseWriter, r *http.Re
 	})
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't list milestones of project in GitLab")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list milestones in GitLab.", StatusCode: http.StatusInternalServerError})
+		msg, code := apiErrorForGitlabError(err, "unable to list milestones in GitLab.")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
 
@@ -841,7 +894,8 @@ func (p *Plugin) getAssignees(c *UserContext, w http.ResponseWriter, r *http.Req
 	})
 	if err != nil {
 		c.Log.WithError(err).Warnf("can't list assignees of the project in GitLab")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "unable to list assignees in GitLab.", StatusCode: http.StatusInternalServerError})
+		msg, code := apiErrorForGitlabError(err, "unable to list assignees in GitLab.")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
 
@@ -907,7 +961,8 @@ func (p *Plugin) getIssueByNumber(c *UserContext, w http.ResponseWriter, r *http
 		return nil
 	}); cErr != nil {
 		c.Log.WithError(cErr).Warnf("Unable to get issue in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get issue in GitLab API.", StatusCode: http.StatusInternalServerError})
+		msg, code := apiErrorForGitlabError(cErr, "Unable to get issue in GitLab API.")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
 
@@ -934,7 +989,8 @@ func (p *Plugin) getMergeRequestByNumber(c *UserContext, w http.ResponseWriter, 
 		return nil
 	}); cErr != nil {
 		c.Log.WithError(cErr).Warnf("Unable to get merge request in GitLab API")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to get merge request in GitLab API.", StatusCode: http.StatusInternalServerError})
+		msg, code := apiErrorForGitlabError(cErr, "Unable to get merge request in GitLab API.")
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: msg, StatusCode: code})
 		return
 	}
 
