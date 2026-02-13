@@ -48,7 +48,7 @@ type Gitlab interface {
 	GetToDoList(ctx context.Context, user *UserInfo, client *internGitlab.Client) ([]*internGitlab.Todo, error)
 	GetProjectHooks(ctx context.Context, user *UserInfo, token *oauth2.Token, owner string, repo string) ([]*WebhookInfo, error)
 	GetGroupHooks(ctx context.Context, user *UserInfo, token *oauth2.Token, owner string) ([]*WebhookInfo, error)
-	NewProjectHook(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID interface{}, projectHookOptions *AddWebhookOptions) (*WebhookInfo, error)
+	NewProjectHook(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID any, projectHookOptions *AddWebhookOptions) (*WebhookInfo, error)
 	NewGroupHook(ctx context.Context, user *UserInfo, token *oauth2.Token, groupName string, groupHookOptions *AddWebhookOptions) (*WebhookInfo, error)
 	TriggerProjectPipeline(userInfo *UserInfo, token *oauth2.Token, projectID string, ref string) (*PipelineInfo, error)
 	// ResolveNamespaceAndProject accepts full path to User, Group or namespaced Project and returns corresponding

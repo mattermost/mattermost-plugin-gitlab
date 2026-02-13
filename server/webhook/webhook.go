@@ -208,7 +208,7 @@ func normalizeNamespacedProjectByHomepage(homepage string) (*namespaceProjectMet
 }
 
 func sanitizeDescription(description string) string {
-	var policy = bluemonday.StrictPolicy()
+	policy := bluemonday.StrictPolicy()
 	policy.SkipElementsContent("details")
 	return strings.TrimSpace(policy.Sanitize(description))
 }
