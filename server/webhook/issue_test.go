@@ -42,7 +42,8 @@ var testDataIssue = []testDataIssueStr{
 			From:       "root",
 		}},
 		warnings: []string{},
-	}, {
+	},
+	{
 		testTitle: "root open issue with manland assignee and display in channel1 (subgroup)",
 		fixture:   strings.ReplaceAll(NewIssue, "manland/webhook", "manland/subgroup/webhook"),
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
@@ -60,7 +61,8 @@ var testDataIssue = []testDataIssueStr{
 			From:       "root",
 		}},
 		warnings: []string{},
-	}, {
+	},
+	{
 		testTitle: "root open unassigned issue and display in channel",
 		fixture:   NewIssueUnassigned,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
@@ -73,7 +75,8 @@ var testDataIssue = []testDataIssueStr{
 			From:       "root",
 		}}, // no DM message because root don't received its own action and manland is not assigned
 		warnings: []string{},
-	}, {
+	},
+	{
 		testTitle: "manland close issue of root",
 		fixture:   CloseIssue,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
@@ -91,7 +94,8 @@ var testDataIssue = []testDataIssueStr{
 			From:       "manland",
 		}},
 		warnings: []string{},
-	}, {
+	},
+	{
 		testTitle: "manland reopen issue of root and display in channel",
 		fixture:   ReopenIssue,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{

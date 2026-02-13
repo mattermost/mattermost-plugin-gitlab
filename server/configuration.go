@@ -45,12 +45,12 @@ type configuration struct {
 // Clone shallow copies the configuration. Your implementation may require a deep copy if
 // your configuration has reference types.
 func (c *configuration) Clone() *configuration {
-	var clone = *c
+	clone := *c
 	return &clone
 }
 
-func (c *configuration) ToMap() (map[string]interface{}, error) {
-	var out map[string]interface{}
+func (c *configuration) ToMap() (map[string]any, error) {
+	var out map[string]any
 	data, err := json.Marshal(c)
 	if err != nil {
 		return nil, err
@@ -187,7 +187,7 @@ func (p *Plugin) OnConfigurationChange() error {
 		p.client = pluginapi.NewClient(p.API, p.Driver)
 	}
 
-	var configuration = new(configuration)
+	configuration := new(configuration)
 
 	// Load the public configuration fields from the Mattermost server configuration.
 	if err := p.client.Configuration.LoadPluginConfiguration(configuration); err != nil {

@@ -118,7 +118,7 @@ func (g *gitlab) NewGroupHook(ctx context.Context, user *UserInfo, token *oauth2
 }
 
 // NewProjectHook creates a webhook associated with a GitLab project
-func (g *gitlab) NewProjectHook(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID interface{}, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
+func (g *gitlab) NewProjectHook(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID any, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
 	client, err := g.GitlabConnect(*token)
 	if err != nil {
 		return nil, err
@@ -711,8 +711,8 @@ func (g *gitlab) GetYourProjects(ctx context.Context, user *UserInfo, token *oau
 		}
 
 		listFn := func(page, perPage int) ([]*internGitlab.Project, *internGitlab.Response, error) {
-			opts.ListOptions.Page = page
-			opts.ListOptions.PerPage = perPage
+			opts.Page = page
+			opts.PerPage = perPage
 			return client.Projects.ListProjects(opts, internGitlab.WithContext(ctx))
 		}
 
@@ -729,8 +729,8 @@ func (g *gitlab) GetYourProjects(ctx context.Context, user *UserInfo, token *oau
 	}
 
 	listFn := func(page, perPage int) ([]*internGitlab.Project, *internGitlab.Response, error) {
-		opts.ListOptions.Page = page
-		opts.ListOptions.PerPage = perPage
+		opts.Page = page
+		opts.PerPage = perPage
 		return client.Groups.ListGroupProjects(
 			g.gitlabGroup,
 			opts,

@@ -298,7 +298,6 @@ func (p *Plugin) createHook(ctx context.Context, gitlabClient gitlab.Gitlab, inf
 		newWebhook = resp
 		return nil
 	})
-
 	if err != nil {
 		return nil, err
 	}

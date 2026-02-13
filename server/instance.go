@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/pkg/errors"
 )
@@ -32,7 +33,7 @@ func (p *Plugin) installInstance(instanceName string, config *InstanceConfigurat
 		return fmt.Errorf("failed to load instance name list")
 	}
 
-	if containsString(instanceNameList, instanceName) {
+	if slices.Contains(instanceNameList, instanceName) {
 		return fmt.Errorf("instance name '%s' already exists", instanceName)
 	}
 
@@ -66,7 +67,9 @@ func (p *Plugin) installInstance(instanceName string, config *InstanceConfigurat
 	}
 
 	if setAsDefaultInstance {
-		p.setDefaultInstance(instanceName)
+		if err := p.setDefaultInstance(instanceName); err != nil {
+			return fmt.Errorf("failed to set default instance: %w", err)
+		}
 	}
 
 	return nil
@@ -80,7 +83,7 @@ func (p *Plugin) getInstance(instanceName string) (*InstanceConfiguration, error
 		return nil, fmt.Errorf("failed to load instance name list")
 	}
 
-	if !containsString(instanceNameList, instanceName) {
+	if !slices.Contains(instanceNameList, instanceName) {
 		return nil, fmt.Errorf("instance name '%s' does not exist", instanceName)
 	}
 
@@ -106,7 +109,7 @@ func (p *Plugin) uninstallInstance(instanceName string) error {
 		return fmt.Errorf("failed to load instance name list")
 	}
 
-	if !containsString(instanceNameList, instanceName) {
+	if !slices.Contains(instanceNameList, instanceName) {
 		return fmt.Errorf("instance name '%s' not found in the list", instanceName)
 	}
 
@@ -130,7 +133,7 @@ func (p *Plugin) uninstallInstance(instanceName string) error {
 		return fmt.Errorf("failed to save updated config map")
 	}
 
-	instanceNameList = removeStringFromSlice(instanceNameList, instanceName)
+	instanceNameList = slices.DeleteFunc(instanceNameList, func(s string) bool { return s == instanceName })
 
 	if _, err := p.client.KV.Set(instanceConfigNameListKey, instanceNameList); err != nil {
 		p.client.Log.Error("Failed to save updated instance name list while uninstalling instance", "error", err)
@@ -146,7 +149,7 @@ func (p *Plugin) setDefaultInstance(instanceName string) error {
 		return fmt.Errorf("failed to load instance list")
 	}
 
-	if !containsString(instanceList, instanceName) {
+	if !slices.Contains(instanceList, instanceName) {
 		return fmt.Errorf("instance '%s' does not exist", instanceName)
 	}
 

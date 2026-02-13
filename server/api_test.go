@@ -80,7 +80,7 @@ func TestGetChannelSubscriptions(t *testing.T) {
 		plugin.ServeHTTP(nil, w, r)
 
 		result := w.Result()
-		defer result.Body.Close()
+		defer func() { _ = result.Body.Close() }()
 		data, err := io.ReadAll(result.Body)
 		require.NoError(t, err)
 
@@ -102,7 +102,7 @@ func TestGetChannelSubscriptions(t *testing.T) {
 		plugin.ServeHTTP(nil, w, r)
 
 		result := w.Result()
-		defer result.Body.Close()
+		defer func() { _ = result.Body.Close() }()
 		data, err := io.ReadAll(result.Body)
 		require.NoError(t, err)
 
@@ -124,7 +124,7 @@ func TestGetChannelSubscriptions(t *testing.T) {
 		plugin.ServeHTTP(nil, w, r)
 
 		result := w.Result()
-		defer result.Body.Close()
+		defer func() { _ = result.Body.Close() }()
 		data, err := io.ReadAll(result.Body)
 		require.NoError(t, err)
 

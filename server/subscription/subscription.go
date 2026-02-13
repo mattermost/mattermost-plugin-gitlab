@@ -47,7 +47,7 @@ type Subscription struct {
 //	label:"bug",label: " with spaces ",label: "test label"
 func extractLabels(features string) ([]string, error) {
 	labels := []string{}
-	for _, t := range strings.Split(features, ",") {
+	for t := range strings.SplitSeq(features, ",") {
 		t = strings.TrimSpace(t)
 		raw, found := strings.CutPrefix(t, "label:")
 		if found {
@@ -77,7 +77,7 @@ func New(channelID, creatorID, features, repository string) (*Subscription, erro
 	}
 
 	badFeatures := make([]string, 0)
-	for _, feature := range strings.Split(features, ",") {
+	for feature := range strings.SplitSeq(features, ",") {
 		if _, ok := allFeatures[feature]; !strings.HasPrefix(feature, "label:") && !ok {
 			badFeatures = append(badFeatures, feature)
 		}

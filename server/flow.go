@@ -315,7 +315,7 @@ func (fm *FlowManager) stepDelegateQuestion() flow.Step {
 		})
 }
 
-func (fm *FlowManager) submitDelegateSelection(f *flow.Flow, submitted map[string]interface{}) (flow.Name, flow.State, map[string]string, error) {
+func (fm *FlowManager) submitDelegateSelection(f *flow.Flow, submitted map[string]any) (flow.Name, flow.State, map[string]string, error) {
 	delegateIDRaw, ok := submitted["delegate"]
 	if !ok {
 		return "", nil, nil, errors.New("delegate missing")
@@ -382,7 +382,6 @@ func (fm *FlowManager) stepInstanceURL() flow.Step {
 				SubmitLabel:      "Save & continue",
 				Elements: []model.DialogElement{
 					{
-
 						DisplayName: "GitLab URL",
 						Name:        "gitlab_url",
 						Type:        "text",
@@ -396,7 +395,7 @@ func (fm *FlowManager) stepInstanceURL() flow.Step {
 		WithButton(cancelButton())
 }
 
-func (fm *FlowManager) submitGitlabURL(f *flow.Flow, submitted map[string]interface{}) (flow.Name, flow.State, map[string]string, error) {
+func (fm *FlowManager) submitGitlabURL(f *flow.Flow, submitted map[string]any) (flow.Name, flow.State, map[string]string, error) {
 	errorList := map[string]string{}
 
 	gitlabURLRaw, ok := submitted["gitlab_url"]
@@ -486,7 +485,7 @@ func (fm *FlowManager) stepOAuthInput() flow.Step {
 		WithButton(cancelButton())
 }
 
-func (fm *FlowManager) submitOAuthConfig(f *flow.Flow, submitted map[string]interface{}) (flow.Name, flow.State, map[string]string, error) {
+func (fm *FlowManager) submitOAuthConfig(f *flow.Flow, submitted map[string]any) (flow.Name, flow.State, map[string]string, error) {
 	errorList := map[string]string{}
 
 	instanceNameRaw, ok := submitted["instance_name"]
@@ -583,7 +582,6 @@ The final setup step requires a Mattermost System Admin to create a webhook for 
 				SubmitLabel: "Create",
 				Elements: []model.DialogElement{
 					{
-
 						DisplayName: "Gitlab project or group name",
 						Name:        "namespace",
 						Type:        "text",
@@ -602,7 +600,7 @@ The final setup step requires a Mattermost System Admin to create a webhook for 
 		})
 }
 
-func (fm *FlowManager) submitWebhook(f *flow.Flow, submitted map[string]interface{}) (flow.Name, flow.State, map[string]string, error) {
+func (fm *FlowManager) submitWebhook(f *flow.Flow, submitted map[string]any) (flow.Name, flow.State, map[string]string, error) {
 	namespaceRaw, ok := submitted["namespace"]
 	if !ok {
 		return "", nil, nil, errors.New("namespace missing")
@@ -634,7 +632,6 @@ func (fm *FlowManager) submitWebhook(f *flow.Flow, submitted map[string]interfac
 		project = respProject
 		return nil
 	})
-
 	if err != nil {
 		if errors.Is(err, gitlab.ErrNotFound) {
 			return "", nil, nil, errors.New("project or group was not found")
@@ -762,7 +759,7 @@ func (fm *FlowManager) stepAnnouncementConfirmation() flow.Step {
 		Next("")
 }
 
-func (fm *FlowManager) submitChannelAnnouncement(f *flow.Flow, submitted map[string]interface{}) (flow.Name, flow.State, map[string]string, error) {
+func (fm *FlowManager) submitChannelAnnouncement(f *flow.Flow, submitted map[string]any) (flow.Name, flow.State, map[string]string, error) {
 	channelIDRaw, ok := submitted["channel_id"]
 	if !ok {
 		return "", nil, nil, errors.New("channel_id missing")
