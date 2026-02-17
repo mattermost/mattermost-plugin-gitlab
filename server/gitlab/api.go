@@ -540,9 +540,7 @@ func (g *gitlab) fetchYourPrDetails(c context.Context, log logger.Logger, client
 	var err error
 	var resp *internGitlab.Response
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		commitDetails, resp, err = client.Commits.GetCommit(pid, sha, internGitlab.WithContext(c))
 		if respErr := checkResponse(resp); respErr != nil {
 			log.WithError(respErr).Warnf("Failed to fetch commit details for PR with project_id %d", pid)
@@ -552,11 +550,9 @@ func (g *gitlab) fetchYourPrDetails(c context.Context, log logger.Logger, client
 			log.WithError(err).Warnf("Failed to fetch commit details for PR with project_id %d", pid)
 			return
 		}
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		approvalDetails, resp, err = client.MergeRequestApprovals.GetConfiguration(pid, iid, internGitlab.WithContext(c))
 		if respErr := checkResponse(resp); respErr != nil {
 			log.WithError(respErr).Warnf("Failed to fetch approval details for PR with project_id %d", pid)
@@ -566,7 +562,7 @@ func (g *gitlab) fetchYourPrDetails(c context.Context, log logger.Logger, client
 			log.WithError(err).Warnf("Failed to fetch approval details for PR with project_id %d", pid)
 			return
 		}
-	}()
+	})
 
 	wg.Wait()
 	if commitDetails != nil && approvalDetails != nil {
