@@ -8,6 +8,7 @@ import {
     updateRHSState,
     sendEphemeralPost,
     getLHSData,
+    setRHSViewType,
 } from '../../actions';
 
 import manifest from '../../manifest';
@@ -40,6 +41,7 @@ function mapDispatchToProps(dispatch) {
                 updateRHSState,
                 sendEphemeralPost,
                 getLHSData,
+                setRHSViewType,
             },
             dispatch,
         ),

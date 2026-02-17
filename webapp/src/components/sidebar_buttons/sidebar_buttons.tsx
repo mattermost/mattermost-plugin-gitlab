@@ -12,6 +12,7 @@ import {Theme} from 'mattermost-redux/selectors/entities/preferences';
 
 import {RHSStates, connectUsingBrowserMessage} from '../../constants';
 import {isDesktopApp} from '../../utils/user_agent';
+import {RHSViewType, RHSViewTypeValue} from '../../action_types';
 
 import {GitLabIssuesIcon, GitLabMergeRequestIcon, GitLabReviewsIcon, GitLabTodosIcon} from '../../utils/icons';
 import {Item} from 'src/types/gitlab_items';
@@ -34,6 +35,7 @@ interface SidebarButtonsProps {
         updateRHSState: (rhsState: string) => void;
         sendEphemeralPost: (message: string) => void;
         getLHSData: () => Promise<void>;
+        setRHSViewType: (viewType: RHSViewTypeValue) => void;
     };
 }
 
@@ -86,6 +88,7 @@ export default class SidebarButtons extends PureComponent<SidebarButtonsProps, S
     };
 
     openRHS = (rhsState: string): void => {
+        this.props.actions.setRHSViewType(RHSViewType.SIDEBAR_RIGHT);
         this.props.actions.updateRHSState(rhsState);
         this.props.showRHSPlugin();
     };
