@@ -399,7 +399,7 @@ func (p *Plugin) migrateGitlabToken(userID string) (*oauth2.Token, *APIErrorResp
 
 	userInfo.Token.AccessToken = unencryptedToken
 
-	var userInfoWithoutToken = &gitlab.UserInfo{
+	userInfoWithoutToken := &gitlab.UserInfo{
 		UserID:         userInfo.UserID,
 		GitlabUserID:   userInfo.GitlabUserID,
 		GitlabUsername: userInfo.GitlabUsername,
@@ -589,7 +589,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 
 		todos := resp.Todos
 		notificationCount := 0
-		notificationContent := ""
+		var notificationContent strings.Builder
 
 		for _, n := range todos {
 			if n == nil {
@@ -604,9 +604,9 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 			switch n.ActionName {
 			// Handle special cases where the provided "Title" value is blank
 			case NotificationActionNameMemberAccessRequest:
-				notificationContent += fmt.Sprintf("* %v : [%v](%v) has requested access to [%v](%v)\n", n.ActionName, n.Author.Name, n.Author.WebURL, n.Body, n.TargetURL)
+				fmt.Fprintf(&notificationContent, "* %v : [%v](%v) has requested access to [%v](%v)\n", n.ActionName, n.Author.Name, n.Author.WebURL, n.Body, n.TargetURL)
 			default:
-				notificationContent += fmt.Sprintf("* %v : [%v](%v)\n", n.ActionName, n.Target.Title, n.TargetURL)
+				fmt.Fprintf(&notificationContent, "* %v : [%v](%v)\n", n.ActionName, n.Target.Title, n.TargetURL)
 			}
 		}
 
@@ -614,7 +614,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 			notificationText += "You don't have any todos.\n"
 		} else {
 			notificationText += fmt.Sprintf("You have %v todos:\n", notificationCount)
-			notificationText += notificationContent
+			notificationText += notificationContent.String()
 
 			hasTodo = true
 		}
@@ -702,7 +702,7 @@ func (p *Plugin) sendRefreshEvent(userID string) {
 func (p *Plugin) openIssueCreateModal(userID, channelID, title string) {
 	p.API.PublishWebSocketEvent(
 		wsEventCreateIssue,
-		map[string]interface{}{
+		map[string]any{
 			"title":      title,
 			"channel_id": channelID,
 		},
@@ -733,7 +733,7 @@ func (p *Plugin) sendChannelSubscriptionsUpdated(subs *Subscriptions, channelID 
 
 	p.client.Frontend.PublishWebSocketEvent(
 		WsChannelSubscriptionsUpdated,
-		map[string]interface{}{"payload": string(payloadJSON)},
+		map[string]any{"payload": string(payloadJSON)},
 		&model.WebsocketBroadcast{ChannelId: channelID},
 	)
 }
@@ -830,7 +830,6 @@ func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*
 	src := oauth2.ReuseTokenSourceWithExpiry(token, conf.TokenSource(context.Background(), token), tokenExpiryBuffer)
 
 	newToken, err := src.Token() // this actually goes and renews the tokens
-
 	if err != nil {
 		if strings.Contains(err.Error(), "\"error\":\"invalid_grant\"") {
 			p.client.Log.Warn("Failed to refresh OAuth token as the existing one has an invalid grant. Revoking the token.", "userInfo", userInfo, "error", err.Error())
@@ -855,7 +854,6 @@ func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*
 func (p *Plugin) handleRevokedToken(info *gitlab.UserInfo) {
 	p.disconnectGitlabAccount(info.UserID)
 	err := p.CreateBotDMPost(info.UserID, "Your GitLab account was disconnected due to an invalid or revoked authorization token. Reconnect your account using the `/gitlab connect` command.", "custom_git_revoked_token")
-
 	if err != nil {
 		p.client.Log.Warn("Error sending revoked token DM post", "err", err.Error())
 	}

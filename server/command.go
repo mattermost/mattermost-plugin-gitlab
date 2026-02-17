@@ -68,6 +68,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
   * |token| Secret token. Defaults to secret token used in plugin's settings.
 * |/gitlab about| - Display build information about the plugin
 `
+
 const (
 	inboundWebhookURL                 = "plugins/com.github.manland.mattermost-plugin-gitlab/webhook"
 	specifyRepositoryMessage          = "Please specify a repository."
@@ -465,7 +466,6 @@ func (p *Plugin) handleMe(ctx context.Context, args *model.CommandArgs, paramete
 		gitUser = resp
 		return nil
 	})
-
 	if err != nil {
 		return p.getCommandResponse(args, "Encountered an error getting your GitLab profile.", true), nil
 	}
@@ -546,8 +546,8 @@ func (p *Plugin) handleIssueHelper(_ *plugin.Context, args *model.CommandArgs, p
 	command := parameters[0]
 	parameters = parameters[1:]
 
-	switch {
-	case command == "create":
+	switch command {
+	case "create":
 		p.openIssueCreateModal(args.UserId, args.ChannelId, strings.Join(parameters, " "))
 		return ""
 	default:
@@ -579,7 +579,6 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 			project = respProject
 			return nil
 		})
-
 		if err != nil {
 			return err.Error()
 		}
@@ -619,11 +618,11 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		if len(webhookInfo) == 0 {
 			return fmt.Sprintf("No webhooks found in %s", namespace)
 		}
-		var formatedWebhooks string
+		var sb strings.Builder
 		for _, hook := range webhookInfo {
-			formatedWebhooks += hook.String()
+			sb.WriteString(hook.String())
 		}
-		return formatedWebhooks
+		return sb.String()
 
 	case commandAdd:
 		if len(parameters) < 2 {
@@ -692,8 +691,7 @@ func parseTriggers(triggersCsv string) *gitlab.AddWebhookOptions {
 		all = true
 		sslVerification = false
 	}
-	triggers := strings.Split(triggersCsv, ",")
-	for _, trigger := range triggers {
+	for trigger := range strings.SplitSeq(triggersCsv, ",") {
 		if strings.EqualFold(trigger, "SSLverification") {
 			sslVerification = true
 		}

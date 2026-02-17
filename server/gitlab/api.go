@@ -118,7 +118,7 @@ func (g *gitlab) NewGroupHook(ctx context.Context, user *UserInfo, token *oauth2
 }
 
 // NewProjectHook creates a webhook associated with a GitLab project
-func (g *gitlab) NewProjectHook(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID interface{}, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
+func (g *gitlab) NewProjectHook(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID any, webhookOptions *AddWebhookOptions) (*WebhookInfo, error) {
 	client, err := g.GitlabConnect(*token)
 	if err != nil {
 		return nil, err
@@ -540,9 +540,7 @@ func (g *gitlab) fetchYourPrDetails(c context.Context, log logger.Logger, client
 	var err error
 	var resp *internGitlab.Response
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		commitDetails, resp, err = client.Commits.GetCommit(pid, sha, internGitlab.WithContext(c))
 		if respErr := checkResponse(resp); respErr != nil {
 			log.WithError(respErr).Warnf("Failed to fetch commit details for PR with project_id %d", pid)
@@ -552,11 +550,9 @@ func (g *gitlab) fetchYourPrDetails(c context.Context, log logger.Logger, client
 			log.WithError(err).Warnf("Failed to fetch commit details for PR with project_id %d", pid)
 			return
 		}
-	}()
+	})
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		approvalDetails, resp, err = client.MergeRequestApprovals.GetConfiguration(pid, iid, internGitlab.WithContext(c))
 		if respErr := checkResponse(resp); respErr != nil {
 			log.WithError(respErr).Warnf("Failed to fetch approval details for PR with project_id %d", pid)
@@ -566,7 +562,7 @@ func (g *gitlab) fetchYourPrDetails(c context.Context, log logger.Logger, client
 			log.WithError(err).Warnf("Failed to fetch approval details for PR with project_id %d", pid)
 			return
 		}
-	}()
+	})
 
 	wg.Wait()
 	if commitDetails != nil && approvalDetails != nil {
@@ -711,8 +707,8 @@ func (g *gitlab) GetYourProjects(ctx context.Context, user *UserInfo, token *oau
 		}
 
 		listFn := func(page, perPage int) ([]*internGitlab.Project, *internGitlab.Response, error) {
-			opts.ListOptions.Page = page
-			opts.ListOptions.PerPage = perPage
+			opts.Page = page
+			opts.PerPage = perPage
 			return client.Projects.ListProjects(opts, internGitlab.WithContext(ctx))
 		}
 
@@ -729,8 +725,8 @@ func (g *gitlab) GetYourProjects(ctx context.Context, user *UserInfo, token *oau
 	}
 
 	listFn := func(page, perPage int) ([]*internGitlab.Project, *internGitlab.Response, error) {
-		opts.ListOptions.Page = page
-		opts.ListOptions.PerPage = perPage
+		opts.Page = page
+		opts.PerPage = perPage
 		return client.Groups.ListGroupProjects(
 			g.gitlabGroup,
 			opts,
