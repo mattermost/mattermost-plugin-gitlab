@@ -1192,15 +1192,20 @@ func (g *gitlab) GetMergeRequestByID(ctx context.Context, user *UserInfo, owner,
 	return gitlabMergeRequest, nil
 }
 
-// TriggerProjectPipeline runs a pipeline in a specific project
+// TriggerProjectPipeline runs a pipeline in a specific project.
+// The project must be in the allowed GitLab group (group lock); otherwise an error is returned.
 func (g *gitlab) TriggerProjectPipeline(userInfo *UserInfo, token *oauth2.Token, projectID string, ref string) (*PipelineInfo, error) {
 	client, err := g.GitlabConnect(*token)
 	if err != nil {
 		return &PipelineInfo{}, err
 	}
+	ctx := context.Background()
+	if err := g.ensureProjectInAllowedGroup(ctx, client, projectID); err != nil {
+		return nil, err
+	}
 	pipeline, _, err := client.Pipelines.CreatePipeline(projectID, &internGitlab.CreatePipelineOptions{
 		Ref: &ref,
-	})
+	}, internGitlab.WithContext(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to run the pipeline")
 	}
@@ -1212,5 +1217,5 @@ func (g *gitlab) TriggerProjectPipeline(userInfo *UserInfo, token *oauth2.Token,
 		WebURL:     pipeline.WebURL,
 		SHA:        pipeline.SHA,
 		User:       pipeline.User.Name,
-	}, err
+	}, nil
 }
