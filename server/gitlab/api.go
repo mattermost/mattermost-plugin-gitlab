@@ -1200,10 +1200,12 @@ func (g *gitlab) TriggerProjectPipeline(userInfo *UserInfo, token *oauth2.Token,
 		return &PipelineInfo{}, err
 	}
 	ctx := context.Background()
-	if err := g.ensureProjectInAllowedGroup(ctx, client, projectID); err != nil {
+	err = g.ensureProjectInAllowedGroup(ctx, client, projectID)
+	if err != nil {
 		return nil, err
 	}
-	pipeline, _, err := client.Pipelines.CreatePipeline(projectID, &internGitlab.CreatePipelineOptions{
+	var pipeline *internGitlab.Pipeline
+	pipeline, _, err = client.Pipelines.CreatePipeline(projectID, &internGitlab.CreatePipelineOptions{
 		Ref: &ref,
 	}, internGitlab.WithContext(ctx))
 	if err != nil {
