@@ -3,11 +3,12 @@
 
 import {combineReducers, Reducer} from 'redux';
 
-import ActionTypes from '../action_types';
-import Constants from '../constants';
 import {Item} from 'src/types/gitlab_items';
 import {ConnectedData, CreateIssueModalData, GitlabUsersData, LHSData, ShowRhsPluginActionData, SubscriptionData} from 'src/types';
 import {Project} from 'src/types/gitlab_types';
+
+import Constants from '../constants';
+import ActionTypes, {RHSViewType, RHSViewTypeValue} from '../action_types';
 
 const connected: Reducer<boolean, {type: string, data: ConnectedData}> = (state = false, action) => {
     switch (action.type) {
@@ -208,6 +209,26 @@ const subscriptions: Reducer<Record<string, SubscriptionData>, {type: string, da
     }
 };
 
+// Used in popout windows to track the channel ID from the parent window
+const popoutChannelId: Reducer<string | null, {type: string, channelId: string}> = (state = null, action) => {
+    switch (action.type) {
+    case ActionTypes.SET_POPOUT_CHANNEL_ID:
+        return action.channelId;
+    default:
+        return state;
+    }
+};
+
+// Tracks which view is shown in the unified RHS component (subscriptions or sidebar_right)
+const rhsViewType: Reducer<RHSViewTypeValue, {type: string, viewType: RHSViewTypeValue}> = (state = RHSViewType.SUBSCRIPTIONS, action) => {
+    switch (action.type) {
+    case ActionTypes.SET_RHS_VIEW_TYPE:
+        return action.viewType;
+    default:
+        return state;
+    }
+};
+
 export default combineReducers({
     connected,
     gitlabURL,
@@ -227,4 +248,6 @@ export default combineReducers({
     reviewDetails,
     subscriptions,
     lhsData,
+    popoutChannelId,
+    rhsViewType,
 });

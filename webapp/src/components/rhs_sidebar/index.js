@@ -20,15 +20,20 @@ const noSubscriptions = [];
 
 function mapStateToProps(state) {
     const currentUserId = getCurrentUserId(state);
-    const currentChannelId = getCurrentChannelId(state);
     const {id} = manifest;
+    const pluginState = state[`plugins-${id}`];
+
+    // In popout windows, use the channel ID synced from the parent window
+    // Fall back to getCurrentChannelId for normal usage
+    const currentChannelId = pluginState.popoutChannelId || getCurrentChannelId(state);
+
     return {
         currentUserId,
-        connected: state[`plugins-${id}`].connected,
-        username: state[`plugins-${id}`].username,
-        gitlabURL: state[`plugins-${id}`].gitlabURL,
+        connected: pluginState.connected,
+        username: pluginState.username,
+        gitlabURL: pluginState.gitlabURL,
         currentChannelId,
-        currentChannelSubscriptions: state[`plugins-${id}`].subscriptions[currentChannelId] || noSubscriptions,
+        currentChannelSubscriptions: pluginState.subscriptions[currentChannelId] || noSubscriptions,
         pluginServerRoute: getPluginServerRoute(state),
     };
 }

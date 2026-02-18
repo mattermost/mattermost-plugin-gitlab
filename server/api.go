@@ -229,7 +229,7 @@ func apiErrorForGitlabError(err error, defaultMessage string) (message string, s
 	return defaultMessage, http.StatusInternalServerError
 }
 
-func (p *Plugin) writeAPIResponse(w http.ResponseWriter, resp interface{}) {
+func (p *Plugin) writeAPIResponse(w http.ResponseWriter, resp any) {
 	b, jsonErr := json.Marshal(resp)
 	if jsonErr != nil {
 		p.client.Log.Warn("Error encoding JSON response", "err", jsonErr.Error())
@@ -436,7 +436,7 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 
 	p.client.Frontend.PublishWebSocketEvent(
 		WsEventConnect,
-		map[string]interface{}{
+		map[string]any{
 			"connected":        true,
 			"gitlab_username":  userInfo.GitlabUsername,
 			"gitlab_client_id": config.GitlabOAuthClientID,
@@ -588,7 +588,6 @@ func (p *Plugin) getLHSData(c *UserContext, w http.ResponseWriter, r *http.Reque
 		result = resp
 		return nil
 	})
-
 	if err != nil {
 		c.Log.WithError(err).Warnf("Unable to list issue where assignee in GitLab API")
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Unable to list issue in GitLab API.", StatusCode: http.StatusInternalServerError})
