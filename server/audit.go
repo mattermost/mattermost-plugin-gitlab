@@ -57,10 +57,9 @@ func (p AttachCommentToIssueAuditParams) Auditable() map[string]any {
 
 // AttachCommentToIssueAuditResult holds GitLab response for attachCommentToIssue (for AddEventResultState).
 type AttachCommentToIssueAuditResult struct {
-	ProjectID int `json:"project_id"`
-	NoteID    int `json:"note_id"`
+	NoteID int `json:"note_id"`
 }
 
 func (p AttachCommentToIssueAuditResult) Auditable() map[string]any {
-	return map[string]any{"project_id": p.ProjectID, "note_id": p.NoteID}
+	return map[string]any{"note_id": p.NoteID}
 }

@@ -625,15 +625,9 @@ func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Requ
 	auditRec := plugin.MakeAuditRecord("createIssue", model.AuditStatusFail)
 	defer p.API.LogAuditRec(auditRec)
 
-	var labels []string
-	if issue.Labels != nil {
-		labels = []string(issue.Labels)
-	}
 	auditParams := CreateIssueAuditParams{
-		MattermostUserID: c.UserID, GitlabUsername: c.GitlabInfo.GitlabUsername,
-		ProjectID: issue.ProjectID, Title: issue.Title, DescriptionLen: len(issue.Description),
-		MilestoneID: issue.Milestone, AssigneeIDs: issue.Assignees, Labels: labels,
-		PostID: issue.PostID, ChannelID: issue.ChannelID,
+		MattermostUserID: c.UserID,
+		ProjectID:        issue.ProjectID,
 	}
 
 	model.AddEventParameterAuditableToAuditRec(auditRec, "create_issue", auditParams)
@@ -657,7 +651,7 @@ func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Requ
 	}
 
 	auditRec.Success()
-	auditRec.AddEventResultState(CreateIssueAuditResult{ProjectID: result.ProjectID, IssueIID: result.IID, WebURL: result.WebURL})
+	auditRec.AddEventResultState(CreateIssueAuditResult{IssueIID: result.IID})
 
 	rootID := issue.PostID
 	channelID := issue.ChannelID
@@ -724,12 +718,8 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 	permalink := p.getPermalink(issue.PostID)
 
 	auditParams := AttachCommentToIssueAuditParams{
-		MattermostUserID:      c.UserID,
-		GitlabUsername:        c.GitlabInfo.GitlabUsername,
-		ProjectID:             issue.ProjectID,
-		IssueIID:              issue.IID,
-		PostID:                issue.PostID,
-		CommentAuthorUsername: commentUsername,
+		MattermostUserID: c.UserID,
+		ProjectID:        issue.ProjectID,
 	}
 
 	auditRec := plugin.MakeAuditRecord("attachCommentToIssue", model.AuditStatusFail)
@@ -755,7 +745,7 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 	}
 
 	auditRec.Success()
-	auditRec.AddEventResultState(AttachCommentToIssueAuditResult{ProjectID: result.ProjectID, NoteID: result.ID})
+	auditRec.AddEventResultState(AttachCommentToIssueAuditResult{NoteID: result.ID})
 
 	rootID := issue.PostID
 	if post.RootId != "" {
