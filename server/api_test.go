@@ -137,8 +137,10 @@ func TestGetChannelSubscriptions(t *testing.T) {
 	})
 }
 
-const testEncryptionKeyForAPI = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-const testGitlabTokenForAPI = `{"access_token":"token","token_type":"Bearer","refresh_token":"refresh","expiry":"3022-10-23T15:14:43.623638795-05:00"}`
+const (
+	testEncryptionKeyForAPI = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	testGitlabTokenForAPI   = `{"access_token":"token","token_type":"Bearer","refresh_token":"refresh","expiry":"3022-10-23T15:14:43.623638795-05:00"}`
+)
 
 // fakeGitLabServer returns an httptest.Server that stubs GitLab API endpoints
 // used by the namespace-enforcement tests:
@@ -158,7 +160,7 @@ func fakeGitLabServer(t *testing.T, projectPathWithNamespace string) *httptest.S
 
 		// GET /api/v4/projects/:id — project metadata (used by ensureProjectInAllowedGroup)
 		if r.Method == http.MethodGet {
-			project := map[string]interface{}{
+			project := map[string]any{
 				"id":                  123,
 				"path":                repoPath,
 				"path_with_namespace": projectPathWithNamespace,
@@ -171,7 +173,7 @@ func fakeGitLabServer(t *testing.T, projectPathWithNamespace string) *httptest.S
 
 		// POST /api/v4/projects/:id/issues — issue creation
 		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/issues") {
-			issue := map[string]interface{}{
+			issue := map[string]any{
 				"id": 1, "iid": 1, "project_id": 123, "title": "Test",
 				"web_url": "https://example.com/" + projectPathWithNamespace + "/-/issues/1",
 			}
@@ -238,7 +240,7 @@ func TestCreateIssueReturns403WhenNamespaceNotAllowed(t *testing.T) {
 	p.ServeHTTP(nil, w, r)
 
 	result := w.Result()
-	defer result.Body.Close()
+	defer func() { _ = result.Body.Close() }()
 	data, _ := io.ReadAll(result.Body)
 	assert.Equal(t, http.StatusForbidden, result.StatusCode)
 	assert.Contains(t, string(data), "only repositories in the mygroup namespace are allowed")
@@ -260,7 +262,7 @@ func TestCreateIssueAllowsWhenGitlabGroupEmpty(t *testing.T) {
 	p.ServeHTTP(nil, w, r)
 
 	result := w.Result()
-	defer result.Body.Close()
+	defer func() { _ = result.Body.Close() }()
 	assert.NotEqual(t, http.StatusForbidden, result.StatusCode)
 	assert.Equal(t, http.StatusOK, result.StatusCode)
 }
@@ -283,7 +285,7 @@ func TestAttachCommentToIssueReturns403WhenNamespaceNotAllowed(t *testing.T) {
 	p.ServeHTTP(nil, w, r)
 
 	result := w.Result()
-	defer result.Body.Close()
+	defer func() { _ = result.Body.Close() }()
 	data, _ := io.ReadAll(result.Body)
 	assert.Equal(t, http.StatusForbidden, result.StatusCode)
 	assert.Contains(t, string(data), "only repositories in the mygroup namespace are allowed")

@@ -859,7 +859,7 @@ func (g *gitlab) GetMilestones(ctx context.Context, user *UserInfo, projectID st
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project %s: %w", projectID, err)
 	}
-	if err := g.checkGroup(project.PathWithNamespace); err != nil {
+	if err = g.checkGroup(project.PathWithNamespace); err != nil {
 		return nil, err
 	}
 
@@ -904,7 +904,7 @@ func (g *gitlab) GetMilestones(ctx context.Context, user *UserInfo, projectID st
 
 // ensureProjectInAllowedGroup fetches the project by ID or path and returns an error if it is not in the allowed GitLab group.
 // projectID may be an int (numeric ID) or string (ID or "namespace/project" path).
-func (g *gitlab) ensureProjectInAllowedGroup(ctx context.Context, client *internGitlab.Client, projectID interface{}) error {
+func (g *gitlab) ensureProjectInAllowedGroup(ctx context.Context, client *internGitlab.Client, projectID any) error {
 	project, resp, err := client.Projects.GetProject(projectID, nil, internGitlab.WithContext(ctx))
 	if respErr := checkResponse(resp); respErr != nil {
 		return respErr
@@ -920,7 +920,7 @@ func (g *gitlab) GetProjectMembers(ctx context.Context, user *UserInfo, projectI
 	if err != nil {
 		return nil, err
 	}
-	if err := g.ensureProjectInAllowedGroup(ctx, client, projectID); err != nil {
+	if err = g.ensureProjectInAllowedGroup(ctx, client, projectID); err != nil {
 		return nil, err
 	}
 	result, resp, err := client.ProjectMembers.ListAllProjectMembers(
@@ -943,7 +943,7 @@ func (g *gitlab) CreateIssue(ctx context.Context, user *UserInfo, issue *IssueRe
 	if err != nil {
 		return nil, err
 	}
-	if err := g.ensureProjectInAllowedGroup(ctx, client, issue.ProjectID); err != nil {
+	if err = g.ensureProjectInAllowedGroup(ctx, client, issue.ProjectID); err != nil {
 		return nil, err
 	}
 
@@ -973,7 +973,7 @@ func (g *gitlab) AttachCommentToIssue(ctx context.Context, user *UserInfo, issue
 	if err != nil {
 		return nil, err
 	}
-	if err := g.ensureProjectInAllowedGroup(ctx, client, issue.ProjectID); err != nil {
+	if err = g.ensureProjectInAllowedGroup(ctx, client, issue.ProjectID); err != nil {
 		return nil, err
 	}
 
@@ -1136,7 +1136,7 @@ func (g *gitlab) GetIssueByID(ctx context.Context, user *UserInfo, owner, repo s
 		return nil, err
 	}
 	projectPath := fmt.Sprintf("%s/%s", owner, repo)
-	if err := g.checkGroup(projectPath); err != nil {
+	if err = g.checkGroup(projectPath); err != nil {
 		return nil, err
 	}
 	issue, resp, err := client.Issues.GetIssue(projectPath, issueID)
@@ -1167,7 +1167,7 @@ func (g *gitlab) GetMergeRequestByID(ctx context.Context, user *UserInfo, owner,
 		return nil, err
 	}
 	projectPath := fmt.Sprintf("%s/%s", owner, repo)
-	if err := g.checkGroup(projectPath); err != nil {
+	if err = g.checkGroup(projectPath); err != nil {
 		return nil, err
 	}
 	mergeRequest, resp, err := client.MergeRequests.GetMergeRequest(projectPath, mergeRequestID, nil)
