@@ -679,6 +679,8 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 	return hasTodo, text, nil
 }
 
+var ErrNamespaceNotAllowed = errors.New("namespace not allowed")
+
 func (p *Plugin) isNamespaceAllowed(namespace string) error {
 	allowedNamespace := strings.TrimSpace(p.getConfiguration().GitlabGroup)
 	if allowedNamespace == "" {
@@ -686,7 +688,7 @@ func (p *Plugin) isNamespaceAllowed(namespace string) error {
 	}
 
 	if namespace != allowedNamespace && !strings.HasPrefix(namespace, allowedNamespace+"/") {
-		return errors.Errorf("only repositories in the %s namespace are allowed", allowedNamespace)
+		return errors.Wrapf(ErrNamespaceNotAllowed, "only repositories in the %s namespace are allowed", allowedNamespace)
 	}
 	return nil
 }
