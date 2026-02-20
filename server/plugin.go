@@ -543,6 +543,7 @@ func (p *Plugin) registerChimeraURL() {
 func (p *Plugin) CreateBotDMPost(userID, message, postType string) error {
 	channel, err := p.client.Channel.GetDirect(userID, p.BotUserID)
 	if err != nil {
+		p.client.Log.Warn("Couldn't get bot's DM channel", "user_id", userID)
 		return err
 	}
 
@@ -728,7 +729,7 @@ func (p *Plugin) notifyUsersOfDisallowedSubscriptions() {
 		repoList := "* " + strings.Join(uniqueRepos, "\n* ")
 		message := "The GitLab plugin's configuration has been updated and the following subscription(s) you created will no longer receive events:\n\n" + repoList + "\n\nPlease contact your system administrator if you need access to these repositories."
 
-		if err := p.CreateBotDMPost(creatorID, message, ""); err != nil {
+		if err := p.CreateBotDMPost(creatorID, message, "custom_git_group_lock"); err != nil {
 			p.client.Log.Warn("Failed to send group lock change DM to user", "user_id", creatorID, "err", err.Error())
 		}
 	}

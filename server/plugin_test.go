@@ -204,7 +204,7 @@ func TestNotifyUsersOfDisallowedSubscriptions(t *testing.T) {
 		api.On("GetDirectChannel", "user1", botUserID).Return(&model.Channel{Id: "dm-user1"}, nil).Once()
 		api.On("CreatePost", mock.Anything).Return(nil, &model.AppError{Message: "Unable to save the Post"}).Once()
 		// CreateBotDMPost logs first, then notifyUsersOfDisallowedSubscriptions logs
-		api.On("LogWarn", "CreateBotDMPost failed", "user_id", "user1", "post_type", "", "err", "Unable to save the Post").Return(nil).Once()
+		api.On("LogWarn", "CreateBotDMPost failed", "user_id", "user1", "post_type", "custom_git_group_lock", "err", "Unable to save the Post").Return(nil).Once()
 		api.On("LogWarn", "Failed to send group lock change DM to user", "user_id", "user1", "err", "Unable to save the Post").Return(nil).Once()
 
 		p := makePlugin(t, api, "dev-tool")
