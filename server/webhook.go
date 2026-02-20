@@ -158,6 +158,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err = p.isNamespaceAllowed(pathWithNamespace); err != nil {
+		p.client.Log.Info("Webhook event skipped: project is not in the allowed GitLab group", "path_with_namespace", pathWithNamespace, "reason", err.Error())
 		return
 	}
 

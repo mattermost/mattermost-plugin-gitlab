@@ -543,7 +543,6 @@ func (p *Plugin) registerChimeraURL() {
 func (p *Plugin) CreateBotDMPost(userID, message, postType string) error {
 	channel, err := p.client.Channel.GetDirect(userID, p.BotUserID)
 	if err != nil {
-		p.client.Log.Warn("Couldn't get bot's DM channel", "user_id", userID)
 		return err
 	}
 
@@ -555,7 +554,7 @@ func (p *Plugin) CreateBotDMPost(userID, message, postType string) error {
 	}
 
 	if err := p.client.Post.CreatePost(post); err != nil {
-		p.client.Log.Warn("can't post DM", "err", err.Error())
+		p.client.Log.Warn("CreateBotDMPost failed", "user_id", userID, "post_type", postType, "err", err.Error())
 		return err
 	}
 
@@ -691,6 +690,48 @@ func (p *Plugin) isNamespaceAllowed(namespace string) error {
 		return errors.Wrapf(ErrNamespaceNotAllowed, "only repositories in the %s namespace are allowed", allowedNamespace)
 	}
 	return nil
+}
+
+// notifyUsersOfDisallowedSubscriptions finds subscriptions that are no longer in the allowed
+// GitLab group (after a config change) and sends a DM to each affected subscription creator.
+func (p *Plugin) notifyUsersOfDisallowedSubscriptions() {
+	subs, err := p.GetSubscriptions()
+	if err != nil || subs == nil {
+		if err != nil {
+			p.client.Log.Warn("notifyUsersOfDisallowedSubscriptions: failed to get subscriptions", "err", err.Error())
+		}
+		return
+	}
+
+	// creatorID -> list of repository paths that are now disallowed
+	affectedByCreator := make(map[string][]string)
+	for repoPath, repoSubs := range subs.Repositories {
+		if err := p.isNamespaceAllowed(repoPath); err != nil {
+			for _, sub := range repoSubs {
+				if sub.CreatorID != "" {
+					affectedByCreator[sub.CreatorID] = append(affectedByCreator[sub.CreatorID], repoPath)
+				}
+			}
+		}
+	}
+
+	for creatorID, repos := range affectedByCreator {
+		// Deduplicate and format repo list for message
+		seen := make(map[string]bool)
+		var uniqueRepos []string
+		for _, r := range repos {
+			if !seen[r] {
+				seen[r] = true
+				uniqueRepos = append(uniqueRepos, r)
+			}
+		}
+		repoList := "* " + strings.Join(uniqueRepos, "\n* ")
+		message := "The GitLab plugin's configuration has been updated and the following subscription(s) you created will no longer receive events:\n\n" + repoList + "\n\nPlease contact your system administrator if you need access to these repositories."
+
+		if err := p.CreateBotDMPost(creatorID, message, ""); err != nil {
+			p.client.Log.Warn("Failed to send group lock change DM to user", "user_id", creatorID, "err", err.Error())
+		}
+	}
 }
 
 func (p *Plugin) sendRefreshEvent(userID string) {

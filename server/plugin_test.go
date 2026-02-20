@@ -4,10 +4,18 @@
 package main
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 
+	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/public/plugin/plugintest"
+	"github.com/mattermost/mattermost/server/public/pluginapi"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
 
 func TestIsNamespaceAllowed(t *testing.T) {
@@ -100,4 +108,110 @@ func TestIsNamespaceAllowed(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNotifyUsersOfDisallowedSubscriptions(t *testing.T) {
+	const botUserID = "bot-user-id"
+
+	makePlugin := func(t *testing.T, api *plugintest.API, gitlabGroup string) *Plugin {
+		t.Helper()
+		p := &Plugin{
+			configuration: &configuration{GitlabGroup: gitlabGroup},
+			BotUserID:     botUserID,
+		}
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+		return p
+	}
+
+	t.Run("empty subscriptions", func(t *testing.T) {
+		emptySubs := &Subscriptions{Repositories: map[string][]*subscription.Subscription{}}
+		payload, err := json.Marshal(emptySubs)
+		require.NoError(t, err)
+
+		api := &plugintest.API{}
+		api.On("KVGet", SubscriptionsKey).Return(payload, nil).Once()
+
+		p := makePlugin(t, api, "dev-tool")
+		p.notifyUsersOfDisallowedSubscriptions()
+
+		api.AssertCalled(t, "KVGet", SubscriptionsKey)
+		api.AssertNotCalled(t, "GetDirectChannel", mock.Anything, mock.Anything)
+		api.AssertNotCalled(t, "CreatePost", mock.Anything)
+	})
+
+	t.Run("existing subscriptions with only allowed namespaces", func(t *testing.T) {
+		// dev-tool and dev-tool/team-a are allowed when GitlabGroup is "dev-tool"
+		subs := &Subscriptions{
+			Repositories: map[string][]*subscription.Subscription{
+				"dev-tool":             {{ChannelID: "ch1", CreatorID: "user1", Features: "merges", Repository: "dev-tool"}},
+				"dev-tool/team-a/repo": {{ChannelID: "ch2", CreatorID: "user2", Features: "issues", Repository: "dev-tool/team-a/repo"}},
+			},
+		}
+		payload, err := json.Marshal(subs)
+		require.NoError(t, err)
+
+		api := &plugintest.API{}
+		api.On("KVGet", SubscriptionsKey).Return(payload, nil).Once()
+
+		p := makePlugin(t, api, "dev-tool")
+		p.notifyUsersOfDisallowedSubscriptions()
+
+		api.AssertCalled(t, "KVGet", SubscriptionsKey)
+		api.AssertNotCalled(t, "GetDirectChannel", mock.Anything, mock.Anything)
+		api.AssertNotCalled(t, "CreatePost", mock.Anything)
+	})
+
+	t.Run("existing subscriptions with mix of allowed and disallowed namespaces", func(t *testing.T) {
+		// dev-tool allowed; other-group and dev-tool-foo disallowed
+		subs := &Subscriptions{
+			Repositories: map[string][]*subscription.Subscription{
+				"dev-tool":     {{ChannelID: "ch1", CreatorID: "user1", Features: "merges", Repository: "dev-tool"}},
+				"other-group":  {{ChannelID: "ch2", CreatorID: "user2", Features: "issues", Repository: "other-group"}},
+				"dev-tool-foo": {{ChannelID: "ch3", CreatorID: "user2", Features: "pushes", Repository: "dev-tool-foo"}},
+			},
+		}
+		payload, err := json.Marshal(subs)
+		require.NoError(t, err)
+
+		api := &plugintest.API{}
+		api.On("KVGet", SubscriptionsKey).Return(payload, nil).Once()
+		api.On("GetDirectChannel", "user2", botUserID).Return(&model.Channel{Id: "dm-user2"}, nil).Once()
+		api.On("CreatePost", mock.MatchedBy(func(post *model.Post) bool {
+			msg := post.Message
+			// DM must list only disallowed repos (other-group, dev-tool-foo), not the allowed one (dev-tool)
+			return strings.Contains(msg, "other-group") && strings.Contains(msg, "dev-tool-foo") && !strings.Contains(msg, "* dev-tool\n")
+		})).Return(&model.Post{}, nil).Once()
+
+		p := makePlugin(t, api, "dev-tool")
+		p.notifyUsersOfDisallowedSubscriptions()
+
+		api.AssertExpectations(t)
+		api.AssertNumberOfCalls(t, "CreatePost", 1)
+	})
+
+	t.Run("failure to send DM", func(t *testing.T) {
+		subs := &Subscriptions{
+			Repositories: map[string][]*subscription.Subscription{
+				"other-group": {{ChannelID: "ch1", CreatorID: "user1", Features: "merges", Repository: "other-group"}},
+			},
+		}
+		payload, err := json.Marshal(subs)
+		require.NoError(t, err)
+
+		api := &plugintest.API{}
+		api.On("KVGet", SubscriptionsKey).Return(payload, nil).Once()
+		api.On("GetDirectChannel", "user1", botUserID).Return(&model.Channel{Id: "dm-user1"}, nil).Once()
+		api.On("CreatePost", mock.Anything).Return(nil, &model.AppError{Message: "Unable to save the Post"}).Once()
+		// CreateBotDMPost logs first, then notifyUsersOfDisallowedSubscriptions logs
+		api.On("LogWarn", "CreateBotDMPost failed", "user_id", "user1", "post_type", "", "err", "Unable to save the Post").Return(nil).Once()
+		api.On("LogWarn", "Failed to send group lock change DM to user", "user_id", "user1", "err", "Unable to save the Post").Return(nil).Once()
+
+		p := makePlugin(t, api, "dev-tool")
+		p.notifyUsersOfDisallowedSubscriptions()
+
+		api.AssertCalled(t, "KVGet", SubscriptionsKey)
+		api.AssertCalled(t, "GetDirectChannel", "user1", botUserID)
+		api.AssertCalled(t, "CreatePost", mock.Anything)
+	})
 }
