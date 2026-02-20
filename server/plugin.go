@@ -773,7 +773,9 @@ func formatGroupLockChangeMessage(reposByChannel map[string][]string, channelNam
 		} else {
 			lines = append(lines, "##### "+channelNames[chID])
 		}
-		for _, repoPath := range reposByChannel[chID] {
+		repos := reposByChannel[chID]
+		sort.Strings(repos)
+		for _, repoPath := range repos {
 			lines = append(lines, "* `"+repoPath+"`")
 		}
 	}
