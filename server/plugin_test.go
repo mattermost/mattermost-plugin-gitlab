@@ -176,11 +176,14 @@ func TestNotifyUsersOfDisallowedSubscriptions(t *testing.T) {
 
 		api := &plugintest.API{}
 		api.On("KVGet", SubscriptionsKey).Return(payload, nil).Once()
+		api.On("GetChannel", "ch2").Return(&model.Channel{Id: "ch2", Name: "other-team", Type: model.ChannelTypeOpen}, nil).Once()
+		api.On("GetChannel", "ch3").Return(&model.Channel{Id: "ch3", Name: "dev-channel", Type: model.ChannelTypeOpen}, nil).Once()
 		api.On("GetDirectChannel", "user2", botUserID).Return(&model.Channel{Id: "dm-user2"}, nil).Once()
 		api.On("CreatePost", mock.MatchedBy(func(post *model.Post) bool {
 			msg := post.Message
-			// DM must list only disallowed repos (other-group, dev-tool-foo), not the allowed one (dev-tool)
-			return strings.Contains(msg, "other-group") && strings.Contains(msg, "dev-tool-foo") && !strings.Contains(msg, "* dev-tool\n")
+			// DM must list only disallowed repos grouped by channel (other-group, dev-tool-foo), not the allowed one (dev-tool)
+			return strings.Contains(msg, "##### ~") && strings.Contains(msg, "other-group") &&
+				strings.Contains(msg, "dev-tool-foo") && !strings.Contains(msg, "* dev-tool\n")
 		})).Return(&model.Post{}, nil).Once()
 
 		p := makePlugin(t, api, "dev-tool")
@@ -201,6 +204,7 @@ func TestNotifyUsersOfDisallowedSubscriptions(t *testing.T) {
 
 		api := &plugintest.API{}
 		api.On("KVGet", SubscriptionsKey).Return(payload, nil).Once()
+		api.On("GetChannel", "ch1").Return(&model.Channel{Id: "ch1", Name: "town-square", Type: model.ChannelTypeOpen}, nil).Once()
 		api.On("GetDirectChannel", "user1", botUserID).Return(&model.Channel{Id: "dm-user1"}, nil).Once()
 		api.On("CreatePost", mock.Anything).Return(nil, &model.AppError{Message: "Unable to save the Post"}).Once()
 		// CreateBotDMPost logs first, then notifyUsersOfDisallowedSubscriptions logs
