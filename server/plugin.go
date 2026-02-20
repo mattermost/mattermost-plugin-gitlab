@@ -733,7 +733,7 @@ func (p *Plugin) notifyUsersOfDisallowedSubscriptions() {
 		}
 
 		// DM & Group channels can't be linked via markdown so we'll only display non-DM subscriptions
-		if ch.Type != model.ChannelTypeDirect && ch.Name != "" {
+		if ch.Type != model.ChannelTypeDirect && ch.Type != model.ChannelTypeGroup && ch.Name != "" {
 			channelNames[channelID] = "~" + ch.Name
 		} else {
 			channelNames[channelID] = ""

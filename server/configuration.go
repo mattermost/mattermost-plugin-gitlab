@@ -197,12 +197,15 @@ func (p *Plugin) OnConfigurationChange() error {
 	configuration.sanitize()
 
 	serverConfiguration := p.client.Configuration.GetConfig()
+	p.configurationLock.RLock()
+	hadConfig := p.configuration != nil
+	p.configurationLock.RUnlock()
 	previousGitlabGroup := strings.TrimSpace(p.getConfiguration().GitlabGroup)
 	newGitlabGroup := strings.TrimSpace(configuration.GitlabGroup)
 
 	p.setConfiguration(configuration, serverConfiguration)
 
-	if newGitlabGroup != "" && newGitlabGroup != previousGitlabGroup {
+	if hadConfig && p.BotUserID != "" && newGitlabGroup != "" && newGitlabGroup != previousGitlabGroup {
 		p.notifyUsersOfDisallowedSubscriptions()
 	}
 
