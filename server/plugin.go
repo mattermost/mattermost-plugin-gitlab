@@ -698,10 +698,12 @@ func (p *Plugin) isNamespaceAllowed(namespace string) error {
 // GitLab group (after a config change) and sends a DM to each affected subscription creator.
 func (p *Plugin) notifyUsersOfDisallowedSubscriptions() {
 	subs, err := p.GetSubscriptions()
-	if err != nil || subs == nil {
-		if err != nil {
-			p.client.Log.Warn("notifyUsersOfDisallowedSubscriptions: failed to get subscriptions", "err", err.Error())
-		}
+	if err != nil {
+		p.client.Log.Warn("notifyUsersOfDisallowedSubscriptions: failed to get subscriptions", "err", err.Error())
+		return
+	}
+
+	if subs == nil {
 		return
 	}
 
@@ -767,10 +769,12 @@ func formatGroupLockChangeMessage(reposByChannel map[string][]string, channelNam
 	})
 
 	var lines []string
+	othersHeaderEmitted := false
 	for _, chID := range chIDs {
-		if channelNames[chID] == "" {
+		if channelNames[chID] == "" && !othersHeaderEmitted {
 			lines = append(lines, "##### Others (DM & Group channels)")
-		} else {
+			othersHeaderEmitted = true
+		} else if channelNames[chID] != "" {
 			lines = append(lines, "##### "+channelNames[chID])
 		}
 		repos := reposByChannel[chID]

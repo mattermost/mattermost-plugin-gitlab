@@ -199,8 +199,11 @@ func (p *Plugin) OnConfigurationChange() error {
 	serverConfiguration := p.client.Configuration.GetConfig()
 	p.configurationLock.RLock()
 	hadConfig := p.configuration != nil
+	var previousGitlabGroup string
+	if hadConfig {
+		previousGitlabGroup = strings.TrimSpace(p.configuration.GitlabGroup)
+	}
 	p.configurationLock.RUnlock()
-	previousGitlabGroup := strings.TrimSpace(p.getConfiguration().GitlabGroup)
 	newGitlabGroup := strings.TrimSpace(configuration.GitlabGroup)
 
 	p.setConfiguration(configuration, serverConfiguration)
