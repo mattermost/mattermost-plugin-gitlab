@@ -243,21 +243,20 @@ func (p *Plugin) getGitlabClient() gitlab.Gitlab {
 	return p.GitlabClient
 }
 
-func (p *Plugin) getOAuthConfig() *oauth2.Config {
+func (p *Plugin) getOAuthConfig() (*oauth2.Config, error) {
 	config := p.getConfiguration()
-	instanceConfiguration, err := p.getInstance(config.DefaultInstanceName)
-	if err != nil {
-		p.client.Log.Warn("Failed to get instance configuration", "error", err.Error())
-		return nil
-	}
 
 	scopes := []string{"api", "read_user"}
-
 	redirectURL := fmt.Sprintf("%s/oauth/complete", getPluginURL(p.client))
 
 	if config.UsePreregisteredApplication {
 		p.client.Log.Debug("Using Chimera Proxy OAuth configuration")
-		return p.getOAuthConfigForChimeraApp(scopes, redirectURL)
+		return p.getOAuthConfigForChimeraApp(scopes, redirectURL), nil
+	}
+
+	clientID, clientSecret, err := p.resolveOAuthCredentials(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve OAuth credentials: %w", err)
 	}
 
 	authURL, _ := url.Parse(config.GitlabURL)
@@ -267,15 +266,35 @@ func (p *Plugin) getOAuthConfig() *oauth2.Config {
 	tokenURL.Path = path.Join(tokenURL.Path, "oauth", "token")
 
 	return &oauth2.Config{
-		ClientID:     instanceConfiguration.GitlabOAuthClientID,
-		ClientSecret: instanceConfiguration.GitlabOAuthClientSecret,
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
 		Scopes:       scopes,
 		RedirectURL:  redirectURL,
 		Endpoint: oauth2.Endpoint{
 			AuthURL:  authURL.String(),
 			TokenURL: tokenURL.String(),
 		},
+	}, nil
+}
+
+// resolveOAuthCredentials returns OAuth client credentials by first trying the KV-backed
+// instance configuration, then falling back to legacy plugin settings for backwards
+// compatibility with upgrades from v1.11 and earlier.
+func (p *Plugin) resolveOAuthCredentials(config *configuration) (clientID, clientSecret string, err error) {
+	instanceConfig, instanceErr := p.getInstance(config.DefaultInstanceName)
+	if instanceErr == nil {
+		return instanceConfig.GitlabOAuthClientID, instanceConfig.GitlabOAuthClientSecret, nil
 	}
+
+	if config.GitlabOAuthClientID != "" && config.GitlabOAuthClientSecret != "" {
+		p.client.Log.Debug(
+			"Instance configuration not found, falling back to legacy OAuth credentials from plugin settings",
+			"instance_error", instanceErr.Error(),
+		)
+		return config.GitlabOAuthClientID, config.GitlabOAuthClientSecret, nil
+	}
+
+	return "", "", fmt.Errorf("no OAuth credentials available: instance lookup failed (%s) and no legacy credentials in plugin settings", instanceErr.Error())
 }
 
 func (p *Plugin) getOAuthConfigForChimeraApp(scopes []string, redirectURL string) *oauth2.Config {
@@ -917,7 +936,10 @@ func (p *Plugin) getUsername(userID string) (string, *APIErrorResponse) {
 }
 
 func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*oauth2.Token, error) {
-	conf := p.getOAuthConfig()
+	conf, err := p.getOAuthConfig()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get OAuth config for token refresh")
+	}
 
 	// Use ReuseTokenSourceWithExpiry to ensure the oauth2 library uses the same expiry buffer
 	// as our plugin's check. This prevents a race condition where our check decides to refresh

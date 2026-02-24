@@ -248,8 +248,9 @@ func (p *Plugin) connectUserToGitlab(c *Context, w http.ResponseWriter, r *http.
 		return
 	}
 
-	conf := p.getOAuthConfig()
-	if conf == nil {
+	conf, err := p.getOAuthConfig()
+	if err != nil {
+		c.Log.WithError(err).Warnf("Failed to get OAuth configuration")
 		http.Error(w, "OAuth configuration not found", http.StatusInternalServerError)
 		return
 	}
@@ -310,7 +311,13 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 
 	config := p.getConfiguration()
 
-	conf := p.getOAuthConfig()
+	conf, err := p.getOAuthConfig()
+	if err != nil {
+		c.Log.WithError(err).Warnf("Failed to get OAuth configuration")
+		rErr = errors.Wrap(err, "OAuth configuration not found")
+		http.Error(w, rErr.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	code := r.URL.Query().Get("code")
 	if len(code) == 0 {
@@ -322,7 +329,7 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 	state := r.URL.Query().Get("state")
 
 	var storedState []byte
-	err := p.client.KV.Get(state, &storedState)
+	err = p.client.KV.Get(state, &storedState)
 	if err != nil {
 		c.Log.WithError(err).Warnf("Can't get state from store")
 
