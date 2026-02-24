@@ -253,8 +253,8 @@ func TestGetOAuthConfig(t *testing.T) {
 
 		p := &Plugin{
 			configuration: &configuration{
-				DefaultInstanceName: "",
-				GitlabURL:           "https://gitlab.example.com",
+				DefaultInstanceName:     "",
+				GitlabURL:               "https://gitlab.example.com",
 				GitlabOAuthClientID:     "legacy-client-id",
 				GitlabOAuthClientSecret: "legacy-client-secret",
 			},
@@ -407,4 +407,3 @@ func TestRefreshTokenReturnsErrorWhenOAuthConfigFails(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unable to get OAuth config for token refresh")
 }
-
