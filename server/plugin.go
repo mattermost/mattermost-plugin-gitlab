@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -555,7 +556,7 @@ func (p *Plugin) CreateBotDMPost(userID, message, postType string) error {
 	}
 
 	if err := p.client.Post.CreatePost(post); err != nil {
-		p.client.Log.Warn("can't post DM", "err", err.Error())
+		p.client.Log.Warn("CreateBotDMPost failed", "user_id", userID, "post_type", postType, "err", err.Error())
 		return err
 	}
 
@@ -691,6 +692,98 @@ func (p *Plugin) isNamespaceAllowed(namespace string) error {
 		return errors.Wrapf(ErrNamespaceNotAllowed, "only repositories in the %s namespace are allowed", allowedNamespace)
 	}
 	return nil
+}
+
+// notifyUsersOfDisallowedSubscriptions finds subscriptions that are no longer in the allowed
+// GitLab group (after a config change) and sends a DM to each affected subscription creator.
+func (p *Plugin) notifyUsersOfDisallowedSubscriptions() {
+	subs, err := p.GetSubscriptions()
+	if err != nil {
+		p.client.Log.Warn("notifyUsersOfDisallowedSubscriptions: failed to get subscriptions", "err", err.Error())
+		return
+	}
+
+	if subs == nil {
+		return
+	}
+
+	// Populating map of subscriptions by creator and gather channelIDs for metadata fetching
+	type reposByChannel map[string][]string
+	affectedByCreator := make(map[string]reposByChannel)
+	channelIDs := make(map[string]bool)
+	for repoPath, repoSubs := range subs.Repositories {
+		if p.isNamespaceAllowed(repoPath) != nil {
+			for _, sub := range repoSubs {
+				if sub.CreatorID != "" {
+					if affectedByCreator[sub.CreatorID] == nil {
+						affectedByCreator[sub.CreatorID] = make(reposByChannel)
+					}
+					affectedByCreator[sub.CreatorID][sub.ChannelID] = append(affectedByCreator[sub.CreatorID][sub.ChannelID], repoPath)
+					channelIDs[sub.ChannelID] = true
+				}
+			}
+		}
+	}
+
+	// Fetching channel names for each channelID
+	channelNames := make(map[string]string, len(channelIDs))
+	for channelID := range channelIDs {
+		ch, err := p.client.Channel.Get(channelID)
+		if err != nil {
+			p.client.Log.Warn("Failed to get channel when notifying users of disallowed subscriptions", "channelID", channelID, "err", err.Error())
+			continue
+		}
+
+		// DM & Group channels can't be linked via markdown so we'll only display non-DM subscriptions
+		if ch.Type != model.ChannelTypeDirect && ch.Type != model.ChannelTypeGroup && ch.Name != "" {
+			channelNames[channelID] = "~" + ch.Name
+		} else {
+			channelNames[channelID] = ""
+		}
+	}
+
+	for creatorID, reposByChannel := range affectedByCreator {
+		message := formatGroupLockChangeMessage(reposByChannel, channelNames)
+		if err := p.CreateBotDMPost(creatorID, message, "custom_git_group_lock"); err != nil {
+			p.client.Log.Warn("Failed to send group lock change DM to user", "user_id", creatorID, "err", err.Error())
+		}
+	}
+}
+
+// formatGroupLockChangeMessage builds the DM body for one creator from their repos grouped by channel.
+func formatGroupLockChangeMessage(reposByChannel map[string][]string, channelNames map[string]string) string {
+	chIDs := make([]string, 0, len(reposByChannel))
+	for chID := range reposByChannel {
+		chIDs = append(chIDs, chID)
+	}
+
+	// Sort: named channels first (by name), then empty-name (DM/group) channels last, by id
+	sort.Slice(chIDs, func(i, j int) bool {
+		key := func(idx int) string {
+			if n := channelNames[chIDs[idx]]; n != "" {
+				return n
+			}
+			return "\xff" + chIDs[idx] // \xff sorts after any "~channel" name
+		}
+		return key(i) < key(j)
+	})
+
+	var lines []string
+	othersHeaderEmitted := false
+	for _, chID := range chIDs {
+		if channelNames[chID] == "" && !othersHeaderEmitted {
+			lines = append(lines, "##### Others (DM & Group channels)")
+			othersHeaderEmitted = true
+		} else if channelNames[chID] != "" {
+			lines = append(lines, "##### "+channelNames[chID])
+		}
+		repos := reposByChannel[chID]
+		sort.Strings(repos)
+		for _, repoPath := range repos {
+			lines = append(lines, "* `"+repoPath+"`")
+		}
+	}
+	return "The GitLab plugin's configuration has been updated and the following subscription(s) you created will no longer receive events:\n\n" + strings.Join(lines, "\n") + "\n\nPlease contact your system administrator if you need these subscriptions to be restored."
 }
 
 func (p *Plugin) sendRefreshEvent(userID string) {
