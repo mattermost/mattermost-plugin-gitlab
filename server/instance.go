@@ -22,7 +22,7 @@ func (c *InstanceConfiguration) IsValid() error {
 	}
 
 	if err := isValidURL(c.GitlabURL); err != nil {
-		return errors.New("must have a valid GitLab URL")
+		return errors.Wrap(err, "must have a valid GitLab URL")
 	}
 
 	if c.GitlabOAuthClientID == "" {

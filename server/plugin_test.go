@@ -300,6 +300,33 @@ func TestGetOAuthConfig(t *testing.T) {
 		assert.Contains(t, err.Error(), "no OAuth credentials available")
 	})
 
+	t.Run("returns error when GitLab URL is malformed", func(t *testing.T) {
+		siteURL := "https://mattermost.example.com"
+		mmConfig := &model.Config{}
+		mmConfig.ServiceSettings.SiteURL = &siteURL
+
+		p := &Plugin{
+			configuration: &configuration{
+				DefaultInstanceName:     "",
+				GitlabURL:               "ht\x7ftp://invalid",
+				GitlabOAuthClientID:     "legacy-client-id",
+				GitlabOAuthClientSecret: "legacy-client-secret",
+			},
+		}
+
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).Return(nil, nil)
+		api.On("LogDebug", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		api.On("GetConfig").Return(mmConfig)
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		conf, err := p.getOAuthConfig()
+		assert.Nil(t, conf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse GitLab URL")
+	})
+
 	t.Run("returns valid config when instance exists in KV store", func(t *testing.T) {
 		instanceList := []string{"production"}
 		instanceListJSON, _ := json.Marshal(instanceList)

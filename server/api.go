@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"regexp"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -28,6 +29,8 @@ import (
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
+
+var oauthStateRegexp = regexp.MustCompile(`^[a-z0-9]{15}_[a-z0-9]{26}$`)
 
 const (
 	APIErrorIDNotConnected = "not_connected"
@@ -328,6 +331,19 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 
 	state := r.URL.Query().Get("state")
 
+	if !oauthStateRegexp.MatchString(state) {
+		rErr = errors.New("invalid state format")
+		http.Error(w, rErr.Error(), http.StatusBadRequest)
+		return
+	}
+
+	userID := strings.Split(state, "_")[1]
+	if userID != authedUserID {
+		rErr = errors.New("not authorized, incorrect user")
+		http.Error(w, rErr.Error(), http.StatusUnauthorized)
+		return
+	}
+
 	var storedState []byte
 	err = p.client.KV.Get(state, &storedState)
 	if err != nil {
@@ -338,26 +354,18 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		return
 	}
 
-	err = p.client.KV.Delete(state)
-	if err != nil {
-		c.Log.WithError(err).Warnf("Failed to delete state token")
-
-		rErr = errors.Wrap(err, "error deleting stored state")
-		http.Error(w, rErr.Error(), http.StatusBadRequest)
-	}
-
 	if string(storedState) != state {
 		rErr = errors.New("invalid state token")
 		http.Error(w, rErr.Error(), http.StatusBadRequest)
 		return
 	}
 
-	userID := strings.Split(state, "_")[1]
+	err = p.client.KV.Delete(state)
+	if err != nil {
+		c.Log.WithError(err).Warnf("Failed to delete state token")
 
-	if userID != authedUserID {
-		rErr = errors.New("not authorized, incorrect user")
-		http.Error(w, rErr.Error(), http.StatusUnauthorized)
-		return
+		rErr = errors.Wrap(err, "error deleting stored state")
+		http.Error(w, rErr.Error(), http.StatusBadRequest)
 	}
 
 	tok, err := conf.Exchange(c.Ctx, code)

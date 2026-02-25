@@ -267,6 +267,153 @@ func TestCreateIssueAllowsWhenGitlabGroupEmpty(t *testing.T) {
 	assert.Equal(t, http.StatusOK, result.StatusCode)
 }
 
+func TestCompleteConnectUserToGitlab_StateValidation(t *testing.T) {
+	validUserID := "abcdefghijklmnopqrstuvwxyz"
+
+	setupPlugin := func(t *testing.T) *Plugin {
+		t.Helper()
+
+		siteURL := "https://mattermost.example.com"
+		mmConfig := &model.Config{}
+		mmConfig.ServiceSettings.SiteURL = &siteURL
+
+		config := configuration{
+			GitlabURL:               "https://gitlab.example.com",
+			GitlabOAuthClientID:     "client_id",
+			GitlabOAuthClientSecret: "client_secret",
+			EncryptionKey:           "aaaaaaaaaaaaaaaa",
+		}
+
+		p := &Plugin{configuration: &config}
+		p.initializeAPI()
+
+		api := &plugintest.API{}
+		api.On("GetConfig").Return(mmConfig)
+		api.On("KVGet", mock.Anything).Return(nil, nil).Maybe()
+		api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		api.On("LogDebug", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+		p.oauthBroker = NewOAuthBroker(func(_ OAuthCompleteEvent) {})
+		return p
+	}
+
+	t.Run("rejects state with arbitrary KV key name", func(t *testing.T) {
+		p := setupPlugin(t)
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/oauth/complete?code=test&state=Gitlab_Instance_Configuration_Map", nil)
+		r.Header.Set("Mattermost-User-ID", validUserID)
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+		assert.Equal(t, http.StatusBadRequest, result.StatusCode)
+		data, _ := io.ReadAll(result.Body)
+		assert.Contains(t, string(data), "invalid state format")
+	})
+
+	t.Run("rejects state targeting user token key", func(t *testing.T) {
+		p := setupPlugin(t)
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/oauth/complete?code=test&state="+validUserID+"_usertoken", nil)
+		r.Header.Set("Mattermost-User-ID", validUserID)
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+		assert.Equal(t, http.StatusBadRequest, result.StatusCode)
+		data, _ := io.ReadAll(result.Body)
+		assert.Contains(t, string(data), "invalid state format")
+	})
+
+	t.Run("rejects empty state", func(t *testing.T) {
+		p := setupPlugin(t)
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/oauth/complete?code=test&state=", nil)
+		r.Header.Set("Mattermost-User-ID", validUserID)
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+		assert.Equal(t, http.StatusBadRequest, result.StatusCode)
+	})
+
+	t.Run("passes validation with correctly formatted state and matching user", func(t *testing.T) {
+		state := "abcdefghijklmno_" + validUserID
+
+		siteURL := "https://mattermost.example.com"
+		mmConfig := &model.Config{}
+		mmConfig.ServiceSettings.SiteURL = &siteURL
+
+		config := configuration{
+			GitlabURL:               "https://gitlab.example.com",
+			GitlabOAuthClientID:     "client_id",
+			GitlabOAuthClientSecret: "client_secret",
+			EncryptionKey:           "aaaaaaaaaaaaaaaa",
+		}
+
+		p := &Plugin{configuration: &config}
+		p.initializeAPI()
+
+		api := &plugintest.API{}
+		api.On("GetConfig").Return(mmConfig)
+		api.On("KVGet", state).Return([]byte(state), nil)
+		api.On("KVSetWithOptions", state, []byte(nil), mock.Anything).Return(true, nil)
+		api.On("KVGet", instanceConfigNameListKey).Return(nil, nil)
+		api.On("LogDebug", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+		p.oauthBroker = NewOAuthBroker(func(_ OAuthCompleteEvent) {})
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/oauth/complete?code=test&state="+state, nil)
+		r.Header.Set("Mattermost-User-ID", validUserID)
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+
+		// The request passes state validation and proceeds to the token exchange,
+		// which fails because there's no real GitLab server — that's an Internal
+		// Server Error, not a Bad Request or Unauthorized from the validation gates.
+		assert.Equal(t, http.StatusInternalServerError, result.StatusCode)
+		data, _ := io.ReadAll(result.Body)
+		assert.NotContains(t, string(data), "invalid state")
+		assert.NotContains(t, string(data), "not authorized, incorrect user")
+
+		api.AssertCalled(t, "KVGet", state)
+		api.AssertCalled(t, "KVSetWithOptions", state, []byte(nil), mock.Anything)
+	})
+
+	t.Run("rejects state with wrong user ID", func(t *testing.T) {
+		p := setupPlugin(t)
+
+		differentUserID := "zyxwvutsrqponmlkjihgfedcba"
+		state := "abcdefghijklmno_" + differentUserID
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/oauth/complete?code=test&state="+state, nil)
+		r.Header.Set("Mattermost-User-ID", validUserID)
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+		assert.Equal(t, http.StatusUnauthorized, result.StatusCode)
+		data, _ := io.ReadAll(result.Body)
+		assert.Contains(t, string(data), "not authorized, incorrect user")
+	})
+}
+
 func TestAttachCommentToIssueReturns403WhenNamespaceNotAllowed(t *testing.T) {
 	fakeGitLab := fakeGitLabServer(t, "othergroup/repo")
 	defer fakeGitLab.Close()
