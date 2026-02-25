@@ -394,6 +394,54 @@ func TestCompleteConnectUserToGitlab_StateValidation(t *testing.T) {
 		api.AssertCalled(t, "KVSetWithOptions", state, []byte(nil), mock.Anything)
 	})
 
+	t.Run("returns error when KV delete of state token fails", func(t *testing.T) {
+		state := "abcdefghijklmno_" + validUserID
+
+		siteURL := "https://mattermost.example.com"
+		mmConfig := &model.Config{}
+		mmConfig.ServiceSettings.SiteURL = &siteURL
+
+		config := configuration{
+			GitlabURL:               "https://gitlab.example.com",
+			GitlabOAuthClientID:     "client_id",
+			GitlabOAuthClientSecret: "client_secret",
+			EncryptionKey:           "aaaaaaaaaaaaaaaa",
+		}
+
+		p := &Plugin{configuration: &config}
+		p.initializeAPI()
+
+		kvDeleteErr := model.NewAppError("KVDelete", "plugin.kv_delete.error", nil, "storage failure", http.StatusInternalServerError)
+
+		api := &plugintest.API{}
+		api.On("GetConfig").Return(mmConfig)
+		api.On("KVGet", state).Return([]byte(state), nil)
+		api.On("KVSetWithOptions", state, []byte(nil), mock.Anything).Return(false, kvDeleteErr)
+		api.On("KVGet", instanceConfigNameListKey).Return(nil, nil)
+		api.On("LogDebug", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+		p.oauthBroker = NewOAuthBroker(func(_ OAuthCompleteEvent) {})
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/oauth/complete?code=test&state="+state, nil)
+		r.Header.Set("Mattermost-User-ID", validUserID)
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+
+		assert.Equal(t, http.StatusBadRequest, result.StatusCode)
+		data, _ := io.ReadAll(result.Body)
+		assert.Contains(t, string(data), "error deleting stored state")
+
+		api.AssertCalled(t, "KVSetWithOptions", state, []byte(nil), mock.Anything)
+		api.AssertNotCalled(t, "KVGet", "user_id_usertoken")
+	})
+
 	t.Run("rejects state with wrong user ID", func(t *testing.T) {
 		p := setupPlugin(t)
 

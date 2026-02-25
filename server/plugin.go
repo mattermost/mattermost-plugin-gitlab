@@ -288,7 +288,7 @@ func (p *Plugin) resolveOAuthCredentials(config *configuration) (clientID, clien
 		clientID = instanceConfig.GitlabOAuthClientID
 		clientSecret = instanceConfig.GitlabOAuthClientSecret
 		rawURL = instanceConfig.GitlabURL
-	case config.GitlabOAuthClientID != "" && config.GitlabOAuthClientSecret != "":
+	case config.GitlabOAuthClientID != "" && config.GitlabOAuthClientSecret != "" && config.GitlabURL != "":
 		p.client.Log.Debug(
 			"Instance configuration not found, falling back to legacy OAuth credentials from plugin settings",
 			"instance_error", instanceErr.Error(),
