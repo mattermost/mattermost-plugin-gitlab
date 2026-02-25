@@ -283,9 +283,6 @@ func (p *Plugin) getOAuthConfig() (*oauth2.Config, error) {
 func (p *Plugin) resolveOAuthCredentials(config *configuration) (clientID, clientSecret, gitlabURL string, err error) {
 	instanceConfig, instanceErr := p.getInstance(config.DefaultInstanceName)
 	if instanceErr == nil {
-		if err := instanceConfig.IsValid(); err != nil {
-			return "", "", "", fmt.Errorf("instance %q has invalid OAuth credentials: %w", config.DefaultInstanceName, err)
-		}
 		return instanceConfig.GitlabOAuthClientID, instanceConfig.GitlabOAuthClientSecret, instanceConfig.GitlabURL, nil
 	}
 

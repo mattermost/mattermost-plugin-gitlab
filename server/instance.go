@@ -17,12 +17,22 @@ type InstanceConfiguration struct {
 }
 
 func (c *InstanceConfiguration) IsValid() error {
+	if c == nil {
+		return errors.New("instance configuration is nil")
+	}
+
+	if err := isValidURL(c.GitlabURL); err != nil {
+		return errors.New("must have a valid GitLab URL")
+	}
+
 	if c.GitlabOAuthClientID == "" {
 		return errors.New("must have a GitLab OAuth client ID")
 	}
+
 	if c.GitlabOAuthClientSecret == "" {
 		return errors.New("must have a GitLab OAuth client secret")
 	}
+
 	return nil
 }
 
