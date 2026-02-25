@@ -366,6 +366,7 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 
 		rErr = errors.Wrap(err, "error deleting stored state")
 		http.Error(w, rErr.Error(), http.StatusBadRequest)
+		return
 	}
 
 	tok, err := conf.Exchange(c.Ctx, code)
