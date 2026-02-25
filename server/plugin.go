@@ -254,13 +254,13 @@ func (p *Plugin) getOAuthConfig() (*oauth2.Config, error) {
 		return p.getOAuthConfigForChimeraApp(scopes, redirectURL), nil
 	}
 
-	clientID, clientSecret, err := p.resolveOAuthCredentials(config)
+	clientID, clientSecret, gitlabURL, err := p.resolveOAuthCredentials(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve OAuth credentials: %w", err)
 	}
 
-	authURL, _ := url.Parse(config.GitlabURL)
-	tokenURL, _ := url.Parse(config.GitlabURL)
+	authURL, _ := url.Parse(gitlabURL)
+	tokenURL, _ := url.Parse(gitlabURL)
 
 	authURL.Path = path.Join(authURL.Path, "oauth", "authorize")
 	tokenURL.Path = path.Join(tokenURL.Path, "oauth", "token")
@@ -277,13 +277,16 @@ func (p *Plugin) getOAuthConfig() (*oauth2.Config, error) {
 	}, nil
 }
 
-// resolveOAuthCredentials returns OAuth client credentials by first trying the KV-backed
-// instance configuration, then falling back to legacy plugin settings for backwards
-// compatibility with upgrades from v1.11 and earlier.
-func (p *Plugin) resolveOAuthCredentials(config *configuration) (clientID, clientSecret string, err error) {
+// resolveOAuthCredentials returns OAuth client credentials and the GitLab URL by first trying
+// the KV-backed instance configuration, then falling back to legacy plugin settings for
+// backwards compatibility with upgrades from v1.11 and earlier.
+func (p *Plugin) resolveOAuthCredentials(config *configuration) (clientID, clientSecret, gitlabURL string, err error) {
 	instanceConfig, instanceErr := p.getInstance(config.DefaultInstanceName)
 	if instanceErr == nil {
-		return instanceConfig.GitlabOAuthClientID, instanceConfig.GitlabOAuthClientSecret, nil
+		if err := instanceConfig.IsValid(); err != nil {
+			return "", "", "", fmt.Errorf("instance %q has invalid OAuth credentials: %w", config.DefaultInstanceName, err)
+		}
+		return instanceConfig.GitlabOAuthClientID, instanceConfig.GitlabOAuthClientSecret, instanceConfig.GitlabURL, nil
 	}
 
 	if config.GitlabOAuthClientID != "" && config.GitlabOAuthClientSecret != "" {
@@ -291,10 +294,10 @@ func (p *Plugin) resolveOAuthCredentials(config *configuration) (clientID, clien
 			"Instance configuration not found, falling back to legacy OAuth credentials from plugin settings",
 			"instance_error", instanceErr.Error(),
 		)
-		return config.GitlabOAuthClientID, config.GitlabOAuthClientSecret, nil
+		return config.GitlabOAuthClientID, config.GitlabOAuthClientSecret, config.GitlabURL, nil
 	}
 
-	return "", "", fmt.Errorf("no OAuth credentials available: instance lookup failed (%s) and no legacy credentials in plugin settings", instanceErr.Error())
+	return "", "", "", fmt.Errorf("no OAuth credentials available: instance lookup failed (%s) and no legacy credentials in plugin settings", instanceErr.Error())
 }
 
 func (p *Plugin) getOAuthConfigForChimeraApp(scopes []string, redirectURL string) *oauth2.Config {
