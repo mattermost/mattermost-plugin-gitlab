@@ -434,7 +434,7 @@ func TestCompleteConnectUserToGitlab_StateValidation(t *testing.T) {
 		result := w.Result()
 		defer func() { _ = result.Body.Close() }()
 
-		assert.Equal(t, http.StatusBadRequest, result.StatusCode)
+		assert.Equal(t, http.StatusInternalServerError, result.StatusCode)
 		data, _ := io.ReadAll(result.Body)
 		assert.Contains(t, string(data), "error deleting stored state")
 

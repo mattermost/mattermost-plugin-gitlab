@@ -16,7 +16,7 @@ type InstanceConfiguration struct {
 	GitlabOAuthClientSecret string `json:"gitlaboauthclientsecret"`
 }
 
-func (c *InstanceConfiguration) IsValid() error {
+func (c *InstanceConfiguration) Validate() error {
 	if c == nil {
 		return errors.New("instance configuration is nil")
 	}
@@ -46,7 +46,7 @@ func (p *Plugin) installInstance(instanceName string, config *InstanceConfigurat
 		return errors.New("config is nil")
 	}
 
-	if err := config.IsValid(); err != nil {
+	if err := config.Validate(); err != nil {
 		return fmt.Errorf("invalid instance configuration: %w", err)
 	}
 

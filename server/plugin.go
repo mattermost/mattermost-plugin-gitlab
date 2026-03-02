@@ -300,6 +300,10 @@ func (p *Plugin) resolveOAuthCredentials(config *configuration) (clientID, clien
 		return "", "", nil, fmt.Errorf("no OAuth credentials available: instance lookup failed (%s) and no legacy credentials in plugin settings", instanceErr.Error())
 	}
 
+	if err = isValidURL(rawURL); err != nil {
+		return "", "", nil, fmt.Errorf("invalid GitLab URL %q: %w", rawURL, err)
+	}
+
 	gitlabURL, err = url.Parse(rawURL)
 	if err != nil {
 		return "", "", nil, fmt.Errorf("failed to parse GitLab URL %q: %w", rawURL, err)

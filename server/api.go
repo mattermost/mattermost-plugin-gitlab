@@ -365,7 +365,7 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		c.Log.WithError(err).Warnf("Failed to delete state token")
 
 		rErr = errors.Wrap(err, "error deleting stored state")
-		http.Error(w, rErr.Error(), http.StatusBadRequest)
+		http.Error(w, rErr.Error(), http.StatusInternalServerError)
 		return
 	}
 

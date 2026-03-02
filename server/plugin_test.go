@@ -324,7 +324,7 @@ func TestGetOAuthConfig(t *testing.T) {
 		conf, err := p.getOAuthConfig()
 		assert.Nil(t, conf)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to parse GitLab URL")
+		assert.Contains(t, err.Error(), "invalid GitLab URL")
 	})
 
 	t.Run("returns valid config when instance exists in KV store", func(t *testing.T) {
