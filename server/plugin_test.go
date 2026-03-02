@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin/plugintest"
@@ -14,7 +15,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 
+	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
 
@@ -218,4 +221,216 @@ func TestNotifyUsersOfDisallowedSubscriptions(t *testing.T) {
 		api.AssertCalled(t, "GetDirectChannel", "user1", botUserID)
 		api.AssertCalled(t, "CreatePost", mock.Anything)
 	})
+}
+
+func TestGetOAuthConfig(t *testing.T) {
+	t.Run("returns error when no instance and no legacy credentials", func(t *testing.T) {
+		siteURL := "https://mattermost.example.com"
+		mmConfig := &model.Config{}
+		mmConfig.ServiceSettings.SiteURL = &siteURL
+
+		p := &Plugin{
+			configuration: &configuration{DefaultInstanceName: ""},
+		}
+
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).Return(nil, nil)
+		api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		api.On("GetConfig").Return(mmConfig)
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		conf, err := p.getOAuthConfig()
+		assert.Nil(t, conf)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "no OAuth credentials available")
+	})
+
+	t.Run("falls back to legacy plugin settings when instance not found", func(t *testing.T) {
+		siteURL := "https://mattermost.example.com"
+		mmConfig := &model.Config{}
+		mmConfig.ServiceSettings.SiteURL = &siteURL
+
+		p := &Plugin{
+			configuration: &configuration{
+				DefaultInstanceName:     "",
+				GitlabURL:               "https://gitlab.example.com",
+				GitlabOAuthClientID:     "legacy-client-id",
+				GitlabOAuthClientSecret: "legacy-client-secret",
+			},
+		}
+
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).Return(nil, nil)
+		api.On("LogDebug", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		api.On("GetConfig").Return(mmConfig)
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		conf, err := p.getOAuthConfig()
+		require.NoError(t, err)
+		require.NotNil(t, conf)
+		assert.Equal(t, "legacy-client-id", conf.ClientID)
+		assert.Equal(t, "legacy-client-secret", conf.ClientSecret)
+		assert.Contains(t, conf.Endpoint.AuthURL, "gitlab.example.com")
+	})
+
+	t.Run("returns error when instance does not exist and no legacy credentials", func(t *testing.T) {
+		instanceList := []string{"production"}
+		instanceListJSON, _ := json.Marshal(instanceList)
+
+		siteURL := "https://mattermost.example.com"
+		mmConfig := &model.Config{}
+		mmConfig.ServiceSettings.SiteURL = &siteURL
+
+		p := &Plugin{
+			configuration: &configuration{DefaultInstanceName: "nonexistent"},
+		}
+
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).Return(instanceListJSON, nil)
+		api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		api.On("GetConfig").Return(mmConfig)
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		conf, err := p.getOAuthConfig()
+		assert.Nil(t, conf)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "no OAuth credentials available")
+	})
+
+	t.Run("returns error when GitLab URL is malformed", func(t *testing.T) {
+		siteURL := "https://mattermost.example.com"
+		mmConfig := &model.Config{}
+		mmConfig.ServiceSettings.SiteURL = &siteURL
+
+		p := &Plugin{
+			configuration: &configuration{
+				DefaultInstanceName:     "",
+				GitlabURL:               "ht\x7ftp://invalid",
+				GitlabOAuthClientID:     "legacy-client-id",
+				GitlabOAuthClientSecret: "legacy-client-secret",
+			},
+		}
+
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).Return(nil, nil)
+		api.On("LogDebug", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		api.On("GetConfig").Return(mmConfig)
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		conf, err := p.getOAuthConfig()
+		assert.Nil(t, conf)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid GitLab URL")
+	})
+
+	t.Run("returns valid config when instance exists in KV store", func(t *testing.T) {
+		instanceList := []string{"production"}
+		instanceListJSON, _ := json.Marshal(instanceList)
+
+		instanceConfigMap := map[string]InstanceConfiguration{
+			"production": {
+				GitlabURL:               "https://gitlab.example.com",
+				GitlabOAuthClientID:     "instance-client-id",
+				GitlabOAuthClientSecret: "instance-client-secret",
+			},
+		}
+		instanceConfigJSON, _ := json.Marshal(instanceConfigMap)
+
+		siteURL := "https://mattermost.example.com"
+		mmConfig := &model.Config{}
+		mmConfig.ServiceSettings.SiteURL = &siteURL
+
+		p := &Plugin{
+			configuration: &configuration{
+				DefaultInstanceName: "production",
+				GitlabURL:           "https://gitlab.example.com",
+			},
+		}
+
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).Return(instanceListJSON, nil)
+		api.On("KVGet", instanceConfigMapKey).Return(instanceConfigJSON, nil)
+		api.On("GetConfig").Return(mmConfig)
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		conf, err := p.getOAuthConfig()
+		require.NoError(t, err)
+		require.NotNil(t, conf)
+		assert.Equal(t, "instance-client-id", conf.ClientID)
+		assert.Equal(t, "instance-client-secret", conf.ClientSecret)
+	})
+
+	t.Run("KV store instance takes precedence over legacy credentials", func(t *testing.T) {
+		instanceList := []string{"production"}
+		instanceListJSON, _ := json.Marshal(instanceList)
+
+		instanceConfigMap := map[string]InstanceConfiguration{
+			"production": {
+				GitlabURL:               "https://gitlab.example.com",
+				GitlabOAuthClientID:     "instance-client-id",
+				GitlabOAuthClientSecret: "instance-client-secret",
+			},
+		}
+		instanceConfigJSON, _ := json.Marshal(instanceConfigMap)
+
+		siteURL := "https://mattermost.example.com"
+		mmConfig := &model.Config{}
+		mmConfig.ServiceSettings.SiteURL = &siteURL
+
+		p := &Plugin{
+			configuration: &configuration{
+				DefaultInstanceName:     "production",
+				GitlabURL:               "https://gitlab.example.com",
+				GitlabOAuthClientID:     "legacy-client-id",
+				GitlabOAuthClientSecret: "legacy-client-secret",
+			},
+		}
+
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).Return(instanceListJSON, nil)
+		api.On("KVGet", instanceConfigMapKey).Return(instanceConfigJSON, nil)
+		api.On("GetConfig").Return(mmConfig)
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		conf, err := p.getOAuthConfig()
+		require.NoError(t, err)
+		require.NotNil(t, conf)
+		assert.Equal(t, "instance-client-id", conf.ClientID)
+		assert.Equal(t, "instance-client-secret", conf.ClientSecret)
+	})
+}
+
+func TestRefreshTokenReturnsErrorWhenOAuthConfigFails(t *testing.T) {
+	siteURL := "https://mattermost.example.com"
+	mmConfig := &model.Config{}
+	mmConfig.ServiceSettings.SiteURL = &siteURL
+
+	p := &Plugin{
+		configuration: &configuration{DefaultInstanceName: ""},
+	}
+
+	api := &plugintest.API{}
+	api.On("KVGet", instanceConfigNameListKey).Return(nil, nil)
+	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	api.On("GetConfig").Return(mmConfig)
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	userInfo := &gitlab.UserInfo{UserID: "test-user"}
+	token := &oauth2.Token{
+		AccessToken:  "old-access-token",
+		RefreshToken: "refresh-token",
+		Expiry:       time.Now().Add(-1 * time.Hour),
+	}
+
+	newToken, err := p.refreshToken(userInfo, token)
+	assert.Nil(t, newToken)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unable to get OAuth config for token refresh")
 }
