@@ -33,11 +33,11 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
     * pushes - includes pushes
 	* issue_comments - includes new issue comments
 	* merge_request_comments - include new merge-request comments
+	* merge_request_assigns - includes merge request assignment and unassignment notifications
 	* pipeline - includes pipeline runs
 	* tag - include tag creation
     * pull_reviews - includes merge request reviews
 	* label:"<label-1-name>","<label-2-name>" - must include "merges" or "issues" in feature list when using labels
-	* merge_request_assigns - includes merge request assignment and unassignment notifications
 	* deployments - includes deployments
 	* releases - includes releases
     * Defaults to "merges,issues,tag"
@@ -53,14 +53,14 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	 * |*| - or missing defaults to all with SSL verification enabled
 	 * *noSSL - all triggers with SSL verification not enabled.
 	 * PushEvents
-	 * TagPushEvents 
-	 * Comments 
-	 * ConfidentialComments 
+	 * TagPushEvents
+	 * Comments
+	 * ConfidentialComments
 	 * IssuesEvents
-	 * ConfidentialIssuesEvents 
-	 * MergeRequestsEvents 
-	 * JobEvents 
-	 * PipelineEvents 
+	 * ConfidentialIssuesEvents
+	 * MergeRequestsEvents
+	 * JobEvents
+	 * PipelineEvents
 	 * WikiPageEvents
 	 * DeploymentEvents
 	 * ReleaseEvents
