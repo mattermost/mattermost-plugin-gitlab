@@ -195,8 +195,8 @@ func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.M
 	)
 
 	if len(message) > 0 {
-		toChannels, w := filterChannelsByFeature(subs, event.Labels, (*subscription.Subscription).Merges)
-		warnings = append(warnings, w...)
+		toChannels, ws := filterChannelsByFeature(subs, event.Labels, (*subscription.Subscription).Merges)
+		warnings = append(warnings, ws...)
 		if len(toChannels) > 0 {
 			res = append(res, &HandleWebhook{
 				From:       senderGitlabUsername,
@@ -208,10 +208,10 @@ func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.M
 	}
 
 	if len(assignMessages) > 0 {
-		toChannels, w := filterChannelsByFeature(subs, event.Labels, func(sub *subscription.Subscription) bool {
+		toChannels, ws := filterChannelsByFeature(subs, event.Labels, func(sub *subscription.Subscription) bool {
 			return sub.Merges() || sub.MergeRequestAssigns()
 		})
-		warnings = append(warnings, w...)
+		warnings = append(warnings, ws...)
 		if len(toChannels) > 0 {
 			for _, msg := range assignMessages {
 				res = append(res, &HandleWebhook{
