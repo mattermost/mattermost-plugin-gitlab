@@ -59,13 +59,23 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 
 			// Handle change in assignees
 			if event.Changes.Assignees.Current != nil || event.Changes.Assignees.Previous != nil {
-				updatedCurrentUsers := w.calculateUserDiffs(event.Changes.Assignees.Previous, event.Changes.Assignees.Current)
+				newlyAssigned := w.calculateUserDiffs(event.Changes.Assignees.Previous, event.Changes.Assignees.Current)
+				newlyUnassigned := w.calculateUserDiffs(event.Changes.Assignees.Current, event.Changes.Assignees.Previous)
 
-				if len(updatedCurrentUsers) != 0 {
+				if len(newlyAssigned) != 0 {
 					message = fmt.Sprintf("[%s](%s) assigned you to merge request [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
 					handlers = append(handlers, &HandleWebhook{
 						Message: message,
-						ToUsers: updatedCurrentUsers,
+						ToUsers: newlyAssigned,
+						From:    senderGitlabUsername,
+					})
+				}
+
+				if len(newlyUnassigned) != 0 {
+					message = fmt.Sprintf("[%s](%s) unassigned you from merge request [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
+					handlers = append(handlers, &HandleWebhook{
+						Message: message,
+						ToUsers: newlyUnassigned,
 						From:    senderGitlabUsername,
 					})
 				}
@@ -139,6 +149,7 @@ func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.M
 	res := []*HandleWebhook{}
 	var warnings []string
 	message := ""
+	var assignMessages []string
 
 	switch pr.Action {
 	case actionOpen:
@@ -153,15 +164,36 @@ func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.M
 		message = fmt.Sprintf("[%s](%s) Merge request [!%v %s](%s) was approved by [%s](%s)", repo.PathWithNamespace, repo.WebURL, pr.IID, pr.Title, pr.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
 	case actionUnapproved:
 		message = fmt.Sprintf("[%s](%s) Merge request [!%v %s](%s) changes were requested by [%s](%s)", repo.PathWithNamespace, repo.WebURL, pr.IID, pr.Title, pr.URL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
+	case actionUpdate:
+		if event.Changes.Assignees.Current != nil || event.Changes.Assignees.Previous != nil {
+			newlyAssigned := w.calculateUserDiffs(event.Changes.Assignees.Previous, event.Changes.Assignees.Current)
+			newlyUnassigned := w.calculateUserDiffs(event.Changes.Assignees.Current, event.Changes.Assignees.Previous)
+
+			for _, username := range newlyAssigned {
+				msg := fmt.Sprintf("[%s](%s) Merge request [!%v %s](%s) was assigned to [%s](%s) by [%s](%s)",
+					repo.PathWithNamespace, repo.WebURL, pr.IID, pr.Title, pr.URL,
+					username, w.gitlabRetreiver.GetUserURL(username),
+					senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
+				assignMessages = append(assignMessages, msg)
+			}
+			for _, username := range newlyUnassigned {
+				msg := fmt.Sprintf("[%s](%s) Merge request [!%v %s](%s) was unassigned from [%s](%s) by [%s](%s)",
+					repo.PathWithNamespace, repo.WebURL, pr.IID, pr.Title, pr.URL,
+					username, w.gitlabRetreiver.GetUserURL(username),
+					senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername))
+				assignMessages = append(assignMessages, msg)
+			}
+		}
 	}
+
+	namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
+	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
+		ctx, namespace, project,
+		repo.Visibility == gitlab.PublicVisibility,
+	)
 
 	if len(message) > 0 {
 		toChannels := make([]string, 0)
-		namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
-		subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
-			ctx, namespace, project,
-			repo.Visibility == gitlab.PublicVisibility,
-		)
 		for _, sub := range subs {
 			if !sub.Merges() {
 				continue
@@ -184,6 +216,35 @@ func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.M
 				ToUsers:    []string{},
 				ToChannels: toChannels,
 			})
+		}
+	}
+
+	if len(assignMessages) > 0 {
+		toChannels := make([]string, 0)
+		for _, sub := range subs {
+			if !sub.Merges() && !sub.MergeRequestAssigns() {
+				continue
+			}
+
+			labels, err := sub.Labels()
+			if err != nil {
+				warnings = append(warnings, err.Error())
+			} else if len(labels) > 0 && !containsAnyLabel(event.Labels, labels) {
+				continue
+			}
+
+			toChannels = append(toChannels, sub.ChannelID)
+		}
+
+		if len(toChannels) > 0 {
+			for _, msg := range assignMessages {
+				res = append(res, &HandleWebhook{
+					From:       senderGitlabUsername,
+					Message:    msg,
+					ToUsers:    []string{},
+					ToChannels: toChannels,
+				})
+			}
 		}
 	}
 
