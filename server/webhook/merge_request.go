@@ -8,6 +8,8 @@ import (
 	"fmt"
 
 	"github.com/xanzy/go-gitlab"
+
+	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
 
 func (w *webhook) HandleMergeRequest(ctx context.Context, event *gitlab.MergeEvent) ([]*HandleWebhook, []string, error) {
@@ -193,22 +195,8 @@ func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.M
 	)
 
 	if len(message) > 0 {
-		toChannels := make([]string, 0)
-		for _, sub := range subs {
-			if !sub.Merges() {
-				continue
-			}
-
-			labels, err := sub.Labels()
-			if err != nil {
-				warnings = append(warnings, err.Error())
-			} else if len(labels) > 0 && !containsAnyLabel(event.Labels, labels) {
-				continue
-			}
-
-			toChannels = append(toChannels, sub.ChannelID)
-		}
-
+		toChannels, w := filterChannelsByFeature(subs, event.Labels, (*subscription.Subscription).Merges)
+		warnings = append(warnings, w...)
 		if len(toChannels) > 0 {
 			res = append(res, &HandleWebhook{
 				From:       senderGitlabUsername,
@@ -220,22 +208,10 @@ func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.M
 	}
 
 	if len(assignMessages) > 0 {
-		toChannels := make([]string, 0)
-		for _, sub := range subs {
-			if !sub.Merges() && !sub.MergeRequestAssigns() {
-				continue
-			}
-
-			labels, err := sub.Labels()
-			if err != nil {
-				warnings = append(warnings, err.Error())
-			} else if len(labels) > 0 && !containsAnyLabel(event.Labels, labels) {
-				continue
-			}
-
-			toChannels = append(toChannels, sub.ChannelID)
-		}
-
+		toChannels, w := filterChannelsByFeature(subs, event.Labels, func(sub *subscription.Subscription) bool {
+			return sub.Merges() || sub.MergeRequestAssigns()
+		})
+		warnings = append(warnings, w...)
 		if len(toChannels) > 0 {
 			for _, msg := range assignMessages {
 				res = append(res, &HandleWebhook{

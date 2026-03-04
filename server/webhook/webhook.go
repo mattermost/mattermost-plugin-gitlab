@@ -149,6 +149,30 @@ func containsAnyLabel(a []*gitlab.EventLabel, labels []string) bool {
 	return false
 }
 
+func filterChannelsByFeature(
+	subs []*subscription.Subscription,
+	eventLabels []*gitlab.EventLabel,
+	featureCheck func(*subscription.Subscription) bool,
+) ([]string, []string) {
+	var channels []string
+	var warnings []string
+	for _, sub := range subs {
+		if !featureCheck(sub) {
+			continue
+		}
+
+		labels, err := sub.Labels()
+		if err != nil {
+			warnings = append(warnings, err.Error())
+		} else if len(labels) > 0 && !containsAnyLabel(eventLabels, labels) {
+			continue
+		}
+
+		channels = append(channels, sub.ChannelID)
+	}
+	return channels, warnings
+}
+
 func anyEventLabelInSubs(sub *subscription.Subscription, eventLabels []*gitlab.EventLabel) (bool, string) {
 	labels, err := sub.Labels()
 	var warning string
