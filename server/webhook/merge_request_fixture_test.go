@@ -920,6 +920,178 @@ const RootUpdateReviewerMergeRequest = `{
 				}
 				}`
 
+const RootUnassignUserMergeRequest = `{
+				"object_kind":"merge_request",
+				"event_type":"merge_request",
+				"user":{
+					"name":"Administrator",
+					"username":"root",
+					"avatar_url":"https://www.gravatar.com/avatar/e64c7d89f26bd1972efa854d13d7dd61?s=80\u0026d=identicon"
+				},
+				"project":{
+					"id":24,
+					"name":"webhook",
+					"namespace":"manland",
+					"visibility_level":20,
+					"path_with_namespace":"manland/webhook",
+					"web_url":"http://localhost:3000/manland/webhook",
+					"http_url":"http://localhost:3000/manland/webhook.git"
+				},
+				"object_attributes":{
+					"assignee_id":null,
+					"author_id":1,
+					"created_at":"2019-04-03 21:07:32 UTC",
+					"description":"test open merge request",
+					"id":35,
+					"iid":4,
+					"merge_status":"can_be_merged",
+					"state":"opened",
+					"title":"Master-2",
+					"url":"http://localhost:3000/manland/webhook/merge_requests/4",
+					"source":{
+						"id":25,
+						"name":"webhook",
+						"namespace":"root",
+						"visibility_level":20,
+						"path_with_namespace":"root/webhook",
+						"http_url":"http://localhost:3000/root/webhook.git"
+					},
+					"target":{
+						"id":24,
+						"name":"webhook",
+						"namespace":"manland",
+						"visibility_level":20,
+						"path_with_namespace":"manland/webhook",
+						"http_url":"http://localhost:3000/manland/webhook.git"
+					},
+					"last_commit":{
+						"id":"1fd967c14f8265a6056525c343d984ce56472d5c",
+						"message":"Update README.md",
+						"timestamp":"2019-04-03T21:04:58Z",
+						"url":"http://localhost:3000/manland/webhook/commit/1fd967c14f8265a6056525c343d984ce56472d5c",
+						"author":{
+							"name":"Administrator",
+							"email":"admin@example.com"
+						}
+					},
+					"assignee_ids": [],
+					"action":"update"
+				},
+				"changes":{
+					"assignees":{
+						"previous":[
+							{
+								"id": 50,
+								"name": "manland",
+								"username": "manland",
+								"avatar_url": "https://www.gravatar.com/avatar/e64c7d89f26bd1972efa854d13d7dd61?s=80\u0026d=identicon"
+							}
+						],
+						"current":[]
+					}
+				},
+				"assignees": [],
+				"repository":{
+					"name":"webhook",
+					"url":"ssh://rmaneschi@localhost:2222/manland/webhook.git",
+					"description":"",
+					"homepage":"http://localhost:3000/manland/webhook"
+				}
+				}`
+
+const RootAssignMergeRequestWithChannel = `{
+				"object_kind":"merge_request",
+				"event_type":"merge_request",
+				"user":{
+					"name":"Administrator",
+					"username":"root",
+					"avatar_url":"https://www.gravatar.com/avatar/e64c7d89f26bd1972efa854d13d7dd61?s=80\u0026d=identicon"
+				},
+				"project":{
+					"id":24,
+					"name":"webhook",
+					"namespace":"manland",
+					"visibility_level":20,
+					"path_with_namespace":"manland/webhook",
+					"web_url":"http://localhost:3000/manland/webhook",
+					"http_url":"http://localhost:3000/manland/webhook.git"
+				},
+				"object_attributes":{
+					"assignee_id":50,
+					"author_id":1,
+					"created_at":"2019-04-03 21:07:32 UTC",
+					"description":"test open merge request",
+					"id":35,
+					"iid":4,
+					"merge_status":"can_be_merged",
+					"state":"opened",
+					"title":"Master-2",
+					"url":"http://localhost:3000/manland/webhook/merge_requests/4",
+					"source":{
+						"id":25,
+						"name":"webhook",
+						"namespace":"root",
+						"visibility_level":20,
+						"path_with_namespace":"root/webhook",
+						"http_url":"http://localhost:3000/root/webhook.git"
+					},
+					"target":{
+						"id":24,
+						"name":"webhook",
+						"namespace":"manland",
+						"visibility_level":20,
+						"path_with_namespace":"manland/webhook",
+						"http_url":"http://localhost:3000/manland/webhook.git"
+					},
+					"last_commit":{
+						"id":"1fd967c14f8265a6056525c343d984ce56472d5c",
+						"message":"Update README.md",
+						"timestamp":"2019-04-03T21:04:58Z",
+						"url":"http://localhost:3000/manland/webhook/commit/1fd967c14f8265a6056525c343d984ce56472d5c",
+						"author":{
+							"name":"Administrator",
+							"email":"admin@example.com"
+						}
+					},
+					"assignee_ids": [50],
+					"action":"update"
+				},
+				"changes":{
+					"assignees":{
+						"previous":[
+							{
+								"id": 100,
+								"name": "user",
+								"username": "user",
+								"avatar_url": "https://www.gravatar.com/avatar/e64c7d89f26bd1972efa854d13d7dd61?s=80\u0026d=identicon"
+							}
+						],
+						"current":[
+							{
+								"id": 50,
+								"name": "manland",
+								"username": "manland",
+								"avatar_url": "https://www.gravatar.com/avatar/e64c7d89f26bd1972efa854d13d7dd61?s=80\u0026d=identicon"
+							}
+						]
+					}
+				},
+				"assignees": [
+					{
+					"id": 50,
+					"name": "manland",
+					"username": "manland",
+					"avatar_url": "https://www.gravatar.com/avatar/e64c7d89f26bd1972efa854d13d7dd61?s=80\u0026d=identicon"
+					}
+				],
+				"repository":{
+					"name":"webhook",
+					"url":"ssh://rmaneschi@localhost:2222/manland/webhook.git",
+					"description":"",
+					"homepage":"http://localhost:3000/manland/webhook"
+				}
+				}`
+
 const MultipleEventsMergeRequest = `{
 				"object_kind":"merge_request",
 				"event_type":"merge_request",

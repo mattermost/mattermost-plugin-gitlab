@@ -33,6 +33,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
     * pushes - includes pushes
 	* issue_comments - includes new issue comments
 	* merge_request_comments - include new merge-request comments
+	* merge_request_assigns - includes merge request assignment and unassignment notifications
 	* pipeline - includes pipeline runs
 	* tag - include tag creation
     * pull_reviews - includes merge request reviews
@@ -52,14 +53,14 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	 * |*| - or missing defaults to all with SSL verification enabled
 	 * *noSSL - all triggers with SSL verification not enabled.
 	 * PushEvents
-	 * TagPushEvents 
-	 * Comments 
-	 * ConfidentialComments 
+	 * TagPushEvents
+	 * Comments
+	 * ConfidentialComments
 	 * IssuesEvents
-	 * ConfidentialIssuesEvents 
-	 * MergeRequestsEvents 
-	 * JobEvents 
-	 * PipelineEvents 
+	 * ConfidentialIssuesEvents
+	 * MergeRequestsEvents
+	 * JobEvents
+	 * PipelineEvents
 	 * WikiPageEvents
 	 * DeploymentEvents
 	 * ReleaseEvents
@@ -1103,7 +1104,7 @@ func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteD
 
 	subscriptionsAdd := model.NewAutocompleteData(commandAdd, "owner[/repo] [features]", "Subscribe the current channel to receive notifications from a project")
 	subscriptionsAdd.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
-	subscriptionsAdd.AddTextArgument("comma-delimited list of features to subscribe to: issues, confidential_issues, merges, pushes, issue_comments, merge_request_comments, pipeline, tag, pull_reviews, label:<labelName>, deployments, releases", "[features] (optional)", `/[^,-\s]+(,[^,-\s]+)*/`)
+	subscriptionsAdd.AddTextArgument("comma-delimited list of features to subscribe to: issues, confidential_issues, merges, pushes, issue_comments, merge_request_comments, merge_request_assigns, pipeline, tag, pull_reviews, label:<labelName>, deployments, releases", "[features] (optional)", `/[^,-\s]+(,[^,-\s]+)*/`)
 	subscriptions.AddCommand(subscriptionsAdd)
 
 	subscriptionsDelete := model.NewAutocompleteData(commandDelete, "owner[/repo]", "Unsubscribe the current channel from a repository")
