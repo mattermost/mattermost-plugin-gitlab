@@ -311,7 +311,7 @@ func TestCompleteConnectUserToGitlab_StateValidation(t *testing.T) {
 		defer func() { _ = result.Body.Close() }()
 		assert.Equal(t, http.StatusBadRequest, result.StatusCode)
 		data, _ := io.ReadAll(result.Body)
-		assert.Contains(t, string(data), "invalid state format")
+		assert.Contains(t, string(data), "Invalid OAuth state")
 	})
 
 	t.Run("rejects state targeting user token key", func(t *testing.T) {
@@ -327,7 +327,7 @@ func TestCompleteConnectUserToGitlab_StateValidation(t *testing.T) {
 		defer func() { _ = result.Body.Close() }()
 		assert.Equal(t, http.StatusBadRequest, result.StatusCode)
 		data, _ := io.ReadAll(result.Body)
-		assert.Contains(t, string(data), "invalid state format")
+		assert.Contains(t, string(data), "Invalid OAuth state")
 	})
 
 	t.Run("rejects empty state", func(t *testing.T) {
@@ -436,7 +436,7 @@ func TestCompleteConnectUserToGitlab_StateValidation(t *testing.T) {
 
 		assert.Equal(t, http.StatusInternalServerError, result.StatusCode)
 		data, _ := io.ReadAll(result.Body)
-		assert.Contains(t, string(data), "error deleting stored state")
+		assert.Contains(t, string(data), "Error completing OAuth connection")
 
 		api.AssertCalled(t, "KVSetWithOptions", state, []byte(nil), mock.Anything)
 		api.AssertNotCalled(t, "KVGet", "user_id_usertoken")
@@ -458,7 +458,7 @@ func TestCompleteConnectUserToGitlab_StateValidation(t *testing.T) {
 		defer func() { _ = result.Body.Close() }()
 		assert.Equal(t, http.StatusUnauthorized, result.StatusCode)
 		data, _ := io.ReadAll(result.Body)
-		assert.Contains(t, string(data), "not authorized, incorrect user")
+		assert.Contains(t, string(data), "Not authorized")
 	})
 }
 
