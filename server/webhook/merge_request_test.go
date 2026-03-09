@@ -111,6 +111,12 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 				ToChannels: []string{},
 				From:       "root",
 			},
+			{
+				Message:    "[root](http://my.gitlab.com/root) unassigned you from merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
+				ToUsers:    []string{"user"},
+				ToChannels: []string{},
+				From:       "root",
+			},
 		},
 		warnings: []string{},
 	},
@@ -139,6 +145,12 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 				ToChannels: []string{},
 				From:       "user",
 			},
+			{
+				Message:    "[user](http://my.gitlab.com/user) unassigned you from merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
+				ToUsers:    []string{"root"},
+				ToChannels: []string{},
+				From:       "user",
+			},
 		},
 		warnings: []string{},
 	},
@@ -152,6 +164,116 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 				ToUsers:    []string{},
 				ToChannels: []string{},
 				From:       "user",
+			},
+			{
+				Message:    "[user](http://my.gitlab.com/user) unassigned you from merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "user",
+			},
+		},
+		warnings: []string{},
+	},
+	{
+		testTitle:       "root unassign manland from the merge-request",
+		fixture:         RootUnassignUserMergeRequest,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
+		res: []*HandleWebhook{
+			{
+				Message:    "[root](http://my.gitlab.com/root) unassigned you from merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+		},
+		warnings: []string{},
+	},
+	{
+		testTitle: "root assign manland to merge-request and display in channel1 with merges subscription",
+		fixture:   RootAssignMergeRequestWithChannel,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
+		}),
+		res: []*HandleWebhook{
+			{
+				Message:    "[root](http://my.gitlab.com/root) assigned you to merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+			{
+				Message:    "[root](http://my.gitlab.com/root) unassigned you from merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
+				ToUsers:    []string{"user"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+			{
+				Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Merge request [!4 Master-2](http://localhost:3000/manland/webhook/merge_requests/4) was assigned to [manland](http://my.gitlab.com/manland) by [root](http://my.gitlab.com/root)",
+				ToUsers:    []string{},
+				ToChannels: []string{"channel1"},
+				From:       "root",
+			},
+			{
+				Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Merge request [!4 Master-2](http://localhost:3000/manland/webhook/merge_requests/4) was unassigned from [user](http://my.gitlab.com/user) by [root](http://my.gitlab.com/root)",
+				ToUsers:    []string{},
+				ToChannels: []string{"channel1"},
+				From:       "root",
+			},
+		},
+		warnings: []string{},
+	},
+	{
+		testTitle: "root assign manland to merge-request and display in channel1 with merge_request_assigns subscription",
+		fixture:   RootAssignMergeRequestWithChannel,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "merge_request_assigns", Repository: "manland/webhook"},
+		}),
+		res: []*HandleWebhook{
+			{
+				Message:    "[root](http://my.gitlab.com/root) assigned you to merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+			{
+				Message:    "[root](http://my.gitlab.com/root) unassigned you from merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
+				ToUsers:    []string{"user"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+			{
+				Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Merge request [!4 Master-2](http://localhost:3000/manland/webhook/merge_requests/4) was assigned to [manland](http://my.gitlab.com/manland) by [root](http://my.gitlab.com/root)",
+				ToUsers:    []string{},
+				ToChannels: []string{"channel1"},
+				From:       "root",
+			},
+			{
+				Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Merge request [!4 Master-2](http://localhost:3000/manland/webhook/merge_requests/4) was unassigned from [user](http://my.gitlab.com/user) by [root](http://my.gitlab.com/root)",
+				ToUsers:    []string{},
+				ToChannels: []string{"channel1"},
+				From:       "root",
+			},
+		},
+		warnings: []string{},
+	},
+	{
+		testTitle: "root assign manland to merge-request but no channel notification without matching subscription",
+		fixture:   RootAssignMergeRequestWithChannel,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "issues", Repository: "manland/webhook"},
+		}),
+		res: []*HandleWebhook{
+			{
+				Message:    "[root](http://my.gitlab.com/root) assigned you to merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+			{
+				Message:    "[root](http://my.gitlab.com/root) unassigned you from merge request [#4](http://localhost:3000/manland/webhook/merge_requests/4) in [manland/webhook](http://localhost:3000/manland/webhook)",
+				ToUsers:    []string{"user"},
+				ToChannels: []string{},
+				From:       "root",
 			},
 		},
 		warnings: []string{},

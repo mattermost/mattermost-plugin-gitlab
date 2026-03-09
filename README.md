@@ -29,6 +29,7 @@ You can specify which events trigger a notification. They can see:
 - pipeline - include pipeline
 - tag - include tag creation
 - pull_reviews - includes merge request reviews
+- merge_request_assigns - includes merge request assignment and unassignment notifications
 - label:"<labelname>" - must include "merges" or "issues" in feature list when using a label
 - Defaults to "merges,issues,tag"
 
