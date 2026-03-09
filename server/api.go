@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"regexp"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -28,6 +29,8 @@ import (
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
+
+var oauthStateRegexp = regexp.MustCompile(`^[a-z0-9]{15}_[a-z0-9]{26}$`)
 
 const (
 	APIErrorIDNotConnected = "not_connected"
@@ -248,8 +251,9 @@ func (p *Plugin) connectUserToGitlab(c *Context, w http.ResponseWriter, r *http.
 		return
 	}
 
-	conf := p.getOAuthConfig()
-	if conf == nil {
+	conf, err := p.getOAuthConfig()
+	if err != nil {
+		c.Log.WithError(err).Warnf("Failed to get OAuth configuration")
 		http.Error(w, "OAuth configuration not found", http.StatusInternalServerError)
 		return
 	}
@@ -310,24 +314,49 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 
 	config := p.getConfiguration()
 
-	conf := p.getOAuthConfig()
+	conf, err := p.getOAuthConfig()
+	if err != nil {
+		c.Log.WithError(err).Warnf("Failed to get OAuth configuration")
+		rErr = errors.Wrap(err, "OAuth configuration not found")
+		http.Error(w, "OAuth configuration not found", http.StatusInternalServerError)
+		return
+	}
 
 	code := r.URL.Query().Get("code")
 	if len(code) == 0 {
 		rErr = errors.New("missing authorization code")
-		http.Error(w, rErr.Error(), http.StatusBadRequest)
+		http.Error(w, "Missing authorization code", http.StatusBadRequest)
 		return
 	}
 
 	state := r.URL.Query().Get("state")
 
+	if !oauthStateRegexp.MatchString(state) {
+		rErr = errors.New("invalid state format")
+		http.Error(w, "Invalid OAuth state", http.StatusBadRequest)
+		return
+	}
+
+	userID := strings.Split(state, "_")[1]
+	if userID != authedUserID {
+		rErr = errors.New("not authorized, incorrect user")
+		http.Error(w, "Not authorized", http.StatusUnauthorized)
+		return
+	}
+
 	var storedState []byte
-	err := p.client.KV.Get(state, &storedState)
+	err = p.client.KV.Get(state, &storedState)
 	if err != nil {
 		c.Log.WithError(err).Warnf("Can't get state from store")
 
 		rErr = errors.Wrap(err, "missing stored state")
-		http.Error(w, rErr.Error(), http.StatusBadRequest)
+		http.Error(w, "Missing stored OAuth state", http.StatusBadRequest)
+		return
+	}
+
+	if string(storedState) != state {
+		rErr = errors.New("invalid state token")
+		http.Error(w, "Invalid OAuth state", http.StatusBadRequest)
 		return
 	}
 
@@ -336,20 +365,7 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		c.Log.WithError(err).Warnf("Failed to delete state token")
 
 		rErr = errors.Wrap(err, "error deleting stored state")
-		http.Error(w, rErr.Error(), http.StatusBadRequest)
-	}
-
-	if string(storedState) != state {
-		rErr = errors.New("invalid state token")
-		http.Error(w, rErr.Error(), http.StatusBadRequest)
-		return
-	}
-
-	userID := strings.Split(state, "_")[1]
-
-	if userID != authedUserID {
-		rErr = errors.New("not authorized, incorrect user")
-		http.Error(w, rErr.Error(), http.StatusUnauthorized)
+		http.Error(w, "Error completing OAuth connection", http.StatusInternalServerError)
 		return
 	}
 
@@ -358,7 +374,7 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		c.Log.WithError(err).Warnf("Can't exchange state")
 
 		rErr = errors.Wrap(err, "Failed to exchange oauth code into token")
-		http.Error(w, rErr.Error(), http.StatusInternalServerError)
+		http.Error(w, "Error completing OAuth connection", http.StatusInternalServerError)
 		return
 	}
 
@@ -367,7 +383,7 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		c.Log.WithError(err).Warnf("Can't retrieve user info from gitLab API")
 
 		rErr = errors.Wrap(err, "unable to connect user to GitLab")
-		http.Error(w, rErr.Error(), http.StatusInternalServerError)
+		http.Error(w, "Unable to connect user to GitLab", http.StatusInternalServerError)
 		return
 	}
 
@@ -375,7 +391,7 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		c.Log.WithError(err).Warnf("Can't store user info")
 
 		rErr = errors.Wrap(err, "Unable to connect user to GitLab")
-		http.Error(w, rErr.Error(), http.StatusInternalServerError)
+		http.Error(w, "Unable to connect user to GitLab", http.StatusInternalServerError)
 		return
 	}
 
@@ -383,7 +399,7 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		c.Log.WithError(err).Warnf("Can't store user token")
 
 		rErr = errors.Wrap(err, "Unable to connect user to GitLab")
-		http.Error(w, rErr.Error(), http.StatusInternalServerError)
+		http.Error(w, "Unable to connect user to GitLab", http.StatusInternalServerError)
 		return
 	}
 

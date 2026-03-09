@@ -16,6 +16,26 @@ type InstanceConfiguration struct {
 	GitlabOAuthClientSecret string `json:"gitlaboauthclientsecret"`
 }
 
+func (c *InstanceConfiguration) Validate() error {
+	if c == nil {
+		return errors.New("instance configuration is nil")
+	}
+
+	if err := isValidURL(c.GitlabURL); err != nil {
+		return errors.Wrap(err, "must have a valid GitLab URL")
+	}
+
+	if c.GitlabOAuthClientID == "" {
+		return errors.New("must have a GitLab OAuth client ID")
+	}
+
+	if c.GitlabOAuthClientSecret == "" {
+		return errors.New("must have a GitLab OAuth client secret")
+	}
+
+	return nil
+}
+
 const (
 	instanceConfigMapKey      = "Gitlab_Instance_Configuration_Map"
 	instanceConfigNameListKey = "Gitlab_Instance_Configuration_Name_List"
@@ -24,6 +44,10 @@ const (
 func (p *Plugin) installInstance(instanceName string, config *InstanceConfiguration) error {
 	if config == nil {
 		return errors.New("config is nil")
+	}
+
+	if err := config.Validate(); err != nil {
+		return fmt.Errorf("invalid instance configuration: %w", err)
 	}
 
 	var instanceNameList []string
