@@ -162,7 +162,7 @@ class PluginClass {
             });
 
             if (window.WebappUtils?.popouts?.isPopoutWindow()) {
-                store.dispatch(getLHSData());
+                getLHSData()(store.dispatch);
 
                 window.WebappUtils.popouts.onMessageFromParent((channel: string, state: PopoutState) => {
                     if (channel === 'SEND_POPOUT_STATE') {
@@ -177,7 +177,7 @@ class PluginClass {
                                 type: ActionTypes.SET_POPOUT_CHANNEL_ID,
                                 channelId: state.channelId,
                             });
-                            store.dispatch(getChannelSubscriptions(state.channelId));
+                            getChannelSubscriptions(state.channelId)(store.dispatch);
                         }
                     }
                 });
