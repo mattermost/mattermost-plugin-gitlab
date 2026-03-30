@@ -764,17 +764,10 @@ func TestInstanceCommands(t *testing.T) {
 	t.Run("connect", func(t *testing.T) {
 		for _, tc := range instanceNameTestCases {
 			t.Run("connect "+tc.name, func(t *testing.T) {
-				instanceList := []string{tc.instanceName}
-				if !tc.exists {
-					instanceList = []string{"Other Instance"}
-				}
-				p, msg, _ := setupInstanceCommandTest(t, instanceList, nil)
+				p, msg, api := setupInstanceCommandTest(t, nil, nil)
 				_, _ = p.handleConnect(args, tc.parameters)
-				if tc.exists {
-					assert.Contains(t, *msg, "Click here to link your GitLab account")
-				} else {
-					assert.Contains(t, *msg, "does not exist")
-				}
+				assert.Contains(t, *msg, "Click here to link your GitLab account")
+				api.AssertNotCalled(t, "SavePluginConfig", mock.Anything)
 			})
 		}
 		t.Run("no parameters", func(t *testing.T) {

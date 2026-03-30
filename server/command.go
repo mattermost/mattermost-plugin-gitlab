@@ -342,13 +342,6 @@ func (p *Plugin) handleConnect(args *model.CommandArgs, parameters []string) (*m
 		return p.getCommandResponse(args, "Please specify the instance name.", true), nil
 	}
 
-	// Set the default instance for the user before connecting
-	instanceName := strings.TrimSpace(strings.Join(parameters, " "))
-	err := p.setDefaultInstance(instanceName)
-	if err != nil {
-		return p.getCommandResponse(args, err.Error(), true), nil
-	}
-
 	pluginURL := getPluginURL(p.client)
 	if pluginURL == "" {
 		return p.getCommandResponse(args, "Encountered an error connecting to GitLab.", true), nil
