@@ -63,3 +63,25 @@ type AttachCommentToIssueAuditResult struct {
 func (p AttachCommentToIssueAuditResult) Auditable() map[string]any {
 	return map[string]any{"note_id": p.NoteID}
 }
+
+// ReEncryptUserDataAuditParams holds request audit data for the reEncryptUserData operation.
+type ReEncryptUserDataAuditParams struct {
+	TotalUsers int `json:"total_users"`
+}
+
+func (p ReEncryptUserDataAuditParams) Auditable() map[string]any {
+	return map[string]any{"total_users": p.TotalUsers}
+}
+
+// ReEncryptUserDataAuditResult holds the outcome of the reEncryptUserData operation.
+type ReEncryptUserDataAuditResult struct {
+	MigratedCount        int `json:"migrated_count"`
+	ForceDisconnectCount int `json:"force_disconnect_count"`
+}
+
+func (p ReEncryptUserDataAuditResult) Auditable() map[string]any {
+	return map[string]any{
+		"migrated_count":         p.MigratedCount,
+		"force_disconnect_count": p.ForceDisconnectCount,
+	}
+}

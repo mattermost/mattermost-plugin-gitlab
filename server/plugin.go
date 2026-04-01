@@ -527,9 +527,13 @@ func (p *Plugin) getGitlabIDToUsernameMapping(gitlabUserID string) string {
 }
 
 func (p *Plugin) disconnectGitlabAccount(userID string) {
-	userInfo, err := p.getGitlabUserInfoByMattermostID(userID)
-	if err != nil {
-		p.client.Log.Warn("can't get GitLab user info from mattermost id", "err", err.Message)
+	userInfo, apiErr := p.getGitlabUserInfoByMattermostID(userID)
+	if apiErr != nil {
+		p.client.Log.Warn("can't get GitLab user info from mattermost id, attempting best-effort cleanup",
+			"err", apiErr.Message, "user_id", userID)
+		// Fall back to best-effort cleanup using only the userID, in case the user is
+		// in a partial state (e.g., _userinfo is missing but a token key still exists).
+		p.forceDisconnectUser(userID)
 		return
 	}
 	if userInfo == nil {
@@ -988,6 +992,158 @@ func (p *Plugin) handleRevokedToken(info *gitlab.UserInfo) {
 	err := p.CreateBotDMPost(info.UserID, "Your GitLab account was disconnected due to an invalid or revoked authorization token. Reconnect your account using the `/gitlab connect` command.", "custom_git_revoked_token")
 	if err != nil {
 		p.client.Log.Warn("Error sending revoked token DM post", "err", err.Error())
+	}
+}
+
+// reEncryptUserData re-encrypts all stored user tokens from previousEncryptionKey to newEncryptionKey.
+// It is safe to call concurrently; a cluster mutex prevents parallel executions.
+func (p *Plugin) reEncryptUserData(newEncryptionKey, previousEncryptionKey string) {
+	auditRec := plugin.MakeAuditRecord("reEncryptUserData", model.AuditStatusFail)
+	defer p.API.LogAuditRec(auditRec)
+
+	mutex, err := cluster.NewMutex(p.API, "gitlab-reencrypt-lock")
+	if err != nil {
+		p.client.Log.Warn("Failed to acquire re-encryption mutex", "error", err.Error())
+		auditRec.AddErrorDesc(err.Error())
+		return
+	}
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	p.client.Log.Info("Encryption key changed, re-encrypting user tokens")
+
+	const keysPerPage = 1000
+	var allKeys []string
+	for page := 0; ; page++ {
+		keys, listErr := p.client.KV.ListKeys(page, keysPerPage, pluginapi.WithChecker(func(key string) (bool, error) {
+			return strings.HasSuffix(key, GitlabUserTokenKey), nil
+		}))
+		if listErr != nil {
+			p.client.Log.Warn("Failed to list KV keys during re-encryption, continuing with already-collected keys",
+				"page", page, "error", listErr.Error())
+			break
+		}
+		allKeys = append(allKeys, keys...)
+		if len(keys) < keysPerPage {
+			break
+		}
+	}
+
+	params := ReEncryptUserDataAuditParams{TotalUsers: len(allKeys)}
+	model.AddEventParameterAuditableToAuditRec(auditRec, "re_encrypt_user_data", params)
+
+	result := ReEncryptUserDataAuditResult{}
+
+	for _, key := range allKeys {
+		migrated, reErr := p.reEncryptUserToken(key, newEncryptionKey, previousEncryptionKey)
+		if reErr != nil {
+			result.ForceDisconnectCount++
+			continue
+		}
+		if migrated {
+			result.MigratedCount++
+		}
+	}
+
+	auditRec.Success()
+	auditRec.AddEventResultState(result)
+}
+
+// reEncryptUserToken re-encrypts a single user token KV entry from previousEncryptionKey to newEncryptionKey.
+// Returns true if the token was re-encrypted, false if it was already migrated (idempotent).
+// On failure, calls forceDisconnectUser and returns an error.
+func (p *Plugin) reEncryptUserToken(kvKey, newEncryptionKey, previousEncryptionKey string) (bool, error) {
+	userID := strings.TrimSuffix(kvKey, GitlabUserTokenKey)
+
+	var tokenBytes []byte
+	if err := p.client.KV.Get(kvKey, &tokenBytes); err != nil || tokenBytes == nil {
+		return false, nil
+	}
+
+	tokenStr := string(tokenBytes)
+
+	// Idempotency check: if the token can already be decrypted with the new key, it was already migrated.
+	if _, err := decrypt([]byte(newEncryptionKey), tokenStr); err == nil {
+		return false, nil
+	}
+
+	plainJSON, err := decrypt([]byte(previousEncryptionKey), tokenStr)
+	if err != nil {
+		p.client.Log.Warn("Failed to decrypt token with previous key during re-encryption, force-disconnecting user",
+			"user_id", userID, "error", err.Error())
+		p.forceDisconnectUser(userID)
+		return false, err
+	}
+
+	reEncrypted, err := encrypt([]byte(newEncryptionKey), plainJSON)
+	if err != nil {
+		p.client.Log.Warn("Failed to re-encrypt token with new key, force-disconnecting user",
+			"user_id", userID, "error", err.Error())
+		p.forceDisconnectUser(userID)
+		return false, err
+	}
+
+	if _, err := p.client.KV.Set(kvKey, []byte(reEncrypted)); err != nil {
+		p.client.Log.Warn("Failed to store re-encrypted token, force-disconnecting user",
+			"user_id", userID, "error", err.Error())
+		p.forceDisconnectUser(userID)
+		return false, err
+	}
+
+	return true, nil
+}
+
+// forceDisconnectUser performs a best-effort cleanup of a user's encrypted data and notifies them to reconnect.
+func (p *Plugin) forceDisconnectUser(userID string) {
+	// Fetch user info for GitLab-specific mapping cleanup. User info is not encrypted,
+	// so this should succeed even after a key rotation.
+	userInfo, apiErr := p.getGitlabUserInfoByMattermostID(userID)
+	if apiErr != nil {
+		p.client.Log.Warn("Failed to load user info for force-disconnect",
+			"user_id", userID, "error", apiErr.Message)
+	}
+
+	if err := p.client.KV.Delete(userID + GitlabUserTokenKey); err != nil {
+		p.client.Log.Warn("Failed to delete user token during force-disconnect", "user_id", userID, "error", err.Error())
+	}
+	if err := p.client.KV.Delete(userID + GitlabUserInfoKey); err != nil {
+		p.client.Log.Warn("Failed to delete user info during force-disconnect", "user_id", userID, "error", err.Error())
+	}
+
+	if userInfo != nil {
+		if userInfo.GitlabUsername != "" {
+			if err := p.deleteGitlabToUserIDMapping(userInfo.GitlabUsername); err != nil {
+				p.client.Log.Warn("Failed to delete GitLab username mapping during force-disconnect",
+					"user_id", userID, "gitlab_username", userInfo.GitlabUsername, "error", err.Error())
+			}
+		}
+		if userInfo.GitlabUserID != 0 {
+			if err := p.deleteGitlabIDToUserIDMapping(userInfo.GitlabUserID); err != nil {
+				p.client.Log.Warn("Failed to delete GitLab ID mapping during force-disconnect",
+					"user_id", userID, "gitlab_user_id", userInfo.GitlabUserID, "error", err.Error())
+			}
+		}
+	}
+
+	if user, err := p.client.User.Get(userID); err == nil && user.Props != nil && len(user.Props["git_user"]) > 0 {
+		delete(user.Props, "git_user")
+		if err := p.client.User.Update(user); err != nil {
+			p.client.Log.Warn("Failed to update user props during force-disconnect", "user_id", userID, "error", err.Error())
+		}
+	}
+
+	p.client.Frontend.PublishWebSocketEvent(
+		WsEventDisconnect,
+		nil,
+		&model.WebsocketBroadcast{UserId: userID},
+	)
+
+	if err := p.CreateBotDMPost(
+		userID,
+		"Your GitLab account has been disconnected because the encryption key was rotated and your token could not be re-encrypted. Please reconnect your account using the `/gitlab connect` command.",
+		"custom_git_force_disconnect",
+	); err != nil {
+		p.client.Log.Warn("Failed to send force-disconnect DM", "user_id", userID, "error", err.Error())
 	}
 }
 

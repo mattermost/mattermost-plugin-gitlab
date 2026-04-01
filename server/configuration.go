@@ -200,13 +200,21 @@ func (p *Plugin) OnConfigurationChange() error {
 	p.configurationLock.RLock()
 	hadConfig := p.configuration != nil
 	var previousGitlabGroup string
+	var previousEncryptionKey string
 	if hadConfig {
 		previousGitlabGroup = strings.TrimSpace(p.configuration.GitlabGroup)
+		previousEncryptionKey = p.configuration.EncryptionKey
 	}
 	p.configurationLock.RUnlock()
 	newGitlabGroup := strings.TrimSpace(configuration.GitlabGroup)
 
 	p.setConfiguration(configuration, serverConfiguration)
+
+	if previousEncryptionKey != "" && configuration.EncryptionKey != "" &&
+		previousEncryptionKey != configuration.EncryptionKey {
+		newKey := configuration.EncryptionKey
+		go p.reEncryptUserData(newKey, previousEncryptionKey)
+	}
 
 	if hadConfig && p.BotUserID != "" && newGitlabGroup != "" && newGitlabGroup != previousGitlabGroup {
 		p.notifyUsersOfDisallowedSubscriptions()
