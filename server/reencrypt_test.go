@@ -269,6 +269,8 @@ func setupReEncryptUserDataPlugin(t *testing.T, api *plugintest.API) *Plugin {
 		Return(true, nil).Maybe()
 	api.On("KVSetWithOptions", "mutex_gitlab-reencrypt-lock", isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).
 		Return(true, nil).Maybe()
+	// Audit logging.
+	api.On("LogAuditRec", mock.Anything).Maybe()
 	return p
 }
 

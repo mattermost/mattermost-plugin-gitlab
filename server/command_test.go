@@ -780,7 +780,7 @@ func TestInstanceCommands(t *testing.T) {
 		t.Run("no parameters", func(t *testing.T) {
 			p, msg, _ := setupInstanceCommandTest(t, nil, nil)
 			_, _ = p.handleConnect(args, []string{})
-			assert.Contains(t, *msg, "Please specify the instance name.")
+			assert.Contains(t, *msg, "No instance is configured")
 		})
 	})
 }

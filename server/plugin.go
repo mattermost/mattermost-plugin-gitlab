@@ -276,6 +276,22 @@ func (p *Plugin) getOAuthConfig() (*oauth2.Config, error) {
 	}, nil
 }
 
+// canConnect checks whether the plugin has enough configuration to allow a user to connect,
+// either via a KV-backed instance (default instance) or via legacy plugin settings.
+func (p *Plugin) canConnect() bool {
+	config := p.getConfiguration()
+
+	if config.DefaultInstanceName != "" {
+		if _, err := p.getInstance(config.DefaultInstanceName); err == nil {
+			return true
+		}
+	}
+
+	return config.GitlabOAuthClientID != "" &&
+		config.GitlabOAuthClientSecret != "" &&
+		isValidURL(config.GitlabURL) == nil
+}
+
 // resolveOAuthCredentials returns OAuth client credentials and the parsed GitLab base URL
 // by first trying the KV-backed instance configuration, then falling back to legacy plugin
 // settings for backwards compatibility with upgrades from v1.11 and earlier.
@@ -1141,7 +1157,7 @@ func (p *Plugin) forceDisconnectUser(userID string) {
 	if err := p.CreateBotDMPost(
 		userID,
 		"Your GitLab account has been disconnected because the encryption key was rotated and your token could not be re-encrypted. Please reconnect your account using the `/gitlab connect` command.",
-		"custom_git_force_disconnect",
+		"custom_git_disconnected",
 	); err != nil {
 		p.client.Log.Warn("Failed to send force-disconnect DM", "user_id", userID, "error", err.Error())
 	}
