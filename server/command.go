@@ -338,12 +338,7 @@ func (p *Plugin) handleAbout(args *model.CommandArgs, parameters []string) (*mod
 }
 
 func (p *Plugin) handleConnect(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
-	if len(parameters) >= 1 {
-		instanceName := strings.TrimSpace(strings.Join(parameters, " "))
-		if err := p.setDefaultInstance(instanceName); err != nil {
-			return p.getCommandResponse(args, err.Error(), true), nil
-		}
-	} else if !p.canConnect() {
+	if !p.canConnect() {
 		return p.getCommandResponse(args, "No instance is configured. Please specify an instance name or ask your system administrator to configure the plugin.", true), nil
 	}
 

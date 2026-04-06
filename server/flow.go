@@ -33,6 +33,7 @@ type FlowManager struct {
 	createHook                      func(ctx context.Context, gitlabClient gitlab.Gitlab, info *gitlab.UserInfo, group, project string, hookOptions *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error)
 	saveInstanceDetails             func(instanceName string, config *InstanceConfiguration) error
 	setDefaultInstance              func(instanceName string) error
+	isAuthorizedSysAdmin            func(userID string) (bool, error)
 
 	setupFlow        *flow.Flow
 	oauthFlow        *flow.Flow
@@ -53,6 +54,7 @@ func (p *Plugin) NewFlowManager() (*FlowManager, error) {
 		createHook:                      p.createHook,
 		saveInstanceDetails:             p.installInstance,
 		setDefaultInstance:              p.setDefaultInstance,
+		isAuthorizedSysAdmin:            p.isAuthorizedSysAdmin,
 	}
 
 	setupFlow, err := fm.newFlow("setup")
@@ -315,6 +317,9 @@ func (fm *FlowManager) stepDelegateQuestion() flow.Step {
 		})
 }
 
+// submitDelegateSelection allows an admin to delegate the setup wizard to another user.
+// The delegated user receives the full flow including stepSetDefaultInstance, which has its
+// own admin check and will block non-admin delegates from modifying the default instance.
 func (fm *FlowManager) submitDelegateSelection(f *flow.Flow, submitted map[string]any) (flow.Name, flow.State, map[string]string, error) {
 	delegateIDRaw, ok := submitted["delegate"]
 	if !ok {
@@ -824,6 +829,14 @@ func (fm *FlowManager) stepSetDefaultInstance() flow.Step {
 			Name:  "Yes",
 			Color: flow.ColorPrimary,
 			OnClick: func(f *flow.Flow) (flow.Name, flow.State, error) {
+				isAdmin, err := fm.isAuthorizedSysAdmin(f.UserID)
+				if err != nil {
+					return "", nil, fmt.Errorf("failed to verify admin privileges: %w", err)
+				}
+				if !isAdmin {
+					return "", nil, fmt.Errorf("only system administrators can set the default instance")
+				}
+
 				if err := fm.setDefaultInstance(fm.instanceName); err != nil {
 					return "", nil, err
 				}
