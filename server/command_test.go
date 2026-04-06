@@ -762,15 +762,29 @@ func TestInstanceCommands(t *testing.T) {
 	})
 
 	t.Run("connect", func(t *testing.T) {
-		for _, tc := range instanceNameTestCases {
-			t.Run("connect "+tc.name, func(t *testing.T) {
-				p, msg, api := setupInstanceCommandTest(t, nil, nil)
-				_, _ = p.handleConnect(args, tc.parameters)
-				assert.Contains(t, *msg, "Click here to link your GitLab account")
-				api.AssertNotCalled(t, "SavePluginConfig", mock.Anything)
-			})
-		}
-		t.Run("no parameters", func(t *testing.T) {
+		t.Run("with default instance configured", func(t *testing.T) {
+			instanceList := []string{"production"}
+			instanceConfig := map[string]InstanceConfiguration{
+				"production": {
+					GitlabURL:               "https://gitlab.example.com",
+					GitlabOAuthClientID:     "client-id",
+					GitlabOAuthClientSecret: "client-secret",
+				},
+			}
+			p, msg, _ := setupInstanceCommandTest(t, instanceList, instanceConfig)
+			p.configuration.DefaultInstanceName = "production"
+			_, _ = p.handleConnect(args, []string{})
+			assert.Contains(t, *msg, "Click here to link your GitLab account")
+		})
+		t.Run("with legacy plugin settings", func(t *testing.T) {
+			p, msg, _ := setupInstanceCommandTest(t, nil, nil)
+			p.configuration.GitlabURL = "https://gitlab.example.com"
+			p.configuration.GitlabOAuthClientID = "client-id"
+			p.configuration.GitlabOAuthClientSecret = "client-secret"
+			_, _ = p.handleConnect(args, []string{})
+			assert.Contains(t, *msg, "Click here to link your GitLab account")
+		})
+		t.Run("not configured", func(t *testing.T) {
 			p, msg, _ := setupInstanceCommandTest(t, nil, nil)
 			_, _ = p.handleConnect(args, []string{})
 			assert.Contains(t, *msg, "No instance is configured")
