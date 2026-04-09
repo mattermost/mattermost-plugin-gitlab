@@ -1094,9 +1094,10 @@ func (p *Plugin) reEncryptUserToken(kvKey, newEncryptionKey, previousEncryptionK
 
 	var tokenBytes []byte
 	if err := p.client.KV.Get(kvKey, &tokenBytes); err != nil {
-		p.client.Log.Warn("Failed to read token during re-encryption, skipping user",
+		p.client.Log.Warn("Failed to read token during re-encryption, force-disconnecting user",
 			"user_id", userID, "error", err.Error())
-		return false, nil
+		p.forceDisconnectUser(userID)
+		return false, err
 	}
 	if tokenBytes == nil {
 		return false, nil

@@ -456,11 +456,13 @@ func TestReEncryptUserToken_KVGetError(t *testing.T) {
 	kvKey := testUserID + GitlabUserTokenKey
 	api.On("KVGet", kvKey).Return(nil, model.NewAppError("test", "test.kv_error", nil, "kv error", 500)).Once()
 
-	migrated, err := p.reEncryptUserToken(kvKey, testNewEncryptionKey, testOldEncryptionKey)
-	require.NoError(t, err)
-	assert.False(t, migrated, "should skip user on KV read error without force-disconnect")
+	mockForceDisconnectUser(t, api, testUserID)
 
-	api.AssertNotCalled(t, "PublishWebSocketEvent", mock.Anything, mock.Anything, mock.Anything)
+	migrated, err := p.reEncryptUserToken(kvKey, testNewEncryptionKey, testOldEncryptionKey)
+	assert.Error(t, err)
+	assert.False(t, migrated)
+
+	api.AssertCalled(t, "PublishWebSocketEvent", WsEventDisconnect, mock.Anything, mock.Anything)
 	api.AssertExpectations(t)
 }
 
