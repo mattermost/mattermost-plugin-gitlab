@@ -168,9 +168,9 @@ func TestReEncryptUserToken_HappyPath(t *testing.T) {
 
 	api.On("KVGet", kvKey).Return(tokenBytes, nil).Once()
 	var storedBytes []byte
-	api.On("KVSetWithOptions", kvKey, isNonNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).
+	api.On("KVCompareAndSet", kvKey, tokenBytes, isNonNilBytes).
 		Run(func(args mock.Arguments) {
-			storedBytes = args.Get(1).([]byte)
+			storedBytes = args.Get(2).([]byte)
 		}).
 		Return(true, nil).Once()
 
@@ -203,7 +203,7 @@ func TestReEncryptUserToken_AlreadyMigrated(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, migrated, "should report not migrated when token is already using the new key")
 
-	api.AssertNotCalled(t, "KVSetWithOptions", kvKey, isNonNilBytes, mock.AnythingOfType("model.PluginKVSetOptions"))
+	api.AssertNotCalled(t, "KVCompareAndSet", kvKey, mock.Anything, mock.Anything)
 	api.AssertExpectations(t)
 }
 
@@ -250,7 +250,7 @@ func TestReEncryptUserToken_StoreFailure(t *testing.T) {
 
 	api.On("KVGet", kvKey).Return(tokenBytes, nil).Once()
 	// Re-encrypt store fails.
-	api.On("KVSetWithOptions", kvKey, isNonNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).
+	api.On("KVCompareAndSet", kvKey, tokenBytes, isNonNilBytes).
 		Return(false, model.NewAppError("test", "test.store_error", nil, "kv store error", 500)).Once()
 
 	mockForceDisconnectUser(t, api, testUserID)
@@ -260,6 +260,27 @@ func TestReEncryptUserToken_StoreFailure(t *testing.T) {
 	assert.False(t, migrated)
 
 	api.AssertCalled(t, "PublishWebSocketEvent", WsEventDisconnect, mock.Anything, mock.Anything)
+	api.AssertExpectations(t)
+}
+
+func TestReEncryptUserToken_CASConflict(t *testing.T) {
+	api := &plugintest.API{}
+	p := makeReencryptPlugin(t, api)
+	mockCommonLogCalls(api)
+
+	tokenBytes := encryptedTokenWithKey(t, testOldEncryptionKey)
+	kvKey := testUserID + GitlabUserTokenKey
+
+	api.On("KVGet", kvKey).Return(tokenBytes, nil).Once()
+	// CAS returns false with no error — the token was modified concurrently.
+	api.On("KVCompareAndSet", kvKey, tokenBytes, isNonNilBytes).Return(false, nil).Once()
+
+	migrated, err := p.reEncryptUserToken(kvKey, testNewEncryptionKey, testOldEncryptionKey)
+	require.NoError(t, err)
+	assert.False(t, migrated, "should skip user when token was modified concurrently")
+
+	// Must NOT force-disconnect the user on a benign CAS conflict.
+	api.AssertNotCalled(t, "PublishWebSocketEvent", mock.Anything, mock.Anything, mock.Anything)
 	api.AssertExpectations(t)
 }
 
@@ -308,8 +329,8 @@ func TestReEncryptUserData_HappyPath(t *testing.T) {
 	api.On("KVGet", user1Key).Return(token1Bytes, nil).Once()
 	api.On("KVGet", user2Key).Return(token2Bytes, nil).Once()
 
-	api.On("KVSetWithOptions", user1Key, isNonNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
-	api.On("KVSetWithOptions", user2Key, isNonNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
+	api.On("KVCompareAndSet", user1Key, token1Bytes, isNonNilBytes).Return(true, nil).Once()
+	api.On("KVCompareAndSet", user2Key, token2Bytes, isNonNilBytes).Return(true, nil).Once()
 
 	p.reEncryptUserData(testNewEncryptionKey, testOldEncryptionKey)
 
@@ -327,16 +348,19 @@ func TestReEncryptUserData_MultiplePages(t *testing.T) {
 	api.On("KVList", 0, 1000).Return(page0Keys, nil).Once()
 	api.On("KVList", 1, 1000).Return([]string{}, nil).Once()
 
-	// Use Maybe() for per-token operations — the pagination behavior is what this test verifies.
 	tokenBytes := encryptedTokenWithKey(t, testOldEncryptionKey)
 	api.On("KVGet", mock.AnythingOfType("string")).Return(tokenBytes, nil).Maybe()
-	api.On("KVSetWithOptions", mock.AnythingOfType("string"), isNonNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Maybe()
+	casCount := 0
+	api.On("KVCompareAndSet", mock.AnythingOfType("string"), tokenBytes, isNonNilBytes).
+		Run(func(_ mock.Arguments) { casCount++ }).
+		Return(true, nil).Maybe()
 
 	p.reEncryptUserData(testNewEncryptionKey, testOldEncryptionKey)
 
 	// Verify both pages were fetched.
 	api.AssertCalled(t, "KVList", 0, 1000)
 	api.AssertCalled(t, "KVList", 1, 1000)
+	assert.Equal(t, len(page0Keys), casCount, "all page-0 keys should have been re-encrypted")
 }
 
 func TestReEncryptUserData_ListKeysError(t *testing.T) {
@@ -363,17 +387,19 @@ func TestReEncryptUserData_PageErrorAfterFirstPage(t *testing.T) {
 	api.On("KVList", 0, 1000).Return(page0Keys, nil).Once()
 	api.On("KVList", 1, 1000).Return(nil, model.NewAppError("test", "test.list_error", nil, "page 1 error", 500)).Once()
 
-	// Use Maybe() for per-token operations — the key assertion is that page 0 keys
-	// are processed even when page 1 returns an error.
 	tokenBytes := encryptedTokenWithKey(t, testOldEncryptionKey)
 	api.On("KVGet", mock.AnythingOfType("string")).Return(tokenBytes, nil).Maybe()
-	api.On("KVSetWithOptions", mock.AnythingOfType("string"), isNonNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Maybe()
+	casCount := 0
+	api.On("KVCompareAndSet", mock.AnythingOfType("string"), tokenBytes, isNonNilBytes).
+		Run(func(_ mock.Arguments) { casCount++ }).
+		Return(true, nil).Maybe()
 
 	p.reEncryptUserData(testNewEncryptionKey, testOldEncryptionKey)
 
 	// Verify page 0 was fetched and page 1 was attempted.
 	api.AssertCalled(t, "KVList", 0, 1000)
 	api.AssertCalled(t, "KVList", 1, 1000)
+	assert.Equal(t, len(page0Keys), casCount, "all page-0 keys should have been re-encrypted despite page-1 error")
 }
 
 func TestReEncryptUserData_DecryptFailureContinuesOtherUsers(t *testing.T) {
@@ -392,7 +418,7 @@ func TestReEncryptUserData_DecryptFailureContinuesOtherUsers(t *testing.T) {
 	// user2: succeeds.
 	token2Bytes := encryptedTokenWithKey(t, testOldEncryptionKey)
 	api.On("KVGet", user2Key).Return(token2Bytes, nil).Once()
-	api.On("KVSetWithOptions", user2Key, isNonNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
+	api.On("KVCompareAndSet", user2Key, token2Bytes, isNonNilBytes).Return(true, nil).Once()
 
 	p.reEncryptUserData(testNewEncryptionKey, testOldEncryptionKey)
 
@@ -456,6 +482,8 @@ func TestGetGitlabUserTokenByMattermostID_FallbackToPreviousKey(t *testing.T) {
 	require.Nil(t, apiErr)
 	require.NotNil(t, tok)
 	assert.Equal(t, "test-access-token", tok.AccessToken)
+
+	api.AssertExpectations(t)
 }
 
 func TestGetGitlabUserTokenByMattermostID_BothKeysFail(t *testing.T) {
@@ -472,6 +500,8 @@ func TestGetGitlabUserTokenByMattermostID_BothKeysFail(t *testing.T) {
 	require.NotNil(t, apiErr)
 	assert.Nil(t, tok)
 	assert.Equal(t, "Unable to decrypt access token.", apiErr.Message)
+
+	api.AssertExpectations(t)
 }
 
 // ---------------------------------------------------------------------------

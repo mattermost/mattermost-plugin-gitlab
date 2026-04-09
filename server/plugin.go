@@ -1121,7 +1121,7 @@ func (p *Plugin) reEncryptUserToken(kvKey, newEncryptionKey, previousEncryptionK
 	}
 
 	var tok oauth2.Token
-	if err := json.Unmarshal([]byte(plainJSON), &tok); err != nil {
+	if err = json.Unmarshal([]byte(plainJSON), &tok); err != nil {
 		p.client.Log.Warn("Decrypted token is not valid JSON, force-disconnecting user",
 			"user_id", userID, "error", err.Error())
 		p.forceDisconnectUser(userID)
@@ -1136,11 +1136,17 @@ func (p *Plugin) reEncryptUserToken(kvKey, newEncryptionKey, previousEncryptionK
 		return false, err
 	}
 
-	if _, err := p.client.KV.Set(kvKey, []byte(reEncrypted)); err != nil {
+	swapped, appErr := p.API.KVCompareAndSet(kvKey, tokenBytes, []byte(reEncrypted))
+	if appErr != nil {
 		p.client.Log.Warn("Failed to store re-encrypted token, force-disconnecting user",
-			"user_id", userID, "error", err.Error())
+			"user_id", userID, "error", appErr.Error())
 		p.forceDisconnectUser(userID)
-		return false, err
+		return false, appErr
+	}
+	if !swapped {
+		p.client.Log.Info("Token was modified concurrently during re-encryption, skipping user",
+			"user_id", userID)
+		return false, nil
 	}
 
 	return true, nil
