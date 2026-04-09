@@ -133,17 +133,24 @@ func TestUnpad_StrictValidation(t *testing.T) {
 		assert.Equal(t, []byte{0x41, 0x42}, result)
 	})
 
-	t.Run("wrong-key decrypt garbage does not pass unpad", func(t *testing.T) {
-		// Encrypt with old key, attempt to decrypt with new key. The stricter unpad
-		// validation should reliably reject the garbage output.
+	t.Run("wrong-key decrypt is caught by unpad or JSON validation", func(t *testing.T) {
+		// Encrypt with old key, attempt to decrypt with new key. In the vast majority
+		// of cases unpad rejects the garbage. On the ~0.4% chance that random garbage
+		// has valid PKCS7 padding, the result will not be valid JSON.
 		token := &oauth2.Token{AccessToken: "secret-token", TokenType: "Bearer"}
 		tokenJSON, marshalErr := json.Marshal(token)
 		require.NoError(t, marshalErr)
 		ciphertext, encErr := encrypt([]byte(testOldEncryptionKey), string(tokenJSON))
 		require.NoError(t, encErr)
 
-		_, err := decrypt([]byte(testNewEncryptionKey), ciphertext)
-		assert.Error(t, err, "decrypting with the wrong key should fail with the stricter unpad")
+		plain, decErr := decrypt([]byte(testNewEncryptionKey), ciphertext)
+		if decErr != nil {
+			return // unpad correctly rejected the garbage — most common path
+		}
+		// Padding happened to be valid; the decrypted bytes must not parse as a token.
+		var tok oauth2.Token
+		assert.Error(t, json.Unmarshal([]byte(plain), &tok),
+			"wrong-key garbage that passes unpad must not be valid JSON")
 	})
 }
 
