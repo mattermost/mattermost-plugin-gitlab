@@ -263,6 +263,7 @@ func TestReEncryptUserToken_StoreFailure(t *testing.T) {
 func setupReEncryptUserDataPlugin(t *testing.T, api *plugintest.API) *Plugin {
 	t.Helper()
 	p := makeReencryptPlugin(t, api)
+	p.configuration.PreviousEncryptionKey = testOldEncryptionKey
 	mockCommonLogCalls(api)
 	// Cluster mutex lock/unlock: cluster.NewMutex prepends "mutex_" to the key.
 	api.On("KVSetWithOptions", "mutex_gitlab-reencrypt-lock", isNonNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).
@@ -389,6 +390,81 @@ func TestReEncryptUserData_DecryptFailureContinuesOtherUsers(t *testing.T) {
 	p.reEncryptUserData(testNewEncryptionKey, testOldEncryptionKey)
 
 	api.AssertExpectations(t)
+}
+
+func TestReEncryptUserToken_InvalidJSON(t *testing.T) {
+	api := &plugintest.API{}
+	p := makeReencryptPlugin(t, api)
+	mockCommonLogCalls(api)
+
+	kvKey := testUserID + GitlabUserTokenKey
+
+	// Encrypt non-JSON data with the old key — decrypt succeeds but JSON validation fails.
+	notJSON := "this is not json"
+	encrypted, err := encrypt([]byte(testOldEncryptionKey), notJSON)
+	require.NoError(t, err)
+	api.On("KVGet", kvKey).Return([]byte(encrypted), nil).Once()
+
+	mockForceDisconnectUser(t, api, testUserID)
+
+	migrated, reErr := p.reEncryptUserToken(kvKey, testNewEncryptionKey, testOldEncryptionKey)
+	assert.Error(t, reErr)
+	assert.False(t, migrated)
+
+	api.AssertCalled(t, "PublishWebSocketEvent", WsEventDisconnect, mock.Anything, mock.Anything)
+	api.AssertExpectations(t)
+}
+
+func TestReEncryptUserToken_KVGetError(t *testing.T) {
+	api := &plugintest.API{}
+	p := makeReencryptPlugin(t, api)
+	mockCommonLogCalls(api)
+
+	kvKey := testUserID + GitlabUserTokenKey
+	api.On("KVGet", kvKey).Return(nil, model.NewAppError("test", "test.kv_error", nil, "kv error", 500)).Once()
+
+	migrated, err := p.reEncryptUserToken(kvKey, testNewEncryptionKey, testOldEncryptionKey)
+	require.NoError(t, err)
+	assert.False(t, migrated, "should skip user on KV read error without force-disconnect")
+
+	api.AssertNotCalled(t, "PublishWebSocketEvent", mock.Anything, mock.Anything, mock.Anything)
+	api.AssertExpectations(t)
+}
+
+// ---------------------------------------------------------------------------
+// TestGetGitlabUserTokenByMattermostID (fallback decryption)
+// ---------------------------------------------------------------------------
+
+func TestGetGitlabUserTokenByMattermostID_FallbackToPreviousKey(t *testing.T) {
+	api := &plugintest.API{}
+	p := makeReencryptPlugin(t, api)
+	p.configuration.PreviousEncryptionKey = testOldEncryptionKey
+	mockCommonLogCalls(api)
+
+	kvKey := testUserID + GitlabUserTokenKey
+	tokenBytes := encryptedTokenWithKey(t, testOldEncryptionKey)
+	api.On("KVGet", kvKey).Return(tokenBytes, nil).Once()
+
+	tok, apiErr := p.getGitlabUserTokenByMattermostID(testUserID)
+	require.Nil(t, apiErr)
+	require.NotNil(t, tok)
+	assert.Equal(t, "test-access-token", tok.AccessToken)
+}
+
+func TestGetGitlabUserTokenByMattermostID_BothKeysFail(t *testing.T) {
+	api := &plugintest.API{}
+	p := makeReencryptPlugin(t, api)
+	p.configuration.PreviousEncryptionKey = testOldEncryptionKey
+	mockCommonLogCalls(api)
+
+	kvKey := testUserID + GitlabUserTokenKey
+	// Garbage that neither key can decrypt.
+	api.On("KVGet", kvKey).Return([]byte("bm90LXZhbGlkLWJhc2U2NA=="), nil).Once()
+
+	tok, apiErr := p.getGitlabUserTokenByMattermostID(testUserID)
+	require.NotNil(t, apiErr)
+	assert.Nil(t, tok)
+	assert.Equal(t, "Unable to decrypt access token.", apiErr.Message)
 }
 
 // ---------------------------------------------------------------------------

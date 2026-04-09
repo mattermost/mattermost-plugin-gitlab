@@ -485,8 +485,17 @@ func (p *Plugin) getGitlabUserTokenByMattermostID(userID string) (*oauth2.Token,
 
 	unencryptedToken, err := decrypt([]byte(config.EncryptionKey), string(tokenBytes))
 	if err != nil {
-		p.client.Log.Warn("can't decrypt token", "err", err.Error())
-		return nil, &APIErrorResponse{ID: "", Message: "Unable to decrypt access token.", StatusCode: http.StatusInternalServerError}
+		prevKey := config.PreviousEncryptionKey
+		if prevKey != "" {
+			if fallback, fbErr := decrypt([]byte(prevKey), string(tokenBytes)); fbErr == nil {
+				unencryptedToken = fallback
+				err = nil
+			}
+		}
+		if err != nil {
+			p.client.Log.Warn("can't decrypt token", "err", err.Error())
+			return nil, &APIErrorResponse{ID: "", Message: "Unable to decrypt access token.", StatusCode: http.StatusInternalServerError}
+		}
 	}
 
 	if err := json.Unmarshal([]byte(unencryptedToken), &token); err != nil {
@@ -1061,8 +1070,20 @@ func (p *Plugin) reEncryptUserData(newEncryptionKey, previousEncryptionKey strin
 		}
 	}
 
-	auditRec.Success()
 	auditRec.AddEventResultState(result)
+
+	if result.ForceDisconnectCount > 0 {
+		auditRec.AddErrorDesc(fmt.Sprintf("%d users were force-disconnected during re-encryption", result.ForceDisconnectCount))
+	} else {
+		auditRec.Success()
+	}
+
+	// Clear the fallback key now that all tokens have been migrated.
+	p.configurationLock.Lock()
+	if p.configuration != nil && p.configuration.PreviousEncryptionKey == previousEncryptionKey {
+		p.configuration.PreviousEncryptionKey = ""
+	}
+	p.configurationLock.Unlock()
 }
 
 // reEncryptUserToken re-encrypts a single user token KV entry from previousEncryptionKey to newEncryptionKey.
@@ -1072,20 +1093,36 @@ func (p *Plugin) reEncryptUserToken(kvKey, newEncryptionKey, previousEncryptionK
 	userID := strings.TrimSuffix(kvKey, GitlabUserTokenKey)
 
 	var tokenBytes []byte
-	if err := p.client.KV.Get(kvKey, &tokenBytes); err != nil || tokenBytes == nil {
+	if err := p.client.KV.Get(kvKey, &tokenBytes); err != nil {
+		p.client.Log.Warn("Failed to read token during re-encryption, skipping user",
+			"user_id", userID, "error", err.Error())
+		return false, nil
+	}
+	if tokenBytes == nil {
 		return false, nil
 	}
 
 	tokenStr := string(tokenBytes)
 
 	// Idempotency check: if the token can already be decrypted with the new key, it was already migrated.
-	if _, err := decrypt([]byte(newEncryptionKey), tokenStr); err == nil {
-		return false, nil
+	if plain, decErr := decrypt([]byte(newEncryptionKey), tokenStr); decErr == nil {
+		var tok oauth2.Token
+		if json.Unmarshal([]byte(plain), &tok) == nil {
+			return false, nil
+		}
 	}
 
 	plainJSON, err := decrypt([]byte(previousEncryptionKey), tokenStr)
 	if err != nil {
 		p.client.Log.Warn("Failed to decrypt token with previous key during re-encryption, force-disconnecting user",
+			"user_id", userID, "error", err.Error())
+		p.forceDisconnectUser(userID)
+		return false, err
+	}
+
+	var tok oauth2.Token
+	if err := json.Unmarshal([]byte(plainJSON), &tok); err != nil {
+		p.client.Log.Warn("Decrypted token is not valid JSON, force-disconnecting user",
 			"user_id", userID, "error", err.Error())
 		p.forceDisconnectUser(userID)
 		return false, err
