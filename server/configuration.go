@@ -40,6 +40,11 @@ type configuration struct {
 	EnableCodePreview                string `json:"enablecodepreview"`
 	UsePreregisteredApplication      bool   `json:"usepreregisteredapplication"`
 	EnableChildPipelineNotifications bool   `json:"enablechildpipelinenotifications"`
+
+	// PreviousEncryptionKey is set internally during key rotation so that token
+	// reads can fall back to the old key while background re-encryption runs.
+	// It is never persisted to the plugin settings.
+	PreviousEncryptionKey string `json:"-"`
 }
 
 // Clone shallow copies the configuration. Your implementation may require a deep copy if
@@ -200,13 +205,26 @@ func (p *Plugin) OnConfigurationChange() error {
 	p.configurationLock.RLock()
 	hadConfig := p.configuration != nil
 	var previousGitlabGroup string
+	var previousEncryptionKey string
 	if hadConfig {
 		previousGitlabGroup = strings.TrimSpace(p.configuration.GitlabGroup)
+		previousEncryptionKey = p.configuration.EncryptionKey
 	}
 	p.configurationLock.RUnlock()
 	newGitlabGroup := strings.TrimSpace(configuration.GitlabGroup)
 
+	if previousEncryptionKey != "" && configuration.EncryptionKey != "" &&
+		previousEncryptionKey != configuration.EncryptionKey {
+		configuration.PreviousEncryptionKey = previousEncryptionKey
+	}
+
 	p.setConfiguration(configuration, serverConfiguration)
+
+	if configuration.PreviousEncryptionKey != "" {
+		newKey := configuration.EncryptionKey
+		prevKey := configuration.PreviousEncryptionKey
+		go p.reEncryptUserData(newKey, prevKey)
+	}
 
 	if hadConfig && p.BotUserID != "" && newGitlabGroup != "" && newGitlabGroup != previousGitlabGroup {
 		p.notifyUsersOfDisallowedSubscriptions()
