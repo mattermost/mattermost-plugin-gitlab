@@ -710,8 +710,8 @@ func (g *gitlab) GetYourProjects(ctx context.Context, user *UserInfo, token *oau
 	if g.gitlabGroup == "" {
 		// ─── “No Group” branch: list all projects you belong to
 		opts := &internGitlab.ListProjectsOptions{
-			Membership:        model.NewPointer(true),
-			WithIssuesEnabled: model.NewPointer(true),
+			Membership:        new(true),
+			WithIssuesEnabled: new(true),
 			MinAccessLevel:    model.NewPointer(guestLevel),
 			ListOptions: internGitlab.ListOptions{
 				Page:    1,
@@ -729,7 +729,7 @@ func (g *gitlab) GetYourProjects(ctx context.Context, user *UserInfo, token *oau
 	}
 	// ─── “With Group” branch: list all projects in that group you have access to
 	opts := &internGitlab.ListGroupProjectsOptions{
-		WithIssuesEnabled: model.NewPointer(true),
+		WithIssuesEnabled: new(true),
 		MinAccessLevel:    model.NewPointer(guestLevel),
 		ListOptions: internGitlab.ListOptions{
 			Page:    1,

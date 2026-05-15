@@ -172,7 +172,11 @@ func (p *Plugin) handleAddIssueComment(ctx context.Context, _ *mcp.CallToolReque
 		return nil, AddIssueCommentOutput{}, fmt.Errorf("failed to add issue comment: %w", err)
 	}
 
-	return nil, AddIssueCommentOutput{NoteID: note.ID, Body: note.Body}, nil
+	return nil, AddIssueCommentOutput{
+		NoteID: note.ID,
+		Body:   note.Body,
+		WebURL: noteWebURL(p.getConfiguration().GitlabURL, in.ProjectPath, "issues", in.IssueIID, note.ID),
+	}, nil
 }
 
 // ============================================================================
@@ -320,7 +324,11 @@ func (p *Plugin) handleAddMergeRequestComment(ctx context.Context, _ *mcp.CallTo
 		return nil, AddMergeRequestCommentOutput{}, fmt.Errorf("failed to add merge request comment: %w", err)
 	}
 
-	return nil, AddMergeRequestCommentOutput{NoteID: note.ID, Body: note.Body}, nil
+	return nil, AddMergeRequestCommentOutput{
+		NoteID: note.ID,
+		Body:   note.Body,
+		WebURL: noteWebURL(p.getConfiguration().GitlabURL, in.ProjectPath, "merge_requests", in.MergeRequestID, note.ID),
+	}, nil
 }
 
 // ============================================================================
@@ -748,6 +756,15 @@ func todosToSummaries(todos []*internGitlab.Todo) []TodoSummary {
 		}
 	}
 	return out
+}
+
+// noteWebURL builds a GitLab note permalink. Returns "" when the base URL or
+// project path is missing so we don't emit a half-formed link to the agent.
+func noteWebURL(baseURL, projectPath, kind string, parentIID, noteID int) string {
+	if baseURL == "" || projectPath == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s/%s/-/%s/%d#note_%d", baseURL, projectPath, kind, parentIID, noteID)
 }
 
 // splitProjectPath splits "namespace/project" into owner and repo.

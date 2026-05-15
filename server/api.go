@@ -287,7 +287,7 @@ func (p *Plugin) connectUserToGitlab(c *Context, w http.ResponseWriter, r *http.
 		}
 
 		if errorMsg != "" {
-			_, err := p.poster.DMWithAttachments(userID, &model.SlackAttachment{
+			_, err := p.poster.DMWithAttachments(userID, &model.MessageAttachment{
 				Text:  fmt.Sprintf("There was an error connecting to your GitLab: `%s` Please double check your configuration.", errorMsg),
 				Color: string(flow.ColorDanger),
 			})

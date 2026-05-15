@@ -95,18 +95,15 @@ func (g *gitlab) SearchMergeRequests(ctx context.Context, user *UserInfo, token 
 		return nil, err
 	}
 
+	var (
+		result []*internGitlab.MergeRequest
+		resp   *internGitlab.Response
+	)
 	if g.gitlabGroup == "" {
-		result, resp, err := client.Search.MergeRequests(search, &internGitlab.SearchOptions{}, internGitlab.WithContext(ctx))
-		if respErr := checkResponse(resp); respErr != nil {
-			return nil, respErr
-		}
-		if err != nil {
-			return nil, fmt.Errorf("failed to search merge requests: %w", err)
-		}
-		return result, nil
+		result, resp, err = client.Search.MergeRequests(search, &internGitlab.SearchOptions{}, internGitlab.WithContext(ctx))
+	} else {
+		result, resp, err = client.Search.MergeRequestsByGroup(g.gitlabGroup, search, &internGitlab.SearchOptions{}, internGitlab.WithContext(ctx))
 	}
-
-	result, resp, err := client.Search.MergeRequestsByGroup(g.gitlabGroup, search, &internGitlab.SearchOptions{}, internGitlab.WithContext(ctx))
 	if respErr := checkResponse(resp); respErr != nil {
 		return nil, respErr
 	}

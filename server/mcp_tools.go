@@ -23,18 +23,18 @@ type GetIssueInput struct {
 }
 
 type IssueSummary struct {
-	ID           int      `json:"id" jsonschema:"GitLab issue database ID"`
-	IID          int      `json:"iid" jsonschema:"Issue number within the project (shown in the UI)"`
-	ProjectID    int      `json:"project_id"`
-	Title        string   `json:"title"`
-	State        string   `json:"state" jsonschema:"open or closed"`
-	Description  string   `json:"description,omitempty"`
-	Labels       []string `json:"labels,omitempty"`
-	Assignees    []string `json:"assignees,omitempty" jsonschema:"GitLab usernames of assignees"`
-	Milestone    string   `json:"milestone,omitempty" jsonschema:"Milestone title if set"`
-	WebURL       string   `json:"web_url"`
-	CreatedAt    string   `json:"created_at,omitempty"`
-	UpdatedAt    string   `json:"updated_at,omitempty"`
+	ID          int      `json:"id" jsonschema:"GitLab issue database ID"`
+	IID         int      `json:"iid" jsonschema:"Issue number within the project (shown in the UI)"`
+	ProjectID   int      `json:"project_id"`
+	Title       string   `json:"title"`
+	State       string   `json:"state" jsonschema:"open or closed"`
+	Description string   `json:"description,omitempty"`
+	Labels      []string `json:"labels,omitempty"`
+	Assignees   []string `json:"assignees,omitempty" jsonschema:"GitLab usernames of assignees"`
+	Milestone   string   `json:"milestone,omitempty" jsonschema:"Milestone title if set"`
+	WebURL      string   `json:"web_url"`
+	CreatedAt   string   `json:"created_at,omitempty"`
+	UpdatedAt   string   `json:"updated_at,omitempty"`
 }
 
 type GetIssueOutput struct {
@@ -164,6 +164,7 @@ type AddMergeRequestCommentInput struct {
 type AddMergeRequestCommentOutput struct {
 	NoteID int    `json:"note_id" jsonschema:"ID of the newly created note/comment"`
 	Body   string `json:"body"`
+	WebURL string `json:"web_url,omitempty"`
 }
 
 // --- Project types ----------------------------------------------------------

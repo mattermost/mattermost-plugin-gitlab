@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	gomock "go.uber.org/mock/gomock"
 	internGitlab "github.com/xanzy/go-gitlab"
+	gomock "go.uber.org/mock/gomock"
 
 	mockgitlab "github.com/mattermost/mattermost-plugin-gitlab/server/mocks"
 )
@@ -51,12 +51,10 @@ func TestStartMCP_Idempotent(t *testing.T) {
 	// Concurrent calls should produce at most one mcpServer instance and must
 	// not data-race.
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 10 {
+		wg.Go(func() {
 			p.startMCP()
-		}()
+		})
 	}
 	wg.Wait()
 
@@ -125,11 +123,11 @@ func TestResolveCaller_NoUserID(t *testing.T) {
 
 func TestSplitProjectPath(t *testing.T) {
 	tests := []struct {
-		name        string
-		input       string
-		wantOwner   string
-		wantRepo    string
-		wantErrSub  string
+		name       string
+		input      string
+		wantOwner  string
+		wantRepo   string
+		wantErrSub string
 	}{
 		{
 			name:      "simple namespace/project",
@@ -244,8 +242,8 @@ func TestHandleCreateIssue_Validation(t *testing.T) {
 
 func TestHandleCreateMergeRequest_Validation(t *testing.T) {
 	cases := []struct {
-		name  string
-		input CreateMergeRequestInput
+		name   string
+		input  CreateMergeRequestInput
 		errSub string
 	}{
 		{"empty project_path", CreateMergeRequestInput{Title: "T", SourceBranch: "feat", TargetBranch: "main"}, "project_path is required"},
@@ -435,6 +433,26 @@ func TestMrsToSummaries_SkipsNil(t *testing.T) {
 	assert.Equal(t, 5, out[0].ID)
 }
 
+func TestNoteWebURL(t *testing.T) {
+	t.Run("issue note", func(t *testing.T) {
+		got := noteWebURL("https://gitlab.com", "g/p", "issues", 42, 7)
+		assert.Equal(t, "https://gitlab.com/g/p/-/issues/42#note_7", got)
+	})
+
+	t.Run("merge request note", func(t *testing.T) {
+		got := noteWebURL("https://gitlab.example.com", "g/sub/p", "merge_requests", 15, 99)
+		assert.Equal(t, "https://gitlab.example.com/g/sub/p/-/merge_requests/15#note_99", got)
+	})
+
+	t.Run("missing base URL returns empty", func(t *testing.T) {
+		assert.Empty(t, noteWebURL("", "g/p", "issues", 1, 1))
+	})
+
+	t.Run("missing project path returns empty", func(t *testing.T) {
+		assert.Empty(t, noteWebURL("https://gitlab.com", "", "issues", 1, 1))
+	})
+}
+
 func TestSplitProjectPathParts(t *testing.T) {
 	owner, repo := splitProjectPathParts("group/sub/project")
 	assert.Equal(t, "group/sub", owner)
@@ -525,4 +543,3 @@ func TestTodoToSummary(t *testing.T) {
 		assert.Empty(t, s.ProjectPath)
 	})
 }
-
