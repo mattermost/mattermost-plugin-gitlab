@@ -50,6 +50,8 @@ func (p *Plugin) initializeAPI() {
 	p.router = mux.NewRouter()
 	p.router.Use(p.withRecovery)
 
+	p.router.PathPrefix("/mcp").HandlerFunc(p.serveMCPHTTP)
+
 	oauthRouter := p.router.PathPrefix("/oauth").Subrouter()
 	apiRouter := p.router.PathPrefix("/api/v1").Subrouter()
 	apiRouter.Use(p.checkConfigured)

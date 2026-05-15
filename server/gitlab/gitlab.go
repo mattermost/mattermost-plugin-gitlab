@@ -63,6 +63,13 @@ type Gitlab interface {
 		fullPath string,
 		allowPrivate bool,
 	) (namespace string, project string, err error)
+
+	UpdateIssue(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID string, issueIID int, opts *UpdateIssueOptions) (*internGitlab.Issue, error)
+	AddIssueNote(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID string, issueIID int, body string) (*internGitlab.Note, error)
+	SearchMergeRequests(ctx context.Context, user *UserInfo, token *oauth2.Token, search string) ([]*internGitlab.MergeRequest, error)
+	CreateMergeRequest(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID string, opts *CreateMergeRequestOptions) (*internGitlab.MergeRequest, error)
+	AddMergeRequestNote(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID string, mrIID int, body string) (*internGitlab.Note, error)
+	ListProjectPipelines(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID string, ref string, status string, page int, perPage int) ([]*internGitlab.PipelineInfo, error)
 }
 
 type gitlab struct {

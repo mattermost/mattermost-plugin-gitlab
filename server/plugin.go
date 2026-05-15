@@ -82,6 +82,9 @@ type Plugin struct {
 
 	WebhookHandler webhook.Webhook
 	GitlabClient   gitlab.Gitlab
+
+	mcpMu     sync.Mutex
+	mcpServer mcpServer
 }
 
 // gitlabPermalinkRegex is used to parse gitlab permalinks in post messages.
@@ -139,10 +142,13 @@ func (p *Plugin) OnActivate() error {
 	}
 	p.flowManager = flowManager
 
+	p.startMCP()
+
 	return nil
 }
 
 func (p *Plugin) OnDeactivate() error {
+	p.stopMCP()
 	p.oauthBroker.Close()
 
 	return nil
