@@ -485,7 +485,7 @@ func TestAddWebhookCommand(t *testing.T) {
 			p.GitlabClient = mockedClient
 
 			conf := &model.Config{}
-			conf.ServiceSettings.SiteURL = model.NewPointer(test.siteURL)
+			conf.ServiceSettings.SiteURL = new(test.siteURL)
 
 			encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
 
