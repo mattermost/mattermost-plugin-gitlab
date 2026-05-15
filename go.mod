@@ -8,6 +8,7 @@ require (
 	github.com/mattermost/mattermost-plugin-agents v1.14.1-0.20260508173910-8219eb13bd4e
 	github.com/mattermost/mattermost/server/public v0.3.1-0.20260402155910-d9d71af83e3f
 	github.com/microcosm-cc/bluemonday v1.0.27
+	github.com/modelcontextprotocol/go-sdk v1.4.1
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.11.1
 	github.com/xanzy/go-gitlab v0.97.0
@@ -48,7 +49,6 @@ require (
 	github.com/mattermost/xml-roundtrip-validator v0.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.22 // indirect
-	github.com/modelcontextprotocol/go-sdk v1.4.1 // indirect
 	github.com/oklog/run v1.2.0 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
