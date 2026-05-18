@@ -34,5 +34,5 @@ export default class Hooks {
         }
 
         return Promise.resolve({message, args: contextArgs});
-    }
+    };
 }

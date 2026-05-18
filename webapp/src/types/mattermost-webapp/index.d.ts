@@ -22,18 +22,18 @@ export interface RHSPluginPopoutListeners {
 export interface PluginRegistry {
     registerReducer(reducer)
     registerPostTypeComponent(typeName: string, component: React.ElementType)
-    registerRightHandSidebarComponent(component: React.ReactNode, title: string | JSX.Element)
+    registerRightHandSidebarComponent(component: React.ComponentType<any>, title: string | JSX.Element)
     registerSlashCommandWillBePostedHook(hook: (rawMessage: string, contextArgs: ContextArgs) => Promise<{}>)
     registerWebSocketEventHandler(event: string, handler: (msg: any) => void)
     registerAppBarComponent(iconUrl: string, action: () => void, tooltipText: string)
-    registerLeftSidebarHeaderComponent(component: React.ReactNode)
-    registerBottomTeamSidebarComponent(component: React.ReactNode)
-    registerPopoverUserAttributesComponent(component: React.ReactNode)
-    registerLinkTooltipComponent(component: React.ReactNode)
+    registerLeftSidebarHeaderComponent(component: React.ComponentType<any>)
+    registerBottomTeamSidebarComponent(component: React.ComponentType<any>)
+    registerPopoverUserAttributesComponent(component: React.ComponentType<any>)
+    registerLinkTooltipComponent(component: React.ComponentType<any>)
     registerReconnectHandler(handler: any)
-    registerPostDropdownMenuComponent(component: React.ReactNode)
+    registerPostDropdownMenuComponent(component: React.ComponentType<any>)
     registerPostDropdownMenuAction(action: any)
-    registerRootComponent(component: React.ElementType)
+    registerRootComponent(component: React.ComponentType<any>)
     registerRHSPluginPopoutListener?: (pluginId: string, callback: (teamName: string, channelName: string, listeners: RHSPluginPopoutListeners) => void) => void
 
     // Add more if needed from https://developers.mattermost.com/extend/plugins/webapp/reference
