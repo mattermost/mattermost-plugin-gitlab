@@ -826,12 +826,12 @@ func (p *Plugin) validateWebURL(webURL string) error {
 		return errors.Errorf("invalid web_url")
 	}
 
-	if !strings.EqualFold(parsedURL.Host, configURL.Host) {
+	if !strings.EqualFold(parsedURL.Scheme, configURL.Scheme) || !strings.EqualFold(parsedURL.Host, configURL.Host) {
 		return errors.Errorf("web_url must be a URL under the configured GitLab instance (%s)", config.GitlabURL)
 	}
 
-	gitlabPrefix := strings.TrimRight(config.GitlabURL, "/") + "/"
-	if !strings.HasPrefix(webURL, gitlabPrefix) {
+	configPath := strings.TrimRight(configURL.Path, "/") + "/"
+	if !strings.HasPrefix(parsedURL.Path, configPath) {
 		return errors.Errorf("web_url must be a URL under the configured GitLab instance (%s)", config.GitlabURL)
 	}
 
