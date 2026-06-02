@@ -635,6 +635,10 @@ func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Requ
 			p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to load post %s : not found", issue.PostID), StatusCode: http.StatusNotFound})
 			return
 		}
+		if !p.client.User.HasPermissionToChannel(c.UserID, post.ChannelId, model.PermissionCreatePost) {
+			p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Not authorized to post in this channel.", StatusCode: http.StatusForbidden})
+			return
+		}
 		permalink = p.getPermalink(issue.PostID)
 	}
 
@@ -715,6 +719,11 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 		return
 	}
 
+	if err := p.validateWebURL(issue.WebURL); err != nil {
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: err.Error(), StatusCode: http.StatusBadRequest})
+		return
+	}
+
 	post, appErr := p.API.GetPost(issue.PostID)
 	if appErr != nil {
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to load post %s", issue.PostID), StatusCode: appErr.StatusCode})
@@ -722,6 +731,11 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 	}
 	if post == nil {
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("failed to load post %s : not found", issue.PostID), StatusCode: http.StatusNotFound})
+		return
+	}
+
+	if !p.client.User.HasPermissionToChannel(c.UserID, post.ChannelId, model.PermissionCreatePost) {
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Not authorized to post in this channel.", StatusCode: http.StatusForbidden})
 		return
 	}
 
@@ -797,6 +811,30 @@ func (p *Plugin) validateCommentBody(issue *gitlab.IssueRequest) error {
 	if issue.Comment == "" {
 		return errors.Errorf("please provide a valid non empty comment")
 	}
+	return nil
+}
+
+func (p *Plugin) validateWebURL(webURL string) error {
+	config := p.getConfiguration()
+	configURL, err := url.Parse(config.GitlabURL)
+	if err != nil {
+		return errors.Errorf("invalid GitLab URL configuration")
+	}
+
+	parsedURL, err := url.Parse(webURL)
+	if err != nil || parsedURL.Host == "" {
+		return errors.Errorf("invalid web_url")
+	}
+
+	if !strings.EqualFold(parsedURL.Host, configURL.Host) {
+		return errors.Errorf("web_url must be a URL under the configured GitLab instance (%s)", config.GitlabURL)
+	}
+
+	gitlabPrefix := strings.TrimRight(config.GitlabURL, "/") + "/"
+	if !strings.HasPrefix(webURL, gitlabPrefix) {
+		return errors.Errorf("web_url must be a URL under the configured GitLab instance (%s)", config.GitlabURL)
+	}
+
 	return nil
 }
 
