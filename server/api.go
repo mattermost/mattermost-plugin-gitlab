@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
@@ -826,6 +827,10 @@ func (p *Plugin) validateWebURL(webURL string) error {
 		return errors.Errorf("invalid web_url")
 	}
 
+	if hasInvalidURLChars(webURL) {
+		return errors.Errorf("invalid web_url")
+	}
+
 	if !strings.EqualFold(parsedURL.Scheme, configURL.Scheme) || !strings.EqualFold(parsedURL.Host, configURL.Host) {
 		return errors.Errorf("web_url must be a URL under the configured GitLab instance (%s)", config.GitlabURL)
 	}
@@ -836,6 +841,19 @@ func (p *Plugin) validateWebURL(webURL string) error {
 	}
 
 	return nil
+}
+
+func hasInvalidURLChars(rawURL string) bool {
+	for _, r := range rawURL {
+		if unicode.IsSpace(r) || unicode.IsControl(r) {
+			return true
+		}
+		switch r {
+		case '(', ')', '[', ']', '<', '>', '`', '"', '\\':
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Plugin) getPermalink(postID string) string {

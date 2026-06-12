@@ -627,6 +627,23 @@ func TestAttachCommentToIssueReturns400ForInvalidWebURL(t *testing.T) {
 		assert.Contains(t, string(data), "web_url must be a URL under the configured GitLab instance")
 	})
 
+	t.Run("rejects URL with invalid characters", func(t *testing.T) {
+		p := setupNamespaceTestPlugin(t, fakeGitLab.URL, "", nil)
+
+		body := fmt.Sprintf(`{"project_id":123,"iid":1,"post_id":"post_id","comment":"a comment","web_url":"%s/mygroup/repo) name [1]"}`, fakeGitLab.URL)
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/attachcommenttoissue", bytes.NewReader([]byte(body)))
+		r.Header.Set("Mattermost-User-ID", "user_id")
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+		data, _ := io.ReadAll(result.Body)
+		assert.Equal(t, http.StatusBadRequest, result.StatusCode)
+		assert.Contains(t, string(data), "invalid web_url")
+	})
+
 	t.Run("accepts valid GitLab URL", func(t *testing.T) {
 		post := &model.Post{Id: "post_id", ChannelId: "channel_id", Message: "msg", UserId: "user_id"}
 		p := setupNamespaceTestPlugin(t, fakeGitLab.URL, "", func(m *plugintest.API) {
@@ -646,4 +663,30 @@ func TestAttachCommentToIssueReturns400ForInvalidWebURL(t *testing.T) {
 		defer func() { _ = result.Body.Close() }()
 		assert.NotEqual(t, http.StatusBadRequest, result.StatusCode)
 	})
+}
+
+func TestHasInvalidURLChars(t *testing.T) {
+	for name, tc := range map[string]struct {
+		url     string
+		invalid bool
+	}{
+		"plain URL":             {"https://gitlab.com/group/repo/-/issues/1", false},
+		"percent-encoded space": {"https://gitlab.com/group/repo%20name/-/issues/1", false},
+		"query and fragment":    {"https://gitlab.com/group/repo/-/issues/1?foo=bar#note_1", false},
+		"raw space":             {"https://gitlab.com/group/repo name", true},
+		"open paren":            {"https://gitlab.com/group/repo(", true},
+		"close paren":           {"https://gitlab.com/group/repo)", true},
+		"square brackets":       {"https://gitlab.com/group/repo[1]", true},
+		"angle brackets":        {"https://gitlab.com/group/repo<b>", true},
+		"backtick":              {"https://gitlab.com/group/repo`", true},
+		"double quote":          {"https://gitlab.com/group/repo\"", true},
+		"backslash":             {"https://gitlab.com/group\\repo", true},
+		"newline":               {"https://gitlab.com/group/repo\nx", true},
+		"tab":                   {"https://gitlab.com/group/repo\tx", true},
+		"non-breaking space":    {"https://gitlab.com/group/repo\u00a0x", true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tc.invalid, hasInvalidURLChars(tc.url))
+		})
+	}
 }
