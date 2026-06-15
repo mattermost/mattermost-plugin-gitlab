@@ -513,6 +513,15 @@ func (p *Plugin) handleSettings(ctx context.Context, args *model.CommandArgs, pa
 }
 
 func (p *Plugin) handleWebhookHandler(ctx context.Context, args *model.CommandArgs, parameters []string, info *gitlab.UserInfo) (*model.CommandResponse, *model.AppError) {
+	isSysAdmin, err := p.isAuthorizedSysAdmin(args.UserId)
+	if err != nil {
+		p.client.Log.Warn("Failed to check if user is System Admin", "error", err.Error())
+		return p.getCommandResponse(args, "Error checking user's permissions", true), nil
+	}
+	if !isSysAdmin {
+		return p.getCommandResponse(args, "Only System Admins are allowed to manage webhooks.", true), nil
+	}
+
 	config := p.getConfiguration()
 	message := p.webhookCommand(ctx, parameters, info, config.EnablePrivateRepo)
 	return p.getCommandResponse(args, message, true), nil
@@ -566,10 +575,6 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		})
 		if err != nil {
 			return err.Error()
-		}
-
-		if msg := p.requireWebhookPermission(ctx, info, group, project); msg != "" {
-			return msg
 		}
 
 		var webhookInfo []*gitlab.WebhookInfo
@@ -655,10 +660,6 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		})
 		if namespaceErr != nil {
 			return namespaceErr.Error()
-		}
-
-		if msg := p.requireWebhookPermission(ctx, info, group, project); msg != "" {
-			return msg
 		}
 
 		newWebhook, err := p.createHook(ctx, p.GitlabClient, info, group, project, hookOptions)
@@ -1136,6 +1137,7 @@ func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteD
 	gitlab.AddCommand(settings)
 
 	webhook := model.NewAutocompleteData("webhook", "[command]", "Available Commands: list, add")
+	webhook.RoleID = model.SystemAdminRoleId
 	webhookList := model.NewAutocompleteData(commandList, "owner/[repo]", "List existing project or group webhooks")
 	webhookList.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
 	webhook.AddCommand(webhookList)
