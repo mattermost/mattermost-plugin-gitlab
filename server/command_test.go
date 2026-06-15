@@ -562,6 +562,60 @@ func TestAddWebhookCommandNamespaceNotAllowed(t *testing.T) {
 	assert.Contains(t, got, "only repositories in the allowed-group namespace are allowed")
 }
 
+func TestAddWebhookCommandForbidden(t *testing.T) {
+	p := new(Plugin)
+
+	mockCtrl := gomock.NewController(t)
+	mockedClient := mocks.NewMockGitlab(mockCtrl)
+	mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "project", nil)
+	mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&gitLabAPI.Project{ID: 4}, nil)
+	mockedClient.EXPECT().NewProjectHook(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, gitlab.ErrForbidden)
+	p.GitlabClient = mockedClient
+
+	conf := &model.Config{}
+	conf.ServiceSettings.SiteURL = model.NewPointer("https://example.com")
+
+	encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
+
+	p.configuration = &configuration{EncryptionKey: testEncryptionKey}
+
+	api := &plugintest.API{}
+	api.On("GetConfig", mock.Anything).Return(conf)
+	api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
+	api.On("LogAuditRec", mock.Anything).Maybe()
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	got := p.webhookCommand(context.Background(), []string{"add", "group/project"}, &gitlab.UserInfo{}, true)
+
+	assert.Contains(t, got, "You don't have permission to manage webhooks for the repository `group/project`")
+	assert.Contains(t, got, "Maintainer or Owner access")
+}
+
+func TestListWebhookCommandForbidden(t *testing.T) {
+	p := new(Plugin)
+
+	mockCtrl := gomock.NewController(t)
+	mockedClient := mocks.NewMockGitlab(mockCtrl)
+	mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "", nil)
+	mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, gitlab.ErrForbidden)
+	p.GitlabClient = mockedClient
+
+	encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
+
+	p.configuration = &configuration{EncryptionKey: testEncryptionKey}
+
+	api := &plugintest.API{}
+	api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	got := p.webhookCommand(context.Background(), []string{"list", "group"}, &gitlab.UserInfo{}, true)
+
+	assert.Contains(t, got, "You don't have permission to manage webhooks for the group `group`")
+	assert.Contains(t, got, "Maintainer or Owner access")
+}
+
 type instanceNameTestCase struct {
 	name         string
 	parameters   []string

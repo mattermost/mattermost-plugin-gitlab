@@ -80,10 +80,8 @@ const (
 )
 
 const (
-	groupNotFoundError   = "404 {message: 404 Group Not Found}"
 	groupNotFoundMessage = "Unable to find GitLab group: "
 
-	projectNotFoundError   = "404 {message: 404 Project Not Found}"
 	projectNotFoundMessage = "Unable to find project with namespace: "
 
 	invalidSubscribeSubCommand           = "Invalid subscribe command. Available commands are add, delete, and list"
@@ -540,6 +538,16 @@ func (p *Plugin) handleIssueHelper(_ *plugin.Context, args *model.CommandArgs, p
 	}
 }
 
+// webhookPermissionMessage builds a user-friendly message for GitLab permission
+// failures when managing webhooks, naming the scope and the access required.
+func webhookPermissionMessage(group, project string) string {
+	scope := "group"
+	if project != "" {
+		scope = "repository"
+	}
+	return fmt.Sprintf("You don't have permission to manage webhooks for the %s `%s`. You need Maintainer or Owner access in GitLab.", scope, namespaceFromGroupAndProject(group, project))
+}
+
 // webhookCommand processes the /gitlab webhook commands
 func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *gitlab.UserInfo, enablePrivateRepo bool) string {
 	if len(parameters) < 1 {
@@ -583,7 +591,10 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 				return nil
 			})
 			if err != nil {
-				if strings.Contains(err.Error(), projectNotFoundError) {
+				if errors.Is(err, gitlab.ErrForbidden) {
+					return webhookPermissionMessage(group, project)
+				}
+				if errors.Is(err, gitlab.ErrNotFound) {
 					return projectNotFoundMessage + namespace
 				}
 				return err.Error()
@@ -598,7 +609,10 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 				return nil
 			})
 			if err != nil {
-				if strings.Contains(err.Error(), groupNotFoundError) {
+				if errors.Is(err, gitlab.ErrForbidden) {
+					return webhookPermissionMessage(group, project)
+				}
+				if errors.Is(err, gitlab.ErrNotFound) {
 					return groupNotFoundMessage + group
 				}
 				return err.Error()
@@ -679,6 +693,9 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		newWebhook, err := p.createHook(ctx, p.GitlabClient, info, group, project, hookOptions)
 		if err != nil {
 			auditRec.AddErrorDesc(err.Error())
+			if errors.Is(err, gitlab.ErrForbidden) {
+				return webhookPermissionMessage(group, project)
+			}
 			return err.Error()
 		}
 
