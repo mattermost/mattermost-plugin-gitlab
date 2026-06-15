@@ -513,15 +513,6 @@ func (p *Plugin) handleSettings(ctx context.Context, args *model.CommandArgs, pa
 }
 
 func (p *Plugin) handleWebhookHandler(ctx context.Context, args *model.CommandArgs, parameters []string, info *gitlab.UserInfo) (*model.CommandResponse, *model.AppError) {
-	isSysAdmin, err := p.isAuthorizedSysAdmin(args.UserId)
-	if err != nil {
-		p.client.Log.Warn("Failed to check if user is System Admin", "error", err.Error())
-		return p.getCommandResponse(args, "Error checking user's permissions", true), nil
-	}
-	if !isSysAdmin {
-		return p.getCommandResponse(args, "Only System Admins are allowed to manage webhooks.", true), nil
-	}
-
 	config := p.getConfiguration()
 	message := p.webhookCommand(ctx, parameters, info, config.EnablePrivateRepo)
 	return p.getCommandResponse(args, message, true), nil
@@ -574,6 +565,10 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 			return nil
 		})
 		if err != nil {
+			return err.Error()
+		}
+
+		if err := p.isNamespaceAllowed(namespaceFromGroupAndProject(group, project)); err != nil {
 			return err.Error()
 		}
 
@@ -662,10 +657,37 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 			return namespaceErr.Error()
 		}
 
-		newWebhook, err := p.createHook(ctx, p.GitlabClient, info, group, project, hookOptions)
-		if err != nil {
+		resolvedNamespace := namespaceFromGroupAndProject(group, project)
+
+		auditRec := plugin.MakeAuditRecord("addWebhook", model.AuditStatusFail)
+		defer p.API.LogAuditRec(auditRec)
+		auditRec.Actor.UserId = info.UserID
+
+		auditParams := AddWebhookAuditParams{
+			MattermostUserID: info.UserID,
+			GitlabUsername:   info.GitlabUsername,
+			Namespace:        resolvedNamespace,
+			URL:              hookOptions.URL,
+		}
+		model.AddEventParameterAuditableToAuditRec(auditRec, "add_webhook", auditParams)
+
+		if err := p.isNamespaceAllowed(resolvedNamespace); err != nil {
+			auditRec.AddErrorDesc(err.Error())
 			return err.Error()
 		}
+
+		newWebhook, err := p.createHook(ctx, p.GitlabClient, info, group, project, hookOptions)
+		if err != nil {
+			auditRec.AddErrorDesc(err.Error())
+			return err.Error()
+		}
+
+		auditRec.Success()
+		auditRec.AddEventResultState(AddWebhookAuditResult{
+			HookID: newWebhook.ID,
+			URL:    newWebhook.URL,
+			Scope:  newWebhook.Scope.String(),
+		})
 		return fmt.Sprintf("Webhook Created:\n%s", newWebhook.String())
 
 	default:

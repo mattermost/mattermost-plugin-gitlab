@@ -64,6 +64,32 @@ func (p AttachCommentToIssueAuditResult) Auditable() map[string]any {
 	return map[string]any{"note_id": p.NoteID}
 }
 
+// AddWebhookAuditParams holds request audit data for the webhook add command.
+type AddWebhookAuditParams struct {
+	MattermostUserID string `json:"mattermost_user_id"`
+	GitlabUsername   string `json:"gitlab_username"`
+	Namespace        string `json:"namespace"`
+	URL              string `json:"url"`
+}
+
+func (p AddWebhookAuditParams) Auditable() map[string]any {
+	return map[string]any{
+		"mattermost_user_id": p.MattermostUserID, "gitlab_username": p.GitlabUsername,
+		"namespace": p.Namespace, "url": p.URL,
+	}
+}
+
+// AddWebhookAuditResult holds GitLab response for the webhook add command (for AddEventResultState).
+type AddWebhookAuditResult struct {
+	HookID int    `json:"hook_id"`
+	URL    string `json:"url"`
+	Scope  string `json:"scope"`
+}
+
+func (p AddWebhookAuditResult) Auditable() map[string]any {
+	return map[string]any{"hook_id": p.HookID, "url": p.URL, "scope": p.Scope}
+}
+
 // ReEncryptUserDataAuditParams holds request audit data for the reEncryptUserData operation.
 type ReEncryptUserDataAuditParams struct {
 	TotalUsers int `json:"total_users"`

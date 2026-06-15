@@ -289,6 +289,31 @@ func TestListWebhookCommand(t *testing.T) {
 	}
 }
 
+func TestListWebhookCommandNamespaceNotAllowed(t *testing.T) {
+	p := new(Plugin)
+
+	mockCtrl := gomock.NewController(t)
+	mockedClient := mocks.NewMockGitlab(mockCtrl)
+	mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("other-group", "project", nil)
+	p.GitlabClient = mockedClient
+
+	encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
+
+	p.configuration = &configuration{
+		EncryptionKey: testEncryptionKey,
+		GitlabGroup:   "allowed-group",
+	}
+
+	api := &plugintest.API{}
+	api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	got := p.webhookCommand(context.Background(), []string{"list", "other-group/project"}, &gitlab.UserInfo{}, true)
+
+	assert.Contains(t, got, "only repositories in the allowed-group namespace are allowed")
+}
+
 func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.WebhookInfo, mattermostURL string, projectHookErr error, getProjectErr error, mockGitlab, noAccess bool) *Plugin {
 	p := new(Plugin)
 
@@ -496,6 +521,7 @@ func TestAddWebhookCommand(t *testing.T) {
 			api := &plugintest.API{}
 			api.On("GetConfig", mock.Anything).Return(conf)
 			api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
+			api.On("LogAuditRec", mock.Anything).Maybe()
 			p.SetAPI(api)
 			p.client = pluginapi.NewClient(api, p.Driver)
 
@@ -504,6 +530,36 @@ func TestAddWebhookCommand(t *testing.T) {
 			assert.Equal(t, test.want, got)
 		})
 	}
+}
+
+func TestAddWebhookCommandNamespaceNotAllowed(t *testing.T) {
+	p := new(Plugin)
+
+	mockCtrl := gomock.NewController(t)
+	mockedClient := mocks.NewMockGitlab(mockCtrl)
+	mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("other-group", "project", nil)
+	p.GitlabClient = mockedClient
+
+	conf := &model.Config{}
+	conf.ServiceSettings.SiteURL = model.NewPointer("https://example.com")
+
+	encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
+
+	p.configuration = &configuration{
+		EncryptionKey: testEncryptionKey,
+		GitlabGroup:   "allowed-group",
+	}
+
+	api := &plugintest.API{}
+	api.On("GetConfig", mock.Anything).Return(conf)
+	api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
+	api.On("LogAuditRec", mock.Anything).Maybe()
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	got := p.webhookCommand(context.Background(), []string{"add", "other-group/project"}, &gitlab.UserInfo{}, true)
+
+	assert.Contains(t, got, "only repositories in the allowed-group namespace are allowed")
 }
 
 type instanceNameTestCase struct {
@@ -554,80 +610,6 @@ func setupInstanceCommandTest(t *testing.T, instanceList []string, instanceConfi
 }
 
 func TestAdminProtectedCommands(t *testing.T) {
-	t.Run("webhook command requires admin", func(t *testing.T) {
-		p := new(Plugin)
-		p.configuration = &configuration{EncryptionKey: testEncryptionKey}
-
-		// Mock a non-admin user
-		nonAdminUser := &model.User{
-			Id:    "user_id",
-			Roles: "system_user",
-		}
-
-		api := &plugintest.API{}
-		api.On("GetUser", "user_id").Return(nonAdminUser, nil)
-
-		var capturedMessage string
-		api.On("SendEphemeralPost", mock.Anything, mock.MatchedBy(func(post *model.Post) bool {
-			capturedMessage = post.Message
-			return true
-		})).Return(&model.Post{})
-
-		p.SetAPI(api)
-		p.client = pluginapi.NewClient(api, p.Driver)
-
-		args := &model.CommandArgs{UserId: "user_id", ChannelId: "channel_id"}
-		userInfo := &gitlab.UserInfo{UserID: "user_id"}
-
-		_, _ = p.handleWebhookHandler(context.Background(), args, []string{"list", "group/project"}, userInfo)
-
-		assert.Contains(t, capturedMessage, "Only System Admins are allowed to manage webhooks.")
-	})
-
-	t.Run("webhook command allowed for admin", func(t *testing.T) {
-		p := new(Plugin)
-
-		mockCtrl := gomock.NewController(t)
-		mockedClient := mocks.NewMockGitlab(mockCtrl)
-
-		// Mock admin user
-		adminUser := &model.User{
-			Id:    "admin_id",
-			Roles: "system_admin system_user",
-		}
-
-		encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
-
-		p.configuration = &configuration{
-			EncryptionKey:     testEncryptionKey,
-			EnablePrivateRepo: true,
-		}
-
-		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "project", nil)
-		mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return([]*gitlab.WebhookInfo{}, nil)
-		p.GitlabClient = mockedClient
-
-		api := &plugintest.API{}
-		api.On("GetUser", "admin_id").Return(adminUser, nil)
-		api.On("KVGet", "admin_id_usertoken").Return([]byte(encryptedToken), nil)
-
-		var capturedMessage string
-		api.On("SendEphemeralPost", mock.Anything, mock.MatchedBy(func(post *model.Post) bool {
-			capturedMessage = post.Message
-			return true
-		})).Return(&model.Post{})
-
-		p.SetAPI(api)
-		p.client = pluginapi.NewClient(api, p.Driver)
-
-		args := &model.CommandArgs{UserId: "admin_id", ChannelId: "channel_id"}
-		userInfo := &gitlab.UserInfo{UserID: "admin_id"}
-
-		_, _ = p.handleWebhookHandler(context.Background(), args, []string{"list", "group/project"}, userInfo)
-
-		assert.Contains(t, capturedMessage, "No webhooks found")
-	})
-
 	t.Run("instance commands require admin", func(t *testing.T) {
 		testCases := []struct {
 			name       string
