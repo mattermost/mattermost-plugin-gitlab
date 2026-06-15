@@ -1159,7 +1159,6 @@ func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteD
 	gitlab.AddCommand(settings)
 
 	webhook := model.NewAutocompleteData("webhook", "[command]", "Available Commands: list, add")
-	webhook.RoleID = model.SystemAdminRoleId
 	webhookList := model.NewAutocompleteData(commandList, "owner/[repo]", "List existing project or group webhooks")
 	webhookList.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
 	webhook.AddCommand(webhookList)
