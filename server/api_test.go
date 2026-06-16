@@ -6,6 +6,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -168,6 +169,17 @@ func fakeGitLabServer(t *testing.T, projectPathWithNamespace string) *httptest.S
 			}
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(project)
+			return
+		}
+
+		// POST /api/v4/projects/:id/issues/:iid/notes — note creation
+		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/notes") {
+			note := map[string]any{
+				"id": 1, "body": "test note",
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(note)
 			return
 		}
 
@@ -469,10 +481,11 @@ func TestAttachCommentToIssueReturns403WhenNamespaceNotAllowed(t *testing.T) {
 	post := &model.Post{Id: "post_id", ChannelId: "channel_id", Message: "msg", UserId: "user_id"}
 	p := setupNamespaceTestPlugin(t, fakeGitLab.URL, "mygroup", func(m *plugintest.API) {
 		m.On("GetPost", "post_id").Return(post, nil)
+		m.On("HasPermissionToChannel", "user_id", "channel_id", model.PermissionCreatePost).Return(true)
 		m.On("GetUser", "user_id").Return(&model.User{Username: "testuser"}, nil)
 	})
 
-	body := `{"project_id":123,"iid":1,"post_id":"post_id","comment":"a comment","web_url":"https://gitlab.com/group/repo/-/issues/1"}`
+	body := fmt.Sprintf(`{"project_id":123,"iid":1,"post_id":"post_id","comment":"a comment","web_url":"%s/othergroup/repo/-/issues/1"}`, fakeGitLab.URL)
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/api/v1/attachcommenttoissue", bytes.NewReader([]byte(body)))
 	r.Header.Set("Mattermost-User-ID", "user_id")
@@ -484,4 +497,196 @@ func TestAttachCommentToIssueReturns403WhenNamespaceNotAllowed(t *testing.T) {
 	data, _ := io.ReadAll(result.Body)
 	assert.Equal(t, http.StatusForbidden, result.StatusCode)
 	assert.Contains(t, string(data), "only repositories in the mygroup namespace are allowed")
+}
+
+func TestCreateIssueReturns403WhenChannelNotAuthorized(t *testing.T) {
+	fakeGitLab := fakeGitLabServer(t, "mygroup/repo")
+	defer fakeGitLab.Close()
+
+	post := &model.Post{Id: "post_id", ChannelId: "private_channel_id", Message: "msg", UserId: "other_user_id"}
+	p := setupNamespaceTestPlugin(t, fakeGitLab.URL, "", func(m *plugintest.API) {
+		m.On("GetPost", "post_id").Return(post, nil)
+		m.On("HasPermissionToChannel", "user_id", "private_channel_id", model.PermissionCreatePost).Return(false)
+	})
+
+	body := `{"project_id":123,"title":"Test","description":"","post_id":"post_id"}`
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/issue", bytes.NewReader([]byte(body)))
+	r.Header.Set("Mattermost-User-ID", "user_id")
+
+	p.ServeHTTP(nil, w, r)
+
+	result := w.Result()
+	defer func() { _ = result.Body.Close() }()
+	data, _ := io.ReadAll(result.Body)
+	assert.Equal(t, http.StatusForbidden, result.StatusCode)
+	assert.Contains(t, string(data), "Not authorized to post in this channel")
+}
+
+func TestCreateIssueAllowsWhenChannelAuthorized(t *testing.T) {
+	fakeGitLab := fakeGitLabServer(t, "mygroup/repo")
+	defer fakeGitLab.Close()
+
+	post := &model.Post{Id: "post_id", ChannelId: "channel_id", Message: "msg", UserId: "user_id"}
+	p := setupNamespaceTestPlugin(t, fakeGitLab.URL, "", func(m *plugintest.API) {
+		m.On("GetPost", "post_id").Return(post, nil)
+		m.On("HasPermissionToChannel", "user_id", "channel_id", model.PermissionCreatePost).Return(true)
+		m.On("CreatePost", mock.Anything).Return(&model.Post{}, nil)
+	})
+
+	body := `{"project_id":123,"title":"Test","description":"","post_id":"post_id"}`
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/issue", bytes.NewReader([]byte(body)))
+	r.Header.Set("Mattermost-User-ID", "user_id")
+
+	p.ServeHTTP(nil, w, r)
+
+	result := w.Result()
+	defer func() { _ = result.Body.Close() }()
+	assert.Equal(t, http.StatusOK, result.StatusCode)
+}
+
+func TestAttachCommentToIssueReturns403WhenChannelNotAuthorized(t *testing.T) {
+	fakeGitLab := fakeGitLabServer(t, "mygroup/repo")
+	defer fakeGitLab.Close()
+
+	post := &model.Post{Id: "post_id", ChannelId: "private_channel_id", Message: "msg", UserId: "other_user_id"}
+	p := setupNamespaceTestPlugin(t, fakeGitLab.URL, "", func(m *plugintest.API) {
+		m.On("GetPost", "post_id").Return(post, nil)
+		m.On("HasPermissionToChannel", "user_id", "private_channel_id", model.PermissionCreatePost).Return(false)
+	})
+
+	body := fmt.Sprintf(`{"project_id":123,"iid":1,"post_id":"post_id","comment":"a comment","web_url":"%s/mygroup/repo/-/issues/1"}`, fakeGitLab.URL)
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/attachcommenttoissue", bytes.NewReader([]byte(body)))
+	r.Header.Set("Mattermost-User-ID", "user_id")
+
+	p.ServeHTTP(nil, w, r)
+
+	result := w.Result()
+	defer func() { _ = result.Body.Close() }()
+	data, _ := io.ReadAll(result.Body)
+	assert.Equal(t, http.StatusForbidden, result.StatusCode)
+	assert.Contains(t, string(data), "Not authorized to post in this channel")
+}
+
+func TestAttachCommentToIssueReturns400ForInvalidWebURL(t *testing.T) {
+	fakeGitLab := fakeGitLabServer(t, "mygroup/repo")
+	defer fakeGitLab.Close()
+
+	t.Run("rejects URL from different host", func(t *testing.T) {
+		p := setupNamespaceTestPlugin(t, fakeGitLab.URL, "", nil)
+
+		body := `{"project_id":123,"iid":1,"post_id":"post_id","comment":"a comment","web_url":"https://evil.attacker/phish"}`
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/attachcommenttoissue", bytes.NewReader([]byte(body)))
+		r.Header.Set("Mattermost-User-ID", "user_id")
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+		data, _ := io.ReadAll(result.Body)
+		assert.Equal(t, http.StatusBadRequest, result.StatusCode)
+		assert.Contains(t, string(data), "web_url must be a URL under the configured GitLab instance")
+	})
+
+	t.Run("rejects URL with matching host but wrong path prefix", func(t *testing.T) {
+		config := configuration{
+			GitlabURL:               "https://gitlab.com/myinstance",
+			GitlabOAuthClientID:     "client_id",
+			GitlabOAuthClientSecret: "client_secret",
+			EncryptionKey:           testEncryptionKeyForAPI,
+		}
+		info := gitlab.UserInfo{UserID: "user_id", GitlabUsername: "gitlab_username", GitlabUserID: 0}
+		jsonInfo, err := json.Marshal(info)
+		require.NoError(t, err)
+
+		mockAPI := &plugintest.API{}
+		siteURL := "https://example.com"
+		conf := &model.Config{ServiceSettings: model.ServiceSettings{SiteURL: &siteURL}}
+		mockAPI.On("GetConfig", mock.Anything).Return(conf)
+		mockAPI.On("KVGet", "user_id_userinfo").Return(jsonInfo, nil)
+
+		p := &Plugin{configuration: &config}
+		p.initializeAPI()
+		p.SetAPI(mockAPI)
+		p.client = pluginapi.NewClient(mockAPI, p.Driver)
+
+		body := `{"project_id":123,"iid":1,"post_id":"post_id","comment":"a comment","web_url":"https://gitlab.com/otherpath/repo/-/issues/1"}`
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/attachcommenttoissue", bytes.NewReader([]byte(body)))
+		r.Header.Set("Mattermost-User-ID", "user_id")
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+		data, _ := io.ReadAll(result.Body)
+		assert.Equal(t, http.StatusBadRequest, result.StatusCode)
+		assert.Contains(t, string(data), "web_url must be a URL under the configured GitLab instance")
+	})
+
+	t.Run("rejects URL with invalid characters", func(t *testing.T) {
+		p := setupNamespaceTestPlugin(t, fakeGitLab.URL, "", nil)
+
+		body := fmt.Sprintf(`{"project_id":123,"iid":1,"post_id":"post_id","comment":"a comment","web_url":"%s/mygroup/repo) name [1]"}`, fakeGitLab.URL)
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/attachcommenttoissue", bytes.NewReader([]byte(body)))
+		r.Header.Set("Mattermost-User-ID", "user_id")
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+		data, _ := io.ReadAll(result.Body)
+		assert.Equal(t, http.StatusBadRequest, result.StatusCode)
+		assert.Contains(t, string(data), "invalid web_url")
+	})
+
+	t.Run("accepts valid GitLab URL", func(t *testing.T) {
+		post := &model.Post{Id: "post_id", ChannelId: "channel_id", Message: "msg", UserId: "user_id"}
+		p := setupNamespaceTestPlugin(t, fakeGitLab.URL, "", func(m *plugintest.API) {
+			m.On("GetPost", "post_id").Return(post, nil)
+			m.On("HasPermissionToChannel", "user_id", "channel_id", model.PermissionCreatePost).Return(true)
+			m.On("GetUser", "user_id").Return(&model.User{Username: "testuser"}, nil)
+		})
+
+		body := fmt.Sprintf(`{"project_id":123,"iid":1,"post_id":"post_id","comment":"a comment","web_url":"%s/mygroup/repo/-/issues/1"}`, fakeGitLab.URL)
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/attachcommenttoissue", bytes.NewReader([]byte(body)))
+		r.Header.Set("Mattermost-User-ID", "user_id")
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+		assert.NotEqual(t, http.StatusBadRequest, result.StatusCode)
+	})
+}
+
+func TestHasInvalidURLChars(t *testing.T) {
+	for name, tc := range map[string]struct {
+		url     string
+		invalid bool
+	}{
+		"plain URL":             {"https://gitlab.com/group/repo/-/issues/1", false},
+		"percent-encoded space": {"https://gitlab.com/group/repo%20name/-/issues/1", false},
+		"query and fragment":    {"https://gitlab.com/group/repo/-/issues/1?foo=bar#note_1", false},
+		"raw space":             {"https://gitlab.com/group/repo name", true},
+		"open paren":            {"https://gitlab.com/group/repo(", true},
+		"close paren":           {"https://gitlab.com/group/repo)", true},
+		"square brackets":       {"https://gitlab.com/group/repo[1]", true},
+		"angle brackets":        {"https://gitlab.com/group/repo<b>", true},
+		"backtick":              {"https://gitlab.com/group/repo`", true},
+		"double quote":          {"https://gitlab.com/group/repo\"", true},
+		"backslash":             {"https://gitlab.com/group\\repo", true},
+		"newline":               {"https://gitlab.com/group/repo\nx", true},
+		"tab":                   {"https://gitlab.com/group/repo\tx", true},
+		"non-breaking space":    {"https://gitlab.com/group/repo\u00a0x", true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tc.invalid, hasInvalidURLChars(tc.url))
+		})
+	}
 }
