@@ -142,6 +142,13 @@ func fullPathFromNamespaceAndProject(namespace, project string) string {
 	return fmt.Sprintf("%s/%s", namespace, project)
 }
 
+func namespaceFromGroupAndProject(group, project string) string {
+	if project == "" {
+		return group
+	}
+	return fullPathFromNamespaceAndProject(group, project)
+}
+
 // isValidURL checks if a given URL is a valid URL with a host and a http or http scheme.
 func isValidURL(rawURL string) error {
 	u, err := url.ParseRequestURI(rawURL)
