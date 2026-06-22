@@ -8,12 +8,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// --- Common types -----------------------------------------------------------
-
-type PaginationInput struct {
-	Page    int `json:"page,omitempty" jsonschema:"Page number (1-based, default 1)"`
-	PerPage int `json:"per_page,omitempty" jsonschema:"Number of results per page (default 20, max 100)"`
-}
+func ptr[T any](v T) *T { return &v }
 
 // --- Issue types ------------------------------------------------------------
 
@@ -41,15 +36,12 @@ type GetIssueOutput struct {
 	Issue IssueSummary `json:"issue"`
 }
 
-type ListMyAssignedIssuesOutput struct {
-	Issues []IssueSummary `json:"issues"`
+type ListIssuesInput struct {
+	Search       string `json:"search,omitempty" jsonschema:"Keyword to search issue titles and descriptions. When omitted, the issues assigned to you are returned instead."`
+	AssignedToMe bool   `json:"assigned_to_me,omitempty" jsonschema:"Force the assigned-to-me list even when a search term is given"`
 }
 
-type SearchIssuesInput struct {
-	Search string `json:"search" jsonschema:"Full-text search term to find issues by title or description"`
-}
-
-type SearchIssuesOutput struct {
+type ListIssuesOutput struct {
 	Issues []IssueSummary `json:"issues"`
 }
 
@@ -58,8 +50,8 @@ type CreateIssueInput struct {
 	Title       string   `json:"title" jsonschema:"Issue title (required)"`
 	Description string   `json:"description,omitempty" jsonschema:"Optional issue description (Markdown supported)"`
 	Labels      []string `json:"labels,omitempty" jsonschema:"Optional list of label names to apply"`
-	AssigneeIDs []int    `json:"assignee_ids,omitempty" jsonschema:"Optional list of GitLab user IDs to assign. Use list_project_members to look up IDs."`
-	MilestoneID int      `json:"milestone_id,omitempty" jsonschema:"Optional milestone ID. Use list_project_milestones to look up IDs."`
+	AssigneeIDs []int    `json:"assignee_ids,omitempty" jsonschema:"Optional list of GitLab user IDs to assign"`
+	MilestoneID int      `json:"milestone_id,omitempty" jsonschema:"Optional milestone ID"`
 }
 
 type CreateIssueOutput struct {
@@ -67,13 +59,13 @@ type CreateIssueOutput struct {
 }
 
 type UpdateIssueInput struct {
-	ProjectPath string   `json:"project_path" jsonschema:"Full project path in namespace/project format (e.g. mygroup/myproject)"`
+	ProjectPath string   `json:"project_path" jsonschema:"Full project path in namespace/project format"`
 	IssueIID    int      `json:"issue_iid" jsonschema:"Internal issue number (IID)"`
 	Title       *string  `json:"title,omitempty" jsonschema:"New title (omit to leave unchanged)"`
 	Description *string  `json:"description,omitempty" jsonschema:"New description (omit to leave unchanged)"`
-	StateEvent  *string  `json:"state_event,omitempty" jsonschema:"'close' to close the issue, 'reopen' to reopen it (omit to leave state unchanged)"`
-	Labels      []string `json:"labels,omitempty" jsonschema:"Replacement label set. Omit to leave labels unchanged. Send an empty array to clear all labels."`
-	AssigneeIDs []int    `json:"assignee_ids,omitempty" jsonschema:"Replacement assignee list (GitLab user IDs). Omit to leave unchanged. Send an empty array to clear all assignees."`
+	StateEvent  *string  `json:"state_event,omitempty" jsonschema:"close or reopen (omit to leave state unchanged)"`
+	Labels      []string `json:"labels,omitempty" jsonschema:"Replacement label set. Omit to leave unchanged, send an empty array to clear."`
+	AssigneeIDs []int    `json:"assignee_ids,omitempty" jsonschema:"Replacement assignee list (user IDs). Omit to leave unchanged, send an empty array to clear."`
 	MilestoneID *int     `json:"milestone_id,omitempty" jsonschema:"New milestone ID, or 0 to remove the milestone (omit to leave unchanged)"`
 }
 
@@ -81,13 +73,16 @@ type UpdateIssueOutput struct {
 	Issue IssueSummary `json:"issue"`
 }
 
-type AddIssueCommentInput struct {
+// --- Comment types ----------------------------------------------------------
+
+type AddCommentInput struct {
+	TargetType  string `json:"target_type" jsonschema:"What to comment on: 'issue' or 'merge_request'"`
 	ProjectPath string `json:"project_path" jsonschema:"Full project path in namespace/project format"`
-	IssueIID    int    `json:"issue_iid" jsonschema:"Internal issue number (IID)"`
+	TargetIID   int    `json:"target_iid" jsonschema:"Internal number (IID) of the issue or merge request"`
 	Body        string `json:"body" jsonschema:"Comment text (Markdown supported)"`
 }
 
-type AddIssueCommentOutput struct {
+type AddCommentOutput struct {
 	NoteID int    `json:"note_id" jsonschema:"ID of the newly created note/comment"`
 	Body   string `json:"body"`
 	WebURL string `json:"web_url,omitempty"`
@@ -123,58 +118,20 @@ type GetMergeRequestOutput struct {
 	MergeRequest MergeRequestSummary `json:"merge_request"`
 }
 
-type ListMyAssignedMergeRequestsOutput struct {
+type ListMergeRequestsInput struct {
+	Search          string `json:"search,omitempty" jsonschema:"Keyword to search MR titles and descriptions"`
+	AssignedToMe    bool   `json:"assigned_to_me,omitempty" jsonschema:"List MRs assigned to you (the default when no other filter is set)"`
+	ReviewRequested bool   `json:"review_requested,omitempty" jsonschema:"List MRs awaiting your review"`
+}
+
+type ListMergeRequestsOutput struct {
 	MergeRequests []MergeRequestSummary `json:"merge_requests"`
-}
-
-type ListMyReviewRequestsOutput struct {
-	MergeRequests []MergeRequestSummary `json:"merge_requests"`
-}
-
-type SearchMergeRequestsInput struct {
-	Search string `json:"search" jsonschema:"Full-text search term to find merge requests by title or description"`
-}
-
-type SearchMergeRequestsOutput struct {
-	MergeRequests []MergeRequestSummary `json:"merge_requests"`
-}
-
-type CreateMergeRequestInput struct {
-	ProjectPath  string   `json:"project_path" jsonschema:"Full project path of the source project in namespace/project format"`
-	Title        string   `json:"title" jsonschema:"Merge request title (required)"`
-	Description  string   `json:"description,omitempty" jsonschema:"Optional MR description (Markdown supported)"`
-	SourceBranch string   `json:"source_branch" jsonschema:"Branch to merge from (required)"`
-	TargetBranch string   `json:"target_branch" jsonschema:"Branch to merge into (required, e.g. main or master)"`
-	AssigneeIDs  []int    `json:"assignee_ids,omitempty" jsonschema:"Optional list of GitLab user IDs to assign. Use list_project_members to look up IDs."`
-	ReviewerIDs  []int    `json:"reviewer_ids,omitempty" jsonschema:"Optional list of GitLab user IDs to request review from"`
-	Labels       []string `json:"labels,omitempty" jsonschema:"Optional list of label names to apply"`
-	MilestoneID  *int     `json:"milestone_id,omitempty" jsonschema:"Optional milestone ID"`
-}
-
-type CreateMergeRequestOutput struct {
-	MergeRequest MergeRequestSummary `json:"merge_request"`
-}
-
-type AddMergeRequestCommentInput struct {
-	ProjectPath    string `json:"project_path" jsonschema:"Full project path in namespace/project format"`
-	MergeRequestID int    `json:"merge_request_iid" jsonschema:"Internal merge request number (IID)"`
-	Body           string `json:"body" jsonschema:"Comment text (Markdown supported)"`
-}
-
-type AddMergeRequestCommentOutput struct {
-	NoteID int    `json:"note_id" jsonschema:"ID of the newly created note/comment"`
-	Body   string `json:"body"`
-	WebURL string `json:"web_url,omitempty"`
 }
 
 // --- Project types ----------------------------------------------------------
 
-type ListMyProjectsOutput struct {
-	Projects []ProjectSummary `json:"projects"`
-}
-
-type GetProjectInput struct {
-	ProjectPath string `json:"project_path" jsonschema:"Full project path in namespace/project format (e.g. mygroup/myproject)"`
+type GetProjectsInput struct {
+	ProjectPath string `json:"project_path,omitempty" jsonschema:"Full project path (namespace/project) to fetch a single project. Omit to list the projects you can access."`
 }
 
 type ProjectSummary struct {
@@ -187,71 +144,15 @@ type ProjectSummary struct {
 	DefaultBranch     string `json:"default_branch,omitempty"`
 }
 
-type GetProjectOutput struct {
-	Project ProjectSummary `json:"project"`
+type GetProjectsOutput struct {
+	Projects []ProjectSummary `json:"projects"`
 }
 
-// --- Pipeline types ---------------------------------------------------------
+// --- Project metadata types -------------------------------------------------
 
-type RunPipelineInput struct {
+type GetProjectMetadataInput struct {
 	ProjectPath string `json:"project_path" jsonschema:"Full project path in namespace/project format"`
-	Ref         string `json:"ref" jsonschema:"Branch name or tag to run the pipeline on (e.g. main)"`
-}
-
-type PipelineSummary struct {
-	ID        int    `json:"id"`
-	Status    string `json:"status" jsonschema:"Pipeline status: pending, running, passed, failed, canceled, skipped"`
-	Ref       string `json:"ref" jsonschema:"Branch or tag name"`
-	SHA       string `json:"sha,omitempty" jsonschema:"Commit SHA"`
-	WebURL    string `json:"web_url"`
-	CreatedAt string `json:"created_at,omitempty"`
-	UpdatedAt string `json:"updated_at,omitempty"`
-}
-
-type RunPipelineOutput struct {
-	Pipeline PipelineSummary `json:"pipeline"`
-}
-
-type ListProjectPipelinesInput struct {
-	ProjectPath string `json:"project_path" jsonschema:"Full project path in namespace/project format"`
-	Ref         string `json:"ref,omitempty" jsonschema:"Optional branch or tag to filter pipelines"`
-	Status      string `json:"status,omitempty" jsonschema:"Optional status filter: pending, running, passed, failed, canceled, skipped"`
-	PaginationInput
-}
-
-type ListProjectPipelinesOutput struct {
-	Pipelines []PipelineSummary `json:"pipelines"`
-}
-
-// --- Todo types -------------------------------------------------------------
-
-type TodoSummary struct {
-	ID          int    `json:"id"`
-	ActionName  string `json:"action_name" jsonschema:"What triggered this todo, e.g. assigned, mentioned, review_requested"`
-	TargetType  string `json:"target_type" jsonschema:"Type of the target object, e.g. Issue or MergeRequest"`
-	TargetTitle string `json:"target_title"`
-	ProjectPath string `json:"project_path,omitempty"`
-	WebURL      string `json:"web_url,omitempty"`
-	CreatedAt   string `json:"created_at,omitempty"`
-}
-
-type GetMyTodosOutput struct {
-	Todos []TodoSummary `json:"todos"`
-}
-
-// --- LHS dashboard types ----------------------------------------------------
-
-type LHSDataOutput struct {
-	AssignedMergeRequests []MergeRequestSummary `json:"assigned_merge_requests"`
-	ReviewRequests        []MergeRequestSummary `json:"review_requests"`
-	AssignedIssues        []IssueSummary        `json:"assigned_issues"`
-	Todos                 []TodoSummary         `json:"todos"`
-}
-
-// --- Label / milestone types ------------------------------------------------
-
-type ListProjectLabelsInput struct {
-	ProjectPath string `json:"project_path" jsonschema:"Full project path in namespace/project format"`
+	Kind        string `json:"kind" jsonschema:"Which metadata to return: 'labels', 'milestones', or 'members'"`
 }
 
 type LabelSummary struct {
@@ -259,14 +160,6 @@ type LabelSummary struct {
 	Name        string `json:"name"`
 	Color       string `json:"color,omitempty" jsonschema:"Hex color code (e.g. #428BCA)"`
 	Description string `json:"description,omitempty"`
-}
-
-type ListProjectLabelsOutput struct {
-	Labels []LabelSummary `json:"labels"`
-}
-
-type ListProjectMilestonesInput struct {
-	ProjectPath string `json:"project_path" jsonschema:"Full project path in namespace/project format"`
 }
 
 type MilestoneSummary struct {
@@ -279,11 +172,20 @@ type MilestoneSummary struct {
 	StartDate   string `json:"start_date,omitempty"`
 }
 
-type ListProjectMilestonesOutput struct {
-	Milestones []MilestoneSummary `json:"milestones"`
+type ProjectMemberSummary struct {
+	ID          int    `json:"id" jsonschema:"GitLab user ID — use this value for assignee_ids and reviewer_ids"`
+	Username    string `json:"username"`
+	Name        string `json:"name"`
+	AccessLevel int    `json:"access_level" jsonschema:"Access level: 10=Guest, 20=Reporter, 30=Developer, 40=Maintainer, 50=Owner"`
 }
 
-// --- User / member types ----------------------------------------------------
+type GetProjectMetadataOutput struct {
+	Labels     []LabelSummary         `json:"labels,omitempty"`
+	Milestones []MilestoneSummary     `json:"milestones,omitempty"`
+	Members    []ProjectMemberSummary `json:"members,omitempty"`
+}
+
+// --- User types -------------------------------------------------------------
 
 type GetMyGitLabUserOutput struct {
 	ID        int    `json:"id" jsonschema:"GitLab user database ID"`
@@ -294,139 +196,78 @@ type GetMyGitLabUserOutput struct {
 	WebURL    string `json:"web_url"`
 }
 
-type ListProjectMembersInput struct {
-	ProjectPath string `json:"project_path" jsonschema:"Full project path in namespace/project format"`
-}
-
-type ProjectMemberSummary struct {
-	ID          int    `json:"id" jsonschema:"GitLab user ID — use this value for assignee_ids and reviewer_ids"`
-	Username    string `json:"username"`
-	Name        string `json:"name"`
-	AccessLevel int    `json:"access_level" jsonschema:"Access level: 10=Guest, 20=Reporter, 30=Developer, 40=Maintainer, 50=Owner"`
-}
-
-type ListProjectMembersOutput struct {
-	Members []ProjectMemberSummary `json:"members"`
-}
-
 // --- Tool registration ------------------------------------------------------
 
+// registerTools registers the GitLab MCP tools. The set is intentionally kept
+// small (every tool's schema is injected into each LLM call, see the pluginmcp
+// budget of ~10 tools): related read/search/list operations are merged into
+// single tools with mode flags rather than exposed as separate tools.
 func (p *Plugin) registerTools(s *pluginmcp.Server) {
+	readOnly := &mcp.ToolAnnotations{ReadOnlyHint: true}
+	additive := &mcp.ToolAnnotations{DestructiveHint: ptr(false)}
+
 	// Issues
 	pluginmcp.AddTool(s, &mcp.Tool{
 		Name:        "get_issue",
-		Description: "Retrieve details of a single GitLab issue by project path and issue IID (the number shown in the GitLab UI). Returns title, state, description, labels, assignees, milestone, and web URL.",
+		Description: "Fetch one issue's full details by project path and IID. For a keyword search or your assigned issues use list_issues.",
+		Annotations: readOnly,
 	}, p.handleGetIssue)
 
 	pluginmcp.AddTool(s, &mcp.Tool{
-		Name:        "list_my_assigned_issues",
-		Description: "List all open GitLab issues currently assigned to the calling user. Respects the plugin's configured namespace restriction.",
-	}, p.handleListMyAssignedIssues)
-
-	pluginmcp.AddTool(s, &mcp.Tool{
-		Name:        "search_issues",
-		Description: "Full-text search for GitLab issues by title or description. Searches within the configured namespace (group or whole instance).",
-	}, p.handleSearchIssues)
+		Name:        "list_issues",
+		Description: "List the issues assigned to you, or search issues by keyword. Returns issue summaries (capped to GitLab's default page size). For a single issue use get_issue.",
+		Annotations: readOnly,
+	}, p.handleListIssues)
 
 	pluginmcp.AddTool(s, &mcp.Tool{
 		Name:        "create_issue",
-		Description: "Create a new GitLab issue in a project. Use list_project_labels to find valid label names, list_project_milestones for milestone IDs, and list_project_members for assignee user IDs.",
+		Description: "Create an issue in a project and return it. Resolve label names and assignee IDs first with get_project_metadata.",
+		Annotations: additive,
 	}, p.handleCreateIssue)
 
 	pluginmcp.AddTool(s, &mcp.Tool{
 		Name:        "update_issue",
-		Description: "Update an existing GitLab issue. Only fields explicitly provided are changed; omitted fields remain as-is. Use state_event 'close' or 'reopen' to change issue state.",
+		Description: "Change an existing issue's fields or open/close state and return it; omitted fields are left untouched. To only add a comment use add_comment.",
+		Annotations: additive,
 	}, p.handleUpdateIssue)
 
+	// Comments (issues and merge requests)
 	pluginmcp.AddTool(s, &mcp.Tool{
-		Name:        "add_issue_comment",
-		Description: "Add a comment (note) to an existing GitLab issue. Markdown is supported in the body.",
-	}, p.handleAddIssueComment)
+		Name:        "add_comment",
+		Description: "Post a comment on an issue or merge request, selected via target_type, and return the created note.",
+		Annotations: additive,
+	}, p.handleAddComment)
 
-	// Merge Requests
+	// Merge requests
 	pluginmcp.AddTool(s, &mcp.Tool{
 		Name:        "get_merge_request",
-		Description: "Retrieve details of a single GitLab merge request by project path and MR IID. Returns title, state, branches, author, assignees, reviewers, labels, and web URL.",
+		Description: "Fetch one merge request's full details by project path and IID. For lists or keyword search use list_merge_requests.",
+		Annotations: readOnly,
 	}, p.handleGetMergeRequest)
 
 	pluginmcp.AddTool(s, &mcp.Tool{
-		Name:        "list_my_assigned_merge_requests",
-		Description: "List all open GitLab merge requests currently assigned to the calling user.",
-	}, p.handleListMyAssignedMRs)
-
-	pluginmcp.AddTool(s, &mcp.Tool{
-		Name:        "list_my_review_requests",
-		Description: "List all open GitLab merge requests where the calling user has been requested as a reviewer.",
-	}, p.handleListMyReviewRequests)
-
-	pluginmcp.AddTool(s, &mcp.Tool{
-		Name:        "search_merge_requests",
-		Description: "Full-text search for GitLab merge requests by title or description.",
-	}, p.handleSearchMergeRequests)
-
-	pluginmcp.AddTool(s, &mcp.Tool{
-		Name:        "create_merge_request",
-		Description: "Create a new GitLab merge request. source_branch and target_branch are required. Use list_project_members to look up assignee and reviewer user IDs.",
-	}, p.handleCreateMergeRequest)
-
-	pluginmcp.AddTool(s, &mcp.Tool{
-		Name:        "add_merge_request_comment",
-		Description: "Add a comment (note) to an existing GitLab merge request. Markdown is supported in the body.",
-	}, p.handleAddMergeRequestComment)
+		Name:        "list_merge_requests",
+		Description: "List the merge requests assigned to you (default), awaiting your review, or matching a keyword search (capped to GitLab's default page size). For a single MR use get_merge_request.",
+		Annotations: readOnly,
+	}, p.handleListMergeRequests)
 
 	// Projects
 	pluginmcp.AddTool(s, &mcp.Tool{
-		Name:        "list_my_projects",
-		Description: "List GitLab projects the calling user has access to. If the plugin is configured with a group restriction, only projects within that group are returned.",
-	}, p.handleListMyProjects)
+		Name:        "get_projects",
+		Description: "List the projects you can access, or fetch a single project when project_path is set (results capped to GitLab's default page size).",
+		Annotations: readOnly,
+	}, p.handleGetProjects)
 
 	pluginmcp.AddTool(s, &mcp.Tool{
-		Name:        "get_project",
-		Description: "Get details for a specific GitLab project by its full path (namespace/project).",
-	}, p.handleGetProject)
+		Name:        "get_project_metadata",
+		Description: "Fetch a project's labels, milestones, or members (choose with kind). Use it to resolve label names and user IDs before create_issue, update_issue, or create_merge_request.",
+		Annotations: readOnly,
+	}, p.handleGetProjectMetadata)
 
-	// Pipelines
-	pluginmcp.AddTool(s, &mcp.Tool{
-		Name:        "run_pipeline",
-		Description: "Trigger a new CI/CD pipeline for a given project and branch or tag ref.",
-	}, p.handleRunPipeline)
-
-	pluginmcp.AddTool(s, &mcp.Tool{
-		Name:        "list_project_pipelines",
-		Description: "List recent CI/CD pipelines for a project. Optionally filter by ref (branch/tag) and status (pending, running, passed, failed, canceled, skipped).",
-	}, p.handleListProjectPipelines)
-
-	// Todos
-	pluginmcp.AddTool(s, &mcp.Tool{
-		Name:        "get_my_todos",
-		Description: "List the calling user's GitLab to-do items — issues and merge requests that require their attention (assigned, mentioned, review requested, etc.).",
-	}, p.handleGetMyTodos)
-
-	// Dashboard
-	pluginmcp.AddTool(s, &mcp.Tool{
-		Name:        "get_gitlab_dashboard",
-		Description: "Return a combined overview of the calling user's GitLab workload in a single call: assigned merge requests, review requests, assigned issues, and todos. Useful for a quick situational awareness check.",
-	}, p.handleGetGitLabDashboard)
-
-	// Labels and milestones
-	pluginmcp.AddTool(s, &mcp.Tool{
-		Name:        "list_project_labels",
-		Description: "List all labels defined for a GitLab project. Use this to find valid label names before creating or updating issues and merge requests.",
-	}, p.handleListProjectLabels)
-
-	pluginmcp.AddTool(s, &mcp.Tool{
-		Name:        "list_project_milestones",
-		Description: "List active milestones for a GitLab project. Includes group-level milestones when the project belongs to a group.",
-	}, p.handleListProjectMilestones)
-
-	// User / metadata
+	// User
 	pluginmcp.AddTool(s, &mcp.Tool{
 		Name:        "get_my_gitlab_user",
-		Description: "Return the calling user's GitLab profile: username, name, email, and web URL. Useful for agents to identify who they are acting as.",
+		Description: "Return your own GitLab identity (id, username, name). Use the id for assignee_ids or reviewer_ids when creating issues or merge requests.",
+		Annotations: readOnly,
 	}, p.handleGetMyGitLabUser)
-
-	pluginmcp.AddTool(s, &mcp.Tool{
-		Name:        "list_project_members",
-		Description: "List all members of a GitLab project with their user IDs and access levels. Use the returned id values as assignee_ids or reviewer_ids when creating issues or merge requests.",
-	}, p.handleListProjectMembers)
 }

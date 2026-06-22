@@ -54,10 +54,9 @@ func (p *Plugin) startMCP() {
 	p.registerTools(s)
 	p.mcpServer = s
 
-	if err := s.Register(); err != nil {
-		p.API.LogWarn("MCP register call returned error; tools will not be exposed to Agents",
-			"err", err.Error())
-	}
+	// Register returns nil immediately and retries with the Agents plugin in a
+	// background goroutine, so there is no synchronous error to handle here.
+	_ = s.Register()
 }
 
 func (p *Plugin) stopMCP() {
@@ -101,7 +100,9 @@ func (p *Plugin) resolveCaller(ctx context.Context) (*gitlab.UserInfo, *oauth2.T
 		return nil, nil, fmt.Errorf("GitLab account not connected: %s", apiErr.Message)
 	}
 
-	token, err := p.getOrRefreshTokenWithMutex(info)
+	// Don't DM the user on a revoked token here: an LLM may retry a failed tool
+	// call several times, and we'd spam the same disconnect notice each time.
+	token, err := p.getOrRefreshToken(info, false)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get GitLab token: %w", err)
 	}

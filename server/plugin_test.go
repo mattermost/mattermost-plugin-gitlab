@@ -429,7 +429,7 @@ func TestRefreshTokenReturnsErrorWhenOAuthConfigFails(t *testing.T) {
 		Expiry:       time.Now().Add(-1 * time.Hour),
 	}
 
-	newToken, err := p.refreshToken(userInfo, token)
+	newToken, err := p.refreshToken(userInfo, token, true)
 	assert.Nil(t, newToken)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unable to get OAuth config for token refresh")

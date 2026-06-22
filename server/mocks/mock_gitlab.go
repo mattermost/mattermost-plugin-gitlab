@@ -103,21 +103,6 @@ func (mr *MockGitlabMockRecorder) CreateIssue(arg0, arg1, arg2, arg3 any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateIssue", reflect.TypeOf((*MockGitlab)(nil).CreateIssue), arg0, arg1, arg2, arg3)
 }
 
-// CreateMergeRequest mocks base method.
-func (m *MockGitlab) CreateMergeRequest(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token, arg3 string, arg4 *gitlab.CreateMergeRequestOptions) (*gitlab0.MergeRequest, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateMergeRequest", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(*gitlab0.MergeRequest)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CreateMergeRequest indicates an expected call of CreateMergeRequest.
-func (mr *MockGitlabMockRecorder) CreateMergeRequest(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMergeRequest", reflect.TypeOf((*MockGitlab)(nil).CreateMergeRequest), arg0, arg1, arg2, arg3, arg4)
-}
-
 // GetCurrentUser mocks base method.
 func (m *MockGitlab) GetCurrentUser(arg0 context.Context, arg1 string, arg2 oauth2.Token) (*gitlab.UserInfo, error) {
 	m.ctrl.T.Helper()
@@ -403,19 +388,49 @@ func (mr *MockGitlabMockRecorder) GitlabConnect(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GitlabConnect", reflect.TypeOf((*MockGitlab)(nil).GitlabConnect), arg0)
 }
 
-// ListProjectPipelines mocks base method.
-func (m *MockGitlab) ListProjectPipelines(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token, arg3, arg4, arg5 string, arg6, arg7 int) ([]*gitlab0.PipelineInfo, error) {
+// ListAssignedIssues mocks base method.
+func (m *MockGitlab) ListAssignedIssues(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token) ([]*gitlab0.Issue, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListProjectPipelines", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
-	ret0, _ := ret[0].([]*gitlab0.PipelineInfo)
+	ret := m.ctrl.Call(m, "ListAssignedIssues", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]*gitlab0.Issue)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ListProjectPipelines indicates an expected call of ListProjectPipelines.
-func (mr *MockGitlabMockRecorder) ListProjectPipelines(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 any) *gomock.Call {
+// ListAssignedIssues indicates an expected call of ListAssignedIssues.
+func (mr *MockGitlabMockRecorder) ListAssignedIssues(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListProjectPipelines", reflect.TypeOf((*MockGitlab)(nil).ListProjectPipelines), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAssignedIssues", reflect.TypeOf((*MockGitlab)(nil).ListAssignedIssues), arg0, arg1, arg2)
+}
+
+// ListAssignedMergeRequests mocks base method.
+func (m *MockGitlab) ListAssignedMergeRequests(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token) ([]*gitlab0.MergeRequest, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListAssignedMergeRequests", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]*gitlab0.MergeRequest)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListAssignedMergeRequests indicates an expected call of ListAssignedMergeRequests.
+func (mr *MockGitlabMockRecorder) ListAssignedMergeRequests(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAssignedMergeRequests", reflect.TypeOf((*MockGitlab)(nil).ListAssignedMergeRequests), arg0, arg1, arg2)
+}
+
+// ListReviewRequests mocks base method.
+func (m *MockGitlab) ListReviewRequests(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token) ([]*gitlab0.MergeRequest, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListReviewRequests", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]*gitlab0.MergeRequest)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListReviewRequests indicates an expected call of ListReviewRequests.
+func (mr *MockGitlabMockRecorder) ListReviewRequests(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListReviewRequests", reflect.TypeOf((*MockGitlab)(nil).ListReviewRequests), arg0, arg1, arg2)
 }
 
 // NewGroupHook mocks base method.

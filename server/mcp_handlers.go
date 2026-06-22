@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	internGitlab "github.com/xanzy/go-gitlab"
@@ -43,41 +44,26 @@ func (p *Plugin) handleGetIssue(ctx context.Context, _ *mcp.CallToolRequest, in 
 	return nil, GetIssueOutput{Issue: issueToSummary(issue.Issue)}, nil
 }
 
-func (p *Plugin) handleListMyAssignedIssues(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, ListMyAssignedIssuesOutput, error) {
+// handleListIssues returns either the caller's assigned issues or the results
+// of a keyword search. assigned_to_me (or an empty search) selects the assigned
+// list; otherwise the search term is used.
+func (p *Plugin) handleListIssues(ctx context.Context, _ *mcp.CallToolRequest, in ListIssuesInput) (*mcp.CallToolResult, ListIssuesOutput, error) {
 	info, token, err := p.resolveCaller(ctx)
 	if err != nil {
-		return nil, ListMyAssignedIssuesOutput{}, err
+		return nil, ListIssuesOutput{}, err
 	}
 
-	client, err := p.GitlabClient.GitlabConnect(*token)
+	var issues []*internGitlab.Issue
+	if in.AssignedToMe || in.Search == "" {
+		issues, err = p.GitlabClient.ListAssignedIssues(ctx, info, token)
+	} else {
+		issues, err = p.GitlabClient.SearchIssues(ctx, info, in.Search, token)
+	}
 	if err != nil {
-		return nil, ListMyAssignedIssuesOutput{}, fmt.Errorf("failed to connect to GitLab: %w", err)
+		return nil, ListIssuesOutput{}, fmt.Errorf("failed to list issues: %w", err)
 	}
 
-	issues, err := p.GitlabClient.GetYourAssignedIssues(ctx, info, client)
-	if err != nil {
-		return nil, ListMyAssignedIssuesOutput{}, fmt.Errorf("failed to list assigned issues: %w", err)
-	}
-
-	return nil, ListMyAssignedIssuesOutput{Issues: issuesToSummaries(issues)}, nil
-}
-
-func (p *Plugin) handleSearchIssues(ctx context.Context, _ *mcp.CallToolRequest, in SearchIssuesInput) (*mcp.CallToolResult, SearchIssuesOutput, error) {
-	if in.Search == "" {
-		return nil, SearchIssuesOutput{}, fmt.Errorf("search term is required")
-	}
-
-	info, token, err := p.resolveCaller(ctx)
-	if err != nil {
-		return nil, SearchIssuesOutput{}, err
-	}
-
-	issues, err := p.GitlabClient.SearchIssues(ctx, info, in.Search, token)
-	if err != nil {
-		return nil, SearchIssuesOutput{}, fmt.Errorf("failed to search issues: %w", err)
-	}
-
-	return nil, SearchIssuesOutput{Issues: issuesToSummaries(issues)}, nil
+	return nil, ListIssuesOutput{Issues: issuesToSummaries(issues)}, nil
 }
 
 func (p *Plugin) handleCreateIssue(ctx context.Context, _ *mcp.CallToolRequest, in CreateIssueInput) (*mcp.CallToolResult, CreateIssueOutput, error) {
@@ -93,6 +79,11 @@ func (p *Plugin) handleCreateIssue(ctx context.Context, _ *mcp.CallToolRequest, 
 		return nil, CreateIssueOutput{}, err
 	}
 
+	owner, repo, err := splitProjectPath(in.ProjectPath)
+	if err != nil {
+		return nil, CreateIssueOutput{}, err
+	}
+
 	req := &gitlab.IssueRequest{
 		Title:       in.Title,
 		Description: in.Description,
@@ -101,7 +92,6 @@ func (p *Plugin) handleCreateIssue(ctx context.Context, _ *mcp.CallToolRequest, 
 		Labels:      internGitlab.LabelOptions(in.Labels),
 	}
 
-	owner, repo := splitProjectPathParts(in.ProjectPath)
 	project, err := p.GitlabClient.GetProject(ctx, info, token, owner, repo)
 	if err != nil {
 		return nil, CreateIssueOutput{}, fmt.Errorf("failed to resolve project %q: %w", in.ProjectPath, err)
@@ -151,31 +141,52 @@ func (p *Plugin) handleUpdateIssue(ctx context.Context, _ *mcp.CallToolRequest, 
 	return nil, UpdateIssueOutput{Issue: issueToSummary(issue)}, nil
 }
 
-func (p *Plugin) handleAddIssueComment(ctx context.Context, _ *mcp.CallToolRequest, in AddIssueCommentInput) (*mcp.CallToolResult, AddIssueCommentOutput, error) {
+// ============================================================================
+// Comments
+// ============================================================================
+
+// handleAddComment posts a note to an issue or merge request, routing on
+// target_type so a single tool covers both surfaces.
+func (p *Plugin) handleAddComment(ctx context.Context, _ *mcp.CallToolRequest, in AddCommentInput) (*mcp.CallToolResult, AddCommentOutput, error) {
 	if in.ProjectPath == "" {
-		return nil, AddIssueCommentOutput{}, fmt.Errorf("project_path is required")
+		return nil, AddCommentOutput{}, fmt.Errorf("project_path is required")
 	}
-	if in.IssueIID <= 0 {
-		return nil, AddIssueCommentOutput{}, fmt.Errorf("issue_iid must be a positive integer")
+	if in.TargetIID <= 0 {
+		return nil, AddCommentOutput{}, fmt.Errorf("target_iid must be a positive integer")
 	}
 	if in.Body == "" {
-		return nil, AddIssueCommentOutput{}, fmt.Errorf("body is required")
+		return nil, AddCommentOutput{}, fmt.Errorf("body is required")
+	}
+
+	var urlKind string
+	switch in.TargetType {
+	case "issue":
+		urlKind = "issues"
+	case "merge_request":
+		urlKind = "merge_requests"
+	default:
+		return nil, AddCommentOutput{}, fmt.Errorf("target_type must be 'issue' or 'merge_request'")
 	}
 
 	info, token, err := p.resolveCaller(ctx)
 	if err != nil {
-		return nil, AddIssueCommentOutput{}, err
+		return nil, AddCommentOutput{}, err
 	}
 
-	note, err := p.GitlabClient.AddIssueNote(ctx, info, token, in.ProjectPath, in.IssueIID, in.Body)
+	var note *internGitlab.Note
+	if in.TargetType == "issue" {
+		note, err = p.GitlabClient.AddIssueNote(ctx, info, token, in.ProjectPath, in.TargetIID, in.Body)
+	} else {
+		note, err = p.GitlabClient.AddMergeRequestNote(ctx, info, token, in.ProjectPath, in.TargetIID, in.Body)
+	}
 	if err != nil {
-		return nil, AddIssueCommentOutput{}, fmt.Errorf("failed to add issue comment: %w", err)
+		return nil, AddCommentOutput{}, fmt.Errorf("failed to add comment: %w", err)
 	}
 
-	return nil, AddIssueCommentOutput{
+	return nil, AddCommentOutput{
 		NoteID: note.ID,
 		Body:   note.Body,
-		WebURL: noteWebURL(p.getConfiguration().GitlabURL, in.ProjectPath, "issues", in.IssueIID, note.ID),
+		WebURL: noteWebURL(p.getConfiguration().GitlabURL, in.ProjectPath, urlKind, in.TargetIID, note.ID),
 	}, nil
 }
 
@@ -209,141 +220,57 @@ func (p *Plugin) handleGetMergeRequest(ctx context.Context, _ *mcp.CallToolReque
 	return nil, GetMergeRequestOutput{MergeRequest: mrToSummary(mr.MergeRequest)}, nil
 }
 
-func (p *Plugin) handleListMyAssignedMRs(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, ListMyAssignedMergeRequestsOutput, error) {
+// handleListMergeRequests returns the caller's assigned MRs (default), the MRs
+// awaiting their review, or keyword search results.
+func (p *Plugin) handleListMergeRequests(ctx context.Context, _ *mcp.CallToolRequest, in ListMergeRequestsInput) (*mcp.CallToolResult, ListMergeRequestsOutput, error) {
 	info, token, err := p.resolveCaller(ctx)
 	if err != nil {
-		return nil, ListMyAssignedMergeRequestsOutput{}, err
+		return nil, ListMergeRequestsOutput{}, err
 	}
 
-	client, err := p.GitlabClient.GitlabConnect(*token)
+	var mrs []*internGitlab.MergeRequest
+	switch {
+	case in.Search != "" && !in.AssignedToMe && !in.ReviewRequested:
+		mrs, err = p.GitlabClient.SearchMergeRequests(ctx, info, token, in.Search)
+	case in.ReviewRequested:
+		mrs, err = p.GitlabClient.ListReviewRequests(ctx, info, token)
+	default:
+		mrs, err = p.GitlabClient.ListAssignedMergeRequests(ctx, info, token)
+	}
 	if err != nil {
-		return nil, ListMyAssignedMergeRequestsOutput{}, fmt.Errorf("failed to connect to GitLab: %w", err)
+		return nil, ListMergeRequestsOutput{}, fmt.Errorf("failed to list merge requests: %w", err)
 	}
 
-	mrs, err := p.GitlabClient.GetYourAssignedPrs(ctx, info, client)
-	if err != nil {
-		return nil, ListMyAssignedMergeRequestsOutput{}, fmt.Errorf("failed to list assigned merge requests: %w", err)
-	}
-
-	return nil, ListMyAssignedMergeRequestsOutput{MergeRequests: mrsToSummaries(mrs)}, nil
-}
-
-func (p *Plugin) handleListMyReviewRequests(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, ListMyReviewRequestsOutput, error) {
-	info, token, err := p.resolveCaller(ctx)
-	if err != nil {
-		return nil, ListMyReviewRequestsOutput{}, err
-	}
-
-	client, err := p.GitlabClient.GitlabConnect(*token)
-	if err != nil {
-		return nil, ListMyReviewRequestsOutput{}, fmt.Errorf("failed to connect to GitLab: %w", err)
-	}
-
-	mrs, err := p.GitlabClient.GetReviews(ctx, info, client)
-	if err != nil {
-		return nil, ListMyReviewRequestsOutput{}, fmt.Errorf("failed to list review requests: %w", err)
-	}
-
-	return nil, ListMyReviewRequestsOutput{MergeRequests: mrsToSummaries(mrs)}, nil
-}
-
-func (p *Plugin) handleSearchMergeRequests(ctx context.Context, _ *mcp.CallToolRequest, in SearchMergeRequestsInput) (*mcp.CallToolResult, SearchMergeRequestsOutput, error) {
-	if in.Search == "" {
-		return nil, SearchMergeRequestsOutput{}, fmt.Errorf("search term is required")
-	}
-
-	info, token, err := p.resolveCaller(ctx)
-	if err != nil {
-		return nil, SearchMergeRequestsOutput{}, err
-	}
-
-	mrs, err := p.GitlabClient.SearchMergeRequests(ctx, info, token, in.Search)
-	if err != nil {
-		return nil, SearchMergeRequestsOutput{}, fmt.Errorf("failed to search merge requests: %w", err)
-	}
-
-	return nil, SearchMergeRequestsOutput{MergeRequests: mrsToSummaries(mrs)}, nil
-}
-
-func (p *Plugin) handleCreateMergeRequest(ctx context.Context, _ *mcp.CallToolRequest, in CreateMergeRequestInput) (*mcp.CallToolResult, CreateMergeRequestOutput, error) {
-	if in.ProjectPath == "" {
-		return nil, CreateMergeRequestOutput{}, fmt.Errorf("project_path is required")
-	}
-	if in.Title == "" {
-		return nil, CreateMergeRequestOutput{}, fmt.Errorf("title is required")
-	}
-	if in.SourceBranch == "" {
-		return nil, CreateMergeRequestOutput{}, fmt.Errorf("source_branch is required")
-	}
-	if in.TargetBranch == "" {
-		return nil, CreateMergeRequestOutput{}, fmt.Errorf("target_branch is required")
-	}
-
-	info, token, err := p.resolveCaller(ctx)
-	if err != nil {
-		return nil, CreateMergeRequestOutput{}, err
-	}
-
-	opts := &gitlab.CreateMergeRequestOptions{
-		Title:        in.Title,
-		Description:  in.Description,
-		SourceBranch: in.SourceBranch,
-		TargetBranch: in.TargetBranch,
-		AssigneeIDs:  in.AssigneeIDs,
-		ReviewerIDs:  in.ReviewerIDs,
-		Labels:       internGitlab.LabelOptions(in.Labels),
-		MilestoneID:  in.MilestoneID,
-	}
-
-	mr, err := p.GitlabClient.CreateMergeRequest(ctx, info, token, in.ProjectPath, opts)
-	if err != nil {
-		return nil, CreateMergeRequestOutput{}, fmt.Errorf("failed to create merge request: %w", err)
-	}
-
-	return nil, CreateMergeRequestOutput{MergeRequest: mrToSummary(mr)}, nil
-}
-
-func (p *Plugin) handleAddMergeRequestComment(ctx context.Context, _ *mcp.CallToolRequest, in AddMergeRequestCommentInput) (*mcp.CallToolResult, AddMergeRequestCommentOutput, error) {
-	if in.ProjectPath == "" {
-		return nil, AddMergeRequestCommentOutput{}, fmt.Errorf("project_path is required")
-	}
-	if in.MergeRequestID <= 0 {
-		return nil, AddMergeRequestCommentOutput{}, fmt.Errorf("merge_request_iid must be a positive integer")
-	}
-	if in.Body == "" {
-		return nil, AddMergeRequestCommentOutput{}, fmt.Errorf("body is required")
-	}
-
-	info, token, err := p.resolveCaller(ctx)
-	if err != nil {
-		return nil, AddMergeRequestCommentOutput{}, err
-	}
-
-	note, err := p.GitlabClient.AddMergeRequestNote(ctx, info, token, in.ProjectPath, in.MergeRequestID, in.Body)
-	if err != nil {
-		return nil, AddMergeRequestCommentOutput{}, fmt.Errorf("failed to add merge request comment: %w", err)
-	}
-
-	return nil, AddMergeRequestCommentOutput{
-		NoteID: note.ID,
-		Body:   note.Body,
-		WebURL: noteWebURL(p.getConfiguration().GitlabURL, in.ProjectPath, "merge_requests", in.MergeRequestID, note.ID),
-	}, nil
+	return nil, ListMergeRequestsOutput{MergeRequests: mrsToSummaries(mrs)}, nil
 }
 
 // ============================================================================
 // Projects
 // ============================================================================
 
-func (p *Plugin) handleListMyProjects(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, ListMyProjectsOutput, error) {
+// handleGetProjects lists the caller's accessible projects, or returns a single
+// project when project_path is supplied.
+func (p *Plugin) handleGetProjects(ctx context.Context, _ *mcp.CallToolRequest, in GetProjectsInput) (*mcp.CallToolResult, GetProjectsOutput, error) {
 	info, token, err := p.resolveCaller(ctx)
 	if err != nil {
-		return nil, ListMyProjectsOutput{}, err
+		return nil, GetProjectsOutput{}, err
+	}
+
+	if in.ProjectPath != "" {
+		owner, repo, splitErr := splitProjectPath(in.ProjectPath)
+		if splitErr != nil {
+			return nil, GetProjectsOutput{}, splitErr
+		}
+		project, projErr := p.GitlabClient.GetProject(ctx, info, token, owner, repo)
+		if projErr != nil {
+			return nil, GetProjectsOutput{}, fmt.Errorf("failed to get project: %w", projErr)
+		}
+		return nil, GetProjectsOutput{Projects: []ProjectSummary{projectToSummary(project)}}, nil
 	}
 
 	projects, err := p.GitlabClient.GetYourProjects(ctx, info, token)
 	if err != nil {
-		return nil, ListMyProjectsOutput{}, fmt.Errorf("failed to list projects: %w", err)
+		return nil, GetProjectsOutput{}, fmt.Errorf("failed to list projects: %w", err)
 	}
 
 	summaries := make([]ProjectSummary, 0, len(projects))
@@ -351,198 +278,86 @@ func (p *Plugin) handleListMyProjects(ctx context.Context, _ *mcp.CallToolReques
 		summaries = append(summaries, projectToSummary(project))
 	}
 
-	return nil, ListMyProjectsOutput{Projects: summaries}, nil
+	return nil, GetProjectsOutput{Projects: summaries}, nil
 }
 
-func (p *Plugin) handleGetProject(ctx context.Context, _ *mcp.CallToolRequest, in GetProjectInput) (*mcp.CallToolResult, GetProjectOutput, error) {
+// handleGetProjectMetadata returns a project's labels, milestones, or members
+// depending on the requested kind.
+func (p *Plugin) handleGetProjectMetadata(ctx context.Context, _ *mcp.CallToolRequest, in GetProjectMetadataInput) (*mcp.CallToolResult, GetProjectMetadataOutput, error) {
 	if in.ProjectPath == "" {
-		return nil, GetProjectOutput{}, fmt.Errorf("project_path is required")
+		return nil, GetProjectMetadataOutput{}, fmt.Errorf("project_path is required")
+	}
+
+	switch in.Kind {
+	case "labels", "milestones", "members":
+	default:
+		return nil, GetProjectMetadataOutput{}, fmt.Errorf("kind must be 'labels', 'milestones', or 'members'")
 	}
 
 	info, token, err := p.resolveCaller(ctx)
 	if err != nil {
-		return nil, GetProjectOutput{}, err
+		return nil, GetProjectMetadataOutput{}, err
 	}
 
-	owner, repo := splitProjectPathParts(in.ProjectPath)
-	project, err := p.GitlabClient.GetProject(ctx, info, token, owner, repo)
-	if err != nil {
-		return nil, GetProjectOutput{}, fmt.Errorf("failed to get project: %w", err)
-	}
-
-	return nil, GetProjectOutput{Project: projectToSummary(project)}, nil
-}
-
-// ============================================================================
-// Pipelines
-// ============================================================================
-
-func (p *Plugin) handleRunPipeline(ctx context.Context, _ *mcp.CallToolRequest, in RunPipelineInput) (*mcp.CallToolResult, RunPipelineOutput, error) {
-	if in.ProjectPath == "" {
-		return nil, RunPipelineOutput{}, fmt.Errorf("project_path is required")
-	}
-	if in.Ref == "" {
-		return nil, RunPipelineOutput{}, fmt.Errorf("ref is required")
-	}
-
-	info, token, err := p.resolveCaller(ctx)
-	if err != nil {
-		return nil, RunPipelineOutput{}, err
-	}
-
-	pipeline, err := p.GitlabClient.TriggerProjectPipeline(info, token, in.ProjectPath, in.Ref)
-	if err != nil {
-		return nil, RunPipelineOutput{}, fmt.Errorf("failed to run pipeline: %w", err)
-	}
-
-	return nil, RunPipelineOutput{Pipeline: PipelineSummary{
-		ID:     pipeline.PipelineID,
-		Status: pipeline.Status,
-		Ref:    pipeline.Ref,
-		SHA:    pipeline.SHA,
-		WebURL: pipeline.WebURL,
-	}}, nil
-}
-
-func (p *Plugin) handleListProjectPipelines(ctx context.Context, _ *mcp.CallToolRequest, in ListProjectPipelinesInput) (*mcp.CallToolResult, ListProjectPipelinesOutput, error) {
-	if in.ProjectPath == "" {
-		return nil, ListProjectPipelinesOutput{}, fmt.Errorf("project_path is required")
-	}
-
-	info, token, err := p.resolveCaller(ctx)
-	if err != nil {
-		return nil, ListProjectPipelinesOutput{}, err
-	}
-
-	pipelines, err := p.GitlabClient.ListProjectPipelines(ctx, info, token, in.ProjectPath, in.Ref, in.Status, in.Page, in.PerPage)
-	if err != nil {
-		return nil, ListProjectPipelinesOutput{}, fmt.Errorf("failed to list pipelines: %w", err)
-	}
-
-	summaries := make([]PipelineSummary, 0, len(pipelines))
-	for _, pl := range pipelines {
-		summaries = append(summaries, pipelineInfoToSummary(pl))
-	}
-
-	return nil, ListProjectPipelinesOutput{Pipelines: summaries}, nil
-}
-
-// ============================================================================
-// Todos
-// ============================================================================
-
-func (p *Plugin) handleGetMyTodos(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, GetMyTodosOutput, error) {
-	info, token, err := p.resolveCaller(ctx)
-	if err != nil {
-		return nil, GetMyTodosOutput{}, err
-	}
-
-	client, err := p.GitlabClient.GitlabConnect(*token)
-	if err != nil {
-		return nil, GetMyTodosOutput{}, fmt.Errorf("failed to connect to GitLab: %w", err)
-	}
-
-	todos, err := p.GitlabClient.GetToDoList(ctx, info, client)
-	if err != nil {
-		return nil, GetMyTodosOutput{}, fmt.Errorf("failed to get todos: %w", err)
-	}
-
-	return nil, GetMyTodosOutput{Todos: todosToSummaries(todos)}, nil
-}
-
-// ============================================================================
-// Dashboard
-// ============================================================================
-
-func (p *Plugin) handleGetGitLabDashboard(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, LHSDataOutput, error) {
-	info, token, err := p.resolveCaller(ctx)
-	if err != nil {
-		return nil, LHSDataOutput{}, err
-	}
-
-	lhs, err := p.GitlabClient.GetLHSData(ctx, info, token)
-	if err != nil {
-		return nil, LHSDataOutput{}, fmt.Errorf("failed to get GitLab dashboard: %w", err)
-	}
-
-	return nil, LHSDataOutput{
-		AssignedMergeRequests: mrsToSummaries(lhs.AssignedPRs),
-		ReviewRequests:        mrsToSummaries(lhs.Reviews),
-		AssignedIssues:        issuesToSummaries(lhs.AssignedIssues),
-		Todos:                 todosToSummaries(lhs.Todos),
-	}, nil
-}
-
-// ============================================================================
-// Labels and Milestones
-// ============================================================================
-
-func (p *Plugin) handleListProjectLabels(ctx context.Context, _ *mcp.CallToolRequest, in ListProjectLabelsInput) (*mcp.CallToolResult, ListProjectLabelsOutput, error) {
-	if in.ProjectPath == "" {
-		return nil, ListProjectLabelsOutput{}, fmt.Errorf("project_path is required")
-	}
-
-	info, token, err := p.resolveCaller(ctx)
-	if err != nil {
-		return nil, ListProjectLabelsOutput{}, err
-	}
-
-	labels, err := p.GitlabClient.GetLabels(ctx, info, in.ProjectPath, token)
-	if err != nil {
-		return nil, ListProjectLabelsOutput{}, fmt.Errorf("failed to list labels: %w", err)
-	}
-
-	summaries := make([]LabelSummary, 0, len(labels))
-	for _, l := range labels {
-		summaries = append(summaries, LabelSummary{
-			ID:          l.ID,
-			Name:        l.Name,
-			Color:       l.Color,
-			Description: l.Description,
-		})
-	}
-
-	return nil, ListProjectLabelsOutput{Labels: summaries}, nil
-}
-
-func (p *Plugin) handleListProjectMilestones(ctx context.Context, _ *mcp.CallToolRequest, in ListProjectMilestonesInput) (*mcp.CallToolResult, ListProjectMilestonesOutput, error) {
-	if in.ProjectPath == "" {
-		return nil, ListProjectMilestonesOutput{}, fmt.Errorf("project_path is required")
-	}
-
-	info, token, err := p.resolveCaller(ctx)
-	if err != nil {
-		return nil, ListProjectMilestonesOutput{}, err
-	}
-
-	milestones, err := p.GitlabClient.GetMilestones(ctx, info, in.ProjectPath, token)
-	if err != nil {
-		return nil, ListProjectMilestonesOutput{}, fmt.Errorf("failed to list milestones: %w", err)
-	}
-
-	summaries := make([]MilestoneSummary, 0, len(milestones))
-	for _, m := range milestones {
-		ms := MilestoneSummary{
-			ID:          m.ID,
-			IID:         m.IID,
-			Title:       m.Title,
-			Description: m.Description,
-			State:       m.State,
+	var out GetProjectMetadataOutput
+	switch in.Kind {
+	case "labels":
+		labels, lErr := p.GitlabClient.GetLabels(ctx, info, in.ProjectPath, token)
+		if lErr != nil {
+			return nil, GetProjectMetadataOutput{}, fmt.Errorf("failed to list labels: %w", lErr)
 		}
-		if m.DueDate != nil {
-			ms.DueDate = m.DueDate.String()
+		out.Labels = make([]LabelSummary, 0, len(labels))
+		for _, l := range labels {
+			out.Labels = append(out.Labels, LabelSummary{
+				ID:          l.ID,
+				Name:        l.Name,
+				Color:       l.Color,
+				Description: l.Description,
+			})
 		}
-		if m.StartDate != nil {
-			ms.StartDate = m.StartDate.String()
+	case "milestones":
+		milestones, mErr := p.GitlabClient.GetMilestones(ctx, info, in.ProjectPath, token)
+		if mErr != nil {
+			return nil, GetProjectMetadataOutput{}, fmt.Errorf("failed to list milestones: %w", mErr)
 		}
-		summaries = append(summaries, ms)
+		out.Milestones = make([]MilestoneSummary, 0, len(milestones))
+		for _, m := range milestones {
+			ms := MilestoneSummary{
+				ID:          m.ID,
+				IID:         m.IID,
+				Title:       m.Title,
+				Description: m.Description,
+				State:       m.State,
+			}
+			if m.DueDate != nil {
+				ms.DueDate = m.DueDate.String()
+			}
+			if m.StartDate != nil {
+				ms.StartDate = m.StartDate.String()
+			}
+			out.Milestones = append(out.Milestones, ms)
+		}
+	case "members":
+		members, memErr := p.GitlabClient.GetProjectMembers(ctx, info, in.ProjectPath, token)
+		if memErr != nil {
+			return nil, GetProjectMetadataOutput{}, fmt.Errorf("failed to list project members: %w", memErr)
+		}
+		out.Members = make([]ProjectMemberSummary, 0, len(members))
+		for _, m := range members {
+			out.Members = append(out.Members, ProjectMemberSummary{
+				ID:          m.ID,
+				Username:    m.Username,
+				Name:        m.Name,
+				AccessLevel: int(m.AccessLevel),
+			})
+		}
 	}
 
-	return nil, ListProjectMilestonesOutput{Milestones: summaries}, nil
+	return nil, out, nil
 }
 
 // ============================================================================
-// User / Metadata
+// User
 // ============================================================================
 
 func (p *Plugin) handleGetMyGitLabUser(ctx context.Context, _ *mcp.CallToolRequest, _ struct{}) (*mcp.CallToolResult, GetMyGitLabUserOutput, error) {
@@ -564,34 +379,6 @@ func (p *Plugin) handleGetMyGitLabUser(ctx context.Context, _ *mcp.CallToolReque
 		AvatarURL: user.AvatarURL,
 		WebURL:    user.WebURL,
 	}, nil
-}
-
-func (p *Plugin) handleListProjectMembers(ctx context.Context, _ *mcp.CallToolRequest, in ListProjectMembersInput) (*mcp.CallToolResult, ListProjectMembersOutput, error) {
-	if in.ProjectPath == "" {
-		return nil, ListProjectMembersOutput{}, fmt.Errorf("project_path is required")
-	}
-
-	info, token, err := p.resolveCaller(ctx)
-	if err != nil {
-		return nil, ListProjectMembersOutput{}, err
-	}
-
-	members, err := p.GitlabClient.GetProjectMembers(ctx, info, in.ProjectPath, token)
-	if err != nil {
-		return nil, ListProjectMembersOutput{}, fmt.Errorf("failed to list project members: %w", err)
-	}
-
-	summaries := make([]ProjectMemberSummary, 0, len(members))
-	for _, m := range members {
-		summaries = append(summaries, ProjectMemberSummary{
-			ID:          m.ID,
-			Username:    m.Username,
-			Name:        m.Name,
-			AccessLevel: int(m.AccessLevel),
-		})
-	}
-
-	return nil, ListProjectMembersOutput{Members: summaries}, nil
 }
 
 // ============================================================================
@@ -706,65 +493,13 @@ func projectToSummary(p *internGitlab.Project) ProjectSummary {
 	return s
 }
 
-func pipelineInfoToSummary(pl *internGitlab.PipelineInfo) PipelineSummary {
-	if pl == nil {
-		return PipelineSummary{}
-	}
-	s := PipelineSummary{
-		ID:     pl.ID,
-		Status: pl.Status,
-		Ref:    pl.Ref,
-		SHA:    pl.SHA,
-		WebURL: pl.WebURL,
-	}
-	if pl.CreatedAt != nil {
-		s.CreatedAt = pl.CreatedAt.String()
-	}
-	if pl.UpdatedAt != nil {
-		s.UpdatedAt = pl.UpdatedAt.String()
-	}
-	return s
-}
-
-func todoToSummary(todo *internGitlab.Todo) TodoSummary {
-	if todo == nil {
-		return TodoSummary{}
-	}
-	s := TodoSummary{
-		ID:         todo.ID,
-		ActionName: string(todo.ActionName),
-	}
-	if todo.Target != nil {
-		s.TargetType = string(todo.TargetType)
-		s.TargetTitle = todo.Target.Title
-		s.WebURL = todo.Target.WebURL
-	}
-	if todo.Project != nil {
-		s.ProjectPath = todo.Project.PathWithNamespace
-	}
-	if todo.CreatedAt != nil {
-		s.CreatedAt = todo.CreatedAt.String()
-	}
-	return s
-}
-
-func todosToSummaries(todos []*internGitlab.Todo) []TodoSummary {
-	out := make([]TodoSummary, 0, len(todos))
-	for _, t := range todos {
-		if t != nil {
-			out = append(out, todoToSummary(t))
-		}
-	}
-	return out
-}
-
 // noteWebURL builds a GitLab note permalink. Returns "" when the base URL or
 // project path is missing so we don't emit a half-formed link to the agent.
 func noteWebURL(baseURL, projectPath, kind string, parentIID, noteID int) string {
 	if baseURL == "" || projectPath == "" {
 		return ""
 	}
-	return fmt.Sprintf("%s/%s/-/%s/%d#note_%d", baseURL, projectPath, kind, parentIID, noteID)
+	return fmt.Sprintf("%s/%s/-/%s/%d#note_%d", strings.TrimRight(baseURL, "/"), projectPath, kind, parentIID, noteID)
 }
 
 // splitProjectPath splits "namespace/project" into owner and repo.

@@ -22,21 +22,21 @@ type UpdateIssueOptions struct {
 	MilestoneID *int
 }
 
-// CreateMergeRequestOptions contains the required and optional fields for creating
-// a new merge request.
-type CreateMergeRequestOptions struct {
-	Title        string
-	Description  string
-	SourceBranch string
-	TargetBranch string
-	AssigneeIDs  []int
-	ReviewerIDs  []int
-	Labels       internGitlab.LabelOptions
-	MilestoneID  *int
+// mcpConnect validates the OAuth token and returns a connected GitLab client.
+// Centralising the nil/empty-token guard keeps every MCP method from panicking
+// on a missing token.
+func (g *gitlab) mcpConnect(token *oauth2.Token) (*internGitlab.Client, error) {
+	if token == nil || token.AccessToken == "" {
+		return nil, fmt.Errorf("missing OAuth token")
+	}
+	return g.GitlabConnect(*token)
 }
 
 func (g *gitlab) UpdateIssue(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID string, issueIID int, opts *UpdateIssueOptions) (*internGitlab.Issue, error) {
-	client, err := g.GitlabConnect(*token)
+	if opts == nil {
+		return nil, fmt.Errorf("update issue options are required")
+	}
+	client, err := g.mcpConnect(token)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (g *gitlab) UpdateIssue(ctx context.Context, user *UserInfo, token *oauth2.
 }
 
 func (g *gitlab) AddIssueNote(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID string, issueIID int, body string) (*internGitlab.Note, error) {
-	client, err := g.GitlabConnect(*token)
+	client, err := g.mcpConnect(token)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (g *gitlab) AddIssueNote(ctx context.Context, user *UserInfo, token *oauth2
 }
 
 func (g *gitlab) SearchMergeRequests(ctx context.Context, user *UserInfo, token *oauth2.Token, search string) ([]*internGitlab.MergeRequest, error) {
-	client, err := g.GitlabConnect(*token)
+	client, err := g.mcpConnect(token)
 	if err != nil {
 		return nil, err
 	}
@@ -114,47 +114,8 @@ func (g *gitlab) SearchMergeRequests(ctx context.Context, user *UserInfo, token 
 	return result, nil
 }
 
-func (g *gitlab) CreateMergeRequest(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID string, opts *CreateMergeRequestOptions) (*internGitlab.MergeRequest, error) {
-	client, err := g.GitlabConnect(*token)
-	if err != nil {
-		return nil, err
-	}
-	if err = g.ensureProjectInAllowedGroup(ctx, client, projectID); err != nil {
-		return nil, err
-	}
-
-	createOpts := &internGitlab.CreateMergeRequestOptions{
-		Title:        &opts.Title,
-		Description:  &opts.Description,
-		SourceBranch: &opts.SourceBranch,
-		TargetBranch: &opts.TargetBranch,
-	}
-	if len(opts.AssigneeIDs) > 0 {
-		createOpts.AssigneeIDs = &opts.AssigneeIDs
-	}
-	if len(opts.ReviewerIDs) > 0 {
-		createOpts.ReviewerIDs = &opts.ReviewerIDs
-	}
-	if len(opts.Labels) > 0 {
-		createOpts.Labels = &opts.Labels
-	}
-	if opts.MilestoneID != nil {
-		createOpts.MilestoneID = opts.MilestoneID
-	}
-
-	mr, resp, err := client.MergeRequests.CreateMergeRequest(projectID, createOpts, internGitlab.WithContext(ctx))
-	if respErr := checkResponse(resp); respErr != nil {
-		return nil, respErr
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to create merge request: %w", err)
-	}
-
-	return mr, nil
-}
-
 func (g *gitlab) AddMergeRequestNote(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID string, mrIID int, body string) (*internGitlab.Note, error) {
-	client, err := g.GitlabConnect(*token)
+	client, err := g.mcpConnect(token)
 	if err != nil {
 		return nil, err
 	}
@@ -178,40 +139,32 @@ func (g *gitlab) AddMergeRequestNote(ctx context.Context, user *UserInfo, token 
 	return note, nil
 }
 
-func (g *gitlab) ListProjectPipelines(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID string, ref string, status string, page int, perPage int) ([]*internGitlab.PipelineInfo, error) {
-	client, err := g.GitlabConnect(*token)
+// ListAssignedIssues returns the open issues assigned to the calling user. It
+// wraps the client-based helper so MCP callers never hold a raw client.
+func (g *gitlab) ListAssignedIssues(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.Issue, error) {
+	client, err := g.mcpConnect(token)
 	if err != nil {
 		return nil, err
 	}
-	if err = g.ensureProjectInAllowedGroup(ctx, client, projectID); err != nil {
+	return g.GetYourAssignedIssues(ctx, user, client)
+}
+
+// ListAssignedMergeRequests returns the open merge requests assigned to the
+// calling user.
+func (g *gitlab) ListAssignedMergeRequests(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.MergeRequest, error) {
+	client, err := g.mcpConnect(token)
+	if err != nil {
 		return nil, err
 	}
+	return g.GetYourAssignedPrs(ctx, user, client)
+}
 
-	if perPage <= 0 {
-		perPage = 20
-	}
-	if page <= 0 {
-		page = 1
-	}
-
-	opts := &internGitlab.ListProjectPipelinesOptions{
-		ListOptions: internGitlab.ListOptions{Page: page, PerPage: perPage},
-	}
-	if ref != "" {
-		opts.Ref = &ref
-	}
-	if status != "" {
-		bs := internGitlab.BuildStateValue(status)
-		opts.Status = &bs
-	}
-
-	pipelines, resp, err := client.Pipelines.ListProjectPipelines(projectID, opts, internGitlab.WithContext(ctx))
-	if respErr := checkResponse(resp); respErr != nil {
-		return nil, respErr
-	}
+// ListReviewRequests returns the open merge requests awaiting the calling
+// user's review.
+func (g *gitlab) ListReviewRequests(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.MergeRequest, error) {
+	client, err := g.mcpConnect(token)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list pipelines: %w", err)
+		return nil, err
 	}
-
-	return pipelines, nil
+	return g.GetReviews(ctx, user, client)
 }

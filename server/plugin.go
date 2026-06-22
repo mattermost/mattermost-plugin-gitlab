@@ -985,7 +985,7 @@ func (p *Plugin) getUsername(userID string) (string, *APIErrorResponse) {
 	return info.GitlabUsername, nil
 }
 
-func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*oauth2.Token, error) {
+func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token, notifyOnRevoke bool) (*oauth2.Token, error) {
 	conf, err := p.getOAuthConfig()
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get OAuth config for token refresh")
@@ -1000,7 +1000,7 @@ func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*
 	if err != nil {
 		if strings.Contains(err.Error(), "\"error\":\"invalid_grant\"") {
 			p.client.Log.Warn("Failed to refresh OAuth token as the existing one has an invalid grant. Revoking the token.", "userInfo", userInfo, "error", err.Error())
-			p.handleRevokedToken(userInfo)
+			p.handleRevokedToken(userInfo, notifyOnRevoke)
 		}
 		return nil, errors.Wrap(err, "unable to get the new refreshed token")
 	}
@@ -1018,8 +1018,11 @@ func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token) (*
 	return token, nil
 }
 
-func (p *Plugin) handleRevokedToken(info *gitlab.UserInfo) {
+func (p *Plugin) handleRevokedToken(info *gitlab.UserInfo, notify bool) {
 	p.disconnectGitlabAccount(info.UserID)
+	if !notify {
+		return
+	}
 	err := p.CreateBotDMPost(info.UserID, "Your GitLab account was disconnected due to an invalid or revoked authorization token. Reconnect your account using the `/gitlab connect` command.", "custom_git_revoked_token")
 	if err != nil {
 		p.client.Log.Warn("Error sending revoked token DM post", "err", err.Error())
@@ -1213,7 +1216,11 @@ func (p *Plugin) forceDisconnectUser(userID string) {
 	}
 }
 
-func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo) (*oauth2.Token, error) {
+// getOrRefreshToken returns a valid token for the user, refreshing it when it
+// is close to expiry. notifyOnRevoke controls whether the user is DM'd if the
+// token turns out to be revoked; pass false on automated paths (e.g. MCP) that
+// may retry and would otherwise notify repeatedly.
+func (p *Plugin) getOrRefreshToken(info *gitlab.UserInfo, notifyOnRevoke bool) (*oauth2.Token, error) {
 	token, apiErr := p.getGitlabUserTokenByMattermostID(info.UserID)
 
 	if apiErr != nil {
@@ -1244,7 +1251,7 @@ func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo) (*oauth2.Toke
 		return lockedToken, nil
 	}
 
-	newToken, err := p.refreshToken(info, lockedToken)
+	newToken, err := p.refreshToken(info, lockedToken, notifyOnRevoke)
 	if err != nil {
 		return nil, err
 	}
@@ -1253,7 +1260,7 @@ func (p *Plugin) getOrRefreshTokenWithMutex(info *gitlab.UserInfo) (*oauth2.Toke
 }
 
 func (p *Plugin) useGitlabClient(info *gitlab.UserInfo, toRun func(info *gitlab.UserInfo, token *oauth2.Token) error) error {
-	token, err := p.getOrRefreshTokenWithMutex(info)
+	token, err := p.getOrRefreshToken(info, true)
 	if err != nil {
 		return err
 	}
@@ -1262,7 +1269,7 @@ func (p *Plugin) useGitlabClient(info *gitlab.UserInfo, toRun func(info *gitlab.
 
 	if err != nil && strings.Contains(err.Error(), invalidTokenError) {
 		p.client.Log.Warn("Revoking OAuth token while using Gitlab client as it is invalid", "userInfo", info, "error", err.Error())
-		p.handleRevokedToken(info)
+		p.handleRevokedToken(info, true)
 	}
 
 	return err

@@ -7,11 +7,14 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/mattermost/mattermost-plugin-agents/external/pluginmcp"
 	"github.com/mattermost/mattermost/server/public/plugin/plugintest"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -108,6 +111,81 @@ func (s *mcpStub) Unregister() error {
 	defer s.mu.Unlock()
 	s.unregistered = true
 	return s.unregisterErr
+}
+
+// --- End-to-end ServeHTTP tools/list test -----------------------------------
+
+// expectedToolNamePrefix mirrors pluginmcp's sanitization: the plugin ID with
+// any character outside [A-Za-z0-9_-] replaced by '_', plus the "__" separator.
+func expectedToolNamePrefix() string {
+	var b strings.Builder
+	for _, r := range manifest.Id {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '_', r == '-':
+			b.WriteRune(r)
+		default:
+			b.WriteRune('_')
+		}
+	}
+	return b.String() + "__"
+}
+
+// TestMCP_ToolsListOverServeHTTP drives a real pluginmcp.Server through
+// ServeHTTP and a streamable MCP client to verify the namespaced tool names,
+// generated schemas, and annotations actually appear on the wire.
+func TestMCP_ToolsListOverServeHTTP(t *testing.T) {
+	ctx := context.Background()
+
+	p := &Plugin{}
+	s := pluginmcp.NewServer(nil, pluginmcp.Config{
+		PluginID: manifest.Id,
+		Name:     mcpServerName,
+		Path:     mcpBasePath,
+		Version:  "0.0.1",
+	})
+	p.registerTools(s)
+
+	// Inject the trusted inter-plugin header the Agents plugin would add.
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Header.Set("Mattermost-Plugin-ID", "mattermost-ai")
+		s.ServeHTTP(w, r)
+	}))
+	t.Cleanup(ts.Close)
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "gitlab-test-client", Version: "0.0.1"}, nil)
+	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: ts.URL}, nil)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = session.Close() })
+
+	res, err := session.ListTools(ctx, &mcp.ListToolsParams{})
+	require.NoError(t, err)
+	require.NotEmpty(t, res.Tools)
+
+	prefix := expectedToolNamePrefix()
+	byShortName := map[string]*mcp.Tool{}
+	for _, tool := range res.Tools {
+		require.Truef(t, strings.HasPrefix(tool.Name, prefix), "tool %q missing namespace prefix %q", tool.Name, prefix)
+		require.NotNilf(t, tool.InputSchema, "tool %q should expose a generated input schema", tool.Name)
+		byShortName[strings.TrimPrefix(tool.Name, prefix)] = tool
+	}
+
+	// Keep the surface small: every tool's schema is sent on each LLM call.
+	assert.LessOrEqual(t, len(res.Tools), 10, "MCP tool count should stay within the pluginmcp budget")
+
+	t.Run("read tool is annotated read-only", func(t *testing.T) {
+		getIssue := byShortName["get_issue"]
+		require.NotNil(t, getIssue)
+		require.NotNil(t, getIssue.Annotations)
+		assert.True(t, getIssue.Annotations.ReadOnlyHint)
+	})
+
+	t.Run("create_issue is a non-destructive write", func(t *testing.T) {
+		createIssue := byShortName["create_issue"]
+		require.NotNil(t, createIssue)
+		require.NotNil(t, createIssue.Annotations)
+		require.NotNil(t, createIssue.Annotations.DestructiveHint)
+		assert.False(t, *createIssue.Annotations.DestructiveHint)
+	})
 }
 
 // --- resolveCaller tests ----------------------------------------------------
@@ -240,91 +318,37 @@ func TestHandleCreateIssue_Validation(t *testing.T) {
 	})
 }
 
-func TestHandleCreateMergeRequest_Validation(t *testing.T) {
-	cases := []struct {
-		name   string
-		input  CreateMergeRequestInput
-		errSub string
-	}{
-		{"empty project_path", CreateMergeRequestInput{Title: "T", SourceBranch: "feat", TargetBranch: "main"}, "project_path is required"},
-		{"empty title", CreateMergeRequestInput{ProjectPath: "g/p", SourceBranch: "feat", TargetBranch: "main"}, "title is required"},
-		{"empty source_branch", CreateMergeRequestInput{ProjectPath: "g/p", Title: "T", TargetBranch: "main"}, "source_branch is required"},
-		{"empty target_branch", CreateMergeRequestInput{ProjectPath: "g/p", Title: "T", SourceBranch: "feat"}, "target_branch is required"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			p, _ := newPluginWithMockGitlab(t)
-			_, _, err := p.handleCreateMergeRequest(context.Background(), nil, tc.input)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), tc.errSub)
-		})
-	}
-}
-
-func TestHandleSearchIssues_Validation(t *testing.T) {
-	p, _ := newPluginWithMockGitlab(t)
-	_, _, err := p.handleSearchIssues(context.Background(), nil, SearchIssuesInput{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "search term is required")
-}
-
-func TestHandleSearchMergeRequests_Validation(t *testing.T) {
-	p, _ := newPluginWithMockGitlab(t)
-	_, _, err := p.handleSearchMergeRequests(context.Background(), nil, SearchMergeRequestsInput{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "search term is required")
-}
-
-func TestHandleRunPipeline_Validation(t *testing.T) {
+func TestHandleGetProjectMetadata_Validation(t *testing.T) {
 	t.Run("empty project_path", func(t *testing.T) {
 		p, _ := newPluginWithMockGitlab(t)
-		_, _, err := p.handleRunPipeline(context.Background(), nil, RunPipelineInput{Ref: "main"})
+		_, _, err := p.handleGetProjectMetadata(context.Background(), nil, GetProjectMetadataInput{Kind: "labels"})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "project_path is required")
 	})
 
-	t.Run("empty ref", func(t *testing.T) {
+	t.Run("invalid kind", func(t *testing.T) {
 		p, _ := newPluginWithMockGitlab(t)
-		_, _, err := p.handleRunPipeline(context.Background(), nil, RunPipelineInput{ProjectPath: "g/p"})
+		_, _, err := p.handleGetProjectMetadata(context.Background(), nil, GetProjectMetadataInput{ProjectPath: "g/p", Kind: "bogus"})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "ref is required")
+		assert.Contains(t, err.Error(), "kind must be")
 	})
 }
 
-func TestHandleAddIssueComment_Validation(t *testing.T) {
+func TestHandleAddComment_Validation(t *testing.T) {
 	cases := []struct {
 		name   string
-		input  AddIssueCommentInput
+		input  AddCommentInput
 		errSub string
 	}{
-		{"empty project_path", AddIssueCommentInput{IssueIID: 1, Body: "hi"}, "project_path is required"},
-		{"zero issue_iid", AddIssueCommentInput{ProjectPath: "g/p", Body: "hi"}, "issue_iid must be a positive integer"},
-		{"empty body", AddIssueCommentInput{ProjectPath: "g/p", IssueIID: 1}, "body is required"},
+		{"empty project_path", AddCommentInput{TargetType: "issue", TargetIID: 1, Body: "hi"}, "project_path is required"},
+		{"zero target_iid", AddCommentInput{TargetType: "issue", ProjectPath: "g/p", Body: "hi"}, "target_iid must be a positive integer"},
+		{"empty body", AddCommentInput{TargetType: "issue", ProjectPath: "g/p", TargetIID: 1}, "body is required"},
+		{"invalid target_type", AddCommentInput{TargetType: "epic", ProjectPath: "g/p", TargetIID: 1, Body: "hi"}, "target_type must be"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			p, _ := newPluginWithMockGitlab(t)
-			_, _, err := p.handleAddIssueComment(context.Background(), nil, tc.input)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), tc.errSub)
-		})
-	}
-}
-
-func TestHandleAddMergeRequestComment_Validation(t *testing.T) {
-	cases := []struct {
-		name   string
-		input  AddMergeRequestCommentInput
-		errSub string
-	}{
-		{"empty project_path", AddMergeRequestCommentInput{MergeRequestID: 1, Body: "hi"}, "project_path is required"},
-		{"zero merge_request_iid", AddMergeRequestCommentInput{ProjectPath: "g/p", Body: "hi"}, "merge_request_iid must be a positive integer"},
-		{"empty body", AddMergeRequestCommentInput{ProjectPath: "g/p", MergeRequestID: 1}, "body is required"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			p, _ := newPluginWithMockGitlab(t)
-			_, _, err := p.handleAddMergeRequestComment(context.Background(), nil, tc.input)
+			_, _, err := p.handleAddComment(context.Background(), nil, tc.input)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tc.errSub)
 		})
@@ -444,6 +468,11 @@ func TestNoteWebURL(t *testing.T) {
 		assert.Equal(t, "https://gitlab.example.com/g/sub/p/-/merge_requests/15#note_99", got)
 	})
 
+	t.Run("trims trailing slash on base URL", func(t *testing.T) {
+		got := noteWebURL("https://gitlab.com/", "g/p", "issues", 42, 7)
+		assert.Equal(t, "https://gitlab.com/g/p/-/issues/42#note_7", got)
+	})
+
 	t.Run("missing base URL returns empty", func(t *testing.T) {
 		assert.Empty(t, noteWebURL("", "g/p", "issues", 1, 1))
 	})
@@ -487,59 +516,5 @@ func TestProjectToSummary(t *testing.T) {
 		assert.Equal(t, "g/my-project", s.PathWithNamespace)
 		assert.Equal(t, "main", s.DefaultBranch)
 		assert.Equal(t, "public", s.Visibility)
-	})
-}
-
-func TestPipelineInfoToSummary(t *testing.T) {
-	t.Run("nil returns zero value", func(t *testing.T) {
-		assert.Equal(t, 0, pipelineInfoToSummary(nil).ID)
-	})
-
-	t.Run("populates fields", func(t *testing.T) {
-		ts := time.Date(2026, 5, 8, 9, 0, 0, 0, time.UTC)
-		s := pipelineInfoToSummary(&internGitlab.PipelineInfo{
-			ID:        123,
-			Status:    "success",
-			Ref:       "main",
-			SHA:       "abc123",
-			WebURL:    "https://gitlab.com/g/p/-/pipelines/123",
-			CreatedAt: &ts,
-			UpdatedAt: &ts,
-		})
-		assert.Equal(t, 123, s.ID)
-		assert.Equal(t, "success", s.Status)
-		assert.Equal(t, "main", s.Ref)
-		assert.NotEmpty(t, s.CreatedAt)
-	})
-}
-
-func TestTodoToSummary(t *testing.T) {
-	t.Run("nil returns zero value", func(t *testing.T) {
-		assert.Equal(t, 0, todoToSummary(nil).ID)
-	})
-
-	t.Run("populates fields", func(t *testing.T) {
-		s := todoToSummary(&internGitlab.Todo{
-			ID:         99,
-			ActionName: internGitlab.TodoAction("assigned"),
-			TargetType: internGitlab.TodoTargetType("Issue"),
-			Target: &internGitlab.TodoTarget{
-				Title:  "Fix the thing",
-				WebURL: "https://gitlab.com/g/p/-/issues/1",
-			},
-			Project: &internGitlab.BasicProject{PathWithNamespace: "g/p"},
-		})
-		assert.Equal(t, 99, s.ID)
-		assert.Equal(t, "assigned", s.ActionName)
-		assert.Equal(t, "Issue", s.TargetType)
-		assert.Equal(t, "Fix the thing", s.TargetTitle)
-		assert.Equal(t, "g/p", s.ProjectPath)
-		assert.Equal(t, "https://gitlab.com/g/p/-/issues/1", s.WebURL)
-	})
-
-	t.Run("nil target and project safe", func(t *testing.T) {
-		s := todoToSummary(&internGitlab.Todo{ID: 1})
-		assert.Empty(t, s.TargetTitle)
-		assert.Empty(t, s.ProjectPath)
 	})
 }
