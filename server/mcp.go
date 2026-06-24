@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/mattermost/mattermost-plugin-agents/external/pluginmcp"
 	"golang.org/x/oauth2"
 
@@ -17,6 +18,12 @@ import (
 const (
 	mcpBasePath   = "/mcp"
 	mcpServerName = "GitLab"
+
+	// minServerVersionForMCP is the minimum Mattermost server version that
+	// stamps the trusted Mattermost-Plugin-ID header on inter-plugin RPC and
+	// supports PluginHTTPStream, both required by the Agents MCP bridge. On
+	// older servers registration is rejected with a 401, so we skip it.
+	minServerVersionForMCP = "11.3.0"
 )
 
 // mcpServer is an interface over *pluginmcp.Server so we can swap it with a
@@ -44,6 +51,14 @@ func (p *Plugin) startMCP() {
 		return
 	}
 
+	if serverVersion := p.API.GetServerVersion(); !serverSupportsMCP(serverVersion) {
+		p.API.LogWarn("Skipping GitLab MCP registration: Mattermost server is older than the version required by the Agents MCP bridge. Upgrade the server to expose GitLab tools to Agents.",
+			"server_version", serverVersion,
+			"required_version", minServerVersionForMCP,
+		)
+		return
+	}
+
 	s := pluginmcp.NewServer(p.API, pluginmcp.Config{
 		PluginID: manifest.Id,
 		Name:     mcpServerName,
@@ -56,7 +71,24 @@ func (p *Plugin) startMCP() {
 
 	// Register returns nil immediately and retries with the Agents plugin in a
 	// background goroutine, so there is no synchronous error to handle here.
+	// pluginmcp emits its own (stdlib) logs on terminal failure; log the attempt
+	// here so the plugin logs show that our side ran and what it pushed.
+	p.API.LogInfo("Registering GitLab MCP server with the Agents plugin",
+		"plugin_id", manifest.Id,
+		"path", mcpBasePath,
+	)
 	_ = s.Register()
+}
+
+// serverSupportsMCP reports whether the running Mattermost server is new enough
+// for the Agents MCP bridge. An unparseable/empty version is treated as
+// supported so a version-string quirk never silently disables the feature.
+func serverSupportsMCP(serverVersion string) bool {
+	current, err := semver.NewVersion(serverVersion)
+	if err != nil {
+		return true
+	}
+	return !current.LessThan(semver.MustParse(minServerVersionForMCP))
 }
 
 func (p *Plugin) stopMCP() {

@@ -3,6 +3,7 @@ module github.com/mattermost/mattermost-plugin-gitlab
 go 1.26.2
 
 require (
+	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/mattermost/mattermost-plugin-agents v1.14.1-0.20260508173910-8219eb13bd4e
@@ -19,7 +20,6 @@ require (
 )
 
 require (
-	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/beevik/etree v1.6.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect

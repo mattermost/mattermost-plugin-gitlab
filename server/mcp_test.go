@@ -39,6 +39,8 @@ func TestServeMCPHTTP_NilServer(t *testing.T) {
 
 func TestStartMCP_Idempotent(t *testing.T) {
 	api := &plugintest.API{}
+	api.On("GetServerVersion").Return("11.3.0").Maybe()
+	api.On("LogInfo", mock.AnythingOfType("string"), mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
 	api.On("LogWarn", mock.AnythingOfType("string"), mock.Anything, mock.Anything).Maybe()
 	api.On("LogWarn", mock.AnythingOfType("string"), mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
 	api.On("LogError", mock.AnythingOfType("string"), mock.Anything, mock.Anything).Maybe()
@@ -68,6 +70,43 @@ func TestStartMCP_Idempotent(t *testing.T) {
 
 	// Clean up the background registration goroutine.
 	_ = s.Unregister()
+}
+
+func TestServerSupportsMCP(t *testing.T) {
+	cases := []struct {
+		version string
+		want    bool
+	}{
+		{"11.3.0", true},
+		{"11.4.1", true},
+		{"12.0.0", true},
+		{"11.2.0", false},
+		{"10.7.0", false},
+		{"9.11.0", false},
+		{"", true},            // unparseable: don't disable on a version quirk
+		{"garbage", true},     // unparseable
+		{"11.3.0-rc1", false}, // prerelease of 11.3 sorts below 11.3.0
+	}
+	for _, tc := range cases {
+		t.Run(tc.version, func(t *testing.T) {
+			assert.Equal(t, tc.want, serverSupportsMCP(tc.version))
+		})
+	}
+}
+
+func TestStartMCP_SkipsOnOldServer(t *testing.T) {
+	api := &plugintest.API{}
+	api.On("GetServerVersion").Return("11.2.0")
+	api.On("LogWarn", mock.AnythingOfType("string"), mock.Anything, mock.Anything, mock.Anything, mock.Anything).Once()
+
+	p := &Plugin{}
+	p.SetAPI(api)
+	p.startMCP()
+
+	p.mcpMu.Lock()
+	defer p.mcpMu.Unlock()
+	assert.Nil(t, p.mcpServer, "MCP server should not be created on an unsupported server")
+	api.AssertExpectations(t)
 }
 
 func TestStopMCP_NilSafe(t *testing.T) {
