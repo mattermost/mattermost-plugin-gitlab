@@ -173,7 +173,7 @@ type MilestoneSummary struct {
 }
 
 type ProjectMemberSummary struct {
-	ID          int    `json:"id" jsonschema:"GitLab user ID — use this value for assignee_ids and reviewer_ids"`
+	ID          int    `json:"id" jsonschema:"GitLab user ID — use this value for assignee_ids"`
 	Username    string `json:"username"`
 	Name        string `json:"name"`
 	AccessLevel int    `json:"access_level" jsonschema:"Access level: 10=Guest, 20=Reporter, 30=Developer, 40=Maintainer, 50=Owner"`
@@ -205,6 +205,9 @@ type GetMyGitLabUserOutput struct {
 func (p *Plugin) registerTools(s *pluginmcp.Server) {
 	readOnly := &mcp.ToolAnnotations{ReadOnlyHint: true}
 	additive := &mcp.ToolAnnotations{DestructiveHint: ptr(false)}
+	// update_issue overwrites existing fields and can close issues, so it is
+	// classified as destructive rather than reusing the additive annotation.
+	destructive := &mcp.ToolAnnotations{DestructiveHint: ptr(true)}
 
 	// Issues
 	pluginmcp.AddTool(s, &mcp.Tool{
@@ -228,7 +231,7 @@ func (p *Plugin) registerTools(s *pluginmcp.Server) {
 	pluginmcp.AddTool(s, &mcp.Tool{
 		Name:        "update_issue",
 		Description: "Change an existing issue's fields or open/close state and return it; omitted fields are left untouched. To only add a comment use add_comment.",
-		Annotations: additive,
+		Annotations: destructive,
 	}, p.handleUpdateIssue)
 
 	// Comments (issues and merge requests)
@@ -260,14 +263,14 @@ func (p *Plugin) registerTools(s *pluginmcp.Server) {
 
 	pluginmcp.AddTool(s, &mcp.Tool{
 		Name:        "get_project_metadata",
-		Description: "Fetch a project's labels, milestones, or members (choose with kind). Use it to resolve label names and user IDs before create_issue, update_issue, or create_merge_request.",
+		Description: "Fetch a project's labels, milestones, or members (choose with kind). Use it to resolve label names and user IDs before create_issue or update_issue.",
 		Annotations: readOnly,
 	}, p.handleGetProjectMetadata)
 
 	// User
 	pluginmcp.AddTool(s, &mcp.Tool{
 		Name:        "get_my_gitlab_user",
-		Description: "Return your own GitLab identity (id, username, name). Use the id for assignee_ids or reviewer_ids when creating issues or merge requests.",
+		Description: "Return your own GitLab identity (id, username, name). Use the id for assignee_ids when creating or updating issues.",
 		Annotations: readOnly,
 	}, p.handleGetMyGitLabUser)
 }

@@ -228,12 +228,26 @@ func (p *Plugin) handleListMergeRequests(ctx context.Context, _ *mcp.CallToolReq
 		return nil, ListMergeRequestsOutput{}, err
 	}
 
+	selectors := 0
+	if in.Search != "" {
+		selectors++
+	}
+	if in.AssignedToMe {
+		selectors++
+	}
+	if in.ReviewRequested {
+		selectors++
+	}
+	if selectors > 1 {
+		return nil, ListMergeRequestsOutput{}, fmt.Errorf("only one of search, assigned_to_me, or review_requested may be set")
+	}
+
 	var mrs []*internGitlab.MergeRequest
 	switch {
-	case in.Search != "" && !in.AssignedToMe && !in.ReviewRequested:
-		mrs, err = p.GitlabClient.SearchMergeRequests(ctx, info, token, in.Search)
 	case in.ReviewRequested:
 		mrs, err = p.GitlabClient.ListReviewRequests(ctx, info, token)
+	case in.Search != "":
+		mrs, err = p.GitlabClient.SearchMergeRequests(ctx, info, token, in.Search)
 	default:
 		mrs, err = p.GitlabClient.ListAssignedMergeRequests(ctx, info, token)
 	}
