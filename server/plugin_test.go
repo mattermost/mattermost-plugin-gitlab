@@ -429,8 +429,40 @@ func TestRefreshTokenReturnsErrorWhenOAuthConfigFails(t *testing.T) {
 		Expiry:       time.Now().Add(-1 * time.Hour),
 	}
 
-	newToken, err := p.refreshToken(userInfo, token)
+	newToken, err := p.refreshToken(userInfo, token, true)
 	assert.Nil(t, newToken)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unable to get OAuth config for token refresh")
+}
+
+func TestHandleRevokedTokenWithoutNotifyDisconnectsSilently(t *testing.T) {
+	const userID = "test-user"
+	info := &gitlab.UserInfo{
+		UserID:         userID,
+		GitlabUsername: "gitlab-user",
+		GitlabUserID:   42,
+	}
+	infoJSON, err := json.Marshal(info)
+	require.NoError(t, err)
+
+	p := &Plugin{}
+
+	api := &plugintest.API{}
+	api.On("KVGet", userID+GitlabUserInfoKey).Return(infoJSON, nil)
+	// pluginapi KV.Delete is implemented via KVSetWithOptions with a nil value.
+	api.On("KVSetWithOptions", mock.AnythingOfType("string"), []byte(nil), mock.Anything).Return(true, nil)
+	api.On("GetUser", userID).Return(nil, &model.AppError{Message: "not found"})
+	api.On("PublishWebSocketEvent", WsEventDisconnect, mock.Anything, mock.Anything).Return()
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	p.handleRevokedToken(info, false)
+
+	// The revoke/disconnect still happens: stored user info and token are removed.
+	api.AssertCalled(t, "KVSetWithOptions", userID+GitlabUserInfoKey, []byte(nil), mock.Anything)
+	api.AssertCalled(t, "KVSetWithOptions", userID+GitlabUserTokenKey, []byte(nil), mock.Anything)
+
+	// No DM/notification is sent when notifyOnRevoke is false.
+	api.AssertNotCalled(t, "GetDirectChannel", mock.Anything, mock.Anything)
+	api.AssertNotCalled(t, "CreatePost", mock.Anything)
 }

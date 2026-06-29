@@ -63,6 +63,21 @@ type Gitlab interface {
 		fullPath string,
 		allowPrivate bool,
 	) (namespace string, project string, err error)
+
+	GitlabMCP
+}
+
+// GitlabMCP groups the token-scoped operations consumed by the MCP tool
+// handlers. Every method takes an OAuth token and constructs the GitLab client
+// internally so the raw *internGitlab.Client never leaks out of this package.
+type GitlabMCP interface {
+	UpdateIssue(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID string, issueIID int, opts *UpdateIssueOptions) (*internGitlab.Issue, error)
+	AddIssueNote(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID string, issueIID int, body string) (*internGitlab.Note, error)
+	SearchMergeRequests(ctx context.Context, user *UserInfo, token *oauth2.Token, search string) ([]*internGitlab.MergeRequest, error)
+	AddMergeRequestNote(ctx context.Context, user *UserInfo, token *oauth2.Token, projectID string, mrIID int, body string) (*internGitlab.Note, error)
+	ListAssignedIssues(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.Issue, error)
+	ListAssignedMergeRequests(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.MergeRequest, error)
+	ListReviewRequests(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.MergeRequest, error)
 }
 
 type gitlab struct {
