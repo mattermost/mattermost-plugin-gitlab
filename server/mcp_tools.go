@@ -8,8 +8,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func ptr[T any](v T) *T { return &v }
-
 // --- Issue types ------------------------------------------------------------
 
 type GetIssueInput struct {
@@ -204,10 +202,10 @@ type GetMyGitLabUserOutput struct {
 // single tools with mode flags rather than exposed as separate tools.
 func (p *Plugin) registerTools(s *pluginmcp.Server) {
 	readOnly := &mcp.ToolAnnotations{ReadOnlyHint: true}
-	additive := &mcp.ToolAnnotations{DestructiveHint: ptr(false)}
+	additive := &mcp.ToolAnnotations{DestructiveHint: new(false)}
 	// update_issue overwrites existing fields and can close issues, so it is
 	// classified as destructive rather than reusing the additive annotation.
-	destructive := &mcp.ToolAnnotations{DestructiveHint: ptr(true)}
+	destructive := &mcp.ToolAnnotations{DestructiveHint: new(true)}
 
 	// Issues
 	pluginmcp.AddTool(s, &mcp.Tool{

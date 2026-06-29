@@ -541,7 +541,7 @@ func TestAddWebhookCommandNamespaceNotAllowed(t *testing.T) {
 	p.GitlabClient = mockedClient
 
 	conf := &model.Config{}
-	conf.ServiceSettings.SiteURL = model.NewPointer("https://example.com")
+	conf.ServiceSettings.SiteURL = new("https://example.com")
 
 	encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
 
@@ -573,7 +573,7 @@ func TestAddWebhookCommandForbidden(t *testing.T) {
 	p.GitlabClient = mockedClient
 
 	conf := &model.Config{}
-	conf.ServiceSettings.SiteURL = model.NewPointer("https://example.com")
+	conf.ServiceSettings.SiteURL = new("https://example.com")
 
 	encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
 
