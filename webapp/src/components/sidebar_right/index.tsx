@@ -2,7 +2,7 @@
 // See LICENSE.txt for license information.
 
 import React, {useEffect} from 'react';
-import Scrollbars from 'react-custom-scrollbars';
+import {Scrollbars} from 'react-custom-scrollbars-2';
 import {useDispatch, useSelector} from 'react-redux';
 
 import {Theme} from 'mattermost-redux/selectors/entities/preferences';

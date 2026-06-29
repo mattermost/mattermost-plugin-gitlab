@@ -80,10 +80,8 @@ const (
 )
 
 const (
-	groupNotFoundError   = "404 {message: 404 Group Not Found}"
 	groupNotFoundMessage = "Unable to find GitLab group: "
 
-	projectNotFoundError   = "404 {message: 404 Project Not Found}"
 	projectNotFoundMessage = "Unable to find project with namespace: "
 
 	invalidSubscribeSubCommand           = "Invalid subscribe command. Available commands are add, delete, and list"
@@ -513,15 +511,6 @@ func (p *Plugin) handleSettings(ctx context.Context, args *model.CommandArgs, pa
 }
 
 func (p *Plugin) handleWebhookHandler(ctx context.Context, args *model.CommandArgs, parameters []string, info *gitlab.UserInfo) (*model.CommandResponse, *model.AppError) {
-	isSysAdmin, err := p.isAuthorizedSysAdmin(args.UserId)
-	if err != nil {
-		p.client.Log.Warn("Failed to check if user is System Admin", "error", err.Error())
-		return p.getCommandResponse(args, "Error checking user's permissions", true), nil
-	}
-	if !isSysAdmin {
-		return p.getCommandResponse(args, "Only System Admins are allowed to manage webhooks.", true), nil
-	}
-
 	config := p.getConfiguration()
 	message := p.webhookCommand(ctx, parameters, info, config.EnablePrivateRepo)
 	return p.getCommandResponse(args, message, true), nil
@@ -547,6 +536,16 @@ func (p *Plugin) handleIssueHelper(_ *plugin.Context, args *model.CommandArgs, p
 	default:
 		return fmt.Sprintf("This command is not implemented yet. Command: %v", command)
 	}
+}
+
+// webhookPermissionMessage builds a user-friendly message for GitLab permission
+// failures when managing webhooks, naming the scope and the access required.
+func webhookPermissionMessage(group, project string) string {
+	scope := "group"
+	if project != "" {
+		scope = "repository"
+	}
+	return fmt.Sprintf("You don't have permission to manage webhooks for the %s `%s`. You need Maintainer or Owner access in GitLab.", scope, namespaceFromGroupAndProject(group, project))
 }
 
 // webhookCommand processes the /gitlab webhook commands
@@ -577,6 +576,10 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 			return err.Error()
 		}
 
+		if err := p.isNamespaceAllowed(namespaceFromGroupAndProject(group, project)); err != nil {
+			return err.Error()
+		}
+
 		var webhookInfo []*gitlab.WebhookInfo
 		if project != "" {
 			err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
@@ -588,7 +591,10 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 				return nil
 			})
 			if err != nil {
-				if strings.Contains(err.Error(), projectNotFoundError) {
+				if errors.Is(err, gitlab.ErrForbidden) {
+					return webhookPermissionMessage(group, project)
+				}
+				if errors.Is(err, gitlab.ErrNotFound) {
 					return projectNotFoundMessage + namespace
 				}
 				return err.Error()
@@ -603,7 +609,10 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 				return nil
 			})
 			if err != nil {
-				if strings.Contains(err.Error(), groupNotFoundError) {
+				if errors.Is(err, gitlab.ErrForbidden) {
+					return webhookPermissionMessage(group, project)
+				}
+				if errors.Is(err, gitlab.ErrNotFound) {
 					return groupNotFoundMessage + group
 				}
 				return err.Error()
@@ -662,10 +671,40 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 			return namespaceErr.Error()
 		}
 
-		newWebhook, err := p.createHook(ctx, p.GitlabClient, info, group, project, hookOptions)
-		if err != nil {
+		resolvedNamespace := namespaceFromGroupAndProject(group, project)
+
+		auditRec := plugin.MakeAuditRecord("addWebhook", model.AuditStatusFail)
+		defer p.API.LogAuditRec(auditRec)
+		auditRec.Actor.UserId = info.UserID
+
+		auditParams := AddWebhookAuditParams{
+			MattermostUserID: info.UserID,
+			GitlabUsername:   info.GitlabUsername,
+			Namespace:        resolvedNamespace,
+			URL:              hookOptions.URL,
+		}
+		model.AddEventParameterAuditableToAuditRec(auditRec, "add_webhook", auditParams)
+
+		if err := p.isNamespaceAllowed(resolvedNamespace); err != nil {
+			auditRec.AddErrorDesc(err.Error())
 			return err.Error()
 		}
+
+		newWebhook, err := p.createHook(ctx, p.GitlabClient, info, group, project, hookOptions)
+		if err != nil {
+			auditRec.AddErrorDesc(err.Error())
+			if errors.Is(err, gitlab.ErrForbidden) {
+				return webhookPermissionMessage(group, project)
+			}
+			return err.Error()
+		}
+
+		auditRec.Success()
+		auditRec.AddEventResultState(AddWebhookAuditResult{
+			HookID: newWebhook.ID,
+			URL:    newWebhook.URL,
+			Scope:  newWebhook.Scope.String(),
+		})
 		return fmt.Sprintf("Webhook Created:\n%s", newWebhook.String())
 
 	default:
@@ -1137,7 +1176,6 @@ func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteD
 	gitlab.AddCommand(settings)
 
 	webhook := model.NewAutocompleteData("webhook", "[command]", "Available Commands: list, add")
-	webhook.RoleID = model.SystemAdminRoleId
 	webhookList := model.NewAutocompleteData(commandList, "owner/[repo]", "List existing project or group webhooks")
 	webhookList.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
 	webhook.AddCommand(webhookList)

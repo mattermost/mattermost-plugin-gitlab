@@ -35,7 +35,7 @@ const CreateIssueModal = ({theme}: PropTypes) => {
             show={true}
             onHide={handleClose}
             onExited={handleClose}
-            bsSize='large'
+            size='lg'
             backdrop='static'
         >
             <Modal.Header closeButton={true}>

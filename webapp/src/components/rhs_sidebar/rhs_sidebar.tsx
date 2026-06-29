@@ -189,7 +189,7 @@ export default class RHSSidebar extends React.PureComponent<RhsSidebarProps, Rhs
         this.setState({refreshing: true});
         await this.props.actions.getChannelSubscriptions(this.props.currentChannelId as string);
         this.setState({refreshing: false});
-    }
+    };
 
     render() {
         if (!this.props.connected) {

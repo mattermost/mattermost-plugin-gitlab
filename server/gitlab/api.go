@@ -290,6 +290,9 @@ func (g *gitlab) GetProjectHooks(ctx context.Context, user *UserInfo, token *oau
 	projectPath := fmt.Sprintf("%s/%s", owner, repo)
 	for {
 		hooks, resp, err = client.Projects.ListProjectHooks(projectPath, opt)
+		if respErr := checkResponse(resp); respErr != nil {
+			return nil, respErr
+		}
 		if err != nil {
 			return nil, err
 		}
