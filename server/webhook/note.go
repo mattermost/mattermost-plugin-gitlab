@@ -75,6 +75,10 @@ func (w *webhook) handleChannelIssueComment(ctx context.Context, event *gitlab.I
 			continue
 		}
 
+		if event.Issue.Confidential && !sub.ConfidentialIssues() {
+			continue
+		}
+
 		ok, warning := anyEventLabelInSubs(sub, event.Issue.Labels)
 		if !ok {
 			if len(warning) > 0 {

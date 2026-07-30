@@ -208,6 +208,7 @@ func TestConfidentialIssueWebhook(t *testing.T) {
 			for index := range res {
 				assert.Equal(t, test.res[index].Message, res[index].Message)
 				assert.EqualValues(t, test.res[index].ToUsers, res[index].ToUsers)
+				assert.ElementsMatch(t, test.res[index].ToChannels, res[index].ToChannels)
 				assert.Equal(t, test.res[index].From, res[index].From)
 			}
 

@@ -182,3 +182,47 @@ func TestIssueCommentWebhookPassesConfidentialFlag(t *testing.T) {
 		})
 	}
 }
+
+// Comments on a confidential issue expose the issue title and comment body, so
+// they must require the confidential_issues opt-in just like the issues themselves.
+func TestConfidentialIssueCommentRequiresOptIn(t *testing.T) {
+	t.Parallel()
+	confidentialFixture := strings.ReplaceAll(IssueComment, `"confidential":false`, `"confidential":true`)
+
+	testCases := []struct {
+		testTitle          string
+		features           string
+		expectedToChannels []string
+	}{
+		{
+			testTitle:          "subscription without confidential_issues is skipped",
+			features:           "issue_comments",
+			expectedToChannels: nil,
+		},
+		{
+			testTitle:          "subscription with confidential_issues receives the comment",
+			features:           "issue_comments,confidential_issues",
+			expectedToChannels: []string{"channel1"},
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.testTitle, func(t *testing.T) {
+			retreiver := newFakeWebhook([]*subscription.Subscription{
+				{ChannelID: "channel1", CreatorID: "1", Features: test.features, Repository: "manland/webhook"},
+			})
+			w := NewWebhook(retreiver)
+			issueCommentEvent := &gitlab.IssueCommentEvent{}
+			require.NoError(t, json.Unmarshal([]byte(confidentialFixture), issueCommentEvent))
+
+			res, _, err := w.HandleIssueComment(context.Background(), issueCommentEvent)
+			require.NoError(t, err)
+
+			var gotChannels []string
+			for _, handler := range res {
+				gotChannels = append(gotChannels, handler.ToChannels...)
+			}
+			assert.ElementsMatch(t, test.expectedToChannels, gotChannels)
+		})
+	}
+}
