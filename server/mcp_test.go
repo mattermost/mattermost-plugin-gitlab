@@ -405,7 +405,7 @@ func TestGetProject_GroupGate(t *testing.T) {
 		h := http.NewServeMux()
 		h.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
 			if req.Method == http.MethodGet && req.URL.Path == "/api/v4/projects/"+projectPath {
-				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				_ = json.NewEncoder(w).Encode(map[string]any{
 					"id":                  4242,
 					"name":                "repo",
 					"path_with_namespace": projectPath,
