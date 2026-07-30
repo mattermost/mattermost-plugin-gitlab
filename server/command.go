@@ -911,6 +911,16 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 			p.client.Log.Warn(msg)
 			return msg
 		}
+	} else if strings.Contains(features, "confidential_issues") {
+		groupAccessErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+			_, groupErr := p.GitlabClient.GetGroup(ctx, info, token, namespace, "")
+			return groupErr
+		})
+		if groupAccessErr != nil {
+			msg := "You don't have the permissions to subscribe to confidential issues for this group."
+			p.client.Log.Warn(msg, "err", groupAccessErr.Error())
+			return msg
+		}
 	}
 
 	updatedSubscriptions, subscribeErr := p.Subscribe(info, namespace, project, channelID, features)

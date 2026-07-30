@@ -67,6 +67,7 @@ func (w *webhook) handleChannelIssueComment(ctx context.Context, event *gitlab.I
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
 		ctx, namespace, project,
 		repo.Visibility == gitlab.PublicVisibility,
+		event.Issue.Confidential,
 	)
 	var warnings []string
 	for _, sub := range subs {
@@ -143,6 +144,7 @@ func (w *webhook) handleChannelMergeRequestComment(ctx context.Context, event *g
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
 		ctx, namespace, project,
 		repo.Visibility == gitlab.PublicVisibility,
+		false,
 	)
 	for _, sub := range subs {
 		if !sub.MergeRequestComments() {

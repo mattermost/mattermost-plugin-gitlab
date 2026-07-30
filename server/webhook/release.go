@@ -52,6 +52,7 @@ func (w *webhook) handleChannelRelease(ctx context.Context, event *gitlab.Releas
 		ctx, namespaceMetadata.Namespace,
 		namespaceMetadata.Project,
 		project.VisibilityLevel == PublicVisibilityLevel,
+		false,
 	)
 	for _, sub := range subs {
 		if !sub.Releases() {

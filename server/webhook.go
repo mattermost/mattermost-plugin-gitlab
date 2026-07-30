@@ -57,8 +57,9 @@ func (g *gitlabRetreiver) GetSubscribedChannelsForProject(
 	namespace string,
 	project string,
 	isPublicVisibility bool,
+	isConfidential bool,
 ) []*subscription.Subscription {
-	return g.p.GetSubscribedChannelsForProject(ctx, namespace, project, isPublicVisibility)
+	return g.p.GetSubscribedChannelsForProject(ctx, namespace, project, isPublicVisibility, isConfidential)
 }
 
 func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {

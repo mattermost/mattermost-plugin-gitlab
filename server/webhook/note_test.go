@@ -12,6 +12,7 @@ import (
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/xanzy/go-gitlab"
 )
 
@@ -142,6 +143,42 @@ func TestNoteWebhook(t *testing.T) {
 				assert.Equal(t, test.res[index].ToUsers, res[index].ToUsers)
 				assert.Equal(t, test.res[index].From, res[index].From)
 			}
+		})
+	}
+}
+
+func TestIssueCommentWebhookPassesConfidentialFlag(t *testing.T) {
+	t.Parallel()
+	testCases := []struct {
+		testTitle      string
+		fixture        string
+		expectedIsConf bool
+	}{
+		{
+			testTitle:      "comment on regular issue does not force the permission check",
+			fixture:        IssueComment,
+			expectedIsConf: false,
+		},
+		{
+			testTitle:      "comment on confidential issue forces the permission check",
+			fixture:        strings.ReplaceAll(IssueComment, `"confidential":false`, `"confidential":true`),
+			expectedIsConf: true,
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.testTitle, func(t *testing.T) {
+			retreiver := newFakeWebhook([]*subscription.Subscription{
+				{ChannelID: "channel1", CreatorID: "1", Features: "issue_comments", Repository: "manland/webhook"},
+			})
+			w := NewWebhook(retreiver)
+			issueCommentEvent := &gitlab.IssueCommentEvent{}
+			require.NoError(t, json.Unmarshal([]byte(test.fixture), issueCommentEvent))
+
+			_, _, err := w.HandleIssueComment(context.Background(), issueCommentEvent)
+			require.NoError(t, err)
+
+			assert.Equal(t, test.expectedIsConf, retreiver.gotIsConfidential)
 		})
 	}
 }
