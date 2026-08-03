@@ -367,6 +367,52 @@ func TestMakeReplacements(t *testing.T) {
 	}
 }
 
+func TestMakeReplacementsNamespaceGate(t *testing.T) {
+	input := "start https://gitlab.com/mattermost/mattermost-server/-/blob/cbb25838a61872b624ac512556d7bc932486a64c/app/authentication.go#L15-L22 lorem ipsum"
+
+	newPlugin := func(group string) *Plugin {
+		p := NewPlugin()
+		p.configuration = &configuration{
+			EnableCodePreview: "privateAndPublic",
+			GitlabGroup:       group,
+		}
+		mockPluginAPI := &plugintest.API{}
+		mockPluginAPI.On("LogDebug", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
+		mockPluginAPI.On("LogWarn", mock.Anything, mock.Anything).Maybe()
+		p.SetAPI(mockPluginAPI)
+		return p
+	}
+
+	client, closer := getClient()
+	defer closer()
+
+	t.Run("out-of-group project skips preview when group configured", func(t *testing.T) {
+		p := newPlugin("other-group")
+		replacements := p.getPermalinkReplacements(input)
+		require.Len(t, replacements, 1)
+		out := p.makeReplacements(input, replacements, client)
+		assert.Equal(t, input, out, "out-of-group permalink must be left untouched")
+	})
+
+	t.Run("in-group project still renders preview", func(t *testing.T) {
+		p := newPlugin("mattermost")
+		replacements := p.getPermalinkReplacements(input)
+		require.Len(t, replacements, 1)
+		out := p.makeReplacements(input, replacements, client)
+		assert.NotEqual(t, input, out, "in-group permalink must be expanded")
+		assert.Contains(t, out, "TokenLocation")
+	})
+
+	t.Run("no group configured renders preview", func(t *testing.T) {
+		p := newPlugin("")
+		replacements := p.getPermalinkReplacements(input)
+		require.Len(t, replacements, 1)
+		out := p.makeReplacements(input, replacements, client)
+		assert.NotEqual(t, input, out, "with no group configured previews must still work")
+		assert.Contains(t, out, "TokenLocation")
+	})
+}
+
 const (
 	baseURLPath    = "/api/v4"
 	requestURLPath = "/api/v4/projects/mattermost/mattermost-server/repository/files/app/authentication.go"
