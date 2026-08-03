@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"io"
 	"net/http"
@@ -65,7 +66,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	config := p.getConfiguration()
 
 	signature := r.Header.Get("X-Gitlab-Token")
-	if config.WebhookSecret != signature {
+	if subtle.ConstantTimeCompare([]byte(config.WebhookSecret), []byte(signature)) != 1 {
 		http.Error(w, "Not authorized", http.StatusUnauthorized)
 		return
 	}
