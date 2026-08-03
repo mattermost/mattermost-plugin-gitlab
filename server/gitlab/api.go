@@ -325,6 +325,9 @@ func (g *gitlab) GetProject(ctx context.Context, user *UserInfo, token *oauth2.T
 	if err != nil {
 		return nil, err
 	}
+	if err = g.checkGroup(project.PathWithNamespace); err != nil {
+		return nil, err
+	}
 
 	return project, nil
 }
