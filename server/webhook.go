@@ -249,15 +249,26 @@ func (p *Plugin) permissionToProject(ctx context.Context, userID, namespace, pro
 		return false
 	}
 
-	// User permission for the project
-	userPermission := result.Permissions
+	return effectiveAccess(result.Permissions) > gitlabLib.GuestPermissions
+}
 
-	// Check if the user has guest permission or less for both project and group level
-	if (userPermission.ProjectAccess != nil && userPermission.ProjectAccess.AccessLevel <= gitlabLib.GuestPermissions) || (userPermission.GroupAccess != nil && userPermission.GroupAccess.AccessLevel <= gitlabLib.GuestPermissions) {
-		return false
+// effectiveAccess returns the highest access level the user holds on a project,
+// counting both direct project membership and access inherited from its group.
+// Absent permissions mean no access, so callers deny rather than fall through.
+func effectiveAccess(perms *gitlabLib.Permissions) gitlabLib.AccessLevelValue {
+	if perms == nil {
+		return gitlabLib.NoPermissions
 	}
 
-	return true
+	level := gitlabLib.NoPermissions
+	if perms.ProjectAccess != nil && perms.ProjectAccess.AccessLevel > level {
+		level = perms.ProjectAccess.AccessLevel
+	}
+	if perms.GroupAccess != nil && perms.GroupAccess.AccessLevel > level {
+		level = perms.GroupAccess.AccessLevel
+	}
+
+	return level
 }
 
 func (p *Plugin) createHook(ctx context.Context, gitlabClient gitlab.Gitlab, info *gitlab.UserInfo, group, project string, hookOptions *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error) {
