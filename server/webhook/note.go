@@ -62,12 +62,16 @@ func (w *webhook) handleChannelIssueComment(ctx context.Context, event *gitlab.I
 
 	message := fmt.Sprintf("[%s](%s) New comment by [%s](%s) on [#%v %s](%s):\n\n%s", repo.PathWithNamespace, repo.WebURL, senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Issue.IID, event.Issue.Title, event.ObjectAttributes.URL, body)
 
+	// An internal note carries a confidential event type even when the issue
+	// itself is public, so both signals gate delivery.
+	isConfidential := event.Issue.Confidential || event.EventType == eventTypeConfidentialNote
+
 	toChannels := make([]string, 0)
 	namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
 		ctx, namespace, project,
 		repo.Visibility == gitlab.PublicVisibility,
-		event.Issue.Confidential,
+		isConfidential,
 	)
 	var warnings []string
 	for _, sub := range subs {
@@ -75,7 +79,7 @@ func (w *webhook) handleChannelIssueComment(ctx context.Context, event *gitlab.I
 			continue
 		}
 
-		if event.Issue.Confidential && !sub.ConfidentialIssues() {
+		if isConfidential && !sub.ConfidentialIssues() {
 			continue
 		}
 

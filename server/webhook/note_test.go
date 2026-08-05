@@ -147,6 +147,10 @@ func TestNoteWebhook(t *testing.T) {
 	}
 }
 
+// internalNoteOnPublicIssue is an internal (confidential) note on an issue that
+// is not itself confidential, so only the event type marks it as private.
+var internalNoteOnPublicIssue = strings.ReplaceAll(IssueComment, `"event_type":"note"`, `"event_type":"confidential_note"`)
+
 func TestIssueCommentWebhookPassesConfidentialFlag(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
@@ -162,6 +166,11 @@ func TestIssueCommentWebhookPassesConfidentialFlag(t *testing.T) {
 		{
 			testTitle:      "comment on confidential issue forces the permission check",
 			fixture:        strings.ReplaceAll(IssueComment, `"confidential":false`, `"confidential":true`),
+			expectedIsConf: true,
+		},
+		{
+			testTitle:      "internal note on a public issue forces the permission check",
+			fixture:        internalNoteOnPublicIssue,
 			expectedIsConf: true,
 		},
 	}
@@ -191,16 +200,31 @@ func TestConfidentialIssueCommentRequiresOptIn(t *testing.T) {
 
 	testCases := []struct {
 		testTitle          string
+		fixture            string
 		features           string
 		expectedToChannels []string
 	}{
 		{
 			testTitle:          "subscription without confidential_issues is skipped",
+			fixture:            confidentialFixture,
 			features:           "issue_comments",
 			expectedToChannels: nil,
 		},
 		{
 			testTitle:          "subscription with confidential_issues receives the comment",
+			fixture:            confidentialFixture,
+			features:           "issue_comments,confidential_issues",
+			expectedToChannels: []string{"channel1"},
+		},
+		{
+			testTitle:          "internal note on a public issue is skipped without confidential_issues",
+			fixture:            internalNoteOnPublicIssue,
+			features:           "issue_comments",
+			expectedToChannels: nil,
+		},
+		{
+			testTitle:          "internal note on a public issue is delivered with confidential_issues",
+			fixture:            internalNoteOnPublicIssue,
 			features:           "issue_comments,confidential_issues",
 			expectedToChannels: []string{"channel1"},
 		},
@@ -213,7 +237,7 @@ func TestConfidentialIssueCommentRequiresOptIn(t *testing.T) {
 			})
 			w := NewWebhook(retreiver)
 			issueCommentEvent := &gitlab.IssueCommentEvent{}
-			require.NoError(t, json.Unmarshal([]byte(confidentialFixture), issueCommentEvent))
+			require.NoError(t, json.Unmarshal([]byte(test.fixture), issueCommentEvent))
 
 			res, _, err := w.HandleIssueComment(context.Background(), issueCommentEvent)
 			require.NoError(t, err)
