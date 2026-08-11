@@ -102,6 +102,11 @@ func (p *Plugin) processReplacement(r replacement, glClient *gitlab.Client, wg *
 	}
 	projectPath := fmt.Sprintf("%s/%s", r.permalinkData.user, r.permalinkData.repo)
 
+	// Skip previews for projects outside the configured GitLab group.
+	if err := p.isNamespaceAllowed(projectPath); err != nil {
+		return
+	}
+
 	// Check if the project is public
 	if p.getConfiguration().EnableCodePreview == "public" {
 		repo, _, err := glClient.Projects.GetProject(projectPath, &gitlab.GetProjectOptions{})

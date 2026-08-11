@@ -4,7 +4,11 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -433,4 +437,67 @@ func TestRefreshTokenReturnsErrorWhenOAuthConfigFails(t *testing.T) {
 	assert.Nil(t, newToken)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unable to get OAuth config for token refresh")
+}
+
+// --- GetProject group-containment gate tests --------------------------------
+
+func TestGetProject_GroupGate(t *testing.T) {
+	newProjectServer := func(projectPath string) *httptest.Server {
+		h := http.NewServeMux()
+		h.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+			if req.Method == http.MethodGet && req.URL.Path == "/api/v4/projects/"+projectPath {
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"id":                  4242,
+					"name":                "repo",
+					"path_with_namespace": projectPath,
+					"visibility":          "private",
+					"default_branch":      "main",
+				})
+				return
+			}
+			http.NotFound(w, req)
+		})
+		return httptest.NewServer(h)
+	}
+
+	newClient := func(group, projectPath string) (gitlab.Gitlab, *httptest.Server) {
+		server := newProjectServer(projectPath)
+		checkGroup := func(ns string) error {
+			p := &Plugin{}
+			p.configuration = &configuration{GitlabGroup: group}
+			return p.isNamespaceAllowed(ns)
+		}
+		u, _ := url.Parse(server.URL)
+		return gitlab.New(u.String(), group, checkGroup), server
+	}
+
+	ctx := context.Background()
+	info := &gitlab.UserInfo{UserID: "mm-user"}
+	token := &oauth2.Token{AccessToken: "tok"}
+
+	t.Run("out-of-group project blocked when group configured", func(t *testing.T) {
+		client, server := newClient("allowed-group", "external-corp/private-secrets")
+		defer server.Close()
+		project, err := client.GetProject(ctx, info, token, "external-corp", "private-secrets")
+		require.Error(t, err)
+		assert.Nil(t, project)
+	})
+
+	t.Run("in-group project allowed when group configured", func(t *testing.T) {
+		client, server := newClient("allowed-group", "allowed-group/my-repo")
+		defer server.Close()
+		project, err := client.GetProject(ctx, info, token, "allowed-group", "my-repo")
+		require.NoError(t, err)
+		require.NotNil(t, project)
+		assert.Equal(t, "allowed-group/my-repo", project.PathWithNamespace)
+	})
+
+	t.Run("no group configured allows any project", func(t *testing.T) {
+		client, server := newClient("", "external-corp/private-secrets")
+		defer server.Close()
+		project, err := client.GetProject(ctx, info, token, "external-corp", "private-secrets")
+		require.NoError(t, err)
+		require.NotNil(t, project)
+		assert.Equal(t, "external-corp/private-secrets", project.PathWithNamespace)
+	})
 }
