@@ -196,6 +196,12 @@ func (m *MockGitlab) GetGroup(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 
 	return ret0, ret1
 }
 
+// GetGroup indicates an expected call of GetGroup.
+func (mr *MockGitlabMockRecorder) GetGroup(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGroup", reflect.TypeOf((*MockGitlab)(nil).GetGroup), arg0, arg1, arg2, arg3, arg4)
+}
+
 // GetProject indicates an expected call of GetProject.
 func (mr *MockGitlabMockRecorder) GetProject(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
