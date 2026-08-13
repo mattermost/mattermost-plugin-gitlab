@@ -15,6 +15,10 @@ import (
 
 type fakeWebhook struct {
 	subs []*subscription.Subscription
+
+	// gotIsConfidential records the confidentiality flag of the last lookup so
+	// tests can assert that confidential events reach the authorization check.
+	gotIsConfidential bool
 }
 
 func newFakeWebhook(subs []*subscription.Subscription) *fakeWebhook {
@@ -52,7 +56,8 @@ func (*fakeWebhook) ParseGitlabUsernamesFromText(body string) []string {
 	return []string{}
 }
 
-func (f *fakeWebhook) GetSubscribedChannelsForProject(ctx context.Context, namespace, project string, isPublicVisibility bool) []*subscription.Subscription {
+func (f *fakeWebhook) GetSubscribedChannelsForProject(ctx context.Context, namespace, project string, isPublicVisibility, isConfidential bool) []*subscription.Subscription {
+	f.gotIsConfidential = isConfidential
 	return f.subs
 }
 

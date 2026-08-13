@@ -70,6 +70,7 @@ func (w *webhook) handleChannelPush(ctx context.Context, event *gitlab.PushEvent
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
 		ctx, namespace, project,
 		repo.Visibility == gitlab.PublicVisibility,
+		false,
 	)
 	for _, sub := range subs {
 		if !sub.Pushes() {

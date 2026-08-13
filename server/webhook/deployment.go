@@ -54,6 +54,7 @@ func (w *webhook) handleChannelDeployment(ctx context.Context, event *gitlab.Dep
 		ctx, namespaceMetadata.Namespace,
 		namespaceMetadata.Project,
 		project.VisibilityLevel == PublicVisibilityLevel,
+		false,
 	)
 	for _, sub := range subs {
 		if !sub.Deployments() {

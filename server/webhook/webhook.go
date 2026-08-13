@@ -29,7 +29,7 @@ type GitlabRetreiver interface {
 	// ParseGitlabUsernamesFromText from a text return an array of username
 	ParseGitlabUsernamesFromText(text string) []string
 	// GetSubscribedChannelsForProject returns all subscriptions for given project.
-	GetSubscribedChannelsForProject(ctx context.Context, namespace, project string, isPublicVisibility bool) []*subscription.Subscription
+	GetSubscribedChannelsForProject(ctx context.Context, namespace, project string, isPublicVisibility, isConfidential bool) []*subscription.Subscription
 }
 
 type HandleWebhook struct {

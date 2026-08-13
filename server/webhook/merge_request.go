@@ -192,6 +192,7 @@ func (w *webhook) handleChannelMergeRequest(ctx context.Context, event *gitlab.M
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
 		ctx, namespace, project,
 		repo.Visibility == gitlab.PublicVisibility,
+		false,
 	)
 
 	if len(message) > 0 {
