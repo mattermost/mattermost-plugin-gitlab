@@ -5,6 +5,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
 	"fmt"
 	"io"
 	"net/http"
@@ -66,7 +68,12 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	config := p.getConfiguration()
 
 	signature := r.Header.Get("X-Gitlab-Token")
-	if config.WebhookSecret != signature {
+	// Compare fixed-length SHA-256 digests rather than the raw values:
+	// subtle.ConstantTimeCompare returns 0 immediately when the inputs differ
+	// in length, which would leak the length of the configured secret.
+	secretDigest := sha256.Sum256([]byte(config.WebhookSecret))
+	tokenDigest := sha256.Sum256([]byte(signature))
+	if subtle.ConstantTimeCompare(secretDigest[:], tokenDigest[:]) != 1 {
 		http.Error(w, "Not authorized", http.StatusUnauthorized)
 		return
 	}
