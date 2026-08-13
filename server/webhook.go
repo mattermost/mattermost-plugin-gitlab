@@ -220,17 +220,47 @@ func (p *Plugin) sendRefreshIfNotAlreadySent(alreadySentRefresh map[string]bool,
 }
 
 func (p *Plugin) permissionToProject(ctx context.Context, userID, namespace, project string) bool {
-	if userID == "" {
+	result := p.fetchProjectAsUser(ctx, userID, namespace, project)
+	if result == nil {
 		return false
 	}
 
-	if err := p.isNamespaceAllowed(namespace); err != nil {
+	return effectiveAccess(result.Permissions) > gitlabLib.GuestPermissions
+}
+
+// permissionToSubscribe reports whether the user may create a subscription for
+// a project. Public projects only require membership when the subscription
+// covers confidential content, mirroring the delivery-time check in
+// GetSubscribedChannelsForProject so a subscription cannot be rejected here and
+// then be considered deliverable later.
+func (p *Plugin) permissionToSubscribe(ctx context.Context, userID, namespace, project string, wantsConfidential bool) bool {
+	result := p.fetchProjectAsUser(ctx, userID, namespace, project)
+	if result == nil {
 		return false
+	}
+
+	if result.Visibility == gitlabLib.PublicVisibility && !wantsConfidential {
+		return true
+	}
+
+	return effectiveAccess(result.Permissions) > gitlabLib.GuestPermissions
+}
+
+// fetchProjectAsUser loads a project using the given Mattermost user's GitLab
+// token. It returns nil when the namespace is blocked, the user is unknown, or
+// GitLab denies access.
+func (p *Plugin) fetchProjectAsUser(ctx context.Context, userID, namespace, project string) *gitlabLib.Project {
+	if userID == "" {
+		return nil
+	}
+
+	if err := p.isNamespaceAllowed(namespace); err != nil {
+		return nil
 	}
 
 	info, apiErr := p.getGitlabUserInfoByMattermostID(userID)
 	if apiErr != nil {
-		return false
+		return nil
 	}
 
 	var result *gitlabLib.Project
@@ -242,14 +272,12 @@ func (p *Plugin) permissionToProject(ctx context.Context, userID, namespace, pro
 		result = resp
 		return nil
 	})
-	if result == nil || err != nil {
-		if err != nil {
-			p.client.Log.Warn("Can't get project in webhook", "err", err.Error(), "project", namespace+"/"+project)
-		}
-		return false
+	if err != nil {
+		p.client.Log.Warn("Can't get project in webhook", "err", err.Error(), "project", namespace+"/"+project)
+		return nil
 	}
 
-	return effectiveAccess(result.Permissions) > gitlabLib.GuestPermissions
+	return result
 }
 
 // effectiveAccess returns the highest access level the user holds on a project,

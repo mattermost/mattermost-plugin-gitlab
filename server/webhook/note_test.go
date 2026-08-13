@@ -250,3 +250,62 @@ func TestConfidentialIssueCommentRequiresOptIn(t *testing.T) {
 		})
 	}
 }
+
+// Internal notes on a merge request expose private review discussion, so they
+// need the same confidential_issues opt-in as comments on confidential issues.
+func TestInternalMergeRequestCommentRequiresOptIn(t *testing.T) {
+	t.Parallel()
+	internalNote := strings.ReplaceAll(MergeRequestComment, `"event_type":"note"`, `"event_type":"confidential_note"`)
+
+	testCases := []struct {
+		testTitle          string
+		fixture            string
+		features           string
+		expectedIsConf     bool
+		expectedToChannels []string
+	}{
+		{
+			testTitle:          "regular comment does not force the permission check",
+			fixture:            MergeRequestComment,
+			features:           "merge_request_comments",
+			expectedIsConf:     false,
+			expectedToChannels: []string{"channel1"},
+		},
+		{
+			testTitle:          "internal note is skipped without confidential_issues",
+			fixture:            internalNote,
+			features:           "merge_request_comments",
+			expectedIsConf:     true,
+			expectedToChannels: nil,
+		},
+		{
+			testTitle:          "internal note is delivered with confidential_issues",
+			fixture:            internalNote,
+			features:           "merge_request_comments,confidential_issues",
+			expectedIsConf:     true,
+			expectedToChannels: []string{"channel1"},
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.testTitle, func(t *testing.T) {
+			retreiver := newFakeWebhook([]*subscription.Subscription{
+				{ChannelID: "channel1", CreatorID: "1", Features: test.features, Repository: "manland/webhook"},
+			})
+			w := NewWebhook(retreiver)
+			mergeCommentEvent := &gitlab.MergeCommentEvent{}
+			require.NoError(t, json.Unmarshal([]byte(test.fixture), mergeCommentEvent))
+
+			res, _, err := w.HandleMergeRequestComment(context.Background(), mergeCommentEvent)
+			require.NoError(t, err)
+
+			assert.Equal(t, test.expectedIsConf, retreiver.gotIsConfidential)
+
+			var gotChannels []string
+			for _, handler := range res {
+				gotChannels = append(gotChannels, handler.ToChannels...)
+			}
+			assert.ElementsMatch(t, test.expectedToChannels, gotChannels)
+		})
+	}
+}

@@ -37,6 +37,9 @@ type subscribeCommandTest struct {
 	groupOnly bool
 	// getGroupErr is returned by GetGroup, simulating no access to the group.
 	getGroupErr error
+	// publicProjectNoMembership resolves to a public project with no membership,
+	// which is what GitLab reports for a non-member.
+	publicProjectNoMembership bool
 }
 
 const (
@@ -162,6 +165,24 @@ var subscribeCommandTests = []subscribeCommandTest{
 		mattermostURL: "example.com",
 		groupOnly:     true,
 		// GetGroup is not mocked here, so gomock fails the test if it is called.
+	},
+	{
+		testName:                  "Non-member can subscribe to a public project",
+		parameters:                []string{"add", "group/project", "issues"},
+		mockGitlab:                true,
+		want:                      subscribeSuccessMessage,
+		webhookInfo:               []*gitlab.WebhookInfo{{}},
+		mattermostURL:             "example.com",
+		publicProjectNoMembership: true,
+	},
+	{
+		testName:                  "Non-member cannot subscribe to confidential issues on a public project",
+		parameters:                []string{"add", "group/project", "confidential_issues"},
+		mockGitlab:                true,
+		want:                      "You don't have the permissions to subscribe to confidential issues for this project.",
+		mattermostURL:             "example.com",
+		publicProjectNoMembership: true,
+		noAccess:                  true,
 	},
 }
 
@@ -368,9 +389,14 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 		mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
 	default:
 		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("group", "project", nil)
-		if test.getProjectErr != nil {
+		switch {
+		case test.getProjectErr != nil:
 			mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, test.getProjectErr)
-		} else {
+		case test.publicProjectNoMembership:
+			mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&gitLabAPI.Project{
+				Visibility: gitLabAPI.PublicVisibility,
+			}, nil)
+		default:
 			mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&gitLabAPI.Project{
 				Permissions: &gitLabAPI.Permissions{
 					ProjectAccess: &gitLabAPI.ProjectAccess{
