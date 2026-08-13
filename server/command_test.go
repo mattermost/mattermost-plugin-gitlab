@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/mattermost/mattermost/server/public/model"
@@ -32,6 +33,13 @@ type subscribeCommandTest struct {
 	projectHookErr error
 	getProjectErr  error
 	mockGitlab     bool
+	// groupOnly resolves the namespace to a group rather than a project.
+	groupOnly bool
+	// getGroupErr is returned by GetGroup, simulating no access to the group.
+	getGroupErr error
+	// publicProjectNoMembership resolves to a public project with no membership,
+	// which is what GitLab reports for a non-member.
+	publicProjectNoMembership bool
 }
 
 const (
@@ -132,6 +140,50 @@ var subscribeCommandTests = []subscribeCommandTest{
 		parameters: []string{"unknown"},
 		want:       invalidSubscribeSubCommand,
 	},
+	{
+		testName:      "Group confidential_issues subscription denied without group access",
+		parameters:    []string{"add", "group", "confidential_issues"},
+		mockGitlab:    true,
+		want:          "You don't have the permissions to subscribe to confidential issues for this group.",
+		mattermostURL: "example.com",
+		groupOnly:     true,
+		getGroupErr:   errors.New("403 Forbidden"),
+	},
+	{
+		testName:      "Group confidential_issues subscription allowed with group access",
+		parameters:    []string{"add", "group", "confidential_issues"},
+		mockGitlab:    true,
+		want:          "Successfully subscribed to group.\nA Webhook is needed, run ```/gitlab webhook add group``` to create one now.",
+		mattermostURL: "example.com",
+		groupOnly:     true,
+	},
+	{
+		testName:      "Group subscription without confidential_issues skips the group access check",
+		parameters:    []string{"add", "group", "issues"},
+		mockGitlab:    true,
+		want:          "Successfully subscribed to group.\nA Webhook is needed, run ```/gitlab webhook add group``` to create one now.",
+		mattermostURL: "example.com",
+		groupOnly:     true,
+		// GetGroup is not mocked here, so gomock fails the test if it is called.
+	},
+	{
+		testName:                  "Non-member can subscribe to a public project",
+		parameters:                []string{"add", "group/project", "issues"},
+		mockGitlab:                true,
+		want:                      subscribeSuccessMessage,
+		webhookInfo:               []*gitlab.WebhookInfo{{}},
+		mattermostURL:             "example.com",
+		publicProjectNoMembership: true,
+	},
+	{
+		testName:                  "Non-member cannot subscribe to confidential issues on a public project",
+		parameters:                []string{"add", "group/project", "confidential_issues"},
+		mockGitlab:                true,
+		want:                      "You don't have the permissions to subscribe to confidential issues for this project.",
+		mattermostURL:             "example.com",
+		publicProjectNoMembership: true,
+		noAccess:                  true,
+	},
 }
 
 func TestSubscribeCommand(t *testing.T) {
@@ -144,7 +196,7 @@ func TestSubscribeCommand(t *testing.T) {
 				UserID: "user_id",
 			}
 
-			p := getTestPlugin(t, mockCtrl, test.webhookInfo, test.mattermostURL, test.projectHookErr, test.getProjectErr, test.mockGitlab, test.noAccess)
+			p := getTestPlugin(t, mockCtrl, test)
 			subscribeMessage, _ := p.subscribeCommand(context.Background(), test.parameters, channelID, &configuration{}, userInfo)
 
 			assert.Equal(t, test.want, subscribeMessage, "Subscribe command message should be the same.")
@@ -314,20 +366,37 @@ func TestListWebhookCommandNamespaceNotAllowed(t *testing.T) {
 	assert.Contains(t, got, "only repositories in the allowed-group namespace are allowed")
 }
 
-func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.WebhookInfo, mattermostURL string, projectHookErr error, getProjectErr error, mockGitlab, noAccess bool) *Plugin {
+func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeCommandTest) *Plugin {
 	p := new(Plugin)
 
 	accessLevel := gitLabAPI.OwnerPermissions
-	if noAccess {
+	if test.noAccess {
 		accessLevel = gitLabAPI.GuestPermissions
 	}
 
 	mockedClient := mocks.NewMockGitlab(mockCtrl)
-	if mockGitlab {
+	switch {
+	case !test.mockGitlab:
+	case test.groupOnly:
+		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("group", "", nil)
+		if test.getGroupErr != nil {
+			mockedClient.EXPECT().GetGroup(gomock.Any(), gomock.Any(), gomock.Any(), "group", "").Return(nil, test.getGroupErr)
+			break
+		}
+		if strings.Contains(strings.Join(test.parameters, " "), "confidential_issues") {
+			mockedClient.EXPECT().GetGroup(gomock.Any(), gomock.Any(), gomock.Any(), "group", "").Return(&gitLabAPI.Group{}, nil)
+		}
+		mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
+	default:
 		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("group", "project", nil)
-		if getProjectErr != nil {
-			mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, getProjectErr)
-		} else {
+		switch {
+		case test.getProjectErr != nil:
+			mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, test.getProjectErr)
+		case test.publicProjectNoMembership:
+			mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&gitLabAPI.Project{
+				Visibility: gitLabAPI.PublicVisibility,
+			}, nil)
+		default:
 			mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&gitLabAPI.Project{
 				Permissions: &gitLabAPI.Permissions{
 					ProjectAccess: &gitLabAPI.ProjectAccess{
@@ -337,10 +406,10 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.We
 			}, nil)
 		}
 
-		if !noAccess {
-			mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
-			if projectHookErr == nil {
-				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(hooks, projectHookErr)
+		if !test.noAccess {
+			mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
+			if test.projectHookErr == nil {
+				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
 			}
 		}
 	}
@@ -348,7 +417,7 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, hooks []*gitlab.We
 	p.GitlabClient = mockedClient
 
 	conf := &model.Config{}
-	conf.ServiceSettings.SiteURL = &mattermostURL
+	conf.ServiceSettings.SiteURL = &test.mattermostURL
 
 	encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
 

@@ -92,18 +92,23 @@ func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEve
 	}
 
 	if len(message) > 0 {
+		// Trust the payload's confidential flag in addition to the event type, so a
+		// confidential issue delivered under the regular Issue Hook is still gated.
+		isConfidential := issue.Confidential || eventType == gitlab.EventConfidentialIssue
+
 		toChannels := make([]string, 0)
 		namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
 		subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
 			ctx, namespace, project,
 			repo.Visibility == gitlab.PublicVisibility,
+			isConfidential,
 		)
 		for _, sub := range subs {
 			if !sub.Issues() {
 				continue
 			}
 
-			if eventType == gitlab.EventConfidentialIssue && !sub.ConfidentialIssues() {
+			if isConfidential && !sub.ConfidentialIssues() {
 				continue
 			}
 
