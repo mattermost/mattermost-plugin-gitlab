@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -13,8 +14,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	gitLabAPI "github.com/xanzy/go-gitlab"
+	"go.uber.org/mock/gomock"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
+	mocks "github.com/mattermost/mattermost-plugin-gitlab/server/gitlab/mocks"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
 
@@ -233,6 +237,132 @@ func TestUnsubscribe(t *testing.T) {
 			assert.Equal(t, test.shouldError, err != nil)
 			assert.Equal(t, test.expectedUpdatedSubscriptions, updatedSubscriptions)
 			m.AssertExpectations(t)
+		})
+	}
+}
+
+func TestGetSubscribedChannelsForProject(t *testing.T) {
+	t.Parallel()
+
+	subscriptionsData := &Subscriptions{
+		Repositories: map[string][]*subscription.Subscription{
+			"group/project": {
+				{ChannelID: "channel1", CreatorID: "creator1", Features: "issues", Repository: "group/project"},
+			},
+		},
+	}
+	subscriptionsJSON, err := json.Marshal(subscriptionsData)
+	require.NoError(t, err)
+
+	userInfo := gitlab.UserInfo{
+		UserID:         "creator1",
+		GitlabUsername: "gitlab_user",
+	}
+	userInfoJSON, err := json.Marshal(userInfo)
+	require.NoError(t, err)
+
+	encryptedToken, err := encrypt([]byte(testEncryptionKey), testGitlabToken)
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name               string
+		namespace          string
+		project            string
+		isPublicVisibility bool
+		isConfidential     bool
+		accessLevel        gitLabAPI.AccessLevelValue
+		expectChannels     []string
+		expectGetProject   bool
+	}{
+		{
+			name:               "public non-confidential skips permission check",
+			namespace:          "group",
+			project:            "project",
+			isPublicVisibility: true,
+			isConfidential:     false,
+			expectChannels:     []string{"channel1"},
+			expectGetProject:   false,
+		},
+		{
+			name:               "public confidential enforces permission check with access",
+			namespace:          "group",
+			project:            "project",
+			isPublicVisibility: true,
+			isConfidential:     true,
+			accessLevel:        gitLabAPI.ReporterPermissions,
+			expectChannels:     []string{"channel1"},
+			expectGetProject:   true,
+		},
+		{
+			name:               "public confidential excludes subscription without access",
+			namespace:          "group",
+			project:            "project",
+			isPublicVisibility: true,
+			isConfidential:     true,
+			accessLevel:        gitLabAPI.GuestPermissions,
+			expectChannels:     []string{},
+			expectGetProject:   true,
+		},
+		{
+			name:               "private project always enforces permission check",
+			namespace:          "group",
+			project:            "project",
+			isPublicVisibility: false,
+			isConfidential:     false,
+			accessLevel:        gitLabAPI.ReporterPermissions,
+			expectChannels:     []string{"channel1"},
+			expectGetProject:   true,
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			mockCtrl := gomock.NewController(t)
+
+			mockedClient := mocks.NewMockGitlab(mockCtrl)
+			if test.expectGetProject {
+				mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), test.namespace, test.project).Return(&gitLabAPI.Project{
+					Permissions: &gitLabAPI.Permissions{
+						ProjectAccess: &gitLabAPI.ProjectAccess{
+							AccessLevel: test.accessLevel,
+						},
+					},
+				}, nil)
+			}
+
+			api := &plugintest.API{}
+			api.On("KVGet", SubscriptionsKey).Return(subscriptionsJSON, nil).Once()
+			api.On("KVGet", "creator1"+GitlabUserInfoKey).Return(userInfoJSON, nil).Once()
+			api.On("KVGet", "creator1_usertoken").Return([]byte(encryptedToken), nil).Once()
+			api.On("LogWarn",
+				mock.AnythingOfType("string"),
+				mock.AnythingOfType("string"),
+				mock.AnythingOfType("string"),
+				mock.AnythingOfType("string"),
+				mock.AnythingOfType("string"))
+
+			p := &Plugin{
+				configuration: &configuration{
+					EncryptionKey: testEncryptionKey,
+				},
+				GitlabClient: mockedClient,
+			}
+			p.SetAPI(api)
+			p.client = pluginapi.NewClient(api, p.Driver)
+
+			subs := p.GetSubscribedChannelsForProject(
+				context.Background(),
+				test.namespace,
+				test.project,
+				test.isPublicVisibility,
+				test.isConfidential,
+			)
+
+			channelIDs := make([]string, len(subs))
+			for i, sub := range subs {
+				channelIDs[i] = sub.ChannelID
+			}
+			assert.ElementsMatch(t, test.expectChannels, channelIDs)
 		})
 	}
 }

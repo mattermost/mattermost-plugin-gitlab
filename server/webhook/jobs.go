@@ -53,6 +53,7 @@ func (w *webhook) handleChannelJob(ctx context.Context, event *gitlab.JobEvent) 
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
 		ctx, namespaceMetadata.Namespace, namespaceMetadata.Project,
 		repo.Visibility == gitlab.PublicVisibility,
+		false,
 	)
 	for _, sub := range subs {
 		if !sub.Jobs() {

@@ -12,6 +12,7 @@ import (
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/xanzy/go-gitlab"
 )
 
@@ -142,6 +143,169 @@ func TestNoteWebhook(t *testing.T) {
 				assert.Equal(t, test.res[index].ToUsers, res[index].ToUsers)
 				assert.Equal(t, test.res[index].From, res[index].From)
 			}
+		})
+	}
+}
+
+// internalNoteOnPublicIssue is an internal (confidential) note on an issue that
+// is not itself confidential, so only the event type marks it as private.
+var internalNoteOnPublicIssue = strings.ReplaceAll(IssueComment, `"event_type":"note"`, `"event_type":"confidential_note"`)
+
+func TestIssueCommentWebhookPassesConfidentialFlag(t *testing.T) {
+	t.Parallel()
+	testCases := []struct {
+		testTitle      string
+		fixture        string
+		expectedIsConf bool
+	}{
+		{
+			testTitle:      "comment on regular issue does not force the permission check",
+			fixture:        IssueComment,
+			expectedIsConf: false,
+		},
+		{
+			testTitle:      "comment on confidential issue forces the permission check",
+			fixture:        strings.ReplaceAll(IssueComment, `"confidential":false`, `"confidential":true`),
+			expectedIsConf: true,
+		},
+		{
+			testTitle:      "internal note on a public issue forces the permission check",
+			fixture:        internalNoteOnPublicIssue,
+			expectedIsConf: true,
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.testTitle, func(t *testing.T) {
+			retreiver := newFakeWebhook([]*subscription.Subscription{
+				{ChannelID: "channel1", CreatorID: "1", Features: "issue_comments", Repository: "manland/webhook"},
+			})
+			w := NewWebhook(retreiver)
+			issueCommentEvent := &gitlab.IssueCommentEvent{}
+			require.NoError(t, json.Unmarshal([]byte(test.fixture), issueCommentEvent))
+
+			_, _, err := w.HandleIssueComment(context.Background(), issueCommentEvent)
+			require.NoError(t, err)
+
+			assert.Equal(t, test.expectedIsConf, retreiver.gotIsConfidential)
+		})
+	}
+}
+
+// Comments on a confidential issue expose the issue title and comment body, so
+// they must require the confidential_issues opt-in just like the issues themselves.
+func TestConfidentialIssueCommentRequiresOptIn(t *testing.T) {
+	t.Parallel()
+	confidentialFixture := strings.ReplaceAll(IssueComment, `"confidential":false`, `"confidential":true`)
+
+	testCases := []struct {
+		testTitle          string
+		fixture            string
+		features           string
+		expectedToChannels []string
+	}{
+		{
+			testTitle:          "subscription without confidential_issues is skipped",
+			fixture:            confidentialFixture,
+			features:           "issue_comments",
+			expectedToChannels: nil,
+		},
+		{
+			testTitle:          "subscription with confidential_issues receives the comment",
+			fixture:            confidentialFixture,
+			features:           "issue_comments,confidential_issues",
+			expectedToChannels: []string{"channel1"},
+		},
+		{
+			testTitle:          "internal note on a public issue is skipped without confidential_issues",
+			fixture:            internalNoteOnPublicIssue,
+			features:           "issue_comments",
+			expectedToChannels: nil,
+		},
+		{
+			testTitle:          "internal note on a public issue is delivered with confidential_issues",
+			fixture:            internalNoteOnPublicIssue,
+			features:           "issue_comments,confidential_issues",
+			expectedToChannels: []string{"channel1"},
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.testTitle, func(t *testing.T) {
+			retreiver := newFakeWebhook([]*subscription.Subscription{
+				{ChannelID: "channel1", CreatorID: "1", Features: test.features, Repository: "manland/webhook"},
+			})
+			w := NewWebhook(retreiver)
+			issueCommentEvent := &gitlab.IssueCommentEvent{}
+			require.NoError(t, json.Unmarshal([]byte(test.fixture), issueCommentEvent))
+
+			res, _, err := w.HandleIssueComment(context.Background(), issueCommentEvent)
+			require.NoError(t, err)
+
+			var gotChannels []string
+			for _, handler := range res {
+				gotChannels = append(gotChannels, handler.ToChannels...)
+			}
+			assert.ElementsMatch(t, test.expectedToChannels, gotChannels)
+		})
+	}
+}
+
+// Internal notes on a merge request expose private review discussion, so they
+// need the same confidential_issues opt-in as comments on confidential issues.
+func TestInternalMergeRequestCommentRequiresOptIn(t *testing.T) {
+	t.Parallel()
+	internalNote := strings.ReplaceAll(MergeRequestComment, `"event_type":"note"`, `"event_type":"confidential_note"`)
+
+	testCases := []struct {
+		testTitle          string
+		fixture            string
+		features           string
+		expectedIsConf     bool
+		expectedToChannels []string
+	}{
+		{
+			testTitle:          "regular comment does not force the permission check",
+			fixture:            MergeRequestComment,
+			features:           "merge_request_comments",
+			expectedIsConf:     false,
+			expectedToChannels: []string{"channel1"},
+		},
+		{
+			testTitle:          "internal note is skipped without confidential_issues",
+			fixture:            internalNote,
+			features:           "merge_request_comments",
+			expectedIsConf:     true,
+			expectedToChannels: nil,
+		},
+		{
+			testTitle:          "internal note is delivered with confidential_issues",
+			fixture:            internalNote,
+			features:           "merge_request_comments,confidential_issues",
+			expectedIsConf:     true,
+			expectedToChannels: []string{"channel1"},
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.testTitle, func(t *testing.T) {
+			retreiver := newFakeWebhook([]*subscription.Subscription{
+				{ChannelID: "channel1", CreatorID: "1", Features: test.features, Repository: "manland/webhook"},
+			})
+			w := NewWebhook(retreiver)
+			mergeCommentEvent := &gitlab.MergeCommentEvent{}
+			require.NoError(t, json.Unmarshal([]byte(test.fixture), mergeCommentEvent))
+
+			res, _, err := w.HandleMergeRequestComment(context.Background(), mergeCommentEvent)
+			require.NoError(t, err)
+
+			assert.Equal(t, test.expectedIsConf, retreiver.gotIsConfidential)
+
+			var gotChannels []string
+			for _, handler := range res {
+				gotChannels = append(gotChannels, handler.ToChannels...)
+			}
+			assert.ElementsMatch(t, test.expectedToChannels, gotChannels)
 		})
 	}
 }

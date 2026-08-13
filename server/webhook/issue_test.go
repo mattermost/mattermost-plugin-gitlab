@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/xanzy/go-gitlab"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
@@ -152,5 +153,123 @@ func TestIssueWebhook(t *testing.T) {
 				assert.Equal(t, test.res[index].From, res[index].From)
 			}
 		})
+	}
+}
+
+func TestConfidentialIssueWebhook(t *testing.T) {
+	t.Parallel()
+	testCases := []testDataIssueStr{
+		{
+			testTitle: "confidential issue on public project with confidential_issues subscription",
+			fixture:   NewConfidentialIssue,
+			gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+				{ChannelID: "channel1", CreatorID: "1", Features: "issues,confidential_issues", Repository: "manland/webhook"},
+			}),
+			res: []*HandleWebhook{{
+				Message:    "[root](http://my.gitlab.com/root) assigned you to issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "root",
+			}, {
+				Message:    "#### confidential issue\n##### [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)\n###### new issue by [root](http://my.gitlab.com/root) on [2019-04-06 21:03:04 UTC](http://localhost:3000/manland/webhook/issues/1)\n\nconfidential details",
+				ToUsers:    []string{},
+				ToChannels: []string{"channel1"},
+				From:       "root",
+			}},
+			warnings: []string{},
+		},
+		{
+			testTitle: "confidential issue without confidential_issues feature does not notify channel",
+			fixture:   NewConfidentialIssue,
+			gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+				{ChannelID: "channel1", CreatorID: "1", Features: "issues", Repository: "manland/webhook"},
+			}),
+			res: []*HandleWebhook{{
+				Message:    "[root](http://my.gitlab.com/root) assigned you to issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "root",
+			}},
+			warnings: []string{},
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.testTitle, func(t *testing.T) {
+			w := NewWebhook(test.gitlabRetreiver)
+			issueEvent := &gitlab.IssueEvent{}
+			if err := json.Unmarshal([]byte(test.fixture), issueEvent); err != nil {
+				assert.Fail(t, "can't unmarshal fixture")
+			}
+			res, warnings, err := w.HandleIssue(context.Background(), issueEvent, gitlab.EventConfidentialIssue)
+			assert.Empty(t, err)
+			assert.Equal(t, len(test.res), len(res))
+			assert.ElementsMatch(t, test.warnings, warnings)
+			for index := range res {
+				assert.Equal(t, test.res[index].Message, res[index].Message)
+				assert.EqualValues(t, test.res[index].ToUsers, res[index].ToUsers)
+				assert.ElementsMatch(t, test.res[index].ToChannels, res[index].ToChannels)
+				assert.Equal(t, test.res[index].From, res[index].From)
+			}
+
+			assert.True(t, test.gitlabRetreiver.gotIsConfidential,
+				"confidential issues must be looked up with the confidential flag so the permission check is enforced")
+		})
+	}
+}
+
+func TestIssueWebhookPassesConfidentialFlag(t *testing.T) {
+	t.Parallel()
+	testCases := []struct {
+		testTitle      string
+		fixture        string
+		expectedIsConf bool
+	}{
+		{
+			testTitle:      "non-confidential issue does not force the permission check",
+			fixture:        NewIssue,
+			expectedIsConf: false,
+		},
+		{
+			testTitle:      "confidential issue forces the permission check",
+			fixture:        NewConfidentialIssue,
+			expectedIsConf: true,
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.testTitle, func(t *testing.T) {
+			retreiver := newFakeWebhook([]*subscription.Subscription{
+				{ChannelID: "channel1", CreatorID: "1", Features: "issues,confidential_issues", Repository: "manland/webhook"},
+			})
+			w := NewWebhook(retreiver)
+			issueEvent := &gitlab.IssueEvent{}
+			require.NoError(t, json.Unmarshal([]byte(test.fixture), issueEvent))
+
+			_, _, err := w.HandleIssue(context.Background(), issueEvent, gitlab.EventTypeIssue)
+			require.NoError(t, err)
+
+			assert.Equal(t, test.expectedIsConf, retreiver.gotIsConfidential)
+		})
+	}
+}
+
+// A confidential issue delivered under the regular Issue Hook must still be
+// gated on the confidential_issues feature, not just on the event type.
+func TestConfidentialIssueUnderRegularEventTypeIsGated(t *testing.T) {
+	t.Parallel()
+	retreiver := newFakeWebhook([]*subscription.Subscription{
+		{ChannelID: "channel1", CreatorID: "1", Features: "issues", Repository: "manland/webhook"},
+	})
+	w := NewWebhook(retreiver)
+	issueEvent := &gitlab.IssueEvent{}
+	require.NoError(t, json.Unmarshal([]byte(NewConfidentialIssue), issueEvent))
+
+	res, _, err := w.HandleIssue(context.Background(), issueEvent, gitlab.EventTypeIssue)
+	require.NoError(t, err)
+
+	for _, handler := range res {
+		assert.Empty(t, handler.ToChannels,
+			"confidential issue must not reach a channel lacking the confidential_issues feature")
 	}
 }

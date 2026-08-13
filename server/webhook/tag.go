@@ -67,6 +67,7 @@ func (w *webhook) handleChannelTag(ctx context.Context, event *gitlab.TagEvent) 
 	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
 		ctx, namespace, project,
 		repo.Visibility == gitlab.PublicVisibility,
+		false,
 	)
 	for _, sub := range subs {
 		if !sub.Tag() {
