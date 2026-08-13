@@ -69,6 +69,81 @@ func (fakeWebhookHandler) HandleRelease(_ context.Context, _ *gitlabLib.ReleaseE
 	return nil, nil
 }
 
+func TestEffectiveAccess(t *testing.T) {
+	tests := []struct {
+		name             string
+		perms            *gitlabLib.Permissions
+		expectedLevel    gitlabLib.AccessLevelValue
+		expectedAllowsMR bool
+	}{
+		{
+			name:  "nil permissions",
+			perms: nil,
+		},
+		{
+			name:  "no project or group membership",
+			perms: &gitlabLib.Permissions{},
+		},
+		{
+			name: "guest on project only",
+			perms: &gitlabLib.Permissions{
+				ProjectAccess: &gitlabLib.ProjectAccess{AccessLevel: gitlabLib.GuestPermissions},
+			},
+			expectedLevel: gitlabLib.GuestPermissions,
+		},
+		{
+			name: "reporter on project only",
+			perms: &gitlabLib.Permissions{
+				ProjectAccess: &gitlabLib.ProjectAccess{AccessLevel: gitlabLib.ReporterPermissions},
+			},
+			expectedLevel:    gitlabLib.ReporterPermissions,
+			expectedAllowsMR: true,
+		},
+		{
+			name: "reporter inherited from group only",
+			perms: &gitlabLib.Permissions{
+				GroupAccess: &gitlabLib.GroupAccess{AccessLevel: gitlabLib.ReporterPermissions},
+			},
+			expectedLevel:    gitlabLib.ReporterPermissions,
+			expectedAllowsMR: true,
+		},
+		{
+			name: "group access outranks guest project access",
+			perms: &gitlabLib.Permissions{
+				ProjectAccess: &gitlabLib.ProjectAccess{AccessLevel: gitlabLib.GuestPermissions},
+				GroupAccess:   &gitlabLib.GroupAccess{AccessLevel: gitlabLib.MaintainerPermissions},
+			},
+			expectedLevel:    gitlabLib.MaintainerPermissions,
+			expectedAllowsMR: true,
+		},
+		{
+			name: "project access outranks guest group access",
+			perms: &gitlabLib.Permissions{
+				ProjectAccess: &gitlabLib.ProjectAccess{AccessLevel: gitlabLib.OwnerPermissions},
+				GroupAccess:   &gitlabLib.GroupAccess{AccessLevel: gitlabLib.GuestPermissions},
+			},
+			expectedLevel:    gitlabLib.OwnerPermissions,
+			expectedAllowsMR: true,
+		},
+		{
+			name: "guest at both levels",
+			perms: &gitlabLib.Permissions{
+				ProjectAccess: &gitlabLib.ProjectAccess{AccessLevel: gitlabLib.GuestPermissions},
+				GroupAccess:   &gitlabLib.GroupAccess{AccessLevel: gitlabLib.GuestPermissions},
+			},
+			expectedLevel: gitlabLib.GuestPermissions,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			level := effectiveAccess(test.perms)
+			assert.Equal(t, test.expectedLevel, level)
+			assert.Equal(t, test.expectedAllowsMR, level > gitlabLib.GuestPermissions)
+		})
+	}
+}
+
 func TestHandleWebhookBadSecret(t *testing.T) {
 	p := &Plugin{configuration: &configuration{WebhookSecret: "secret"}}
 	req := httptest.NewRequest("POST", "http://example.com/foo", bytes.NewBufferString(""))

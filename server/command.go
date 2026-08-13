@@ -904,11 +904,26 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		return err.Error()
 	}
 
+	wantsConfidential := strings.Contains(features, "confidential_issues")
+
 	// Only check the permissions for a project if the project subscription is created (Not a group or a subgroup subscription)
 	if project != "" {
-		if hasPermission := p.permissionToProject(ctx, info.UserID, namespace, project); !hasPermission {
+		if hasPermission := p.permissionToSubscribe(ctx, info.UserID, namespace, project, wantsConfidential); !hasPermission {
 			msg := "You don't have the permissions to create subscriptions for this project."
+			if wantsConfidential {
+				msg = "You don't have the permissions to subscribe to confidential issues for this project."
+			}
 			p.client.Log.Warn(msg)
+			return msg
+		}
+	} else if wantsConfidential {
+		groupAccessErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+			_, groupErr := p.GitlabClient.GetGroup(ctx, info, token, namespace, "")
+			return groupErr
+		})
+		if groupAccessErr != nil {
+			msg := "You don't have the permissions to subscribe to confidential issues for this group."
+			p.client.Log.Warn(msg, "err", groupAccessErr.Error())
 			return msg
 		}
 	}

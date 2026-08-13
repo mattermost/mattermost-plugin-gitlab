@@ -27,6 +27,11 @@ const (
 	statusUpdate = "update"
 	statusDelete = "delete"
 
+	// eventTypeConfidentialNote is the payload's event_type value for internal
+	// notes. It differs from gitlab.EventConfidentialNote, which is the
+	// X-Gitlab-Event header value ("Confidential Note Hook").
+	eventTypeConfidentialNote = "confidential_note"
+
 	PrivateVisibilityLevel = 0
 	PublicVisibilityLevel  = 20
 )

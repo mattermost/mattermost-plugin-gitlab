@@ -118,6 +118,7 @@ func (p *Plugin) GetSubscribedChannelsForProject(
 	namespace string,
 	project string,
 	isPublicVisibility bool,
+	isConfidential bool,
 ) []*subscription.Subscription {
 	var subsForRepo []*subscription.Subscription
 
@@ -145,7 +146,7 @@ func (p *Plugin) GetSubscribedChannelsForProject(
 
 	subsToReturn := make([]*subscription.Subscription, 0, len(subsForRepo))
 	for _, sub := range subsForRepo {
-		if !isPublicVisibility && !p.permissionToProject(ctx, sub.CreatorID, namespace, project) {
+		if (!isPublicVisibility || isConfidential) && !p.permissionToProject(ctx, sub.CreatorID, namespace, project) {
 			continue
 		}
 		subsToReturn = append(subsToReturn, sub)
