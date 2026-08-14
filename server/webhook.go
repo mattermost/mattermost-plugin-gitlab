@@ -244,7 +244,9 @@ func (p *Plugin) sendDMNotification(userID, message string) {
 
 	if err := p.CreateBotDMPost(userID, message, "custom_git_review_request"); err != nil {
 		p.client.Log.Warn("can't send dm post", "err", err.Error())
-		if errors.Is(err, errDMChannelUnavailable) {
+		// Only release a claim we actually own: if the KV.Set above failed
+		// (fail-open path), no claim was ever written, so there's nothing to delete.
+		if errors.Is(err, errDMChannelUnavailable) && kvErr == nil && claimed {
 			if delErr := p.client.KV.Delete(dedupKey); delErr != nil {
 				p.client.Log.Warn("failed to release notification dedup key", "err", delErr.Error())
 			}

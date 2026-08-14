@@ -390,3 +390,27 @@ func TestSendDMNotificationKeepsClaimOnCreatePostFailure(t *testing.T) {
 
 	api.AssertNotCalled(t, "KVSetWithOptions", dedupKey, isNilBytes, mock.Anything)
 }
+
+// TestSendDMNotificationSkipsDeleteWhenClaimWasNeverMade verifies that when
+// the initial KV.Set claim fails (fail-open path) and CreateBotDMPost then
+// fails with a DM-channel lookup error, no KV.Delete is attempted, since no
+// claim was ever written for this recipient/message.
+func TestSendDMNotificationSkipsDeleteWhenClaimWasNeverMade(t *testing.T) {
+	p := &Plugin{}
+	dedupKey := notificationDedupKey("user-1", "hello")
+
+	api := &plugintest.API{}
+	api.On("KVSetWithOptions", dedupKey, []byte("true"), mock.Anything).
+		Return(false, model.NewAppError("KVSetWithOptions", "id", nil, "boom", http.StatusInternalServerError)).Once()
+	api.On("GetDirectChannel", "user-1", p.BotUserID).
+		Return(nil, model.NewAppError("GetDirectChannel", "id", nil, "boom", http.StatusInternalServerError))
+	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	p.sendDMNotification("user-1", "hello")
+
+	api.AssertNotCalled(t, "KVSetWithOptions", dedupKey, isNilBytes, mock.Anything)
+	api.AssertNumberOfCalls(t, "KVSetWithOptions", 1)
+}
