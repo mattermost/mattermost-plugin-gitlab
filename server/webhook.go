@@ -5,6 +5,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,11 +20,18 @@ import (
 	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 
 	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/public/pluginapi"
 )
 
 const (
 	webhookTimeout            = 10 * time.Second
 	eventSourceParentPipeline = "parent_pipeline"
+
+	// notificationDedupTTL is the window during which a duplicate DM for the
+	// same recipient and message is suppressed (e.g. duplicate webhook
+	// deliveries from overlapping group/project hooks or GitLab retries).
+	notificationDedupTTL    = 30 * time.Second
+	notificationDedupKeyFmt = "notif_dedup_%s"
 )
 
 type gitlabRetreiver struct {
@@ -184,9 +193,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 				if info.Settings.Notifications {
-					if err := p.CreateBotDMPost(userTo, res.Message, "custom_git_review_request"); err != nil {
-						p.client.Log.Warn("can't send dm post", "err", err.Error())
-					}
+					p.sendDMNotification(userTo, res.Message)
 				}
 			}
 		}
@@ -203,6 +210,42 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		p.sendRefreshIfNotAlreadySent(alreadySentRefresh, res.From)
+	}
+}
+
+// notificationDedupKey returns a KV key that uniquely identifies a DM
+// notification by its recipient and rendered message, so that repeated
+// deliveries of the same notification collapse onto the same key.
+func notificationDedupKey(recipientID, message string) string {
+	hash := sha256.Sum256([]byte(recipientID + "_" + message))
+	return fmt.Sprintf(notificationDedupKeyFmt, hex.EncodeToString(hash[:]))
+}
+
+// sendDMNotification sends a bot DM to userID, deduplicating against
+// duplicate webhook deliveries (e.g. overlapping group/project hooks, GitLab
+// retries, or concurrent delivery across cluster nodes). It atomically claims
+// a short-lived KV key before posting, so only the first delivery to claim
+// the key actually sends the DM.
+func (p *Plugin) sendDMNotification(userID, message string) {
+	dedupKey := notificationDedupKey(userID, message)
+	claimed, kvErr := p.client.KV.Set(dedupKey, true,
+		pluginapi.SetExpiry(notificationDedupTTL),
+		pluginapi.SetAtomic(nil),
+	)
+	if kvErr != nil {
+		// Fail open: send the notification rather than dropping it.
+		p.client.Log.Warn("failed to claim notification dedup key, sending DM anyway", "err", kvErr.Error())
+	} else if !claimed {
+		// Another delivery already claimed this notification.
+		p.client.Log.Debug("notification already claimed, skipping", "dedup_key", dedupKey)
+		return
+	}
+
+	if err := p.CreateBotDMPost(userID, message, "custom_git_review_request"); err != nil {
+		// Keep the claim: CreateBotDMPost may have persisted the post despite
+		// returning an error, so releasing it would let a retry post a
+		// duplicate. Let the claim TTL expire on its own.
+		p.client.Log.Warn("can't send dm post", "err", err.Error())
 	}
 }
 

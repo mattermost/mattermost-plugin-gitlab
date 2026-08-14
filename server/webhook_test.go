@@ -6,16 +6,23 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin/plugintest"
 	"github.com/mattermost/mattermost/server/public/pluginapi"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	gitlabLib "github.com/xanzy/go-gitlab"
 
+	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 )
 
@@ -38,7 +45,11 @@ func (fakeWebhookHandler) HandleMergeRequest(_ context.Context, _ *gitlabLib.Mer
 }
 
 func (fakeWebhookHandler) HandleIssueComment(_ context.Context, _ *gitlabLib.IssueCommentEvent) ([]*webhook.HandleWebhook, []string, error) {
-	return nil, []string{}, nil
+	return []*webhook.HandleWebhook{{
+		Message: "hello",
+		From:    "test",
+		ToUsers: []string{"known"},
+	}}, []string{}, nil
 }
 
 func (fakeWebhookHandler) HandleMergeRequestComment(_ context.Context, _ *gitlabLib.MergeCommentEvent) ([]*webhook.HandleWebhook, []string, error) {
@@ -190,4 +201,144 @@ func TestHandleWebhookForChildPipelineNotficationEnabled(t *testing.T) {
 	mock.AssertNumberOfCalls(t, "KVGet", 1)
 	mock.AssertCalled(t, "PublishWebSocketEvent", WsEventRefresh, map[string]any(nil), &model.WebsocketBroadcast{UserId: "1"})
 	mock.AssertNumberOfCalls(t, "PublishWebSocketEvent", 1)
+}
+
+func TestNotificationDedupKey(t *testing.T) {
+	t.Run("same recipient and message produce the same key", func(t *testing.T) {
+		assert.Equal(t,
+			notificationDedupKey("user-1", "hello"),
+			notificationDedupKey("user-1", "hello"))
+	})
+
+	t.Run("different recipients produce different keys", func(t *testing.T) {
+		assert.NotEqual(t,
+			notificationDedupKey("user-1", "hello"),
+			notificationDedupKey("user-2", "hello"))
+	})
+
+	t.Run("different messages produce different keys", func(t *testing.T) {
+		assert.NotEqual(t,
+			notificationDedupKey("user-1", "hello"),
+			notificationDedupKey("user-1", "goodbye"))
+	})
+
+	t.Run("key has the expected prefix and length", func(t *testing.T) {
+		key := notificationDedupKey("user-1", "hello")
+		assert.True(t, strings.HasPrefix(key, "notif_dedup_"))
+		assert.Len(t, key, len("notif_dedup_")+64) // sha256 hex digest is 64 chars
+	})
+}
+
+// noteIssueCommentBody is a minimal GitLab "Note Hook" payload that parses
+// into an *gitlabLib.IssueCommentEvent.
+const noteIssueCommentBody = `{"object_kind":"note","user":{"username":"test"},"object_attributes":{"noteable_type":"Issue"}}` //nolint:misspell // "noteable_type" is GitLab's actual webhook field name
+
+func newIssueCommentWebhookRequest() *http.Request {
+	req := httptest.NewRequest("POST", "/", bytes.NewBufferString(noteIssueCommentBody))
+	req.Header.Add("X-Gitlab-Token", "secret")
+	req.Header.Add("X-Gitlab-Event", string(gitlabLib.EventTypeNote))
+	return req
+}
+
+// setupDedupTestPlugin wires up a Plugin and mock API for a single known
+// recipient ("known" GitLab username, mapped to mattermostUserID) with
+// notifications enabled, ready to receive the "hello" DM from
+// fakeWebhookHandler.HandleIssueComment.
+func setupDedupTestPlugin(t *testing.T) (*Plugin, *plugintest.API) {
+	t.Helper()
+
+	const mattermostUserID = "1"
+
+	p := &Plugin{configuration: &configuration{WebhookSecret: "secret"}, WebhookHandler: fakeWebhookHandler{}}
+
+	userInfo := &gitlab.UserInfo{
+		UserID:   mattermostUserID,
+		Settings: &gitlab.UserSettings{Notifications: true},
+	}
+	infoJSON, err := json.Marshal(userInfo)
+	require.NoError(t, err)
+
+	api := &plugintest.API{}
+	api.On("KVGet", "test_gitlabusername").Return(nil, nil)
+	api.On("KVGet", "known_gitlabusername").Return([]byte(mattermostUserID), nil)
+	api.On("KVGet", mattermostUserID+GitlabUserInfoKey).Return(infoJSON, nil)
+	api.On("PublishWebSocketEvent", WsEventRefresh, mock.Anything, mock.Anything).Return(nil)
+	api.On("LogInfo", "new msg", "message", "hello", "from", "test").Return(nil)
+	api.On("LogDebug", "notification already claimed, skipping", "dedup_key", mock.Anything).Return(nil)
+	api.On("GetDirectChannel", mattermostUserID, p.BotUserID).Return(&model.Channel{Id: "dm-channel"}, nil)
+	api.On("CreatePost", mock.MatchedBy(func(post *model.Post) bool {
+		return post.ChannelId == "dm-channel" && post.Message == "hello"
+	})).Return(&model.Post{}, nil)
+
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	return p, api
+}
+
+func TestHandleWebhookDeduplicatesDuplicateDelivery(t *testing.T) {
+	p, api := setupDedupTestPlugin(t)
+
+	var claims atomic.Int32
+	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.Anything).Return(
+		func(string, []byte, model.PluginKVSetOptions) (bool, *model.AppError) {
+			return claims.Add(1) == 1, nil
+		},
+	)
+
+	// Simulate the same GitLab event being delivered twice, e.g. via
+	// overlapping group/project hooks or a GitLab retry.
+	for range 2 {
+		w := httptest.NewRecorder()
+		p.handleWebhook(w, newIssueCommentWebhookRequest())
+		assert.Equal(t, http.StatusOK, w.Result().StatusCode)
+	}
+
+	api.AssertNumberOfCalls(t, "CreatePost", 1)
+}
+
+func TestHandleWebhookDeduplicatesConcurrentDeliveries(t *testing.T) {
+	p, api := setupDedupTestPlugin(t)
+
+	var claims atomic.Int32
+	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.Anything).Return(
+		func(string, []byte, model.PluginKVSetOptions) (bool, *model.AppError) {
+			return claims.Add(1) == 1, nil
+		},
+	)
+
+	const deliveries = 25
+	var wg sync.WaitGroup
+	wg.Add(deliveries)
+	start := make(chan struct{})
+	for range deliveries {
+		go func() {
+			defer wg.Done()
+			<-start
+			w := httptest.NewRecorder()
+			p.handleWebhook(w, newIssueCommentWebhookRequest())
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	api.AssertNumberOfCalls(t, "CreatePost", 1)
+}
+
+func TestSendDMNotificationFailsOpenOnKVError(t *testing.T) {
+	p := &Plugin{}
+
+	api := &plugintest.API{}
+	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.Anything).
+		Return(false, model.NewAppError("KVSetWithOptions", "id", nil, "boom", http.StatusInternalServerError))
+	api.On("GetDirectChannel", "user-1", p.BotUserID).Return(&model.Channel{Id: "dm-channel"}, nil)
+	api.On("CreatePost", mock.Anything).Return(&model.Post{}, nil)
+	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	p.sendDMNotification("user-1", "hello")
+
+	api.AssertNumberOfCalls(t, "CreatePost", 1)
 }
