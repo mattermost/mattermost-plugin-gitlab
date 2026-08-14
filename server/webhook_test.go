@@ -342,3 +342,51 @@ func TestSendDMNotificationFailsOpenOnKVError(t *testing.T) {
 
 	api.AssertNumberOfCalls(t, "CreatePost", 1)
 }
+
+// TestSendDMNotificationReleasesClaimOnDirectChannelFailure verifies that a
+// failure resolving the bot's DM channel (before any post is attempted)
+// releases the dedup claim, so a subsequent retry isn't suppressed for the
+// rest of the TTL.
+func TestSendDMNotificationReleasesClaimOnDirectChannelFailure(t *testing.T) {
+	p := &Plugin{}
+	dedupKey := notificationDedupKey("user-1", "hello")
+
+	api := &plugintest.API{}
+	api.On("KVSetWithOptions", dedupKey, []byte("true"), mock.Anything).Return(true, nil).Once()
+	api.On("GetDirectChannel", "user-1", p.BotUserID).
+		Return(nil, model.NewAppError("GetDirectChannel", "id", nil, "boom", http.StatusInternalServerError))
+	api.On("KVSetWithOptions", dedupKey, isNilBytes, mock.Anything).Return(true, nil).Once()
+	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	p.sendDMNotification("user-1", "hello")
+
+	api.AssertNotCalled(t, "CreatePost", mock.Anything)
+	api.AssertCalled(t, "KVSetWithOptions", dedupKey, isNilBytes, mock.Anything)
+}
+
+// TestSendDMNotificationKeepsClaimOnCreatePostFailure verifies that a
+// CreatePost failure (which may have persisted the post despite the error)
+// does not release the dedup claim, so a retry can't post a duplicate.
+func TestSendDMNotificationKeepsClaimOnCreatePostFailure(t *testing.T) {
+	p := &Plugin{}
+	dedupKey := notificationDedupKey("user-1", "hello")
+
+	api := &plugintest.API{}
+	api.On("KVSetWithOptions", dedupKey, []byte("true"), mock.Anything).Return(true, nil).Once()
+	api.On("GetDirectChannel", "user-1", p.BotUserID).Return(&model.Channel{Id: "dm-channel"}, nil)
+	api.On("CreatePost", mock.Anything).
+		Return(nil, model.NewAppError("CreatePost", "id", nil, "boom", http.StatusInternalServerError))
+	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	// CreateBotDMPost logs its own "CreatePost failed" warning with 3 key/value pairs.
+	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	p.sendDMNotification("user-1", "hello")
+
+	api.AssertNotCalled(t, "KVSetWithOptions", dedupKey, isNilBytes, mock.Anything)
+}

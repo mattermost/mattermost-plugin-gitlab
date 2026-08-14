@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -242,10 +243,13 @@ func (p *Plugin) sendDMNotification(userID, message string) {
 	}
 
 	if err := p.CreateBotDMPost(userID, message, "custom_git_review_request"); err != nil {
-		// Keep the claim: CreateBotDMPost may have persisted the post despite
-		// returning an error, so releasing it would let a retry post a
-		// duplicate. Let the claim TTL expire on its own.
 		p.client.Log.Warn("can't send dm post", "err", err.Error())
+		if errors.Is(err, errDMChannelUnavailable) {
+			if delErr := p.client.KV.Delete(dedupKey); delErr != nil {
+				p.client.Log.Warn("failed to release notification dedup key", "err", delErr.Error())
+			}
+			return
+		}
 	}
 }
 

@@ -610,11 +610,16 @@ func (p *Plugin) registerChimeraURL() {
 	p.chimeraURL = os.Getenv("MM_PLUGINSETTINGS_CHIMERAOAUTHPROXYURL")
 }
 
+// errDMChannelUnavailable marks a CreateBotDMPost failure that happened
+// before any post was attempted (i.e. resolving the bot's DM channel), so
+// callers can be sure nothing was persisted.
+var errDMChannelUnavailable = errors.New("bot DM channel unavailable")
+
 func (p *Plugin) CreateBotDMPost(userID, message, postType string) error {
 	channel, err := p.client.Channel.GetDirect(userID, p.BotUserID)
 	if err != nil {
 		p.client.Log.Warn("Couldn't get bot's DM channel", "user_id", userID)
-		return err
+		return fmt.Errorf("%w: %w", errDMChannelUnavailable, err)
 	}
 
 	post := &model.Post{
