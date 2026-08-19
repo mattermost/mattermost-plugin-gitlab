@@ -281,46 +281,57 @@ func isDedupClaimOptions(opts model.PluginKVSetOptions) bool {
 		opts.ExpireInSeconds == int64(webhookDedupTTL/time.Second)
 }
 
-// isDedupReleaseOptions matches KV.Delete, which pluginapi implements as a
-// plain non-atomic write of a nil value.
-func isDedupReleaseOptions(opts model.PluginKVSetOptions) bool {
-	return !opts.Atomic && opts.ExpireInSeconds == 0
+// dedupKVFake emulates the KV store's atomic-claim and compare-and-delete
+// semantics keyed on the real dedup key, so tests assert on the dedup identity
+// itself rather than on call counts.
+type dedupKVFake struct {
+	mu      sync.Mutex
+	claimed map[string]string // dedup key -> claim token
 }
 
-// fakeDedupKV emulates the KV store's atomic-claim semantics keyed on the real
-// dedup key, and returns an accessor for the currently held claims.
-func fakeDedupKV(api *plugintest.API) func() []string {
-	var mu sync.Mutex
-	claimed := map[string]bool{}
+func fakeDedupKV(api *plugintest.API) *dedupKVFake {
+	kv := &dedupKVFake{claimed: map[string]string{}}
 
 	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.MatchedBy(isDedupClaimOptions)).
-		Return(func(key string, _ []byte, _ model.PluginKVSetOptions) (bool, *model.AppError) {
-			mu.Lock()
-			defer mu.Unlock()
-			if claimed[key] {
+		Return(func(key string, value []byte, _ model.PluginKVSetOptions) (bool, *model.AppError) {
+			kv.mu.Lock()
+			defer kv.mu.Unlock()
+			if _, held := kv.claimed[key]; held {
 				return false, nil
 			}
-			claimed[key] = true
+			kv.claimed[key] = string(value)
 			return true, nil
 		})
 
-	api.On("KVSetWithOptions", mock.AnythingOfType("string"), isNilBytes, mock.MatchedBy(isDedupReleaseOptions)).
-		Return(func(key string, _ []byte, _ model.PluginKVSetOptions) (bool, *model.AppError) {
-			mu.Lock()
-			defer mu.Unlock()
-			delete(claimed, key)
+	api.On("KVCompareAndDelete", mock.AnythingOfType("string"), mock.Anything).
+		Return(func(key string, oldValue []byte) (bool, *model.AppError) {
+			kv.mu.Lock()
+			defer kv.mu.Unlock()
+			if token, held := kv.claimed[key]; !held || token != string(oldValue) {
+				return false, nil
+			}
+			delete(kv.claimed, key)
 			return true, nil
 		}).Maybe()
 
-	return func() []string {
-		mu.Lock()
-		defer mu.Unlock()
-		keys := make([]string, 0, len(claimed))
-		for k := range claimed {
-			keys = append(keys, k)
-		}
-		return keys
+	return kv
+}
+
+func (kv *dedupKVFake) keys() []string {
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+	keys := make([]string, 0, len(kv.claimed))
+	for k := range kv.claimed {
+		keys = append(keys, k)
 	}
+	return keys
+}
+
+// expire drops a claim the way the KV store's TTL would.
+func (kv *dedupKVFake) expire(key string) {
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+	delete(kv.claimed, key)
 }
 
 func newTestPluginWithAPI(api *plugintest.API) *Plugin {
@@ -376,7 +387,7 @@ func setupDedupTestPlugin(t *testing.T) (*Plugin, *plugintest.API) {
 
 func TestHandleWebhookDeduplicatesDuplicateDelivery(t *testing.T) {
 	p, api := setupDedupTestPlugin(t)
-	claimedKeys := fakeDedupKV(api)
+	kv := fakeDedupKV(api)
 
 	for range 2 {
 		w := httptest.NewRecorder()
@@ -385,12 +396,12 @@ func TestHandleWebhookDeduplicatesDuplicateDelivery(t *testing.T) {
 	}
 
 	api.AssertNumberOfCalls(t, "CreatePost", 1)
-	assert.Equal(t, []string{notificationDedupKey("1", "hello")}, claimedKeys())
+	assert.Equal(t, []string{notificationDedupKey("1", "hello")}, kv.keys())
 }
 
 func TestHandleWebhookDeduplicatesConcurrentDeliveries(t *testing.T) {
 	p, api := setupDedupTestPlugin(t)
-	claimedKeys := fakeDedupKV(api)
+	kv := fakeDedupKV(api)
 
 	const deliveries = 25
 	var wg sync.WaitGroup
@@ -408,7 +419,7 @@ func TestHandleWebhookDeduplicatesConcurrentDeliveries(t *testing.T) {
 	wg.Wait()
 
 	api.AssertNumberOfCalls(t, "CreatePost", 1)
-	assert.Equal(t, []string{notificationDedupKey("1", "hello")}, claimedKeys())
+	assert.Equal(t, []string{notificationDedupKey("1", "hello")}, kv.keys())
 }
 
 func TestSendDMNotificationFailsOpenOnKVError(t *testing.T) {
@@ -428,7 +439,7 @@ func TestSendDMNotificationFailsOpenOnKVError(t *testing.T) {
 
 func TestSendDMNotificationReleasesClaimOnDirectChannelFailure(t *testing.T) {
 	api := &plugintest.API{}
-	claimedKeys := fakeDedupKV(api)
+	kv := fakeDedupKV(api)
 	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
@@ -439,12 +450,12 @@ func TestSendDMNotificationReleasesClaimOnDirectChannelFailure(t *testing.T) {
 	p.sendDMNotification("user-1", "hello")
 
 	api.AssertNotCalled(t, "CreatePost", mock.Anything)
-	assert.Empty(t, claimedKeys(), "the claim should be released when no post was attempted")
+	assert.Empty(t, kv.keys(), "the claim should be released when no post was attempted")
 }
 
 func TestSendDMNotificationKeepsClaimOnCreatePostFailure(t *testing.T) {
 	api := &plugintest.API{}
-	claimedKeys := fakeDedupKV(api)
+	kv := fakeDedupKV(api)
 	api.On("CreatePost", mock.Anything).
 		Return(nil, model.NewAppError("CreatePost", "id", nil, "boom", http.StatusInternalServerError))
 	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -456,7 +467,7 @@ func TestSendDMNotificationKeepsClaimOnCreatePostFailure(t *testing.T) {
 
 	p.sendDMNotification("user-1", "hello")
 
-	assert.Equal(t, []string{notificationDedupKey("user-1", "hello")}, claimedKeys())
+	assert.Equal(t, []string{notificationDedupKey("user-1", "hello")}, kv.keys())
 }
 
 func TestSendDMNotificationSkipsDeleteWhenClaimWasNeverMade(t *testing.T) {
@@ -472,8 +483,37 @@ func TestSendDMNotificationSkipsDeleteWhenClaimWasNeverMade(t *testing.T) {
 
 	p.sendDMNotification("user-1", "hello")
 
-	api.AssertNotCalled(t, "KVSetWithOptions", mock.Anything, isNilBytes, mock.Anything)
+	api.AssertNotCalled(t, "KVCompareAndDelete", mock.Anything, mock.Anything)
 	api.AssertNumberOfCalls(t, "KVSetWithOptions", 1)
+}
+
+// A delivery slow enough for its claim to expire must not evict the claim of
+// whichever delivery reacquired the key, or the event posts twice.
+func TestSendDMNotificationReleaseDoesNotEvictReacquiredClaim(t *testing.T) {
+	api := &plugintest.API{}
+	kv := fakeDedupKV(api)
+	api.On("LogDebug", mock.Anything, "dedup_key", mock.Anything).Return(nil)
+
+	p := newTestPluginWithAPI(api)
+	dedupKey := notificationDedupKey("user-1", "hello")
+
+	deliverA, tokenA := p.claimDedupKey("test", dedupKey)
+	require.True(t, deliverA)
+	require.NotEmpty(t, tokenA)
+
+	// A stalls in GetDirect long enough for its claim to time out.
+	kv.expire(dedupKey)
+
+	deliverB, tokenB := p.claimDedupKey("test", dedupKey)
+	require.True(t, deliverB)
+	require.NotEqual(t, tokenA, tokenB)
+
+	// A finally fails and releases using its own, now-stale token.
+	p.releaseDedupKey("test", dedupKey, tokenA)
+
+	require.Equal(t, []string{dedupKey}, kv.keys(), "B's claim must survive A's release")
+	deliverC, _ := p.claimDedupKey("test", dedupKey)
+	require.False(t, deliverC, "a later delivery must still be suppressed by B's claim")
 }
 
 // setupChannelDedupTestPlugin readies a plugin for the "hello" post that
@@ -506,7 +546,7 @@ func newMergeRequestWebhookRequest() *http.Request {
 
 func TestHandleWebhookDeduplicatesDuplicateChannelDelivery(t *testing.T) {
 	p, api := setupChannelDedupTestPlugin(t)
-	claimedKeys := fakeDedupKV(api)
+	kv := fakeDedupKV(api)
 
 	for range 2 {
 		w := httptest.NewRecorder()
@@ -515,12 +555,12 @@ func TestHandleWebhookDeduplicatesDuplicateChannelDelivery(t *testing.T) {
 	}
 
 	api.AssertNumberOfCalls(t, "CreatePost", 1)
-	assert.Equal(t, []string{channelPostDedupKey("town-square", "hello")}, claimedKeys())
+	assert.Equal(t, []string{channelPostDedupKey("town-square", "hello")}, kv.keys())
 }
 
 func TestHandleWebhookDeduplicatesConcurrentChannelDeliveries(t *testing.T) {
 	p, api := setupChannelDedupTestPlugin(t)
-	claimedKeys := fakeDedupKV(api)
+	kv := fakeDedupKV(api)
 
 	const deliveries = 25
 	var wg sync.WaitGroup
@@ -538,13 +578,13 @@ func TestHandleWebhookDeduplicatesConcurrentChannelDeliveries(t *testing.T) {
 	wg.Wait()
 
 	api.AssertNumberOfCalls(t, "CreatePost", 1)
-	assert.Equal(t, []string{channelPostDedupKey("town-square", "hello")}, claimedKeys())
+	assert.Equal(t, []string{channelPostDedupKey("town-square", "hello")}, kv.keys())
 }
 
 func TestSendChannelNotification(t *testing.T) {
 	t.Run("different channels each get their own post", func(t *testing.T) {
 		api := &plugintest.API{}
-		claimedKeys := fakeDedupKV(api)
+		kv := fakeDedupKV(api)
 		api.On("CreatePost", mock.Anything).Return(&model.Post{}, nil)
 
 		p := newTestPluginWithAPI(api)
@@ -553,12 +593,12 @@ func TestSendChannelNotification(t *testing.T) {
 
 		// Two keys means the channel ID is part of the dedup identity.
 		api.AssertNumberOfCalls(t, "CreatePost", 2)
-		assert.Len(t, claimedKeys(), 2)
+		assert.Len(t, kv.keys(), 2)
 	})
 
 	t.Run("different messages to one channel each get their own post", func(t *testing.T) {
 		api := &plugintest.API{}
-		claimedKeys := fakeDedupKV(api)
+		kv := fakeDedupKV(api)
 		api.On("CreatePost", mock.Anything).Return(&model.Post{}, nil)
 
 		p := newTestPluginWithAPI(api)
@@ -566,7 +606,7 @@ func TestSendChannelNotification(t *testing.T) {
 		p.sendChannelNotification("channel-1", "goodbye")
 
 		api.AssertNumberOfCalls(t, "CreatePost", 2)
-		assert.Len(t, claimedKeys(), 2)
+		assert.Len(t, kv.keys(), 2)
 	})
 
 	t.Run("fails open when the KV claim errors", func(t *testing.T) {
@@ -584,7 +624,7 @@ func TestSendChannelNotification(t *testing.T) {
 
 	t.Run("keeps the claim when the post fails", func(t *testing.T) {
 		api := &plugintest.API{}
-		claimedKeys := fakeDedupKV(api)
+		kv := fakeDedupKV(api)
 		api.On("CreatePost", mock.Anything).
 			Return(nil, model.NewAppError("CreatePost", "id", nil, "boom", http.StatusInternalServerError))
 		api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -592,6 +632,6 @@ func TestSendChannelNotification(t *testing.T) {
 		p := newTestPluginWithAPI(api)
 		p.sendChannelNotification("channel-1", "hello")
 
-		assert.Equal(t, []string{channelPostDedupKey("channel-1", "hello")}, claimedKeys())
+		assert.Equal(t, []string{channelPostDedupKey("channel-1", "hello")}, kv.keys())
 	})
 }

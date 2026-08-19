@@ -234,36 +234,45 @@ func channelPostDedupKey(channelID, message string) string {
 }
 
 // claimDedupKey atomically claims dedupKey: SetAtomic(nil) only writes when the
-// key is absent, so concurrent deliveries can't both win. A KV error fails open,
-// returning deliver without owned since nothing was written.
-func (p *Plugin) claimDedupKey(caller, dedupKey string) (deliver, owned bool) {
-	claimed, err := p.client.KV.Set(dedupKey, true,
+// key is absent, so concurrent deliveries can't both win. It returns the token
+// identifying this claim, which releaseDedupKey needs to prove ownership. A KV
+// error fails open, returning deliver with an empty token since nothing was
+// written.
+func (p *Plugin) claimDedupKey(caller, dedupKey string) (deliver bool, claimToken string) {
+	token := model.NewId()
+	claimed, err := p.client.KV.Set(dedupKey, []byte(token),
 		pluginapi.SetExpiry(webhookDedupTTL),
 		pluginapi.SetAtomic(nil),
 	)
 	switch {
 	case err != nil:
 		p.client.Log.Warn(caller+": failed to claim dedup key, delivering anyway", "dedup_key", dedupKey, "err", err.Error())
-		return true, false
+		return true, ""
 	case !claimed:
 		p.client.Log.Debug(caller+": another delivery already claimed this notification, skipping", "dedup_key", dedupKey)
-		return false, false
+		return false, ""
 	}
-	return true, true
+	return true, token
 }
 
-// releaseDedupKey lets a redelivery retry instead of waiting out the TTL. Only
-// call it when this delivery owns the claim and nothing was posted.
-func (p *Plugin) releaseDedupKey(caller, dedupKey string) {
-	if err := p.client.KV.Delete(dedupKey); err != nil {
+// releaseDedupKey lets a redelivery retry instead of waiting out the TTL. It
+// deletes only a claim still matching claimToken: a delivery slow enough for its
+// claim to expire must not evict the claim of whichever delivery succeeded it.
+func (p *Plugin) releaseDedupKey(caller, dedupKey, claimToken string) {
+	released, appErr := p.API.KVCompareAndDelete(dedupKey, []byte(claimToken))
+	if appErr != nil {
 		p.client.Log.Warn(caller+": failed to release dedup key; redeliveries of this event will be skipped until the claim expires",
-			"dedup_key", dedupKey, "err", err.Error())
+			"dedup_key", dedupKey, "err", appErr.Error())
+		return
+	}
+	if !released {
+		p.client.Log.Debug(caller+": dedup claim already expired and was reacquired, leaving it in place", "dedup_key", dedupKey)
 	}
 }
 
 func (p *Plugin) sendDMNotification(userID, message string) {
 	dedupKey := notificationDedupKey(userID, message)
-	deliver, owned := p.claimDedupKey("sendDMNotification", dedupKey)
+	deliver, claimToken := p.claimDedupKey("sendDMNotification", dedupKey)
 	if !deliver {
 		return
 	}
@@ -272,8 +281,8 @@ func (p *Plugin) sendDMNotification(userID, message string) {
 		p.client.Log.Warn("can't send dm post", "err", err.Error())
 		// CreatePost may have persisted the DM despite erroring, so only the
 		// pre-post lookup failure is safe to release.
-		if owned && errors.Is(err, errDMChannelUnavailable) {
-			p.releaseDedupKey("sendDMNotification", dedupKey)
+		if claimToken != "" && errors.Is(err, errDMChannelUnavailable) {
+			p.releaseDedupKey("sendDMNotification", dedupKey, claimToken)
 		}
 	}
 }
