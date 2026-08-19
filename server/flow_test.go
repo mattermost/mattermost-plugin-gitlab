@@ -4,8 +4,10 @@
 package main
 
 import (
+	"net/http"
 	"testing"
 
+	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin/plugintest"
 	"github.com/mattermost/mattermost/server/public/pluginapi"
 	"github.com/stretchr/testify/assert"
@@ -38,6 +40,27 @@ func TestSetGitlabURL(t *testing.T) {
 	assert.Equal(t, "https://git.example.com", savedConfig["gitlaburl"])
 
 	assert.Equal(t, "https://gitlab.com", config.GitlabURL)
+
+	api.AssertExpectations(t)
+}
+
+func TestSetGitlabURLSaveFailure(t *testing.T) {
+	config := &configuration{
+		GitlabURL: "https://gitlab.com",
+	}
+
+	api := &plugintest.API{}
+	api.On("SavePluginConfig", mock.Anything).Return(model.NewAppError("SavePluginConfig", "app.plugin.config.app_error", nil, "", http.StatusInternalServerError)).Once()
+
+	fm := &FlowManager{
+		client:           pluginapi.NewClient(api, nil),
+		getConfiguration: func() *configuration { return config },
+	}
+
+	err := fm.setGitlabURL("https://git.example.com")
+	require.Error(t, err)
+
+	assert.Empty(t, fm.gitlabURL)
 
 	api.AssertExpectations(t)
 }

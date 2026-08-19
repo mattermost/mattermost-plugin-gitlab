@@ -806,8 +806,6 @@ func (fm *FlowManager) submitChannelAnnouncement(f *flow.Flow, submitted map[str
 }
 
 func (fm *FlowManager) setGitlabURL(gitlabURL string) error {
-	fm.gitlabURL = gitlabURL
-
 	config := fm.getConfiguration().Clone()
 	config.GitlabURL = gitlabURL
 
@@ -820,6 +818,8 @@ func (fm *FlowManager) setGitlabURL(gitlabURL string) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to save plugin config")
 	}
+
+	fm.gitlabURL = gitlabURL
 
 	return nil
 }
