@@ -11,8 +11,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin/plugintest"
@@ -142,6 +142,7 @@ func TestHandleWebhookToChannel(t *testing.T) {
 	mock.On("LogInfo", "new msg", "message", "hello", "from", "test").Return(nil)
 	mock.On("LogInfo", "userFrom", "from", "1").Return(nil)
 	mock.On("CreatePost", &model.Post{Id: "", CreateAt: 0, UpdateAt: 0, EditAt: 0, DeleteAt: 0, IsPinned: false, UserId: "", ChannelId: "town-square", RootId: "", OriginalId: "", Message: "hello", MessageSource: "", Type: "", Hashtags: "", Filenames: model.StringArray(nil), FileIds: model.StringArray(nil), PendingPostId: "", HasReactions: false, Metadata: (*model.PostMetadata)(nil)}).Return(&model.Post{}, nil)
+	fakeDedupKV(mock)
 	p.SetAPI(mock)
 	p.client = pluginapi.NewClient(mock, p.Driver)
 
@@ -227,10 +228,109 @@ func TestNotificationDedupKey(t *testing.T) {
 		assert.True(t, strings.HasPrefix(key, "notif_dedup_"))
 		assert.Len(t, key, len("notif_dedup_")+64) // sha256 hex digest is 64 chars
 	})
+
+	// Without the length prefix these concatenate to the same bytes.
+	t.Run("shifting the recipient/message boundary does not collide", func(t *testing.T) {
+		assert.NotEqual(t,
+			notificationDedupKey("user-1", "hello"),
+			notificationDedupKey("user-1h", "ello"))
+	})
 }
 
-// noteIssueCommentBody is a minimal GitLab "Note Hook" payload that parses
-// into an *gitlabLib.IssueCommentEvent.
+func TestChannelPostDedupKey(t *testing.T) {
+	t.Run("same channel and message produce the same key", func(t *testing.T) {
+		assert.Equal(t,
+			channelPostDedupKey("channel-1", "hello"),
+			channelPostDedupKey("channel-1", "hello"))
+	})
+
+	t.Run("different channels produce different keys", func(t *testing.T) {
+		assert.NotEqual(t,
+			channelPostDedupKey("channel-1", "hello"),
+			channelPostDedupKey("channel-2", "hello"))
+	})
+
+	t.Run("different messages produce different keys", func(t *testing.T) {
+		assert.NotEqual(t,
+			channelPostDedupKey("channel-1", "hello"),
+			channelPostDedupKey("channel-1", "goodbye"))
+	})
+
+	t.Run("key has the expected prefix and length", func(t *testing.T) {
+		key := channelPostDedupKey("channel-1", "hello")
+		assert.True(t, strings.HasPrefix(key, "chan_dedup_"))
+		assert.Len(t, key, len("chan_dedup_")+64) // sha256 hex digest is 64 chars
+	})
+
+	// Without the length prefix these concatenate to the same bytes.
+	t.Run("shifting the channel/message boundary does not collide", func(t *testing.T) {
+		assert.NotEqual(t,
+			channelPostDedupKey("channel-1", "hello"),
+			channelPostDedupKey("channel-1h", "ello"))
+	})
+
+	t.Run("channel and DM keys never collide", func(t *testing.T) {
+		assert.NotEqual(t,
+			channelPostDedupKey("id-1", "hello"),
+			notificationDedupKey("id-1", "hello"))
+	})
+}
+
+func isDedupClaimOptions(opts model.PluginKVSetOptions) bool {
+	return opts.Atomic && opts.OldValue == nil &&
+		opts.ExpireInSeconds == int64(webhookDedupTTL/time.Second)
+}
+
+// isDedupReleaseOptions matches KV.Delete, which pluginapi implements as a
+// plain non-atomic write of a nil value.
+func isDedupReleaseOptions(opts model.PluginKVSetOptions) bool {
+	return !opts.Atomic && opts.ExpireInSeconds == 0
+}
+
+// fakeDedupKV emulates the KV store's atomic-claim semantics keyed on the real
+// dedup key, and returns an accessor for the currently held claims.
+func fakeDedupKV(api *plugintest.API) func() []string {
+	var mu sync.Mutex
+	claimed := map[string]bool{}
+
+	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.MatchedBy(isDedupClaimOptions)).
+		Return(func(key string, _ []byte, _ model.PluginKVSetOptions) (bool, *model.AppError) {
+			mu.Lock()
+			defer mu.Unlock()
+			if claimed[key] {
+				return false, nil
+			}
+			claimed[key] = true
+			return true, nil
+		})
+
+	api.On("KVSetWithOptions", mock.AnythingOfType("string"), isNilBytes, mock.MatchedBy(isDedupReleaseOptions)).
+		Return(func(key string, _ []byte, _ model.PluginKVSetOptions) (bool, *model.AppError) {
+			mu.Lock()
+			defer mu.Unlock()
+			delete(claimed, key)
+			return true, nil
+		}).Maybe()
+
+	return func() []string {
+		mu.Lock()
+		defer mu.Unlock()
+		keys := make([]string, 0, len(claimed))
+		for k := range claimed {
+			keys = append(keys, k)
+		}
+		return keys
+	}
+}
+
+func newTestPluginWithAPI(api *plugintest.API) *Plugin {
+	p := &Plugin{}
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+	return p
+}
+
+// Minimal GitLab "Note Hook" payload that parses into an IssueCommentEvent.
 const noteIssueCommentBody = `{"object_kind":"note","user":{"username":"test"},"object_attributes":{"noteable_type":"Issue"}}` //nolint:misspell // "noteable_type" is GitLab's actual webhook field name
 
 func newIssueCommentWebhookRequest() *http.Request {
@@ -240,10 +340,8 @@ func newIssueCommentWebhookRequest() *http.Request {
 	return req
 }
 
-// setupDedupTestPlugin wires up a Plugin and mock API for a single known
-// recipient ("known" GitLab username, mapped to mattermostUserID) with
-// notifications enabled, ready to receive the "hello" DM from
-// fakeWebhookHandler.HandleIssueComment.
+// setupDedupTestPlugin readies a plugin for the "hello" DM that
+// fakeWebhookHandler.HandleIssueComment sends to the "known" user.
 func setupDedupTestPlugin(t *testing.T) (*Plugin, *plugintest.API) {
 	t.Helper()
 
@@ -264,7 +362,7 @@ func setupDedupTestPlugin(t *testing.T) (*Plugin, *plugintest.API) {
 	api.On("KVGet", mattermostUserID+GitlabUserInfoKey).Return(infoJSON, nil)
 	api.On("PublishWebSocketEvent", WsEventRefresh, mock.Anything, mock.Anything).Return(nil)
 	api.On("LogInfo", "new msg", "message", "hello", "from", "test").Return(nil)
-	api.On("LogDebug", "notification already claimed, skipping", "dedup_key", mock.Anything).Return(nil)
+	api.On("LogDebug", mock.Anything, "dedup_key", mock.Anything).Return(nil)
 	api.On("GetDirectChannel", mattermostUserID, p.BotUserID).Return(&model.Channel{Id: "dm-channel"}, nil)
 	api.On("CreatePost", mock.MatchedBy(func(post *model.Post) bool {
 		return post.ChannelId == "dm-channel" && post.Message == "hello"
@@ -278,16 +376,8 @@ func setupDedupTestPlugin(t *testing.T) (*Plugin, *plugintest.API) {
 
 func TestHandleWebhookDeduplicatesDuplicateDelivery(t *testing.T) {
 	p, api := setupDedupTestPlugin(t)
+	claimedKeys := fakeDedupKV(api)
 
-	var claims atomic.Int32
-	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.Anything).Return(
-		func(string, []byte, model.PluginKVSetOptions) (bool, *model.AppError) {
-			return claims.Add(1) == 1, nil
-		},
-	)
-
-	// Simulate the same GitLab event being delivered twice, e.g. via
-	// overlapping group/project hooks or a GitLab retry.
 	for range 2 {
 		w := httptest.NewRecorder()
 		p.handleWebhook(w, newIssueCommentWebhookRequest())
@@ -295,17 +385,12 @@ func TestHandleWebhookDeduplicatesDuplicateDelivery(t *testing.T) {
 	}
 
 	api.AssertNumberOfCalls(t, "CreatePost", 1)
+	assert.Equal(t, []string{notificationDedupKey("1", "hello")}, claimedKeys())
 }
 
 func TestHandleWebhookDeduplicatesConcurrentDeliveries(t *testing.T) {
 	p, api := setupDedupTestPlugin(t)
-
-	var claims atomic.Int32
-	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.Anything).Return(
-		func(string, []byte, model.PluginKVSetOptions) (bool, *model.AppError) {
-			return claims.Add(1) == 1, nil
-		},
-	)
+	claimedKeys := fakeDedupKV(api)
 
 	const deliveries = 25
 	var wg sync.WaitGroup
@@ -323,94 +408,190 @@ func TestHandleWebhookDeduplicatesConcurrentDeliveries(t *testing.T) {
 	wg.Wait()
 
 	api.AssertNumberOfCalls(t, "CreatePost", 1)
+	assert.Equal(t, []string{notificationDedupKey("1", "hello")}, claimedKeys())
 }
 
 func TestSendDMNotificationFailsOpenOnKVError(t *testing.T) {
-	p := &Plugin{}
-
 	api := &plugintest.API{}
-	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.Anything).
+	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.MatchedBy(isDedupClaimOptions)).
 		Return(false, model.NewAppError("KVSetWithOptions", "id", nil, "boom", http.StatusInternalServerError))
-	api.On("GetDirectChannel", "user-1", p.BotUserID).Return(&model.Channel{Id: "dm-channel"}, nil)
 	api.On("CreatePost", mock.Anything).Return(&model.Post{}, nil)
-	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	p.SetAPI(api)
-	p.client = pluginapi.NewClient(api, p.Driver)
+	p := newTestPluginWithAPI(api)
+	api.On("GetDirectChannel", "user-1", p.BotUserID).Return(&model.Channel{Id: "dm-channel"}, nil)
 
 	p.sendDMNotification("user-1", "hello")
 
 	api.AssertNumberOfCalls(t, "CreatePost", 1)
 }
 
-// TestSendDMNotificationReleasesClaimOnDirectChannelFailure verifies that a
-// failure resolving the bot's DM channel (before any post is attempted)
-// releases the dedup claim, so a subsequent retry isn't suppressed for the
-// rest of the TTL.
 func TestSendDMNotificationReleasesClaimOnDirectChannelFailure(t *testing.T) {
-	p := &Plugin{}
-	dedupKey := notificationDedupKey("user-1", "hello")
-
 	api := &plugintest.API{}
-	api.On("KVSetWithOptions", dedupKey, []byte("true"), mock.Anything).Return(true, nil).Once()
+	claimedKeys := fakeDedupKV(api)
+	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	p := newTestPluginWithAPI(api)
 	api.On("GetDirectChannel", "user-1", p.BotUserID).
 		Return(nil, model.NewAppError("GetDirectChannel", "id", nil, "boom", http.StatusInternalServerError))
-	api.On("KVSetWithOptions", dedupKey, isNilBytes, mock.Anything).Return(true, nil).Once()
-	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-
-	p.SetAPI(api)
-	p.client = pluginapi.NewClient(api, p.Driver)
 
 	p.sendDMNotification("user-1", "hello")
 
 	api.AssertNotCalled(t, "CreatePost", mock.Anything)
-	api.AssertCalled(t, "KVSetWithOptions", dedupKey, isNilBytes, mock.Anything)
+	assert.Empty(t, claimedKeys(), "the claim should be released when no post was attempted")
 }
 
-// TestSendDMNotificationKeepsClaimOnCreatePostFailure verifies that a
-// CreatePost failure (which may have persisted the post despite the error)
-// does not release the dedup claim, so a retry can't post a duplicate.
 func TestSendDMNotificationKeepsClaimOnCreatePostFailure(t *testing.T) {
-	p := &Plugin{}
-	dedupKey := notificationDedupKey("user-1", "hello")
-
 	api := &plugintest.API{}
-	api.On("KVSetWithOptions", dedupKey, []byte("true"), mock.Anything).Return(true, nil).Once()
-	api.On("GetDirectChannel", "user-1", p.BotUserID).Return(&model.Channel{Id: "dm-channel"}, nil)
+	claimedKeys := fakeDedupKV(api)
 	api.On("CreatePost", mock.Anything).
 		Return(nil, model.NewAppError("CreatePost", "id", nil, "boom", http.StatusInternalServerError))
 	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	// CreateBotDMPost logs its own "CreatePost failed" warning with 3 key/value pairs.
+	// CreateBotDMPost logs its own warning with 3 key/value pairs.
 	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	p.SetAPI(api)
-	p.client = pluginapi.NewClient(api, p.Driver)
+	p := newTestPluginWithAPI(api)
+	api.On("GetDirectChannel", "user-1", p.BotUserID).Return(&model.Channel{Id: "dm-channel"}, nil)
 
 	p.sendDMNotification("user-1", "hello")
 
-	api.AssertNotCalled(t, "KVSetWithOptions", dedupKey, isNilBytes, mock.Anything)
+	assert.Equal(t, []string{notificationDedupKey("user-1", "hello")}, claimedKeys())
 }
 
-// TestSendDMNotificationSkipsDeleteWhenClaimWasNeverMade verifies that when
-// the initial KV.Set claim fails (fail-open path) and CreateBotDMPost then
-// fails with a DM-channel lookup error, no KV.Delete is attempted, since no
-// claim was ever written for this recipient/message.
 func TestSendDMNotificationSkipsDeleteWhenClaimWasNeverMade(t *testing.T) {
-	p := &Plugin{}
-	dedupKey := notificationDedupKey("user-1", "hello")
-
 	api := &plugintest.API{}
-	api.On("KVSetWithOptions", dedupKey, []byte("true"), mock.Anything).
+	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.MatchedBy(isDedupClaimOptions)).
 		Return(false, model.NewAppError("KVSetWithOptions", "id", nil, "boom", http.StatusInternalServerError)).Once()
+	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	p := newTestPluginWithAPI(api)
 	api.On("GetDirectChannel", "user-1", p.BotUserID).
 		Return(nil, model.NewAppError("GetDirectChannel", "id", nil, "boom", http.StatusInternalServerError))
-	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-
-	p.SetAPI(api)
-	p.client = pluginapi.NewClient(api, p.Driver)
 
 	p.sendDMNotification("user-1", "hello")
 
-	api.AssertNotCalled(t, "KVSetWithOptions", dedupKey, isNilBytes, mock.Anything)
+	api.AssertNotCalled(t, "KVSetWithOptions", mock.Anything, isNilBytes, mock.Anything)
 	api.AssertNumberOfCalls(t, "KVSetWithOptions", 1)
+}
+
+// setupChannelDedupTestPlugin readies a plugin for the "hello" post that
+// fakeWebhookHandler.HandleMergeRequest sends to "town-square".
+func setupChannelDedupTestPlugin(t *testing.T) (*Plugin, *plugintest.API) {
+	t.Helper()
+
+	api := &plugintest.API{}
+	api.On("KVGet", "test_gitlabusername").Return(nil, nil)
+	api.On("PublishWebSocketEvent", WsEventRefresh, mock.Anything, mock.Anything).Return(nil)
+	api.On("LogInfo", "new msg", "message", "hello", "from", "test").Return(nil)
+	api.On("LogDebug", mock.Anything, "dedup_key", mock.Anything).Return(nil)
+	api.On("CreatePost", mock.MatchedBy(func(post *model.Post) bool {
+		return post.ChannelId == "town-square" && post.Message == "hello"
+	})).Return(&model.Post{}, nil)
+
+	p := &Plugin{configuration: &configuration{WebhookSecret: "secret"}, WebhookHandler: fakeWebhookHandler{}}
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	return p, api
+}
+
+func newMergeRequestWebhookRequest() *http.Request {
+	req := httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"user": {"username":"test"}}`))
+	req.Header.Add("X-Gitlab-Token", "secret")
+	req.Header.Add("X-Gitlab-Event", string(gitlabLib.EventTypeMergeRequest))
+	return req
+}
+
+func TestHandleWebhookDeduplicatesDuplicateChannelDelivery(t *testing.T) {
+	p, api := setupChannelDedupTestPlugin(t)
+	claimedKeys := fakeDedupKV(api)
+
+	for range 2 {
+		w := httptest.NewRecorder()
+		p.handleWebhook(w, newMergeRequestWebhookRequest())
+		assert.Equal(t, http.StatusOK, w.Result().StatusCode)
+	}
+
+	api.AssertNumberOfCalls(t, "CreatePost", 1)
+	assert.Equal(t, []string{channelPostDedupKey("town-square", "hello")}, claimedKeys())
+}
+
+func TestHandleWebhookDeduplicatesConcurrentChannelDeliveries(t *testing.T) {
+	p, api := setupChannelDedupTestPlugin(t)
+	claimedKeys := fakeDedupKV(api)
+
+	const deliveries = 25
+	var wg sync.WaitGroup
+	wg.Add(deliveries)
+	start := make(chan struct{})
+	for range deliveries {
+		go func() {
+			defer wg.Done()
+			<-start
+			w := httptest.NewRecorder()
+			p.handleWebhook(w, newMergeRequestWebhookRequest())
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	api.AssertNumberOfCalls(t, "CreatePost", 1)
+	assert.Equal(t, []string{channelPostDedupKey("town-square", "hello")}, claimedKeys())
+}
+
+func TestSendChannelNotification(t *testing.T) {
+	t.Run("different channels each get their own post", func(t *testing.T) {
+		api := &plugintest.API{}
+		claimedKeys := fakeDedupKV(api)
+		api.On("CreatePost", mock.Anything).Return(&model.Post{}, nil)
+
+		p := newTestPluginWithAPI(api)
+		p.sendChannelNotification("channel-1", "hello")
+		p.sendChannelNotification("channel-2", "hello")
+
+		// Two keys means the channel ID is part of the dedup identity.
+		api.AssertNumberOfCalls(t, "CreatePost", 2)
+		assert.Len(t, claimedKeys(), 2)
+	})
+
+	t.Run("different messages to one channel each get their own post", func(t *testing.T) {
+		api := &plugintest.API{}
+		claimedKeys := fakeDedupKV(api)
+		api.On("CreatePost", mock.Anything).Return(&model.Post{}, nil)
+
+		p := newTestPluginWithAPI(api)
+		p.sendChannelNotification("channel-1", "hello")
+		p.sendChannelNotification("channel-1", "goodbye")
+
+		api.AssertNumberOfCalls(t, "CreatePost", 2)
+		assert.Len(t, claimedKeys(), 2)
+	})
+
+	t.Run("fails open when the KV claim errors", func(t *testing.T) {
+		api := &plugintest.API{}
+		api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.MatchedBy(isDedupClaimOptions)).
+			Return(false, model.NewAppError("KVSetWithOptions", "id", nil, "boom", http.StatusInternalServerError))
+		api.On("CreatePost", mock.Anything).Return(&model.Post{}, nil)
+		api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+		p := newTestPluginWithAPI(api)
+		p.sendChannelNotification("channel-1", "hello")
+
+		api.AssertNumberOfCalls(t, "CreatePost", 1)
+	})
+
+	t.Run("keeps the claim when the post fails", func(t *testing.T) {
+		api := &plugintest.API{}
+		claimedKeys := fakeDedupKV(api)
+		api.On("CreatePost", mock.Anything).
+			Return(nil, model.NewAppError("CreatePost", "id", nil, "boom", http.StatusInternalServerError))
+		api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+		p := newTestPluginWithAPI(api)
+		p.sendChannelNotification("channel-1", "hello")
+
+		assert.Equal(t, []string{channelPostDedupKey("channel-1", "hello")}, claimedKeys())
+	})
 }

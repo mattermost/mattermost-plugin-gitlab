@@ -6,9 +6,11 @@ package main
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"net/http"
 	"time"
@@ -28,11 +30,9 @@ const (
 	webhookTimeout            = 10 * time.Second
 	eventSourceParentPipeline = "parent_pipeline"
 
-	// notificationDedupTTL is the window during which a duplicate DM for the
-	// same recipient and message is suppressed (e.g. duplicate webhook
-	// deliveries from overlapping group/project hooks or GitLab retries).
-	notificationDedupTTL    = 30 * time.Second
+	webhookDedupTTL         = 30 * time.Second
 	notificationDedupKeyFmt = "notif_dedup_%s"
+	channelPostDedupKeyFmt  = "chan_dedup_%s"
 )
 
 type gitlabRetreiver struct {
@@ -200,58 +200,101 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, to := range res.ToChannels {
 			if len(res.Message) > 0 {
-				post := &model.Post{
-					UserId:    p.BotUserID,
-					Message:   res.Message,
-					ChannelId: to,
-				}
-				if err := p.client.Post.CreatePost(post); err != nil {
-					p.client.Log.Warn("can't create post for webhook event", "err", err.Error())
-				}
+				p.sendChannelNotification(to, res.Message)
 			}
 		}
 		p.sendRefreshIfNotAlreadySent(alreadySentRefresh, res.From)
 	}
 }
 
-// notificationDedupKey returns a KV key that uniquely identifies a DM
-// notification by its recipient and rendered message, so that repeated
-// deliveries of the same notification collapse onto the same key.
-func notificationDedupKey(recipientID, message string) string {
-	hash := sha256.Sum256([]byte(recipientID + "_" + message))
-	return fmt.Sprintf(notificationDedupKeyFmt, hex.EncodeToString(hash[:]))
+// writeDedupToken length-prefixes s so distinct token sequences can't hash to
+// the same key (e.g. "a_b"+"c" versus "a"+"b_c").
+func writeDedupToken(h hash.Hash, s string) {
+	var length [8]byte
+	binary.BigEndian.PutUint64(length[:], uint64(len(s)))
+	// hash.Hash.Write never returns an error.
+	_, _ = h.Write(length[:])
+	_, _ = h.Write([]byte(s))
 }
 
-// sendDMNotification sends a bot DM to userID, deduplicating against
-// duplicate webhook deliveries (e.g. overlapping group/project hooks, GitLab
-// retries, or concurrent delivery across cluster nodes). It atomically claims
-// a short-lived KV key before posting, so only the first delivery to claim
-// the key actually sends the DM.
-func (p *Plugin) sendDMNotification(userID, message string) {
-	dedupKey := notificationDedupKey(userID, message)
-	claimed, kvErr := p.client.KV.Set(dedupKey, true,
-		pluginapi.SetExpiry(notificationDedupTTL),
+func notificationDedupKey(recipientID, message string) string {
+	h := sha256.New()
+	for _, token := range []string{recipientID, message} {
+		writeDedupToken(h, token)
+	}
+	return fmt.Sprintf(notificationDedupKeyFmt, hex.EncodeToString(h.Sum(nil)))
+}
+
+func channelPostDedupKey(channelID, message string) string {
+	h := sha256.New()
+	for _, token := range []string{channelID, message} {
+		writeDedupToken(h, token)
+	}
+	return fmt.Sprintf(channelPostDedupKeyFmt, hex.EncodeToString(h.Sum(nil)))
+}
+
+// claimDedupKey atomically claims dedupKey: SetAtomic(nil) only writes when the
+// key is absent, so concurrent deliveries can't both win. A KV error fails open,
+// returning deliver without owned since nothing was written.
+func (p *Plugin) claimDedupKey(caller, dedupKey string) (deliver, owned bool) {
+	claimed, err := p.client.KV.Set(dedupKey, true,
+		pluginapi.SetExpiry(webhookDedupTTL),
 		pluginapi.SetAtomic(nil),
 	)
-	if kvErr != nil {
-		// Fail open: send the notification rather than dropping it.
-		p.client.Log.Warn("failed to claim notification dedup key, sending DM anyway", "err", kvErr.Error())
-	} else if !claimed {
-		// Another delivery already claimed this notification.
-		p.client.Log.Debug("notification already claimed, skipping", "dedup_key", dedupKey)
+	switch {
+	case err != nil:
+		p.client.Log.Warn(caller+": failed to claim dedup key, delivering anyway", "dedup_key", dedupKey, "err", err.Error())
+		return true, false
+	case !claimed:
+		p.client.Log.Debug(caller+": another delivery already claimed this notification, skipping", "dedup_key", dedupKey)
+		return false, false
+	}
+	return true, true
+}
+
+// releaseDedupKey lets a redelivery retry instead of waiting out the TTL. Only
+// call it when this delivery owns the claim and nothing was posted.
+func (p *Plugin) releaseDedupKey(caller, dedupKey string) {
+	if err := p.client.KV.Delete(dedupKey); err != nil {
+		p.client.Log.Warn(caller+": failed to release dedup key; redeliveries of this event will be skipped until the claim expires",
+			"dedup_key", dedupKey, "err", err.Error())
+	}
+}
+
+func (p *Plugin) sendDMNotification(userID, message string) {
+	dedupKey := notificationDedupKey(userID, message)
+	deliver, owned := p.claimDedupKey("sendDMNotification", dedupKey)
+	if !deliver {
 		return
 	}
 
 	if err := p.CreateBotDMPost(userID, message, "custom_git_review_request"); err != nil {
 		p.client.Log.Warn("can't send dm post", "err", err.Error())
-		// Only release a claim we actually own: if the KV.Set above failed
-		// (fail-open path), no claim was ever written, so there's nothing to delete.
-		if errors.Is(err, errDMChannelUnavailable) && kvErr == nil && claimed {
-			if delErr := p.client.KV.Delete(dedupKey); delErr != nil {
-				p.client.Log.Warn("failed to release notification dedup key", "err", delErr.Error())
-			}
-			return
+		// CreatePost may have persisted the DM despite erroring, so only the
+		// pre-post lookup failure is safe to release.
+		if owned && errors.Is(err, errDMChannelUnavailable) {
+			p.releaseDedupKey("sendDMNotification", dedupKey)
 		}
+	}
+}
+
+// sendChannelNotification keys the claim on channel and message rather than on
+// the subscription, so overlapping subscriptions collapse into one post.
+func (p *Plugin) sendChannelNotification(channelID, message string) {
+	dedupKey := channelPostDedupKey(channelID, message)
+	if deliver, _ := p.claimDedupKey("sendChannelNotification", dedupKey); !deliver {
+		return
+	}
+
+	post := &model.Post{
+		UserId:    p.BotUserID,
+		Message:   message,
+		ChannelId: channelID,
+	}
+	// The claim is deliberately kept on failure: CreatePost may have persisted
+	// the post, and releasing would let a redelivery duplicate it.
+	if err := p.client.Post.CreatePost(post); err != nil {
+		p.client.Log.Warn("can't create post for webhook event", "err", err.Error())
 	}
 }
 
