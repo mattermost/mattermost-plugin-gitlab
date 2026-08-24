@@ -5,7 +5,12 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"net/http"
 	"time"
@@ -18,11 +23,16 @@ import (
 	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 
 	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/public/pluginapi"
 )
 
 const (
 	webhookTimeout            = 10 * time.Second
 	eventSourceParentPipeline = "parent_pipeline"
+
+	webhookDedupTTL         = 30 * time.Second
+	notificationDedupKeyFmt = "notif_dedup_%s"
+	channelPostDedupKeyFmt  = "chan_dedup_%s"
 )
 
 type gitlabRetreiver struct {
@@ -185,25 +195,116 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 				if info.Settings.Notifications {
-					if err := p.CreateBotDMPost(userTo, res.Message, "custom_git_review_request"); err != nil {
-						p.client.Log.Warn("can't send dm post", "err", err.Error())
-					}
+					p.sendDMNotification(userTo, res.Message)
 				}
 			}
 		}
 		for _, to := range res.ToChannels {
 			if len(res.Message) > 0 {
-				post := &model.Post{
-					UserId:    p.BotUserID,
-					Message:   res.Message,
-					ChannelId: to,
-				}
-				if err := p.client.Post.CreatePost(post); err != nil {
-					p.client.Log.Warn("can't create post for webhook event", "err", err.Error())
-				}
+				p.sendChannelNotification(to, res.Message)
 			}
 		}
 		p.sendRefreshIfNotAlreadySent(alreadySentRefresh, res.From)
+	}
+}
+
+// writeDedupToken length-prefixes s so distinct token sequences can't hash to
+// the same key (e.g. "a_b"+"c" versus "a"+"b_c").
+func writeDedupToken(h hash.Hash, s string) {
+	var length [8]byte
+	binary.BigEndian.PutUint64(length[:], uint64(len(s)))
+	// hash.Hash.Write never returns an error.
+	_, _ = h.Write(length[:])
+	_, _ = h.Write([]byte(s))
+}
+
+func notificationDedupKey(recipientID, message string) string {
+	h := sha256.New()
+	for _, token := range []string{recipientID, message} {
+		writeDedupToken(h, token)
+	}
+	return fmt.Sprintf(notificationDedupKeyFmt, hex.EncodeToString(h.Sum(nil)))
+}
+
+func channelPostDedupKey(channelID, message string) string {
+	h := sha256.New()
+	for _, token := range []string{channelID, message} {
+		writeDedupToken(h, token)
+	}
+	return fmt.Sprintf(channelPostDedupKeyFmt, hex.EncodeToString(h.Sum(nil)))
+}
+
+// claimDedupKey atomically claims dedupKey: SetAtomic(nil) only writes when the
+// key is absent, so concurrent deliveries can't both win. It returns the token
+// identifying this claim, which releaseDedupKey needs to prove ownership. A KV
+// error fails open, returning deliver with an empty token since nothing was
+// written.
+func (p *Plugin) claimDedupKey(caller, dedupKey string) (deliver bool, claimToken string) {
+	token := model.NewId()
+	claimed, err := p.client.KV.Set(dedupKey, []byte(token),
+		pluginapi.SetExpiry(webhookDedupTTL),
+		pluginapi.SetAtomic(nil),
+	)
+	switch {
+	case err != nil:
+		p.client.Log.Warn(caller+": failed to claim dedup key, delivering anyway", "dedup_key", dedupKey, "err", err.Error())
+		return true, ""
+	case !claimed:
+		p.client.Log.Debug(caller+": another delivery already claimed this notification, skipping", "dedup_key", dedupKey)
+		return false, ""
+	}
+	return true, token
+}
+
+// releaseDedupKey lets a redelivery retry instead of waiting out the TTL. It
+// deletes only a claim still matching claimToken: a delivery slow enough for its
+// claim to expire must not evict the claim of whichever delivery succeeded it.
+func (p *Plugin) releaseDedupKey(caller, dedupKey, claimToken string) {
+	released, appErr := p.API.KVCompareAndDelete(dedupKey, []byte(claimToken))
+	if appErr != nil {
+		p.client.Log.Warn(caller+": failed to release dedup key; redeliveries of this event will be skipped until the claim expires",
+			"dedup_key", dedupKey, "err", appErr.Error())
+		return
+	}
+	if !released {
+		p.client.Log.Debug(caller+": dedup claim already expired and was reacquired, leaving it in place", "dedup_key", dedupKey)
+	}
+}
+
+func (p *Plugin) sendDMNotification(userID, message string) {
+	dedupKey := notificationDedupKey(userID, message)
+	deliver, claimToken := p.claimDedupKey("sendDMNotification", dedupKey)
+	if !deliver {
+		return
+	}
+
+	if err := p.CreateBotDMPost(userID, message, "custom_git_review_request"); err != nil {
+		p.client.Log.Warn("can't send dm post", "err", err.Error())
+		// CreatePost may have persisted the DM despite erroring, so only the
+		// pre-post lookup failure is safe to release.
+		if claimToken != "" && errors.Is(err, errDMChannelUnavailable) {
+			p.releaseDedupKey("sendDMNotification", dedupKey, claimToken)
+		}
+	}
+}
+
+// sendChannelNotification keys the claim on channel and message rather than on
+// the subscription, so overlapping subscriptions collapse into one post.
+func (p *Plugin) sendChannelNotification(channelID, message string) {
+	dedupKey := channelPostDedupKey(channelID, message)
+	if deliver, _ := p.claimDedupKey("sendChannelNotification", dedupKey); !deliver {
+		return
+	}
+
+	post := &model.Post{
+		UserId:    p.BotUserID,
+		Message:   message,
+		ChannelId: channelID,
+	}
+	// The claim is deliberately kept on failure: CreatePost may have persisted
+	// the post, and releasing would let a redelivery duplicate it.
+	if err := p.client.Post.CreatePost(post); err != nil {
+		p.client.Log.Warn("can't create post for webhook event", "err", err.Error())
 	}
 }
 
