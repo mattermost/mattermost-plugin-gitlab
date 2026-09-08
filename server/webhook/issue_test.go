@@ -115,6 +115,130 @@ var testDataIssue = []testDataIssueStr{
 		warnings: []string{},
 	},
 	{
+		testTitle:       "root assign manland to issue (DM only, no channel subscription)",
+		fixture:         AssignIssue,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
+		res: []*HandleWebhook{
+			{
+				Message:    "[root](http://my.gitlab.com/root) assigned you to issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+			{
+				Message:    "[root](http://my.gitlab.com/root) unassigned you from issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
+				ToUsers:    []string{"user"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+		},
+		warnings: []string{},
+	},
+	{
+		testTitle:       "root unassign manland from issue (DM only)",
+		fixture:         UnassignIssue,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{}),
+		res: []*HandleWebhook{
+			{
+				Message:    "[root](http://my.gitlab.com/root) unassigned you from issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+		},
+		warnings: []string{},
+	},
+	{
+		testTitle: "root assign manland to issue and display in channel1 with issues subscription",
+		fixture:   AssignIssue,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "issues", Repository: "manland/webhook"},
+		}),
+		res: []*HandleWebhook{
+			{
+				Message:    "[root](http://my.gitlab.com/root) assigned you to issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+			{
+				Message:    "[root](http://my.gitlab.com/root) unassigned you from issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
+				ToUsers:    []string{"user"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+			{
+				Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Issue [test new issue](http://localhost:3000/manland/webhook/issues/1) was assigned to [manland](http://my.gitlab.com/manland) by [root](http://my.gitlab.com/root)",
+				ToUsers:    []string{},
+				ToChannels: []string{"channel1"},
+				From:       "root",
+			},
+			{
+				Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Issue [test new issue](http://localhost:3000/manland/webhook/issues/1) was unassigned from [user](http://my.gitlab.com/user) by [root](http://my.gitlab.com/root)",
+				ToUsers:    []string{},
+				ToChannels: []string{"channel1"},
+				From:       "root",
+			},
+		},
+		warnings: []string{},
+	},
+	{
+		testTitle: "root assign manland to issue and display in channel1 with issue_assigns subscription",
+		fixture:   AssignIssue,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "issue_assigns", Repository: "manland/webhook"},
+		}),
+		res: []*HandleWebhook{
+			{
+				Message:    "[root](http://my.gitlab.com/root) assigned you to issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+			{
+				Message:    "[root](http://my.gitlab.com/root) unassigned you from issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
+				ToUsers:    []string{"user"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+			{
+				Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Issue [test new issue](http://localhost:3000/manland/webhook/issues/1) was assigned to [manland](http://my.gitlab.com/manland) by [root](http://my.gitlab.com/root)",
+				ToUsers:    []string{},
+				ToChannels: []string{"channel1"},
+				From:       "root",
+			},
+			{
+				Message:    "[manland/webhook](http://localhost:3000/manland/webhook) Issue [test new issue](http://localhost:3000/manland/webhook/issues/1) was unassigned from [user](http://my.gitlab.com/user) by [root](http://my.gitlab.com/root)",
+				ToUsers:    []string{},
+				ToChannels: []string{"channel1"},
+				From:       "root",
+			},
+		},
+		warnings: []string{},
+	},
+	{
+		testTitle: "root assign manland to issue but no channel notification without matching subscription",
+		fixture:   AssignIssue,
+		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
+			{ChannelID: "channel1", CreatorID: "1", Features: "merges", Repository: "manland/webhook"},
+		}),
+		res: []*HandleWebhook{
+			{
+				Message:    "[root](http://my.gitlab.com/root) assigned you to issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
+				ToUsers:    []string{"manland"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+			{
+				Message:    "[root](http://my.gitlab.com/root) unassigned you from issue [manland/webhook#1](http://localhost:3000/manland/webhook/issues/1)",
+				ToUsers:    []string{"user"},
+				ToChannels: []string{},
+				From:       "root",
+			},
+		},
+		warnings: []string{},
+	},
+	{
 		testTitle: "manland reopen issue of root and display in channel with subscription label warning",
 		fixture:   ReopenIssue,
 		gitlabRetreiver: newFakeWebhook([]*subscription.Subscription{
@@ -271,5 +395,50 @@ func TestConfidentialIssueUnderRegularEventTypeIsGated(t *testing.T) {
 	for _, handler := range res {
 		assert.Empty(t, handler.ToChannels,
 			"confidential issue must not reach a channel lacking the confidential_issues feature")
+	}
+}
+
+func TestConfidentialIssueAssignIsGated(t *testing.T) {
+	t.Parallel()
+	confidentialAssign := strings.ReplaceAll(AssignIssue, `"confidential":false`, `"confidential":true`)
+
+	testCases := []struct {
+		testTitle           string
+		features            string
+		expectChannelNotify bool
+	}{
+		{
+			testTitle:           "issue_assigns without confidential_issues is gated",
+			features:            "issue_assigns",
+			expectChannelNotify: false,
+		},
+		{
+			testTitle:           "issue_assigns with confidential_issues notifies the channel",
+			features:            "issue_assigns,confidential_issues",
+			expectChannelNotify: true,
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.testTitle, func(t *testing.T) {
+			retreiver := newFakeWebhook([]*subscription.Subscription{
+				{ChannelID: "channel1", CreatorID: "1", Features: test.features, Repository: "manland/webhook"},
+			})
+			w := NewWebhook(retreiver)
+			issueEvent := &gitlab.IssueEvent{}
+			require.NoError(t, json.Unmarshal([]byte(confidentialAssign), issueEvent))
+
+			res, _, err := w.HandleIssue(context.Background(), issueEvent, gitlab.EventTypeIssue)
+			require.NoError(t, err)
+			assert.True(t, retreiver.gotIsConfidential)
+
+			notified := false
+			for _, handler := range res {
+				if len(handler.ToChannels) > 0 {
+					notified = true
+				}
+			}
+			assert.Equal(t, test.expectChannelNotify, notified)
+		})
 	}
 }

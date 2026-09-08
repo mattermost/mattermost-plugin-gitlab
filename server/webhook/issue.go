@@ -8,6 +8,8 @@ import (
 	"fmt"
 
 	"github.com/xanzy/go-gitlab"
+
+	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
 
 func (w *webhook) HandleIssue(ctx context.Context, event *gitlab.IssueEvent, eventType gitlab.EventType) ([]*HandleWebhook, []string, error) {
@@ -28,6 +30,7 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 	senderGitlabUsername := event.User.Username
 
 	message := ""
+	handlers := []*HandleWebhook{}
 
 	switch event.ObjectAttributes.Action {
 	case actionOpen:
@@ -38,6 +41,27 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 		message = fmt.Sprintf("[%s](%s) closed your issue [%s#%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Project.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
 	case actionReopen:
 		message = fmt.Sprintf("[%s](%s) reopened your issue [%s#%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Project.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL)
+	case actionUpdate:
+		if event.Changes.Assignees.Current != nil || event.Changes.Assignees.Previous != nil {
+			newlyAssigned := w.calculateUserDiffs(event.Changes.Assignees.Previous, event.Changes.Assignees.Current)
+			newlyUnassigned := w.calculateUserDiffs(event.Changes.Assignees.Current, event.Changes.Assignees.Previous)
+
+			if len(newlyAssigned) != 0 {
+				handlers = append(handlers, &HandleWebhook{
+					Message: fmt.Sprintf("[%s](%s) assigned you to issue [%s#%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Project.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL),
+					ToUsers: newlyAssigned,
+					From:    senderGitlabUsername,
+				})
+			}
+
+			if len(newlyUnassigned) != 0 {
+				handlers = append(handlers, &HandleWebhook{
+					Message: fmt.Sprintf("[%s](%s) unassigned you from issue [%s#%v](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.Project.PathWithNamespace, event.ObjectAttributes.IID, event.ObjectAttributes.URL),
+					ToUsers: newlyUnassigned,
+					From:    senderGitlabUsername,
+				})
+			}
+		}
 	}
 
 	if message != "" {
@@ -49,12 +73,14 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 		}
 		toUsers = append(toUsers, authorGitlabUsername)
 
-		handlers := []*HandleWebhook{{
+		handlers = append(handlers, &HandleWebhook{
 			Message: message,
 			ToUsers: toUsers,
 			From:    senderGitlabUsername,
-		}}
+		})
+	}
 
+	if len(handlers) > 0 {
 		if mention := w.handleMention(mentionDetails{
 			senderUsername:    senderGitlabUsername,
 			pathWithNamespace: event.Project.PathWithNamespace,
@@ -76,6 +102,7 @@ func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEve
 	res := []*HandleWebhook{}
 
 	message := ""
+	var assignMessages []string
 	var warnings []string
 
 	switch issue.Action {
@@ -89,39 +116,49 @@ func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEve
 		if len(event.Changes.Labels.Current) > 0 && !sameLabels(event.Changes.Labels.Current, event.Changes.Labels.Previous) {
 			message = fmt.Sprintf("#### %s\n##### [%s#%v](%s)\n###### issue labeled `%s` by [%s](%s) on [%s](%s)\n\n%s", issue.Title, repo.PathWithNamespace, issue.IID, issue.URL, labelToString(event.Changes.Labels.Current), event.User.Username, w.gitlabRetreiver.GetUserURL(event.User.Username), issue.UpdatedAt, issue.URL, sanitizeDescription(issue.Description))
 		}
+
+		if event.Changes.Assignees.Current != nil || event.Changes.Assignees.Previous != nil {
+			newlyAssigned := w.calculateUserDiffs(event.Changes.Assignees.Previous, event.Changes.Assignees.Current)
+			newlyUnassigned := w.calculateUserDiffs(event.Changes.Assignees.Current, event.Changes.Assignees.Previous)
+
+			for _, username := range newlyAssigned {
+				assignMessages = append(assignMessages, fmt.Sprintf("[%s](%s) Issue [%s](%s) was assigned to [%s](%s) by [%s](%s)",
+					repo.PathWithNamespace, repo.WebURL, issue.Title, issue.URL,
+					username, w.gitlabRetreiver.GetUserURL(username),
+					senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername)))
+			}
+			for _, username := range newlyUnassigned {
+				assignMessages = append(assignMessages, fmt.Sprintf("[%s](%s) Issue [%s](%s) was unassigned from [%s](%s) by [%s](%s)",
+					repo.PathWithNamespace, repo.WebURL, issue.Title, issue.URL,
+					username, w.gitlabRetreiver.GetUserURL(username),
+					senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername)))
+			}
+		}
 	}
 
+	if len(message) == 0 && len(assignMessages) == 0 {
+		return res, warnings, nil
+	}
+
+	// Trust the payload's confidential flag in addition to the event type, so a
+	// confidential issue delivered under the regular Issue Hook is still gated.
+	isConfidential := issue.Confidential || eventType == gitlab.EventConfidentialIssue
+	confidentialAllowed := func(sub *subscription.Subscription) bool {
+		return !isConfidential || sub.ConfidentialIssues()
+	}
+
+	namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
+	subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
+		ctx, namespace, project,
+		repo.Visibility == gitlab.PublicVisibility,
+		isConfidential,
+	)
+
 	if len(message) > 0 {
-		// Trust the payload's confidential flag in addition to the event type, so a
-		// confidential issue delivered under the regular Issue Hook is still gated.
-		isConfidential := issue.Confidential || eventType == gitlab.EventConfidentialIssue
-
-		toChannels := make([]string, 0)
-		namespace, project := normalizeNamespacedProject(repo.PathWithNamespace)
-		subs := w.gitlabRetreiver.GetSubscribedChannelsForProject(
-			ctx, namespace, project,
-			repo.Visibility == gitlab.PublicVisibility,
-			isConfidential,
-		)
-		for _, sub := range subs {
-			if !sub.Issues() {
-				continue
-			}
-
-			if isConfidential && !sub.ConfidentialIssues() {
-				continue
-			}
-
-			labels, err := sub.Labels()
-			if err != nil {
-				warnings = append(warnings, err.Error())
-			} else if len(labels) > 0 && !containsAnyLabel(event.Labels, labels) {
-				continue
-			}
-
-			toChannels = append(toChannels, sub.ChannelID)
-		}
-
+		toChannels, ws := filterChannelsByFeature(subs, event.Labels, func(sub *subscription.Subscription) bool {
+			return sub.Issues() && confidentialAllowed(sub)
+		})
+		warnings = append(warnings, ws...)
 		if len(toChannels) > 0 {
 			res = append(res, &HandleWebhook{
 				From:       senderGitlabUsername,
@@ -131,5 +168,23 @@ func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEve
 			})
 		}
 	}
+
+	if len(assignMessages) > 0 {
+		toChannels, ws := filterChannelsByFeature(subs, event.Labels, func(sub *subscription.Subscription) bool {
+			return (sub.Issues() || sub.IssueAssigns()) && confidentialAllowed(sub)
+		})
+		warnings = append(warnings, ws...)
+		if len(toChannels) > 0 {
+			for _, msg := range assignMessages {
+				res = append(res, &HandleWebhook{
+					From:       senderGitlabUsername,
+					Message:    msg,
+					ToUsers:    []string{},
+					ToChannels: toChannels,
+				})
+			}
+		}
+	}
+
 	return res, warnings, nil
 }
