@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -171,6 +172,17 @@ func filterChannelsByFeature(
 		channels = append(channels, sub.ChannelID)
 	}
 	return channels, warnings
+}
+
+// appendUniqueWarnings keeps warnings distinct, so a subscription inspected by
+// more than one feature filter for the same event only reports a problem once.
+func appendUniqueWarnings(warnings []string, newWarnings ...string) []string {
+	for _, warning := range newWarnings {
+		if !slices.Contains(warnings, warning) {
+			warnings = append(warnings, warning)
+		}
+	}
+	return warnings
 }
 
 func anyEventLabelInSubs(sub *subscription.Subscription, eventLabels []*gitlab.EventLabel) (bool, string) {

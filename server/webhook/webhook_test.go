@@ -16,6 +16,10 @@ import (
 type fakeWebhook struct {
 	subs []*subscription.Subscription
 
+	// mentionedUsernames is returned for every parsed body, letting tests drive
+	// the mention handling path.
+	mentionedUsernames []string
+
 	// gotIsConfidential records the confidentiality flag of the last lookup so
 	// tests can assert that confidential events reach the authorization check.
 	gotIsConfidential bool
@@ -52,8 +56,8 @@ func (*fakeWebhook) GetUsernameByID(id int) string {
 	}
 }
 
-func (*fakeWebhook) ParseGitlabUsernamesFromText(body string) []string {
-	return []string{}
+func (f *fakeWebhook) ParseGitlabUsernamesFromText(body string) []string {
+	return f.mentionedUsernames
 }
 
 func (f *fakeWebhook) GetSubscribedChannelsForProject(ctx context.Context, namespace, project string, isPublicVisibility, isConfidential bool) []*subscription.Subscription {

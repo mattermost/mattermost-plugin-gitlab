@@ -78,9 +78,9 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 			ToUsers: toUsers,
 			From:    senderGitlabUsername,
 		})
-	}
 
-	if len(handlers) > 0 {
+		// Only parse mentions for actions that change the description, otherwise
+		// every assignee update would re-notify everyone mentioned in the issue.
 		if mention := w.handleMention(mentionDetails{
 			senderUsername:    senderGitlabUsername,
 			pathWithNamespace: event.Project.PathWithNamespace,
@@ -90,9 +90,9 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 		}); mention != nil {
 			handlers = append(handlers, mention)
 		}
-		return handlers, nil
 	}
-	return []*HandleWebhook{}, nil
+
+	return handlers, nil
 }
 
 func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEvent, eventType gitlab.EventType) ([]*HandleWebhook, []string, error) {
@@ -158,7 +158,7 @@ func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEve
 		toChannels, ws := filterChannelsByFeature(subs, event.Labels, func(sub *subscription.Subscription) bool {
 			return sub.Issues() && confidentialAllowed(sub)
 		})
-		warnings = append(warnings, ws...)
+		warnings = appendUniqueWarnings(warnings, ws...)
 		if len(toChannels) > 0 {
 			res = append(res, &HandleWebhook{
 				From:       senderGitlabUsername,
@@ -173,7 +173,7 @@ func (w *webhook) handleChannelIssue(ctx context.Context, event *gitlab.IssueEve
 		toChannels, ws := filterChannelsByFeature(subs, event.Labels, func(sub *subscription.Subscription) bool {
 			return (sub.Issues() || sub.IssueAssigns()) && confidentialAllowed(sub)
 		})
-		warnings = append(warnings, ws...)
+		warnings = appendUniqueWarnings(warnings, ws...)
 		if len(toChannels) > 0 {
 			for _, msg := range assignMessages {
 				res = append(res, &HandleWebhook{
