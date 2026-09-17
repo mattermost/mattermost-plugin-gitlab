@@ -23,6 +23,57 @@ import (
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 )
 
+func TestCheckConfigured(t *testing.T) {
+	nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	t.Run("passes with a KV-only instance", func(t *testing.T) {
+		instanceList := []string{"production"}
+		instanceConfig := map[string]InstanceConfiguration{
+			"production": {
+				GitlabURL:               "https://gitlab.example.com",
+				GitlabOAuthClientID:     "client-id",
+				GitlabOAuthClientSecret: "client-secret",
+			},
+		}
+		instanceListJSON, _ := json.Marshal(instanceList)
+		instanceConfigJSON, _ := json.Marshal(instanceConfig)
+
+		p := &Plugin{configuration: &configuration{
+			DefaultInstanceName: "production",
+			EncryptionKey:       "abcd",
+		}}
+
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).Return(instanceListJSON, nil)
+		api.On("KVGet", instanceConfigMapKey).Return(instanceConfigJSON, nil)
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/api/v1/whatever", nil)
+		p.checkConfigured(nextHandler).ServeHTTP(w, r)
+
+		assert.Equal(t, http.StatusOK, w.Result().StatusCode)
+	})
+
+	t.Run("returns 501 when nothing is configured", func(t *testing.T) {
+		p := &Plugin{configuration: &configuration{EncryptionKey: "abcd"}}
+
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).Return(nil, nil)
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/api/v1/whatever", nil)
+		p.checkConfigured(nextHandler).ServeHTTP(w, r)
+
+		assert.Equal(t, http.StatusNotImplemented, w.Result().StatusCode)
+	})
+}
+
 func TestGetChannelSubscriptions(t *testing.T) {
 	setupPlugin := func(t *testing.T) (*Plugin, *plugintest.API) {
 		t.Helper()
@@ -46,13 +97,17 @@ func TestGetChannelSubscriptions(t *testing.T) {
 		jsonInfo, err := json.Marshal(info)
 		require.NoError(t, err)
 
-		mock := &plugintest.API{}
-		plugin.SetAPI(mock)
+		mockAPI := &plugintest.API{}
+		plugin.SetAPI(mockAPI)
 		plugin.client = pluginapi.NewClient(plugin.API, plugin.Driver)
 
-		mock.On("KVGet", "user_id_userinfo").Return(jsonInfo, nil).Once()
+		mockAPI.On("KVGet", "user_id_userinfo").Return(jsonInfo, nil).Once()
+		// checkConfigured resolves the effective GitLab instance, which first checks the
+		// KV-backed instance store before falling back to the legacy config set above.
+		mockAPI.On("KVGet", instanceConfigNameListKey).Return(nil, nil)
+		mockAPI.On("LogDebug", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-		return &plugin, mock
+		return &plugin, mockAPI
 	}
 
 	t.Run("no permission to channel", func(t *testing.T) {
@@ -223,6 +278,10 @@ func setupNamespaceTestPlugin(t *testing.T, gitlabURL, gitlabGroup string, extra
 	mockAPI.On("GetConfig", mock.Anything).Return(conf)
 	mockAPI.On("KVGet", "user_id_userinfo").Return(jsonInfo, nil)
 	mockAPI.On("KVGet", "user_id_usertoken").Return([]byte(encryptedToken), nil)
+	// checkConfigured resolves the effective GitLab instance, which first checks the
+	// KV-backed instance store before falling back to the legacy config set above.
+	mockAPI.On("KVGet", instanceConfigNameListKey).Return(nil, nil)
+	mockAPI.On("LogDebug", mock.Anything, mock.Anything, mock.Anything).Maybe()
 	mockAPI.On("LogAuditRec", mock.Anything).Maybe()
 	mockAPI.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
 	mockAPI.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
@@ -607,6 +666,10 @@ func TestAttachCommentToIssueReturns400ForInvalidWebURL(t *testing.T) {
 		conf := &model.Config{ServiceSettings: model.ServiceSettings{SiteURL: &siteURL}}
 		mockAPI.On("GetConfig", mock.Anything).Return(conf)
 		mockAPI.On("KVGet", "user_id_userinfo").Return(jsonInfo, nil)
+		// checkConfigured resolves the effective GitLab instance, which first checks the
+		// KV-backed instance store before falling back to the legacy config set above.
+		mockAPI.On("KVGet", instanceConfigNameListKey).Return(nil, nil)
+		mockAPI.On("LogDebug", mock.Anything, mock.Anything, mock.Anything).Maybe()
 
 		p := &Plugin{configuration: &config}
 		p.initializeAPI()

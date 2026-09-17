@@ -96,6 +96,10 @@ func (p *Plugin) installInstance(instanceName string, config *InstanceConfigurat
 		}
 	}
 
+	// installInstance only mutates the KV store; refresh the GitLab client here since it won't
+	// be rebuilt by OnConfigurationChange unless setDefaultInstance also changed plugin settings.
+	p.refreshGitlabClient()
+
 	return nil
 }
 
@@ -163,6 +167,10 @@ func (p *Plugin) uninstallInstance(instanceName string) error {
 		p.client.Log.Error("Failed to save updated instance name list while uninstalling instance", "error", err)
 		return fmt.Errorf("failed to save updated instance name list")
 	}
+
+	// uninstallInstance only mutates the KV store; refresh the GitLab client in case the
+	// uninstalled instance was the default one.
+	p.refreshGitlabClient()
 
 	return nil
 }

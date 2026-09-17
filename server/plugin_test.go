@@ -406,6 +406,128 @@ func TestGetOAuthConfig(t *testing.T) {
 	})
 }
 
+func TestIsConfigured(t *testing.T) {
+	siteURL := "https://mattermost.example.com"
+	mmConfig := &model.Config{}
+	mmConfig.ServiceSettings.SiteURL = &siteURL
+
+	t.Run("configured via KV-backed instance", func(t *testing.T) {
+		instanceList := []string{"production"}
+		instanceListJSON, _ := json.Marshal(instanceList)
+		instanceConfigMap := map[string]InstanceConfiguration{
+			"production": {
+				GitlabURL:               "https://gitlab.example.com",
+				GitlabOAuthClientID:     "instance-client-id",
+				GitlabOAuthClientSecret: "instance-client-secret",
+			},
+		}
+		instanceConfigJSON, _ := json.Marshal(instanceConfigMap)
+
+		p := &Plugin{
+			configuration: &configuration{
+				DefaultInstanceName: "production",
+				EncryptionKey:       "abcd",
+			},
+		}
+
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).Return(instanceListJSON, nil)
+		api.On("KVGet", instanceConfigMapKey).Return(instanceConfigJSON, nil)
+		api.On("GetConfig").Return(mmConfig)
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		assert.NoError(t, p.isConfigured())
+	})
+
+	t.Run("configured via legacy plugin settings", func(t *testing.T) {
+		p := &Plugin{
+			configuration: &configuration{
+				GitlabURL:               "https://gitlab.example.com",
+				GitlabOAuthClientID:     "legacy-client-id",
+				GitlabOAuthClientSecret: "legacy-client-secret",
+				EncryptionKey:           "abcd",
+			},
+		}
+
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).Return(nil, nil)
+		api.On("LogDebug", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		api.On("GetConfig").Return(mmConfig)
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		assert.NoError(t, p.isConfigured())
+	})
+
+	t.Run("configured via preregistered application", func(t *testing.T) {
+		p := &Plugin{
+			configuration: &configuration{
+				GitlabURL:                   gitlab.Gitlabdotcom,
+				UsePreregisteredApplication: true,
+				EncryptionKey:               "abcd",
+			},
+		}
+
+		api := &plugintest.API{}
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		assert.NoError(t, p.isConfigured())
+	})
+
+	t.Run("not configured when nothing is set", func(t *testing.T) {
+		p := &Plugin{
+			configuration: &configuration{EncryptionKey: "abcd"},
+		}
+
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).Return(nil, nil)
+		api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		api.On("GetConfig").Return(mmConfig)
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		assert.Error(t, p.isConfigured())
+	})
+
+	t.Run("not configured when encryption key is missing", func(t *testing.T) {
+		p := &Plugin{
+			configuration: &configuration{
+				GitlabURL:               "https://gitlab.example.com",
+				GitlabOAuthClientID:     "legacy-client-id",
+				GitlabOAuthClientSecret: "legacy-client-secret",
+			},
+		}
+
+		api := &plugintest.API{}
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		err := p.isConfigured()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must have an encryption key")
+	})
+
+	t.Run("not configured when preregistered application used off gitlab.com", func(t *testing.T) {
+		p := &Plugin{
+			configuration: &configuration{
+				GitlabURL:                   "https://my-company.gitlab.com",
+				UsePreregisteredApplication: true,
+				EncryptionKey:               "abcd",
+			},
+		}
+
+		api := &plugintest.API{}
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		err := p.isConfigured()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "pre-registered application can only be used with official public GitLab")
+	})
+}
+
 func TestRefreshTokenReturnsErrorWhenOAuthConfigFails(t *testing.T) {
 	siteURL := "https://mattermost.example.com"
 	mmConfig := &model.Config{}

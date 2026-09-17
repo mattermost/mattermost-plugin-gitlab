@@ -168,9 +168,7 @@ func (p *Plugin) withRecovery(next http.Handler) http.Handler {
 
 func (p *Plugin) checkConfigured(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		config := p.getConfiguration()
-
-		if err := config.IsValid(); err != nil {
+		if err := p.isConfigured(); err != nil {
 			http.Error(w, "This plugin is not configured.", http.StatusNotImplemented)
 			return
 		}
@@ -453,13 +451,15 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		}
 	}
 
+	effective := p.resolveEffectiveConfigOrDefault(config)
+
 	p.client.Frontend.PublishWebSocketEvent(
 		WsEventConnect,
 		map[string]any{
 			"connected":        true,
 			"gitlab_username":  userInfo.GitlabUsername,
-			"gitlab_client_id": config.GitlabOAuthClientID,
-			"gitlab_url":       config.GitlabURL,
+			"gitlab_client_id": effective.ClientID,
+			"gitlab_url":       effective.GitlabURL,
 			"organization":     config.GitlabGroup,
 		},
 		&model.WebsocketBroadcast{UserId: userID},
@@ -533,10 +533,11 @@ func (p *Plugin) getGitlabUser(c *Context, w http.ResponseWriter, r *http.Reques
 
 func (p *Plugin) getConnected(c *Context, w http.ResponseWriter, r *http.Request) {
 	config := p.getConfiguration()
+	effective := p.resolveEffectiveConfigOrDefault(config)
 
 	resp := &ConnectedResponse{
 		Connected:    false,
-		GitlabURL:    config.GitlabURL,
+		GitlabURL:    effective.GitlabURL,
 		Organization: config.GitlabGroup,
 	}
 
@@ -544,7 +545,7 @@ func (p *Plugin) getConnected(c *Context, w http.ResponseWriter, r *http.Request
 	if info != nil {
 		resp.Connected = true
 		resp.GitlabUsername = info.GitlabUsername
-		resp.GitlabClientID = config.GitlabOAuthClientID
+		resp.GitlabClientID = effective.ClientID
 		resp.Settings = info.Settings
 
 		if info.Settings.DailyReminder && r.URL.Query().Get("reminder") == "true" {

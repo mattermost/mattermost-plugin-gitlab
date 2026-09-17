@@ -715,6 +715,7 @@ func setupInstanceCommandTest(t *testing.T, instanceList []string, instanceConfi
 	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil)
 	api.On("SavePluginConfig", mock.Anything).Return(nil)
 	api.On("LogError", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	api.On("LogDebug", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	siteURL := "https://mattermost.example.com"
 	conf := &model.Config{}
@@ -895,4 +896,54 @@ func TestInstanceCommands(t *testing.T) {
 			assert.Contains(t, *msg, "No instance is configured")
 		})
 	})
+}
+
+// TestExecuteCommandRecognizesKVOnlyInstance guards against the regression fixed by this
+// change: a GitLab instance saved only to the KV store (via the setup wizard, see #595) must
+// be recognized by ExecuteCommand, not just by handleConnect.
+func TestExecuteCommandRecognizesKVOnlyInstance(t *testing.T) {
+	instanceList := []string{"production"}
+	instanceConfig := map[string]InstanceConfiguration{
+		"production": {
+			GitlabURL:               "https://gitlab.example.com",
+			GitlabOAuthClientID:     "client-id",
+			GitlabOAuthClientSecret: "client-secret",
+		},
+	}
+	p, msg, api := setupInstanceCommandTest(t, instanceList, instanceConfig)
+	p.configuration.DefaultInstanceName = "production"
+
+	api.On("KVGet", "user_id"+GitlabUserInfoKey).Return(nil, nil)
+	api.On("KVGet", "user_id"+GitlabMigrationTokenKey).Return(nil, nil)
+
+	args := &model.CommandArgs{Command: "/gitlab todo", UserId: "user_id", ChannelId: "channel_id"}
+	_, _ = p.ExecuteCommand(nil, args)
+
+	assert.NotContains(t, *msg, "Before using this plugin")
+	assert.Contains(t, *msg, "You must connect your account to GitLab first")
+}
+
+// TestGetAutocompleteDataRecognizesKVOnlyInstance guards against the regression where
+// autocomplete stayed limited to setup/about even after completing the setup wizard, because
+// it relied on legacy plugin settings rather than the KV-backed instance.
+func TestGetAutocompleteDataRecognizesKVOnlyInstance(t *testing.T) {
+	instanceList := []string{"production"}
+	instanceConfig := map[string]InstanceConfiguration{
+		"production": {
+			GitlabURL:               "https://gitlab.example.com",
+			GitlabOAuthClientID:     "client-id",
+			GitlabOAuthClientSecret: "client-secret",
+		},
+	}
+	p, _, _ := setupInstanceCommandTest(t, instanceList, instanceConfig)
+	p.configuration.DefaultInstanceName = "production"
+
+	data := p.getAutocompleteData(p.getConfiguration())
+
+	triggers := make([]string, 0, len(data.SubCommands))
+	for _, sub := range data.SubCommands {
+		triggers = append(triggers, sub.Trigger)
+	}
+	assert.Contains(t, triggers, "connect")
+	assert.Contains(t, triggers, "todo")
 }

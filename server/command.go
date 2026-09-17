@@ -180,8 +180,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 		return handler(args, parameters)
 	}
 
-	config := p.getConfiguration()
-	if err := config.IsValid(); err != nil {
+	if err := p.isConfigured(); err != nil {
 		return p.handleConfigError(args, err)
 	}
 
@@ -1095,7 +1094,7 @@ func (p *Plugin) isAuthorizedSysAdmin(userID string) (bool, error) {
 }
 
 func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteData {
-	if !config.IsOAuthConfigured() {
+	if p.isConfigured() != nil {
 		gitlab := model.NewAutocompleteData("gitlab", "[command]", "Available commands: setup, about")
 
 		setup := model.NewAutocompleteData("setup", "", "Set up the GitLab plugin")

@@ -35,13 +35,15 @@ func TestIsValid(t *testing.T) {
 			},
 		},
 		{
-			description: "invalid configuration: custom OAuth app without credentials",
+			// A KV-backed instance (or no instance at all) is valid at this layer; whether
+			// OAuth credentials actually resolve is checked by Plugin.isConfigured, not
+			// configuration.IsValid.
+			description: "valid configuration: custom OAuth app without legacy credentials",
 			config: &configuration{
 				GitlabURL:                   "https://gitlab.com",
 				EncryptionKey:               "abcd",
 				UsePreregisteredApplication: false,
 			},
-			errMsg: "must have a GitLab oauth client id",
 		},
 		{
 			description: "invalid configuration: custom GitLab URL with pre-registered app",
@@ -51,6 +53,13 @@ func TestIsValid(t *testing.T) {
 				EncryptionKey:               "abcd",
 			},
 			errMsg: "pre-registered application can only be used with official public GitLab",
+		},
+		{
+			description: "invalid configuration: missing encryption key",
+			config: &configuration{
+				GitlabURL: "https://gitlab.com",
+			},
+			errMsg: "must have an encryption key",
 		},
 	} {
 		t.Run(testCase.description, func(t *testing.T) {

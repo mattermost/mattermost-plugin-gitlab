@@ -119,21 +119,11 @@ func (c *configuration) IsSASS() bool {
 	return c.GitlabURL == "https://gitlab.com"
 }
 
-// IsValid checks if all needed fields are set.
+// IsValid checks the invariants that hold regardless of where OAuth credentials for the
+// effective GitLab instance live (legacy plugin settings or the KV-backed instance store).
+// Callers that need to know whether a GitLab instance is actually configured should use
+// Plugin.isConfigured, which additionally resolves OAuth credentials.
 func (c *configuration) IsValid() error {
-	if err := isValidURL(c.GitlabURL); err != nil {
-		return errors.New("must have a valid GitLab URL")
-	}
-
-	if !c.UsePreregisteredApplication {
-		if c.GitlabOAuthClientID == "" {
-			return errors.New("must have a GitLab oauth client id")
-		}
-		if c.GitlabOAuthClientSecret == "" {
-			return errors.New("must have a GitLab oauth client secret")
-		}
-	}
-
 	if c.UsePreregisteredApplication && !c.IsSASS() {
 		return errors.New("pre-registered application can only be used with official public GitLab")
 	}
@@ -240,9 +230,19 @@ func (p *Plugin) OnConfigurationChange() error {
 		return errors.Wrap(err, "failed to register command")
 	}
 
-	p.GitlabClient = gitlab.New(configuration.GitlabURL, configuration.GitlabGroup, p.isNamespaceAllowed)
+	p.refreshGitlabClient()
 
 	return nil
+}
+
+// refreshGitlabClient rebuilds the GitLab API client using the currently effective GitLab URL,
+// which may come from the KV-backed default instance rather than legacy plugin settings. Call
+// this after any change that could affect the effective instance (plugin configuration changes,
+// or direct KV mutations such as installing/uninstalling an instance).
+func (p *Plugin) refreshGitlabClient() {
+	config := p.getConfiguration()
+	effective := p.resolveEffectiveConfigOrDefault(config)
+	p.GitlabClient = gitlab.New(effective.GitlabURL, config.GitlabGroup, p.isNamespaceAllowed)
 }
 
 func generateSecret() (string, error) {
