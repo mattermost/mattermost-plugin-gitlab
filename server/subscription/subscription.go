@@ -24,6 +24,7 @@ var allFeatures = map[string]bool{
 	"deployments":            true,
 	"releases":               true,
 	"merge_request_assigns":  true,
+	"issue_assigns":          true,
 	// "label:":                 true,//particular case for label:XXX
 }
 
@@ -150,4 +151,8 @@ func (s *Subscription) Deployments() bool {
 
 func (s *Subscription) MergeRequestAssigns() bool {
 	return strings.Contains(s.Features, "merge_request_assigns")
+}
+
+func (s *Subscription) IssueAssigns() bool {
+	return strings.Contains(s.Features, "issue_assigns")
 }
