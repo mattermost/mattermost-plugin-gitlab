@@ -450,7 +450,7 @@ func (p *Plugin) handleIssue(ctx context.Context, args *model.CommandArgs, param
 func (p *Plugin) handleMe(ctx context.Context, args *model.CommandArgs, parameters []string, info *gitlab.UserInfo) (*model.CommandResponse, *model.AppError) {
 	var gitUser *gitlabLib.User
 	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetUserDetails(ctx, info, token)
+		resp, err := p.getGitlabClient().GetUserDetails(ctx, info, token)
 		if err != nil {
 			return err
 		}
@@ -563,7 +563,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		namespace := parameters[1]
 		var group, project string
 		err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			respGroup, respProject, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
+			respGroup, respProject, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
 			if err != nil {
 				return err
 			}
@@ -582,7 +582,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		var webhookInfo []*gitlab.WebhookInfo
 		if project != "" {
 			err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-				resp, err := p.GitlabClient.GetProjectHooks(ctx, info, token, group, project)
+				resp, err := p.getGitlabClient().GetProjectHooks(ctx, info, token, group, project)
 				if err != nil {
 					return err
 				}
@@ -600,7 +600,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 			}
 		} else {
 			err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-				resp, err := p.GitlabClient.GetGroupHooks(ctx, info, token, group)
+				resp, err := p.getGitlabClient().GetGroupHooks(ctx, info, token, group)
 				if err != nil {
 					return err
 				}
@@ -658,7 +658,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		namespace := parameters[1]
 		var group, project string
 		namespaceErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			respGroup, respProject, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
+			respGroup, respProject, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
 			if err != nil {
 				return err
 			}
@@ -689,7 +689,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 			return err.Error()
 		}
 
-		newWebhook, err := p.createHook(ctx, p.GitlabClient, info, group, project, hookOptions)
+		newWebhook, err := p.createHook(ctx, p.getGitlabClient(), info, group, project, hookOptions)
 		if err != nil {
 			auditRec.AddErrorDesc(err.Error())
 			if errors.Is(err, gitlab.ErrForbidden) {
@@ -811,7 +811,7 @@ func (p *Plugin) subscriptionDelete(userInfo *gitlab.UserInfo, config *configura
 	var getProjectError error
 	err = p.useGitlabClient(userInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		//nolint:govet // Ignore variable shadowing warning
-		resp, err := p.GitlabClient.GetProject(ctx, info, token, owner, strings.Join(remainingPath, "/"))
+		resp, err := p.getGitlabClient().GetProject(ctx, info, token, owner, strings.Join(remainingPath, "/"))
 		if err != nil {
 			getProjectError = err
 		} else {
@@ -833,7 +833,7 @@ func (p *Plugin) subscriptionDelete(userInfo *gitlab.UserInfo, config *configura
 		var getGroupError error
 		err = p.useGitlabClient(userInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 			//nolint:govet // Ignore variable shadowing warning
-			resp, err := p.GitlabClient.GetGroup(ctx, info, token, owner, strings.Join(remainingPath, "/"))
+			resp, err := p.getGitlabClient().GetGroup(ctx, info, token, owner, strings.Join(remainingPath, "/"))
 			if err != nil {
 				getGroupError = err
 			} else {
@@ -882,7 +882,7 @@ func (p *Plugin) subscriptionsListCommand(channelID string) string {
 func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserInfo, config *configuration, fullPath, channelID, features string) string {
 	var namespace, project string
 	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		respGroup, respProject, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, token, fullPath, config.EnablePrivateRepo)
+		respGroup, respProject, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, fullPath, config.EnablePrivateRepo)
 		if err != nil {
 			return err
 		}
@@ -917,7 +917,7 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		}
 	} else if wantsConfidential {
 		groupAccessErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			_, groupErr := p.GitlabClient.GetGroup(ctx, info, token, namespace, "")
+			_, groupErr := p.getGitlabClient().GetGroup(ctx, info, token, namespace, "")
 			return groupErr
 		})
 		if groupAccessErr != nil {
@@ -1030,16 +1030,16 @@ func (p *Plugin) pipelinesCommand(ctx context.Context, parameters []string, chan
 func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channelID string, info *gitlab.UserInfo) string {
 	var pipelineInfo *gitlab.PipelineInfo
 	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		groupName, projectName, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, true)
+		groupName, projectName, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, namespace, true)
 		if err != nil {
 			return err
 		}
-		project, err := p.GitlabClient.GetProject(ctx, info, token, groupName, projectName)
+		project, err := p.getGitlabClient().GetProject(ctx, info, token, groupName, projectName)
 		if err != nil {
 			return err
 		}
 		projectID := fmt.Sprintf("%d", project.ID)
-		pipelineInfo, err = p.GitlabClient.TriggerProjectPipeline(info, token, projectID, ref)
+		pipelineInfo, err = p.getGitlabClient().TriggerProjectPipeline(info, token, projectID, ref)
 		if err != nil {
 			return errors.Wrapf(err, "failed to run pipeline for Project: :%s", projectName)
 		}

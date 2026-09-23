@@ -220,29 +220,67 @@ func (p *Plugin) OnConfigurationChange() error {
 		p.notifyUsersOfDisallowedSubscriptions()
 	}
 
-	command, err := p.getCommand(configuration)
+	// Resolve the effective instance before registering the command, since the autocomplete
+	// data depends on whether a GitLab instance is configured.
+	p.refreshGitlabClient()
+
+	return p.registerCommand()
+}
+
+// refreshEffectiveInstance re-resolves everything that depends on the effective GitLab instance
+// and tells the other cluster nodes to do the same. Call it after KV mutations such as
+// installing or uninstalling an instance, which do not go through OnConfigurationChange.
+func (p *Plugin) refreshEffectiveInstance() {
+	p.refreshLocalEffectiveInstance()
+	p.sendInstanceChangedEvent()
+}
+
+func (p *Plugin) refreshLocalEffectiveInstance() {
+	p.refreshGitlabClient()
+
+	if err := p.registerCommand(); err != nil {
+		p.client.Log.Error("Failed to re-register slash command after instance change", "error", err.Error())
+	}
+}
+
+func (p *Plugin) registerCommand() error {
+	command, err := p.getCommand(p.getConfiguration())
 	if err != nil {
 		return errors.Wrap(err, "failed to get command")
 	}
 
-	err = p.client.SlashCommand.Register(command)
-	if err != nil {
+	if err := p.client.SlashCommand.Register(command); err != nil {
 		return errors.Wrap(err, "failed to register command")
 	}
-
-	p.refreshGitlabClient()
 
 	return nil
 }
 
-// refreshGitlabClient rebuilds the GitLab API client using the currently effective GitLab URL,
-// which may come from the KV-backed default instance rather than legacy plugin settings. Call
-// this after any change that could affect the effective instance (plugin configuration changes,
-// or direct KV mutations such as installing/uninstalling an instance).
+// refreshGitlabClient re-resolves the effective GitLab instance and caches it along with an API
+// client built from its URL. The instance may come from the KV-backed default instance rather
+// than legacy plugin settings, so call this after any change that could affect it.
 func (p *Plugin) refreshGitlabClient() {
 	config := p.getConfiguration()
-	effective := p.resolveEffectiveConfigOrDefault(config)
-	p.GitlabClient = gitlab.New(effective.GitlabURL, config.GitlabGroup, p.isNamespaceAllowed)
+
+	if config.UsePreregisteredApplication {
+		effective := &effectiveConfig{GitlabURL: config.GitlabURL}
+		p.setEffective(effective, gitlab.New(effective.GitlabURL, config.GitlabGroup, p.isNamespaceAllowed))
+		return
+	}
+
+	effective, err := p.resolveEffectiveConfig(config)
+	switch {
+	case err == nil:
+		p.setEffective(effective, gitlab.New(effective.GitlabURL, config.GitlabGroup, p.isNamespaceAllowed))
+	case errors.Is(err, ErrNotConfigured):
+		// Nothing is configured, so report that, but keep the existing client: rebuilding it
+		// from legacy settings would aim it at a host the stored tokens were not issued for.
+		p.setEffective(nil, nil)
+	default:
+		// The instance store is unreadable, leaving the effective instance unknown. Keep the
+		// last known good state and retry on the next refresh.
+		p.client.Log.Warn("Keeping last resolved GitLab instance, failed to read instance store", "error", err.Error())
+	}
 }
 
 func generateSecret() (string, error) {

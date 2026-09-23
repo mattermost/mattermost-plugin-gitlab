@@ -300,7 +300,7 @@ func newPluginWithMockGitlab(t *testing.T) (*Plugin, *mockgitlab.MockGitlab) {
 	api.On("LogWarn", mock.AnythingOfType("string"), mock.Anything, mock.Anything).Maybe()
 
 	p := &Plugin{
-		GitlabClient: mockGL,
+		gitlabClient: mockGL,
 	}
 	p.SetAPI(api)
 	return p, mockGL

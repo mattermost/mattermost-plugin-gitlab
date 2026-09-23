@@ -72,6 +72,7 @@ func (p *Plugin) NewFlowManager() (*FlowManager, error) {
 		fm.stepOAuthInfo(),
 		fm.stepOAuthInput(),
 		fm.stepSetDefaultInstance(),
+		fm.stepDefaultInstanceDeclined(),
 		fm.stepOAuthConnect(),
 
 		fm.stepWebhookQuestion(),
@@ -96,6 +97,7 @@ func (p *Plugin) NewFlowManager() (*FlowManager, error) {
 		fm.stepOAuthInfo(),
 		fm.stepOAuthInput(),
 		fm.stepSetDefaultInstance(),
+		fm.stepDefaultInstanceDeclined(),
 		fm.stepOAuthConnect().Terminal(),
 
 		fm.stepCancel("setup oauth"),
@@ -170,10 +172,12 @@ const (
 
 	// OAuth steps
 
-	stepGitlabURL    flow.Name = "gitlab-url"
-	stepOAuthInfo    flow.Name = "oauth-info"
-	stepOAuthInput   flow.Name = "oauth-input"
-	stepOAuthConnect flow.Name = "oauth-connect"
+	stepGitlabURL               flow.Name = "gitlab-url"
+	stepOAuthInfo               flow.Name = "oauth-info"
+	stepOAuthInput              flow.Name = "oauth-input"
+	stepSetDefaultInstance      flow.Name = "set-default-instance"
+	stepDefaultInstanceDeclined flow.Name = "default-instance-declined"
+	stepOAuthConnect            flow.Name = "oauth-connect"
 
 	// Webhook steps
 
@@ -196,6 +200,7 @@ const (
 	keyDelegatedTo                 = "DelegatedTo"
 	keyGitlabURL                   = "GitlabURL"
 	keyInstanceName                = "InstanceName"
+	keyDefaultInstanceName         = "DefaultInstanceName"
 	keyUsePreregisteredApplication = "UsePreregisteredApplication"
 	keyIsOAuthConfigured           = "IsOAuthConfigured"
 )
@@ -456,7 +461,7 @@ func (fm *FlowManager) stepOAuthInput() flow.Step {
 			Color: flow.ColorPrimary,
 			Dialog: &model.Dialog{
 				Title:            "GitLab OAuth values",
-				IntroductionText: "Please enter the **Instance Name**, **Application ID** and **Secret** you copied in a previous step.{{ if .IsOAuthConfigured }}\n\n**Any existing OAuth configuration will be overwritten.**{{end}}",
+				IntroductionText: "Please enter the **Instance Name**, **Application ID** and **Secret** you copied in a previous step.{{ if .IsOAuthConfigured }}\n\n**This adds a new GitLab instance alongside the existing one, so the instance name must be unique.**{{end}}",
 				SubmitLabel:      "Save & continue",
 				Elements: []model.DialogElement{
 					{
@@ -801,7 +806,7 @@ func (fm *FlowManager) submitChannelAnnouncement(f *flow.Flow, submitted map[str
 }
 
 func (fm *FlowManager) stepSetDefaultInstance() flow.Step {
-	return flow.NewStep("set-default-instance").
+	return flow.NewStep(stepSetDefaultInstance).
 		WithText("Do you want to set this as your default GitLab instance?").
 		WithButton(flow.Button{
 			Name:  "Yes",
@@ -825,8 +830,35 @@ func (fm *FlowManager) stepSetDefaultInstance() flow.Step {
 		WithButton(flow.Button{
 			Name:  "No",
 			Color: flow.ColorDefault,
-			// Declining to set the default instance still leaves it configured; continue the
-			// wizard so the admin can connect their account and set up the webhook.
-			OnClick: flow.Goto(stepOAuthConnect),
+			OnClick: func(f *flow.Flow) (flow.Name, flow.State, error) {
+				return fm.stepAfterDefaultInstanceDeclined(f.GetState().GetString(keyInstanceName))
+			},
 		})
+}
+
+// stepAfterDefaultInstanceDeclined routes the wizard once the administrator declines to make
+// the instance they just configured the default one. Connecting an account and creating
+// webhooks both target the default instance, so the remaining steps are only meaningful when
+// the configured instance already is that default.
+func (fm *FlowManager) stepAfterDefaultInstanceDeclined(instanceName string) (flow.Name, flow.State, error) {
+	defaultInstanceName := fm.getConfiguration().DefaultInstanceName
+	if defaultInstanceName == instanceName {
+		return stepOAuthConnect, nil, nil
+	}
+
+	return stepDefaultInstanceDeclined, flow.State{
+		keyDefaultInstanceName: defaultInstanceName,
+	}, nil
+}
+
+func (fm *FlowManager) stepDefaultInstanceDeclined() flow.Step {
+	declinedText := "Your GitLab instance was saved, but it isn't the default instance" +
+		"{{ if .DefaultInstanceName }} (**{{ .DefaultInstanceName }}** still is){{ end }}. " +
+		"Connecting an account and creating webhooks always use the default instance, so setup stops here.\n" +
+		"Run `/gitlab setup oauth` again and select **Yes** to make the new instance the default."
+
+	return flow.NewStep(stepDefaultInstanceDeclined).
+		Terminal().
+		WithText(declinedText).
+		WithColor(flow.ColorDefault)
 }

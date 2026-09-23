@@ -5,6 +5,7 @@ package main
 
 import (
 	"encoding/json"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -403,6 +404,34 @@ func TestGetOAuthConfig(t *testing.T) {
 		require.NotNil(t, conf)
 		assert.Equal(t, "instance-client-id", conf.ClientID)
 		assert.Equal(t, "instance-client-secret", conf.ClientSecret)
+	})
+
+	t.Run("does not fall back to legacy credentials when the instance store is unreadable", func(t *testing.T) {
+		siteURL := "https://mattermost.example.com"
+		mmConfig := &model.Config{}
+		mmConfig.ServiceSettings.SiteURL = &siteURL
+
+		p := &Plugin{
+			configuration: &configuration{
+				DefaultInstanceName:     "production",
+				GitlabURL:               "https://gitlab.legacy.com",
+				GitlabOAuthClientID:     "legacy-client-id",
+				GitlabOAuthClientSecret: "legacy-client-secret",
+			},
+		}
+
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).
+			Return(nil, model.NewAppError("KVGet", "kv.read.error", nil, "boom", http.StatusInternalServerError))
+		api.On("LogError", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+		api.On("GetConfig").Return(mmConfig)
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		conf, err := p.getOAuthConfig()
+		assert.Nil(t, conf)
+		require.Error(t, err)
+		assert.NotErrorIs(t, err, ErrNotConfigured)
 	})
 }
 

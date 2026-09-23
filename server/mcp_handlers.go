@@ -36,7 +36,7 @@ func (p *Plugin) handleGetIssue(ctx context.Context, _ *mcp.CallToolRequest, in 
 		return nil, GetIssueOutput{}, err
 	}
 
-	issue, err := p.GitlabClient.GetIssueByID(ctx, info, owner, repo, in.IssueIID, token)
+	issue, err := p.getGitlabClient().GetIssueByID(ctx, info, owner, repo, in.IssueIID, token)
 	if err != nil {
 		return nil, GetIssueOutput{}, fmt.Errorf("failed to get issue: %w", err)
 	}
@@ -55,9 +55,9 @@ func (p *Plugin) handleListIssues(ctx context.Context, _ *mcp.CallToolRequest, i
 
 	var issues []*internGitlab.Issue
 	if in.AssignedToMe || in.Search == "" {
-		issues, err = p.GitlabClient.ListAssignedIssues(ctx, info, token)
+		issues, err = p.getGitlabClient().ListAssignedIssues(ctx, info, token)
 	} else {
-		issues, err = p.GitlabClient.SearchIssues(ctx, info, in.Search, token)
+		issues, err = p.getGitlabClient().SearchIssues(ctx, info, in.Search, token)
 	}
 	if err != nil {
 		return nil, ListIssuesOutput{}, fmt.Errorf("failed to list issues: %w", err)
@@ -92,13 +92,13 @@ func (p *Plugin) handleCreateIssue(ctx context.Context, _ *mcp.CallToolRequest, 
 		Labels:      internGitlab.LabelOptions(in.Labels),
 	}
 
-	project, err := p.GitlabClient.GetProject(ctx, info, token, owner, repo)
+	project, err := p.getGitlabClient().GetProject(ctx, info, token, owner, repo)
 	if err != nil {
 		return nil, CreateIssueOutput{}, fmt.Errorf("failed to resolve project %q: %w", in.ProjectPath, err)
 	}
 	req.ProjectID = project.ID
 
-	issue, err := p.GitlabClient.CreateIssue(ctx, info, req, token)
+	issue, err := p.getGitlabClient().CreateIssue(ctx, info, req, token)
 	if err != nil {
 		return nil, CreateIssueOutput{}, fmt.Errorf("failed to create issue: %w", err)
 	}
@@ -133,7 +133,7 @@ func (p *Plugin) handleUpdateIssue(ctx context.Context, _ *mcp.CallToolRequest, 
 		opts.AssigneeIDs = &in.AssigneeIDs
 	}
 
-	issue, err := p.GitlabClient.UpdateIssue(ctx, info, token, in.ProjectPath, in.IssueIID, opts)
+	issue, err := p.getGitlabClient().UpdateIssue(ctx, info, token, in.ProjectPath, in.IssueIID, opts)
 	if err != nil {
 		return nil, UpdateIssueOutput{}, fmt.Errorf("failed to update issue: %w", err)
 	}
@@ -175,9 +175,9 @@ func (p *Plugin) handleAddComment(ctx context.Context, _ *mcp.CallToolRequest, i
 
 	var note *internGitlab.Note
 	if in.TargetType == "issue" {
-		note, err = p.GitlabClient.AddIssueNote(ctx, info, token, in.ProjectPath, in.TargetIID, in.Body)
+		note, err = p.getGitlabClient().AddIssueNote(ctx, info, token, in.ProjectPath, in.TargetIID, in.Body)
 	} else {
-		note, err = p.GitlabClient.AddMergeRequestNote(ctx, info, token, in.ProjectPath, in.TargetIID, in.Body)
+		note, err = p.getGitlabClient().AddMergeRequestNote(ctx, info, token, in.ProjectPath, in.TargetIID, in.Body)
 	}
 	if err != nil {
 		return nil, AddCommentOutput{}, fmt.Errorf("failed to add comment: %w", err)
@@ -212,7 +212,7 @@ func (p *Plugin) handleGetMergeRequest(ctx context.Context, _ *mcp.CallToolReque
 		return nil, GetMergeRequestOutput{}, err
 	}
 
-	mr, err := p.GitlabClient.GetMergeRequestByID(ctx, info, owner, repo, in.MergeRequestID, token)
+	mr, err := p.getGitlabClient().GetMergeRequestByID(ctx, info, owner, repo, in.MergeRequestID, token)
 	if err != nil {
 		return nil, GetMergeRequestOutput{}, fmt.Errorf("failed to get merge request: %w", err)
 	}
@@ -245,11 +245,11 @@ func (p *Plugin) handleListMergeRequests(ctx context.Context, _ *mcp.CallToolReq
 	var mrs []*internGitlab.MergeRequest
 	switch {
 	case in.ReviewRequested:
-		mrs, err = p.GitlabClient.ListReviewRequests(ctx, info, token)
+		mrs, err = p.getGitlabClient().ListReviewRequests(ctx, info, token)
 	case in.Search != "":
-		mrs, err = p.GitlabClient.SearchMergeRequests(ctx, info, token, in.Search)
+		mrs, err = p.getGitlabClient().SearchMergeRequests(ctx, info, token, in.Search)
 	default:
-		mrs, err = p.GitlabClient.ListAssignedMergeRequests(ctx, info, token)
+		mrs, err = p.getGitlabClient().ListAssignedMergeRequests(ctx, info, token)
 	}
 	if err != nil {
 		return nil, ListMergeRequestsOutput{}, fmt.Errorf("failed to list merge requests: %w", err)
@@ -275,14 +275,14 @@ func (p *Plugin) handleGetProjects(ctx context.Context, _ *mcp.CallToolRequest, 
 		if splitErr != nil {
 			return nil, GetProjectsOutput{}, splitErr
 		}
-		project, projErr := p.GitlabClient.GetProject(ctx, info, token, owner, repo)
+		project, projErr := p.getGitlabClient().GetProject(ctx, info, token, owner, repo)
 		if projErr != nil {
 			return nil, GetProjectsOutput{}, fmt.Errorf("failed to get project: %w", projErr)
 		}
 		return nil, GetProjectsOutput{Projects: []ProjectSummary{projectToSummary(project)}}, nil
 	}
 
-	projects, err := p.GitlabClient.GetYourProjects(ctx, info, token)
+	projects, err := p.getGitlabClient().GetYourProjects(ctx, info, token)
 	if err != nil {
 		return nil, GetProjectsOutput{}, fmt.Errorf("failed to list projects: %w", err)
 	}
@@ -316,7 +316,7 @@ func (p *Plugin) handleGetProjectMetadata(ctx context.Context, _ *mcp.CallToolRe
 	var out GetProjectMetadataOutput
 	switch in.Kind {
 	case "labels":
-		labels, lErr := p.GitlabClient.GetLabels(ctx, info, in.ProjectPath, token)
+		labels, lErr := p.getGitlabClient().GetLabels(ctx, info, in.ProjectPath, token)
 		if lErr != nil {
 			return nil, GetProjectMetadataOutput{}, fmt.Errorf("failed to list labels: %w", lErr)
 		}
@@ -330,7 +330,7 @@ func (p *Plugin) handleGetProjectMetadata(ctx context.Context, _ *mcp.CallToolRe
 			})
 		}
 	case "milestones":
-		milestones, mErr := p.GitlabClient.GetMilestones(ctx, info, in.ProjectPath, token)
+		milestones, mErr := p.getGitlabClient().GetMilestones(ctx, info, in.ProjectPath, token)
 		if mErr != nil {
 			return nil, GetProjectMetadataOutput{}, fmt.Errorf("failed to list milestones: %w", mErr)
 		}
@@ -352,7 +352,7 @@ func (p *Plugin) handleGetProjectMetadata(ctx context.Context, _ *mcp.CallToolRe
 			out.Milestones = append(out.Milestones, ms)
 		}
 	case "members":
-		members, memErr := p.GitlabClient.GetProjectMembers(ctx, info, in.ProjectPath, token)
+		members, memErr := p.getGitlabClient().GetProjectMembers(ctx, info, in.ProjectPath, token)
 		if memErr != nil {
 			return nil, GetProjectMetadataOutput{}, fmt.Errorf("failed to list project members: %w", memErr)
 		}
@@ -380,7 +380,7 @@ func (p *Plugin) handleGetMyGitLabUser(ctx context.Context, _ *mcp.CallToolReque
 		return nil, GetMyGitLabUserOutput{}, err
 	}
 
-	user, err := p.GitlabClient.GetUserDetails(ctx, info, token)
+	user, err := p.getGitlabClient().GetUserDetails(ctx, info, token)
 	if err != nil {
 		return nil, GetMyGitLabUserOutput{}, fmt.Errorf("failed to get GitLab user: %w", err)
 	}

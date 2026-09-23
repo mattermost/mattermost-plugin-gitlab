@@ -293,7 +293,7 @@ func setupNamespaceTestPlugin(t *testing.T, gitlabURL, gitlabGroup string, extra
 	p.initializeAPI()
 	p.SetAPI(mockAPI)
 	p.client = pluginapi.NewClient(mockAPI, p.Driver)
-	p.GitlabClient = gitlab.New(config.GitlabURL, config.GitlabGroup, p.isNamespaceAllowed)
+	p.gitlabClient = gitlab.New(config.GitlabURL, config.GitlabGroup, p.isNamespaceAllowed)
 	return p
 }
 
