@@ -25,8 +25,6 @@ type SupportPacket struct {
 func (p *Plugin) GenerateSupportData(_ *plugin.Context) ([]*model.FileData, error) {
 	var result *multierror.Error
 
-	config := p.getConfiguration()
-
 	connectedUserCount, err := p.getConnectedUserCount()
 	if err != nil {
 		result = multierror.Append(result, errors.Wrap(err, "failed to get the number of connected users for Support Packet"))
@@ -35,7 +33,7 @@ func (p *Plugin) GenerateSupportData(_ *plugin.Context) ([]*model.FileData, erro
 	diagnostics := SupportPacket{
 		Version:            manifest.Version,
 		ConnectedUserCount: connectedUserCount,
-		IsOAuthConfigured:  config.IsOAuthConfigured(),
+		IsOAuthConfigured:  p.isConfigured() == nil,
 	}
 	body, err := yaml.Marshal(diagnostics)
 	if err != nil {

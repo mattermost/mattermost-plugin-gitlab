@@ -328,11 +328,11 @@ func TestListWebhookCommand(t *testing.T) {
 			case "project":
 				mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, nil)
 				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "project", nil)
-				p.GitlabClient = mockedClient
+				p.gitlabClient = mockedClient
 			case "group":
 				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, nil)
 				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "", nil)
-				p.GitlabClient = mockedClient
+				p.gitlabClient = mockedClient
 			}
 
 			got := p.webhookCommand(context.Background(), test.parameters, &gitlab.UserInfo{}, true)
@@ -347,7 +347,7 @@ func TestListWebhookCommandNamespaceNotAllowed(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	mockedClient := mocks.NewMockGitlab(mockCtrl)
 	mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("other-group", "project", nil)
-	p.GitlabClient = mockedClient
+	p.gitlabClient = mockedClient
 
 	encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
 
@@ -414,7 +414,7 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 		}
 	}
 
-	p.GitlabClient = mockedClient
+	p.gitlabClient = mockedClient
 
 	conf := &model.Config{}
 	conf.ServiceSettings.SiteURL = &test.mattermostURL
@@ -576,7 +576,7 @@ func TestAddWebhookCommand(t *testing.T) {
 				mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(project, nil)
 				mockedClient.EXPECT().NewProjectHook(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhook, nil)
 			}
-			p.GitlabClient = mockedClient
+			p.gitlabClient = mockedClient
 
 			conf := &model.Config{}
 			conf.ServiceSettings.SiteURL = new(test.siteURL)
@@ -607,7 +607,7 @@ func TestAddWebhookCommandNamespaceNotAllowed(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	mockedClient := mocks.NewMockGitlab(mockCtrl)
 	mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("other-group", "project", nil)
-	p.GitlabClient = mockedClient
+	p.gitlabClient = mockedClient
 
 	conf := &model.Config{}
 	conf.ServiceSettings.SiteURL = new("https://example.com")
@@ -639,7 +639,7 @@ func TestAddWebhookCommandForbidden(t *testing.T) {
 	mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "project", nil)
 	mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&gitLabAPI.Project{ID: 4}, nil)
 	mockedClient.EXPECT().NewProjectHook(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, gitlab.ErrForbidden)
-	p.GitlabClient = mockedClient
+	p.gitlabClient = mockedClient
 
 	conf := &model.Config{}
 	conf.ServiceSettings.SiteURL = new("https://example.com")
@@ -668,7 +668,7 @@ func TestListWebhookCommandForbidden(t *testing.T) {
 	mockedClient := mocks.NewMockGitlab(mockCtrl)
 	mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "", nil)
 	mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, gitlab.ErrForbidden)
-	p.GitlabClient = mockedClient
+	p.gitlabClient = mockedClient
 
 	encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
 
@@ -715,6 +715,14 @@ func setupInstanceCommandTest(t *testing.T, instanceList []string, instanceConfi
 	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil)
 	api.On("SavePluginConfig", mock.Anything).Return(nil)
 	api.On("LogError", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	api.On("LogDebug", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+
+	// Installing or uninstalling an instance re-registers the slash command so autocomplete
+	// reflects whether a GitLab instance is still configured, and notifies the other nodes.
+	api.On("GetBundlePath").Return("..", nil).Maybe()
+	api.On("RegisterCommand", mock.AnythingOfType("*model.Command")).Return(nil).Maybe()
+	api.On("PublishPluginClusterEvent", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	siteURL := "https://mattermost.example.com"
 	conf := &model.Config{}
@@ -895,4 +903,118 @@ func TestInstanceCommands(t *testing.T) {
 			assert.Contains(t, *msg, "No instance is configured")
 		})
 	})
+}
+
+// TestRefreshEffectiveInstanceReRegistersCommand covers instance install/uninstall, which only
+// mutate the KV store and so never reach OnConfigurationChange. Without re-registering, the
+// autocomplete keeps offering commands the plugin can no longer serve.
+func TestRefreshEffectiveInstanceReRegistersCommand(t *testing.T) {
+	setup := func(t *testing.T, instanceList []string, instanceConfig map[string]InstanceConfiguration) (*Plugin, *model.Command) {
+		t.Helper()
+
+		instanceListJSON, _ := json.Marshal(instanceList)
+		instanceConfigJSON, _ := json.Marshal(instanceConfig)
+
+		var registered *model.Command
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).Return(instanceListJSON, nil)
+		api.On("KVGet", instanceConfigMapKey).Return(instanceConfigJSON, nil)
+		api.On("GetBundlePath").Return("..", nil)
+		api.On("RegisterCommand", mock.MatchedBy(func(command *model.Command) bool {
+			registered = command
+			return true
+		})).Return(nil)
+
+		p := &Plugin{configuration: &configuration{
+			DefaultInstanceName: "production",
+			EncryptionKey:       testEncryptionKey,
+		}}
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		p.refreshLocalEffectiveInstance()
+
+		require.NotNil(t, registered)
+
+		return p, registered
+	}
+
+	triggersOf := func(command *model.Command) []string {
+		triggers := make([]string, 0, len(command.AutocompleteData.SubCommands))
+		for _, sub := range command.AutocompleteData.SubCommands {
+			triggers = append(triggers, sub.Trigger)
+		}
+
+		return triggers
+	}
+
+	t.Run("offers the full command list while an instance is configured", func(t *testing.T) {
+		_, registered := setup(t, []string{"production"}, map[string]InstanceConfiguration{
+			"production": {
+				GitlabURL:               "https://gitlab.example.com",
+				GitlabOAuthClientID:     "client-id",
+				GitlabOAuthClientSecret: "client-secret",
+			},
+		})
+
+		assert.Contains(t, triggersOf(registered), "todo")
+	})
+
+	t.Run("falls back to setup only once the last instance is gone", func(t *testing.T) {
+		_, registered := setup(t, nil, nil)
+
+		triggers := triggersOf(registered)
+		assert.Contains(t, triggers, "setup")
+		assert.NotContains(t, triggers, "todo")
+	})
+}
+
+// TestExecuteCommandRecognizesKVOnlyInstance guards against the regression fixed by this
+// change: a GitLab instance saved only to the KV store (via the setup wizard, see #595) must
+// be recognized by ExecuteCommand, not just by handleConnect.
+func TestExecuteCommandRecognizesKVOnlyInstance(t *testing.T) {
+	instanceList := []string{"production"}
+	instanceConfig := map[string]InstanceConfiguration{
+		"production": {
+			GitlabURL:               "https://gitlab.example.com",
+			GitlabOAuthClientID:     "client-id",
+			GitlabOAuthClientSecret: "client-secret",
+		},
+	}
+	p, msg, api := setupInstanceCommandTest(t, instanceList, instanceConfig)
+	p.configuration.DefaultInstanceName = "production"
+
+	api.On("KVGet", "user_id"+GitlabUserInfoKey).Return(nil, nil)
+	api.On("KVGet", "user_id"+GitlabMigrationTokenKey).Return(nil, nil)
+
+	args := &model.CommandArgs{Command: "/gitlab todo", UserId: "user_id", ChannelId: "channel_id"}
+	_, _ = p.ExecuteCommand(nil, args)
+
+	assert.NotContains(t, *msg, "Before using this plugin")
+	assert.Contains(t, *msg, "You must connect your account to GitLab first")
+}
+
+// TestGetAutocompleteDataRecognizesKVOnlyInstance guards against the regression where
+// autocomplete stayed limited to setup/about even after completing the setup wizard, because
+// it relied on legacy plugin settings rather than the KV-backed instance.
+func TestGetAutocompleteDataRecognizesKVOnlyInstance(t *testing.T) {
+	instanceList := []string{"production"}
+	instanceConfig := map[string]InstanceConfiguration{
+		"production": {
+			GitlabURL:               "https://gitlab.example.com",
+			GitlabOAuthClientID:     "client-id",
+			GitlabOAuthClientSecret: "client-secret",
+		},
+	}
+	p, _, _ := setupInstanceCommandTest(t, instanceList, instanceConfig)
+	p.configuration.DefaultInstanceName = "production"
+
+	data := p.getAutocompleteData(p.getConfiguration())
+
+	triggers := make([]string, 0, len(data.SubCommands))
+	for _, sub := range data.SubCommands {
+		triggers = append(triggers, sub.Trigger)
+	}
+	assert.Contains(t, triggers, "connect")
+	assert.Contains(t, triggers, "todo")
 }

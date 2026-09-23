@@ -41,6 +41,11 @@ const (
 	instanceConfigNameListKey = "Gitlab_Instance_Configuration_Name_List"
 )
 
+// ErrInstanceNotFound reports that the named instance is absent from the instance store, as
+// opposed to the store being unreadable. Callers use it to tell a missing instance apart from
+// a storage failure, which must not be treated as "nothing is configured".
+var ErrInstanceNotFound = errors.New("instance not found")
+
 func (p *Plugin) installInstance(instanceName string, config *InstanceConfiguration) error {
 	if config == nil {
 		return errors.New("config is nil")
@@ -96,6 +101,10 @@ func (p *Plugin) installInstance(instanceName string, config *InstanceConfigurat
 		}
 	}
 
+	// installInstance only mutates the KV store; refresh here since OnConfigurationChange won't
+	// run unless setDefaultInstance also changed plugin settings.
+	p.refreshEffectiveInstance()
+
 	return nil
 }
 
@@ -108,7 +117,7 @@ func (p *Plugin) getInstance(instanceName string) (*InstanceConfiguration, error
 	}
 
 	if !slices.Contains(instanceNameList, instanceName) {
-		return nil, fmt.Errorf("instance name '%s' does not exist", instanceName)
+		return nil, fmt.Errorf("instance name '%s' does not exist: %w", instanceName, ErrInstanceNotFound)
 	}
 
 	var instanceConfigMap map[string]InstanceConfiguration
@@ -120,7 +129,7 @@ func (p *Plugin) getInstance(instanceName string) (*InstanceConfiguration, error
 
 	config, ok := instanceConfigMap[instanceName]
 	if !ok {
-		return nil, fmt.Errorf("instance config for '%s' not found", instanceName)
+		return nil, fmt.Errorf("instance config for '%s' not found: %w", instanceName, ErrInstanceNotFound)
 	}
 
 	return &config, nil
@@ -163,6 +172,10 @@ func (p *Plugin) uninstallInstance(instanceName string) error {
 		p.client.Log.Error("Failed to save updated instance name list while uninstalling instance", "error", err)
 		return fmt.Errorf("failed to save updated instance name list")
 	}
+
+	// uninstallInstance only mutates the KV store; refresh in case the uninstalled instance was
+	// the default one.
+	p.refreshEffectiveInstance()
 
 	return nil
 }

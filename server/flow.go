@@ -23,8 +23,6 @@ type FlowManager struct {
 	client                          *pluginapi.Client
 	pluginID                        string
 	botUserID                       string
-	gitlabURL                       string
-	instanceName                    string
 	router                          *mux.Router
 	getConfiguration                func() *configuration
 	getGitlabUserInfoByMattermostID func(userID string) (*gitlab.UserInfo, *APIErrorResponse)
@@ -34,6 +32,7 @@ type FlowManager struct {
 	saveInstanceDetails             func(instanceName string, config *InstanceConfiguration) error
 	setDefaultInstance              func(instanceName string) error
 	isAuthorizedSysAdmin            func(userID string) (bool, error)
+	canConnect                      func() bool
 
 	setupFlow        *flow.Flow
 	oauthFlow        *flow.Flow
@@ -55,6 +54,7 @@ func (p *Plugin) NewFlowManager() (*FlowManager, error) {
 		saveInstanceDetails:             p.installInstance,
 		setDefaultInstance:              p.setDefaultInstance,
 		isAuthorizedSysAdmin:            p.isAuthorizedSysAdmin,
+		canConnect:                      p.canConnect,
 	}
 
 	setupFlow, err := fm.newFlow("setup")
@@ -72,6 +72,7 @@ func (p *Plugin) NewFlowManager() (*FlowManager, error) {
 		fm.stepOAuthInfo(),
 		fm.stepOAuthInput(),
 		fm.stepSetDefaultInstance(),
+		fm.stepDefaultInstanceDeclined(),
 		fm.stepOAuthConnect(),
 
 		fm.stepWebhookQuestion(),
@@ -96,6 +97,7 @@ func (p *Plugin) NewFlowManager() (*FlowManager, error) {
 		fm.stepOAuthInfo(),
 		fm.stepOAuthInput(),
 		fm.stepSetDefaultInstance(),
+		fm.stepDefaultInstanceDeclined(),
 		fm.stepOAuthConnect().Terminal(),
 
 		fm.stepCancel("setup oauth"),
@@ -170,10 +172,12 @@ const (
 
 	// OAuth steps
 
-	stepGitlabURL    flow.Name = "gitlab-url"
-	stepOAuthInfo    flow.Name = "oauth-info"
-	stepOAuthInput   flow.Name = "oauth-input"
-	stepOAuthConnect flow.Name = "oauth-connect"
+	stepGitlabURL               flow.Name = "gitlab-url"
+	stepOAuthInfo               flow.Name = "oauth-info"
+	stepOAuthInput              flow.Name = "oauth-input"
+	stepSetDefaultInstance      flow.Name = "set-default-instance"
+	stepDefaultInstanceDeclined flow.Name = "default-instance-declined"
+	stepOAuthConnect            flow.Name = "oauth-connect"
 
 	// Webhook steps
 
@@ -195,6 +199,8 @@ const (
 	keyDelegatedFrom               = "DelegatedFrom"
 	keyDelegatedTo                 = "DelegatedTo"
 	keyGitlabURL                   = "GitlabURL"
+	keyInstanceName                = "InstanceName"
+	keyDefaultInstanceName         = "DefaultInstanceName"
 	keyUsePreregisteredApplication = "UsePreregisteredApplication"
 	keyIsOAuthConfigured           = "IsOAuthConfigured"
 )
@@ -228,11 +234,12 @@ func continueButton(next flow.Name) flow.Button {
 
 func (fm *FlowManager) getBaseState() flow.State {
 	config := fm.getConfiguration()
-	isOAuthConfigured := config.GitlabOAuthClientID != "" || config.GitlabOAuthClientSecret != ""
 	return flow.State{
 		keyGitlabURL:                   config.GitlabURL,
 		keyUsePreregisteredApplication: config.UsePreregisteredApplication,
-		keyIsOAuthConfigured:           isOAuthConfigured,
+		// Reflects whether a GitLab instance (KV-backed or legacy plugin settings) is already
+		// configured, so the wizard can warn that it will be overwritten.
+		keyIsOAuthConfigured: fm.canConnect(),
 	}
 }
 
@@ -370,12 +377,9 @@ func (fm *FlowManager) stepInstanceURL() flow.Step {
 			Name:  "Yes",
 			Color: flow.ColorDefault,
 			OnClick: func(f *flow.Flow) (flow.Name, flow.State, error) {
-				err := fm.setGitlabURL(gitlab.Gitlabdotcom)
-				if err != nil {
-					return "", nil, err
-				}
-
-				return stepOAuthInfo, nil, nil
+				return stepOAuthInfo, flow.State{
+					keyGitlabURL: gitlab.Gitlabdotcom,
+				}, nil
 			},
 		}).
 		WithButton(flow.Button{
@@ -421,8 +425,6 @@ func (fm *FlowManager) submitGitlabURL(f *flow.Flow, submitted map[string]any) (
 		return "", nil, errorList, nil
 	}
 
-	fm.gitlabURL = gitlabURL
-
 	return "", flow.State{
 		keyGitlabURL: gitlabURL,
 	}, nil, nil
@@ -459,7 +461,7 @@ func (fm *FlowManager) stepOAuthInput() flow.Step {
 			Color: flow.ColorPrimary,
 			Dialog: &model.Dialog{
 				Title:            "GitLab OAuth values",
-				IntroductionText: "Please enter the **Instance Name**, **Application ID** and **Secret** you copied in a previous step.{{ if .IsOAuthConfigured }}\n\n**Any existing OAuth configuration will be overwritten.**{{end}}",
+				IntroductionText: "Please enter the **Instance Name**, **Application ID** and **Secret** you copied in a previous step.{{ if .IsOAuthConfigured }}\n\n**This adds a new GitLab instance alongside the existing one, so the instance name must be unique.**{{end}}",
 				SubmitLabel:      "Save & continue",
 				Elements: []model.DialogElement{
 					{
@@ -537,7 +539,7 @@ func (fm *FlowManager) submitOAuthConfig(f *flow.Flow, submitted map[string]any)
 	}
 
 	instanceConfiguration := &InstanceConfiguration{
-		GitlabURL:               fm.gitlabURL,
+		GitlabURL:               f.GetState().GetString(keyGitlabURL),
 		GitlabOAuthClientID:     clientID,
 		GitlabOAuthClientSecret: clientSecret,
 	}
@@ -547,9 +549,9 @@ func (fm *FlowManager) submitOAuthConfig(f *flow.Flow, submitted map[string]any)
 		return "", nil, nil, errors.Wrap(err, "failed to save instance configuration")
 	}
 
-	fm.instanceName = instanceName
-
-	return "", nil, nil, nil
+	return "", flow.State{
+		keyInstanceName: instanceName,
+	}, nil, nil
 }
 
 func (fm *FlowManager) stepOAuthConnect() flow.Step {
@@ -693,7 +695,7 @@ func (fm *FlowManager) submitWebhook(f *flow.Flow, submitted map[string]any) (fl
 func (fm *FlowManager) stepWebhookWarning() flow.Step {
 	warnText := "The GitLab plugin uses a webhook to connect a GitLab account to Mattermost to listen for incoming GitLab events. " +
 		"You can't subscribe a channel to a repository for notifications until webhooks are configured.\n" +
-		"Restart setup later by running `/gitab setup webhook`"
+		"Restart setup later by running `/gitlab setup webhook`"
 
 	return flow.NewStep(stepWebhookWarning).
 		WithText(warnText).
@@ -803,27 +805,8 @@ func (fm *FlowManager) submitChannelAnnouncement(f *flow.Flow, submitted map[str
 	}, nil, nil
 }
 
-func (fm *FlowManager) setGitlabURL(gitlabURL string) error {
-	fm.gitlabURL = gitlabURL
-
-	// will need to get gitlab url from plugin config
-	config := fm.getConfiguration()
-
-	configMap, err := config.ToMap()
-	if err != nil {
-		return err
-	}
-
-	err = fm.client.Configuration.SavePluginConfig(configMap)
-	if err != nil {
-		return errors.Wrap(err, "failed to save plugin config")
-	}
-
-	return nil
-}
-
 func (fm *FlowManager) stepSetDefaultInstance() flow.Step {
-	return flow.NewStep("set-default-instance").
+	return flow.NewStep(stepSetDefaultInstance).
 		WithText("Do you want to set this as your default GitLab instance?").
 		WithButton(flow.Button{
 			Name:  "Yes",
@@ -837,15 +820,45 @@ func (fm *FlowManager) stepSetDefaultInstance() flow.Step {
 					return "", nil, fmt.Errorf("only system administrators can set the default instance")
 				}
 
-				if err := fm.setDefaultInstance(fm.instanceName); err != nil {
+				instanceName := f.GetState().GetString(keyInstanceName)
+				if err := fm.setDefaultInstance(instanceName); err != nil {
 					return "", nil, err
 				}
 				return stepOAuthConnect, nil, nil
 			},
 		}).
 		WithButton(flow.Button{
-			Name:    "No",
-			Color:   flow.ColorDefault,
-			OnClick: flow.Goto(stepDone),
+			Name:  "No",
+			Color: flow.ColorDefault,
+			OnClick: func(f *flow.Flow) (flow.Name, flow.State, error) {
+				return fm.stepAfterDefaultInstanceDeclined(f.GetState().GetString(keyInstanceName))
+			},
 		})
+}
+
+// stepAfterDefaultInstanceDeclined routes the wizard once the administrator declines to make
+// the instance they just configured the default one. Connecting an account and creating
+// webhooks both target the default instance, so the remaining steps are only meaningful when
+// the configured instance already is that default.
+func (fm *FlowManager) stepAfterDefaultInstanceDeclined(instanceName string) (flow.Name, flow.State, error) {
+	defaultInstanceName := fm.getConfiguration().DefaultInstanceName
+	if defaultInstanceName == instanceName {
+		return stepOAuthConnect, nil, nil
+	}
+
+	return stepDefaultInstanceDeclined, flow.State{
+		keyDefaultInstanceName: defaultInstanceName,
+	}, nil
+}
+
+func (fm *FlowManager) stepDefaultInstanceDeclined() flow.Step {
+	declinedText := "Your GitLab instance was saved, but it isn't the default instance" +
+		"{{ if .DefaultInstanceName }} (**{{ .DefaultInstanceName }}** still is){{ end }}. " +
+		"Connecting an account and creating webhooks always use the default instance, so setup stops here.\n" +
+		"Run `/gitlab setup oauth` again and select **Yes** to make the new instance the default."
+
+	return flow.NewStep(stepDefaultInstanceDeclined).
+		Terminal().
+		WithText(declinedText).
+		WithColor(flow.ColorDefault)
 }
