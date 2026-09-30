@@ -81,7 +81,17 @@ type Plugin struct {
 	oauthBroker *OAuthBroker
 
 	WebhookHandler webhook.Webhook
-	GitlabClient   gitlab.Gitlab
+
+	// effectiveLock guards the GitLab client and the cached effective instance configuration.
+	// Both are rebuilt together by refreshGitlabClient, which runs on configuration changes and
+	// on instance install/uninstall, while request goroutines read them concurrently.
+	effectiveLock sync.RWMutex
+	gitlabClient  gitlab.Gitlab
+	// effective is the last definitively resolved instance configuration, and is nil once
+	// resolution definitively reports that nothing is configured. effectiveResolved
+	// distinguishes that from never having resolved successfully.
+	effective         *effectiveConfig
+	effectiveResolved bool
 
 	mcpMu     sync.Mutex
 	mcpServer mcpServer
@@ -157,9 +167,10 @@ func (p *Plugin) OnDeactivate() error {
 func (p *Plugin) OnInstall(c *plugin.Context, event model.OnInstallEvent) error {
 	conf := p.getConfiguration()
 
-	// Don't start wizard if OAuth is configured
-	if conf.IsOAuthConfigured() {
-		p.client.Log.Debug("OAuth is configured, skipping setup wizard",
+	// Don't start wizard if a GitLab instance is already configured
+	if p.isConfigured() == nil {
+		p.client.Log.Debug("GitLab is already configured, skipping setup wizard",
+			"DefaultInstanceName", conf.DefaultInstanceName,
 			"GitlabOAuthClientID", lastN(conf.GitlabOAuthClientID, 4),
 			"GitlabOAuthClientSecret", lastN(conf.GitlabOAuthClientSecret, 4),
 			"UsePreregisteredApplication", conf.UsePreregisteredApplication)
@@ -206,7 +217,7 @@ func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*mode
 
 	var glClient *gitlabLib.Client
 	if cErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GitlabConnect(*token)
+		resp, err := p.getGitlabClient().GitlabConnect(*token)
 		if err != nil {
 			return err
 		}
@@ -246,7 +257,45 @@ func (p *Plugin) setDefaultConfiguration() error {
 }
 
 func (p *Plugin) getGitlabClient() gitlab.Gitlab {
-	return p.GitlabClient
+	p.effectiveLock.RLock()
+	defer p.effectiveLock.RUnlock()
+
+	return p.gitlabClient
+}
+
+// setEffective stores the resolved instance configuration together with the client built from
+// it. A nil effective means resolution definitively reported that nothing is configured, in
+// which case the existing client is left alone rather than being rebuilt against a host the
+// stored user tokens were never issued for.
+func (p *Plugin) setEffective(effective *effectiveConfig, client gitlab.Gitlab) {
+	p.effectiveLock.Lock()
+	defer p.effectiveLock.Unlock()
+
+	p.effective = effective
+	p.effectiveResolved = true
+	if client != nil {
+		p.gitlabClient = client
+	}
+}
+
+// getEffectiveConfig returns the effective instance configuration, preferring the value cached
+// by refreshGitlabClient so that hot paths such as the API middleware and every slash command
+// avoid a KV round trip. It falls back to a live lookup while no definitive resolution has been
+// cached yet, which covers a storage failure during activation.
+func (p *Plugin) getEffectiveConfig(config *configuration) (*effectiveConfig, error) {
+	p.effectiveLock.RLock()
+	effective, resolved := p.effective, p.effectiveResolved
+	p.effectiveLock.RUnlock()
+
+	if !resolved {
+		return p.resolveEffectiveConfig(config)
+	}
+
+	if effective == nil {
+		return nil, ErrNotConfigured
+	}
+
+	return effective, nil
 }
 
 func (p *Plugin) getOAuthConfig() (*oauth2.Config, error) {
@@ -260,9 +309,14 @@ func (p *Plugin) getOAuthConfig() (*oauth2.Config, error) {
 		return p.getOAuthConfigForChimeraApp(scopes, redirectURL), nil
 	}
 
-	clientID, clientSecret, baseURL, err := p.resolveOAuthCredentials(config)
+	effective, err := p.getEffectiveConfig(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve OAuth credentials: %w", err)
+	}
+
+	baseURL, err := url.Parse(effective.GitlabURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse GitLab URL %q: %w", effective.GitlabURL, err)
 	}
 
 	authURL := *baseURL
@@ -271,8 +325,8 @@ func (p *Plugin) getOAuthConfig() (*oauth2.Config, error) {
 	tokenURL.Path = path.Join(tokenURL.Path, "oauth", "token")
 
 	return &oauth2.Config{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
+		ClientID:     effective.ClientID,
+		ClientSecret: effective.ClientSecret,
 		Scopes:       scopes,
 		RedirectURL:  redirectURL,
 		Endpoint: oauth2.Endpoint{
@@ -285,53 +339,98 @@ func (p *Plugin) getOAuthConfig() (*oauth2.Config, error) {
 // canConnect checks whether the plugin has enough configuration to allow a user to connect,
 // either via a KV-backed instance (default instance) or via legacy plugin settings.
 func (p *Plugin) canConnect() bool {
-	config := p.getConfiguration()
-
-	if config.DefaultInstanceName != "" {
-		if _, err := p.getInstance(config.DefaultInstanceName); err == nil {
-			return true
-		}
-	}
-
-	return config.GitlabOAuthClientID != "" &&
-		config.GitlabOAuthClientSecret != "" &&
-		isValidURL(config.GitlabURL) == nil
+	return p.isConfigured() == nil
 }
 
-// resolveOAuthCredentials returns OAuth client credentials and the parsed GitLab base URL
-// by first trying the KV-backed instance configuration, then falling back to legacy plugin
-// settings for backwards compatibility with upgrades from v1.11 and earlier.
-func (p *Plugin) resolveOAuthCredentials(config *configuration) (clientID, clientSecret string, gitlabURL *url.URL, err error) {
-	var rawURL string
+// isConfigured reports whether the plugin has enough configuration to serve commands and API
+// requests, either via a KV-backed instance (default instance), a preregistered OAuth
+// application, or legacy plugin settings.
+func (p *Plugin) isConfigured() error {
+	config := p.getConfiguration()
+
+	if err := config.IsValid(); err != nil {
+		return err
+	}
+
+	if config.UsePreregisteredApplication {
+		return nil
+	}
+
+	_, err := p.getEffectiveConfig(config)
+	return err
+}
+
+// effectiveConfig holds the GitLab instance details actually in effect, regardless of whether
+// they came from the KV-backed instance store or legacy plugin settings.
+type effectiveConfig struct {
+	InstanceName string
+	GitlabURL    string
+	ClientID     string
+	ClientSecret string
+}
+
+// ErrNotConfigured reports that no usable GitLab instance is configured, in either the
+// KV-backed instance store or legacy plugin settings. It is deliberately distinct from a
+// storage failure, which leaves the effective instance unknown rather than absent.
+var ErrNotConfigured = errors.New("no OAuth credentials available: no GitLab instance is configured")
+
+// resolveEffectiveConfig returns the effective GitLab instance configuration by first trying
+// the KV-backed instance configuration (the default instance), then falling back to legacy
+// plugin settings for backwards compatibility with upgrades from v1.11 and earlier.
+func (p *Plugin) resolveEffectiveConfig(config *configuration) (*effectiveConfig, error) {
+	var effective effectiveConfig
+
 	instanceConfig, instanceErr := p.getInstance(config.DefaultInstanceName)
 
 	switch {
 	case instanceErr == nil:
-		clientID = instanceConfig.GitlabOAuthClientID
-		clientSecret = instanceConfig.GitlabOAuthClientSecret
-		rawURL = instanceConfig.GitlabURL
+		effective = effectiveConfig{
+			InstanceName: config.DefaultInstanceName,
+			GitlabURL:    instanceConfig.GitlabURL,
+			ClientID:     instanceConfig.GitlabOAuthClientID,
+			ClientSecret: instanceConfig.GitlabOAuthClientSecret,
+		}
+	case !errors.Is(instanceErr, ErrInstanceNotFound):
+		// The instance store is unreadable, so the effective instance is unknown. Falling
+		// back to legacy settings here could silently point at a different GitLab host.
+		return nil, instanceErr
 	case config.GitlabOAuthClientID != "" && config.GitlabOAuthClientSecret != "" && config.GitlabURL != "":
 		p.client.Log.Debug(
 			"Instance configuration not found, falling back to legacy OAuth credentials from plugin settings",
 			"instance_error", instanceErr.Error(),
 		)
-		clientID = config.GitlabOAuthClientID
-		clientSecret = config.GitlabOAuthClientSecret
-		rawURL = config.GitlabURL
+		effective = effectiveConfig{
+			GitlabURL:    config.GitlabURL,
+			ClientID:     config.GitlabOAuthClientID,
+			ClientSecret: config.GitlabOAuthClientSecret,
+		}
 	default:
-		return "", "", nil, fmt.Errorf("no OAuth credentials available: instance lookup failed (%s) and no legacy credentials in plugin settings", instanceErr.Error())
+		return nil, fmt.Errorf("%w: %s, and no legacy credentials in plugin settings", ErrNotConfigured, instanceErr.Error())
 	}
 
-	if err = isValidURL(rawURL); err != nil {
-		return "", "", nil, fmt.Errorf("invalid GitLab URL %q: %w", rawURL, err)
+	if err := isValidURL(effective.GitlabURL); err != nil {
+		return nil, fmt.Errorf("%w: invalid GitLab URL %q: %s", ErrNotConfigured, effective.GitlabURL, err.Error())
 	}
 
-	gitlabURL, err = url.Parse(rawURL)
-	if err != nil {
-		return "", "", nil, fmt.Errorf("failed to parse GitLab URL %q: %w", rawURL, err)
+	return &effective, nil
+}
+
+// resolveEffectiveConfigOrDefault is a best-effort variant of getEffectiveConfig for callers
+// that only display configuration (e.g. webapp responses) and should degrade gracefully rather
+// than error out when nothing is configured yet.
+func (p *Plugin) resolveEffectiveConfigOrDefault(config *configuration) *effectiveConfig {
+	if config.UsePreregisteredApplication {
+		return &effectiveConfig{GitlabURL: config.GitlabURL}
 	}
 
-	return clientID, clientSecret, gitlabURL, nil
+	if effective, err := p.getEffectiveConfig(config); err == nil {
+		return effective
+	}
+
+	return &effectiveConfig{
+		GitlabURL: config.GitlabURL,
+		ClientID:  config.GitlabOAuthClientID,
+	}
 }
 
 func (p *Plugin) getOAuthConfigForChimeraApp(scopes []string, redirectURL string) *oauth2.Config {
@@ -657,7 +756,7 @@ func (p *Plugin) GetToDo(ctx context.Context, user *gitlab.UserInfo) (bool, stri
 
 	var notificationText, reviewText, assignmentText, mergeRequestText string
 	err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetLHSData(ctx, info, token)
+		resp, err := p.getGitlabClient().GetLHSData(ctx, info, token)
 		if err != nil {
 			return err
 		}
@@ -912,7 +1011,7 @@ func (p *Plugin) sendChannelSubscriptionsUpdated(subs *Subscriptions, channelID 
 func (p *Plugin) HasProjectHook(ctx context.Context, user *gitlab.UserInfo, namespace string, project string) (bool, error) {
 	var hooks []*gitlab.WebhookInfo
 	err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetProjectHooks(ctx, info, token, namespace, project)
+		resp, err := p.getGitlabClient().GetProjectHooks(ctx, info, token, namespace, project)
 		if err != nil {
 			return err
 		}
@@ -945,7 +1044,7 @@ func (p *Plugin) HasProjectHook(ctx context.Context, user *gitlab.UserInfo, name
 func (p *Plugin) HasGroupHook(ctx context.Context, user *gitlab.UserInfo, namespace string) (bool, error) {
 	var hooks []*gitlab.WebhookInfo
 	err := p.useGitlabClient(user, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetGroupHooks(ctx, info, token, namespace)
+		resp, err := p.getGitlabClient().GetGroupHooks(ctx, info, token, namespace)
 		if err != nil {
 			return err
 		}

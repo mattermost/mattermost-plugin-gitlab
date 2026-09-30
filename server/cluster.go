@@ -10,11 +10,19 @@ import (
 )
 
 const (
-	oauthCompleteEventID = "oauth-complete"
+	oauthCompleteEventID   = "oauth-complete"
+	instanceChangedEventID = "instance-changed"
 )
 
 func (p *Plugin) sendOAuthCompleteEvent(event OAuthCompleteEvent) {
 	p.sendMessageToCluster(oauthCompleteEventID, event)
+}
+
+// sendInstanceChangedEvent tells the other nodes to drop their cached effective instance.
+// Installing and uninstalling an instance only touches the KV store, so without this the other
+// nodes would keep serving a stale instance until the next plugin configuration change.
+func (p *Plugin) sendInstanceChangedEvent() {
+	p.sendMessageToCluster(instanceChangedEventID, struct{}{})
 }
 
 func (p *Plugin) sendMessageToCluster(id string, v any) {
@@ -50,6 +58,8 @@ func (p *Plugin) HandleClusterEvent(ev model.PluginClusterEvent) {
 		}
 
 		p.oauthBroker.publishOAuthComplete(event.UserID, event.Err, true)
+	case instanceChangedEventID:
+		p.refreshLocalEffectiveInstance()
 	default:
 		p.client.Log.Warn("unknown cluster event", "id", ev.Id)
 	}

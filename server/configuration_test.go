@@ -4,10 +4,19 @@
 package main
 
 import (
+	"encoding/json"
+	"net/http"
 	"testing"
 
+	"github.com/mattermost/mattermost/server/public/model"
+	"github.com/mattermost/mattermost/server/public/plugin/plugintest"
+	"github.com/mattermost/mattermost/server/public/pluginapi"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
+
+	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 )
 
 func TestIsValid(t *testing.T) {
@@ -35,13 +44,15 @@ func TestIsValid(t *testing.T) {
 			},
 		},
 		{
-			description: "invalid configuration: custom OAuth app without credentials",
+			// A KV-backed instance (or no instance at all) is valid at this layer; whether
+			// OAuth credentials actually resolve is checked by Plugin.isConfigured, not
+			// configuration.IsValid.
+			description: "valid configuration: custom OAuth app without legacy credentials",
 			config: &configuration{
 				GitlabURL:                   "https://gitlab.com",
 				EncryptionKey:               "abcd",
 				UsePreregisteredApplication: false,
 			},
-			errMsg: "must have a GitLab oauth client id",
 		},
 		{
 			description: "invalid configuration: custom GitLab URL with pre-registered app",
@@ -51,6 +62,13 @@ func TestIsValid(t *testing.T) {
 				EncryptionKey:               "abcd",
 			},
 			errMsg: "pre-registered application can only be used with official public GitLab",
+		},
+		{
+			description: "invalid configuration: missing encryption key",
+			config: &configuration{
+				GitlabURL: "https://gitlab.com",
+			},
+			errMsg: "must have an encryption key",
 		},
 	} {
 		t.Run(testCase.description, func(t *testing.T) {
@@ -176,4 +194,152 @@ func TestSetDefaults(t *testing.T) {
 			}
 		})
 	}
+}
+
+func gitlabClientBaseURL(t *testing.T, client gitlab.Gitlab) string {
+	t.Helper()
+	require.NotNil(t, client)
+
+	internalClient, err := client.GitlabConnect(oauth2.Token{AccessToken: "access-token"})
+	require.NoError(t, err)
+
+	return internalClient.BaseURL().String()
+}
+
+func TestRefreshGitlabClient(t *testing.T) {
+	newPlugin := func(config *configuration, api *plugintest.API) *Plugin {
+		p := &Plugin{configuration: config}
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		return p
+	}
+
+	t.Run("prefers the default instance over legacy plugin settings", func(t *testing.T) {
+		instanceListJSON, err := json.Marshal([]string{"production"})
+		require.NoError(t, err)
+		instanceMapJSON, err := json.Marshal(map[string]InstanceConfiguration{
+			"production": {
+				GitlabURL:               "https://gitlab.instance.com",
+				GitlabOAuthClientID:     "instance-client-id",
+				GitlabOAuthClientSecret: "instance-client-secret",
+			},
+		})
+		require.NoError(t, err)
+
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).Return(instanceListJSON, nil)
+		api.On("KVGet", instanceConfigMapKey).Return(instanceMapJSON, nil)
+
+		p := newPlugin(&configuration{
+			DefaultInstanceName:     "production",
+			GitlabURL:               "https://gitlab.legacy.com",
+			GitlabOAuthClientID:     "legacy-client-id",
+			GitlabOAuthClientSecret: "legacy-client-secret",
+		}, api)
+
+		p.refreshGitlabClient()
+
+		baseURL := gitlabClientBaseURL(t, p.gitlabClient)
+		assert.Contains(t, baseURL, "gitlab.instance.com")
+		assert.NotContains(t, baseURL, "gitlab.legacy.com")
+	})
+
+	t.Run("keeps the existing client but reports unconfigured when nothing is configured", func(t *testing.T) {
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).Return(nil, nil)
+
+		p := newPlugin(&configuration{
+			DefaultInstanceName: "production",
+			GitlabURL:           "https://gitlab.legacy.com",
+		}, api)
+		existingClient := gitlab.New("https://gitlab.instance.com", "", nil)
+		p.gitlabClient = existingClient
+
+		p.refreshGitlabClient()
+
+		assert.Same(t, existingClient, p.gitlabClient)
+
+		_, err := p.getEffectiveConfig(p.getConfiguration())
+		assert.ErrorIs(t, err, ErrNotConfigured)
+	})
+
+	t.Run("keeps the last resolved instance when the instance store is unreadable", func(t *testing.T) {
+		instanceListJSON, err := json.Marshal([]string{"production"})
+		require.NoError(t, err)
+		instanceMapJSON, err := json.Marshal(map[string]InstanceConfiguration{
+			"production": {
+				GitlabURL:               "https://gitlab.instance.com",
+				GitlabOAuthClientID:     "instance-client-id",
+				GitlabOAuthClientSecret: "instance-client-secret",
+			},
+		})
+		require.NoError(t, err)
+
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).Return(instanceListJSON, nil).Once()
+		api.On("KVGet", instanceConfigMapKey).Return(instanceMapJSON, nil).Once()
+		api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+		p := newPlugin(&configuration{DefaultInstanceName: "production"}, api)
+		p.refreshGitlabClient()
+		resolvedClient := p.gitlabClient
+
+		// A storage failure leaves the effective instance unknown rather than absent, so the
+		// last known good instance and client must survive it.
+		api.On("KVGet", instanceConfigNameListKey).
+			Return(nil, model.NewAppError("KVGet", "kv.read.error", nil, "boom", http.StatusInternalServerError))
+		api.On("LogError", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+		p.refreshGitlabClient()
+
+		assert.Same(t, resolvedClient, p.gitlabClient)
+
+		effective, err := p.getEffectiveConfig(p.getConfiguration())
+		require.NoError(t, err)
+		assert.Equal(t, "https://gitlab.instance.com", effective.GitlabURL)
+	})
+
+	t.Run("uses plugin settings for pre-registered applications", func(t *testing.T) {
+		api := &plugintest.API{}
+
+		p := newPlugin(&configuration{
+			GitlabURL:                   "https://gitlab.com",
+			UsePreregisteredApplication: true,
+		}, api)
+
+		p.refreshGitlabClient()
+
+		assert.Contains(t, gitlabClientBaseURL(t, p.gitlabClient), "gitlab.com")
+		api.AssertNotCalled(t, "KVGet", instanceConfigNameListKey)
+	})
+
+	t.Run("cached instance serves later lookups without re-reading the instance store", func(t *testing.T) {
+		instanceListJSON, err := json.Marshal([]string{"production"})
+		require.NoError(t, err)
+		instanceMapJSON, err := json.Marshal(map[string]InstanceConfiguration{
+			"production": {
+				GitlabURL:               "https://gitlab.instance.com",
+				GitlabOAuthClientID:     "instance-client-id",
+				GitlabOAuthClientSecret: "instance-client-secret",
+			},
+		})
+		require.NoError(t, err)
+
+		api := &plugintest.API{}
+		api.On("KVGet", instanceConfigNameListKey).Return(instanceListJSON, nil).Once()
+		api.On("KVGet", instanceConfigMapKey).Return(instanceMapJSON, nil).Once()
+
+		p := newPlugin(&configuration{
+			DefaultInstanceName: "production",
+			EncryptionKey:       testEncryptionKey,
+		}, api)
+		p.refreshGitlabClient()
+
+		for range 3 {
+			require.NoError(t, p.isConfigured())
+		}
+
+		api.AssertNumberOfCalls(t, "KVGet", 2)
+	})
 }
