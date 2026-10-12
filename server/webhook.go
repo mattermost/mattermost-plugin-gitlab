@@ -405,7 +405,7 @@ func (p *Plugin) createHook(ctx context.Context, gitlabClient gitlab.Gitlab, inf
 	if project != "" {
 		var gitProject *gitlabLib.Project
 		getProjectErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.getGitlabClient().GetProject(ctx, info, token, group, project)
+			resp, err := gitlabClient.GetProject(ctx, info, token, group, project)
 			if err != nil {
 				return err
 			}
@@ -417,7 +417,7 @@ func (p *Plugin) createHook(ctx context.Context, gitlabClient gitlab.Gitlab, inf
 		}
 		var newWebhook *gitlab.WebhookInfo
 		getGroupErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			resp, err := p.getGitlabClient().NewProjectHook(ctx, info, token, gitProject.ID, hookOptions)
+			resp, err := gitlabClient.NewProjectHook(ctx, info, token, gitProject.ID, hookOptions)
 			if err != nil {
 				return err
 			}
@@ -433,7 +433,7 @@ func (p *Plugin) createHook(ctx context.Context, gitlabClient gitlab.Gitlab, inf
 	// If webhook is group scoped
 	var newWebhook *gitlab.WebhookInfo
 	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.getGitlabClient().NewGroupHook(ctx, info, token, group, hookOptions)
+		resp, err := gitlabClient.NewGroupHook(ctx, info, token, group, hookOptions)
 		if err != nil {
 			return err
 		}

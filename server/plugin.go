@@ -288,7 +288,16 @@ func (p *Plugin) getEffectiveConfig(config *configuration) (*effectiveConfig, er
 	p.effectiveLock.RUnlock()
 
 	if !resolved {
-		return p.resolveEffectiveConfig(config)
+		resolvedEffective, err := p.resolveEffectiveConfig(config)
+		if err != nil {
+			return nil, err
+		}
+
+		// Activation resolved nothing, so there is no client either. Adopt this resolution so
+		// callers that act on "configured" find a client built for the same instance.
+		p.setEffective(resolvedEffective, gitlab.New(resolvedEffective.GitlabURL, config.GitlabGroup, p.isNamespaceAllowed))
+
+		return resolvedEffective, nil
 	}
 
 	if effective == nil {

@@ -1029,17 +1029,20 @@ func (p *Plugin) pipelinesCommand(ctx context.Context, parameters []string, chan
 // pipelineRunCommand run a pipeline in a project
 func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channelID string, info *gitlab.UserInfo) string {
 	var pipelineInfo *gitlab.PipelineInfo
+	// Pin one client for the whole operation so a concurrent instance change can't resolve the
+	// project against one GitLab host and trigger the pipeline on another.
+	gitlabClient := p.getGitlabClient()
 	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		groupName, projectName, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, namespace, true)
+		groupName, projectName, err := gitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, true)
 		if err != nil {
 			return err
 		}
-		project, err := p.getGitlabClient().GetProject(ctx, info, token, groupName, projectName)
+		project, err := gitlabClient.GetProject(ctx, info, token, groupName, projectName)
 		if err != nil {
 			return err
 		}
 		projectID := fmt.Sprintf("%d", project.ID)
-		pipelineInfo, err = p.getGitlabClient().TriggerProjectPipeline(info, token, projectID, ref)
+		pipelineInfo, err = gitlabClient.TriggerProjectPipeline(info, token, projectID, ref)
 		if err != nil {
 			return errors.Wrapf(err, "failed to run pipeline for Project: :%s", projectName)
 		}

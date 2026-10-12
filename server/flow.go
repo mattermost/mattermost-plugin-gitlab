@@ -847,15 +847,16 @@ func (fm *FlowManager) stepAfterDefaultInstanceDeclined(instanceName string) (fl
 	}
 
 	return stepDefaultInstanceDeclined, flow.State{
+		keyInstanceName:        instanceName,
 		keyDefaultInstanceName: defaultInstanceName,
 	}, nil
 }
 
 func (fm *FlowManager) stepDefaultInstanceDeclined() flow.Step {
-	declinedText := "Your GitLab instance was saved, but it isn't the default instance" +
+	declinedText := "**{{ .InstanceName }}** was saved, but it isn't the default instance" +
 		"{{ if .DefaultInstanceName }} (**{{ .DefaultInstanceName }}** still is){{ end }}. " +
 		"Connecting an account and creating webhooks always use the default instance, so setup stops here.\n" +
-		"Run `/gitlab setup oauth` again and select **Yes** to make the new instance the default."
+		"Run `/gitlab instance set-default {{ .InstanceName }}` when you want to switch to it."
 
 	return flow.NewStep(stepDefaultInstanceDeclined).
 		Terminal().

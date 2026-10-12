@@ -206,14 +206,16 @@ func gitlabClientBaseURL(t *testing.T, client gitlab.Gitlab) string {
 	return internalClient.BaseURL().String()
 }
 
-func TestRefreshGitlabClient(t *testing.T) {
-	newPlugin := func(config *configuration, api *plugintest.API) *Plugin {
-		p := &Plugin{configuration: config}
-		p.SetAPI(api)
-		p.client = pluginapi.NewClient(api, p.Driver)
+func newEffectiveConfigTestPlugin(config *configuration, api *plugintest.API) *Plugin {
+	p := &Plugin{configuration: config}
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
 
-		return p
-	}
+	return p
+}
+
+func TestRefreshGitlabClient(t *testing.T) {
+	newPlugin := newEffectiveConfigTestPlugin
 
 	t.Run("prefers the default instance over legacy plugin settings", func(t *testing.T) {
 		instanceListJSON, err := json.Marshal([]string{"production"})
@@ -342,4 +344,38 @@ func TestRefreshGitlabClient(t *testing.T) {
 
 		api.AssertNumberOfCalls(t, "KVGet", 2)
 	})
+}
+
+// TestGetEffectiveConfigAdoptsLiveResolution covers activation failing to read the instance
+// store: the cache is empty, so the first live resolution has to supply the client too, or
+// callers that act on "configured" find no client at all.
+func TestGetEffectiveConfigAdoptsLiveResolution(t *testing.T) {
+	instanceListJSON, err := json.Marshal([]string{"production"})
+	require.NoError(t, err)
+	instanceMapJSON, err := json.Marshal(map[string]InstanceConfiguration{
+		"production": {
+			GitlabURL:               "https://gitlab.instance.com",
+			GitlabOAuthClientID:     "instance-client-id",
+			GitlabOAuthClientSecret: "instance-client-secret",
+		},
+	})
+	require.NoError(t, err)
+
+	api := &plugintest.API{}
+	api.On("KVGet", instanceConfigNameListKey).Return(instanceListJSON, nil).Once()
+	api.On("KVGet", instanceConfigMapKey).Return(instanceMapJSON, nil).Once()
+
+	p := newEffectiveConfigTestPlugin(&configuration{
+		DefaultInstanceName: "production",
+		EncryptionKey:       testEncryptionKey,
+	}, api)
+	require.Nil(t, p.gitlabClient)
+
+	require.NoError(t, p.isConfigured())
+
+	assert.Contains(t, gitlabClientBaseURL(t, p.gitlabClient), "gitlab.instance.com")
+
+	// The adopted resolution is cached, so it does not re-read the instance store.
+	require.NoError(t, p.isConfigured())
+	api.AssertNumberOfCalls(t, "KVGet", 2)
 }

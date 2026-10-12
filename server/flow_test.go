@@ -37,6 +37,9 @@ func TestStepAfterDefaultInstanceDeclined(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, stepDefaultInstanceDeclined, next)
-		assert.Equal(t, flow.State{keyDefaultInstanceName: "production"}, state)
+		assert.Equal(t, flow.State{
+			keyInstanceName:        "staging",
+			keyDefaultInstanceName: "production",
+		}, state)
 	})
 }

@@ -92,13 +92,17 @@ func (p *Plugin) handleCreateIssue(ctx context.Context, _ *mcp.CallToolRequest, 
 		Labels:      internGitlab.LabelOptions(in.Labels),
 	}
 
-	project, err := p.getGitlabClient().GetProject(ctx, info, token, owner, repo)
+	// Pin one client for the whole operation so a concurrent instance change can't resolve the
+	// project against one GitLab host and create the issue on another.
+	gitlabClient := p.getGitlabClient()
+
+	project, err := gitlabClient.GetProject(ctx, info, token, owner, repo)
 	if err != nil {
 		return nil, CreateIssueOutput{}, fmt.Errorf("failed to resolve project %q: %w", in.ProjectPath, err)
 	}
 	req.ProjectID = project.ID
 
-	issue, err := p.getGitlabClient().CreateIssue(ctx, info, req, token)
+	issue, err := gitlabClient.CreateIssue(ctx, info, req, token)
 	if err != nil {
 		return nil, CreateIssueOutput{}, fmt.Errorf("failed to create issue: %w", err)
 	}
@@ -186,7 +190,9 @@ func (p *Plugin) handleAddComment(ctx context.Context, _ *mcp.CallToolRequest, i
 	return nil, AddCommentOutput{
 		NoteID: note.ID,
 		Body:   note.Body,
-		WebURL: noteWebURL(p.getConfiguration().GitlabURL, in.ProjectPath, urlKind, in.TargetIID, note.ID),
+		// Link against the effective instance, which for KV-backed instances differs from the
+		// URL in the global plugin settings.
+		WebURL: noteWebURL(p.resolveEffectiveConfigOrDefault(p.getConfiguration()).GitlabURL, in.ProjectPath, urlKind, in.TargetIID, note.ID),
 	}, nil
 }
 
