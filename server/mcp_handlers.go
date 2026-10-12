@@ -177,7 +177,7 @@ func (p *Plugin) handleAddComment(ctx context.Context, _ *mcp.CallToolRequest, i
 		return nil, AddCommentOutput{}, err
 	}
 
-	gitlabClient, gitlabURL := p.getGitlabClientAndURL()
+	gitlabClient := p.getGitlabClient()
 
 	var note *internGitlab.Note
 	if in.TargetType == "issue" {
@@ -192,7 +192,7 @@ func (p *Plugin) handleAddComment(ctx context.Context, _ *mcp.CallToolRequest, i
 	return nil, AddCommentOutput{
 		NoteID: note.ID,
 		Body:   note.Body,
-		WebURL: noteWebURL(gitlabURL, in.ProjectPath, urlKind, in.TargetIID, note.ID),
+		WebURL: noteWebURL(gitlabClient.GitlabURL(), in.ProjectPath, urlKind, in.TargetIID, note.ID),
 	}, nil
 }
 
