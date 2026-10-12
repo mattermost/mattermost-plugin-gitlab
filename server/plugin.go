@@ -263,6 +263,20 @@ func (p *Plugin) getGitlabClient() gitlab.Gitlab {
 	return p.gitlabClient
 }
 
+// getGitlabClientAndURL returns the client together with the GitLab URL it was built for, so
+// links generated from a client's results point at the same host the client talked to.
+func (p *Plugin) getGitlabClientAndURL() (gitlab.Gitlab, string) {
+	p.effectiveLock.RLock()
+	client, effective := p.gitlabClient, p.effective
+	p.effectiveLock.RUnlock()
+
+	if effective != nil {
+		return client, effective.GitlabURL
+	}
+
+	return client, p.resolveEffectiveConfigOrDefault(p.getConfiguration()).GitlabURL
+}
+
 // setEffective stores the resolved instance configuration together with the client built from
 // it. A nil effective means resolution definitively reported that nothing is configured, in
 // which case the existing client is left alone rather than being rebuilt against a host the

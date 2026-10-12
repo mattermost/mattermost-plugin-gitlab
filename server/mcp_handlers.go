@@ -177,11 +177,13 @@ func (p *Plugin) handleAddComment(ctx context.Context, _ *mcp.CallToolRequest, i
 		return nil, AddCommentOutput{}, err
 	}
 
+	gitlabClient, gitlabURL := p.getGitlabClientAndURL()
+
 	var note *internGitlab.Note
 	if in.TargetType == "issue" {
-		note, err = p.getGitlabClient().AddIssueNote(ctx, info, token, in.ProjectPath, in.TargetIID, in.Body)
+		note, err = gitlabClient.AddIssueNote(ctx, info, token, in.ProjectPath, in.TargetIID, in.Body)
 	} else {
-		note, err = p.getGitlabClient().AddMergeRequestNote(ctx, info, token, in.ProjectPath, in.TargetIID, in.Body)
+		note, err = gitlabClient.AddMergeRequestNote(ctx, info, token, in.ProjectPath, in.TargetIID, in.Body)
 	}
 	if err != nil {
 		return nil, AddCommentOutput{}, fmt.Errorf("failed to add comment: %w", err)
@@ -190,9 +192,7 @@ func (p *Plugin) handleAddComment(ctx context.Context, _ *mcp.CallToolRequest, i
 	return nil, AddCommentOutput{
 		NoteID: note.ID,
 		Body:   note.Body,
-		// Link against the effective instance, which for KV-backed instances differs from the
-		// URL in the global plugin settings.
-		WebURL: noteWebURL(p.resolveEffectiveConfigOrDefault(p.getConfiguration()).GitlabURL, in.ProjectPath, urlKind, in.TargetIID, note.ID),
+		WebURL: noteWebURL(gitlabURL, in.ProjectPath, urlKind, in.TargetIID, note.ID),
 	}, nil
 }
 
