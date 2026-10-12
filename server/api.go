@@ -168,9 +168,7 @@ func (p *Plugin) withRecovery(next http.Handler) http.Handler {
 
 func (p *Plugin) checkConfigured(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		config := p.getConfiguration()
-
-		if err := config.IsValid(); err != nil {
+		if err := p.isConfigured(); err != nil {
 			http.Error(w, "This plugin is not configured.", http.StatusNotImplemented)
 			return
 		}
@@ -381,7 +379,7 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		return
 	}
 
-	userInfo, err := p.GitlabClient.GetCurrentUser(c.Ctx, userID, *tok)
+	userInfo, err := p.getGitlabClient().GetCurrentUser(c.Ctx, userID, *tok)
 	if err != nil {
 		c.Log.WithError(err).Warnf("Can't retrieve user info from gitLab API")
 
@@ -453,13 +451,15 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		}
 	}
 
+	effective := p.resolveEffectiveConfigOrDefault(config)
+
 	p.client.Frontend.PublishWebSocketEvent(
 		WsEventConnect,
 		map[string]any{
 			"connected":        true,
 			"gitlab_username":  userInfo.GitlabUsername,
-			"gitlab_client_id": config.GitlabOAuthClientID,
-			"gitlab_url":       config.GitlabURL,
+			"gitlab_client_id": effective.ClientID,
+			"gitlab_url":       effective.GitlabURL,
 			"organization":     config.GitlabGroup,
 		},
 		&model.WebsocketBroadcast{UserId: userID},
@@ -533,10 +533,11 @@ func (p *Plugin) getGitlabUser(c *Context, w http.ResponseWriter, r *http.Reques
 
 func (p *Plugin) getConnected(c *Context, w http.ResponseWriter, r *http.Request) {
 	config := p.getConfiguration()
+	effective := p.resolveEffectiveConfigOrDefault(config)
 
 	resp := &ConnectedResponse{
 		Connected:    false,
-		GitlabURL:    config.GitlabURL,
+		GitlabURL:    effective.GitlabURL,
 		Organization: config.GitlabGroup,
 	}
 
@@ -544,7 +545,7 @@ func (p *Plugin) getConnected(c *Context, w http.ResponseWriter, r *http.Request
 	if info != nil {
 		resp.Connected = true
 		resp.GitlabUsername = info.GitlabUsername
-		resp.GitlabClientID = config.GitlabOAuthClientID
+		resp.GitlabClientID = effective.ClientID
 		resp.Settings = info.Settings
 
 		if info.Settings.DailyReminder && r.URL.Query().Get("reminder") == "true" {
@@ -580,7 +581,7 @@ func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Req
 	}
 	var result []*gitlab.PRDetails
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetYourPrDetails(c.Ctx, c.Log, info, token, prList)
+		resp, err := p.getGitlabClient().GetYourPrDetails(c.Ctx, c.Log, info, token, prList)
 		if err != nil {
 			return err
 		}
@@ -600,7 +601,7 @@ func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Req
 func (p *Plugin) getLHSData(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	var result *gitlab.LHSContent
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetLHSData(c.Ctx, info, token)
+		resp, err := p.getGitlabClient().GetLHSData(c.Ctx, info, token)
 		if err != nil {
 			return err
 		}
@@ -658,7 +659,7 @@ func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Requ
 
 	var result *internGitlab.Issue
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.CreateIssue(c.Ctx, c.GitlabInfo, issue, token)
+		resp, err := p.getGitlabClient().CreateIssue(c.Ctx, c.GitlabInfo, issue, token)
 		if err != nil {
 			return err
 		}
@@ -762,7 +763,7 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 
 	var result *internGitlab.Note
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.AttachCommentToIssue(c.Ctx, c.GitlabInfo, issue, permalink, commentUsername, token)
+		resp, err := p.getGitlabClient().AttachCommentToIssue(c.Ctx, c.GitlabInfo, issue, permalink, commentUsername, token)
 		if err != nil {
 			return err
 		}
@@ -867,7 +868,7 @@ func (p *Plugin) searchIssues(c *UserContext, w http.ResponseWriter, r *http.Req
 
 	var result []*internGitlab.Issue
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.SearchIssues(c.Ctx, c.GitlabInfo, search, token)
+		resp, err := p.getGitlabClient().SearchIssues(c.Ctx, c.GitlabInfo, search, token)
 		if err != nil {
 			return err
 		}
@@ -886,7 +887,7 @@ func (p *Plugin) searchIssues(c *UserContext, w http.ResponseWriter, r *http.Req
 func (p *Plugin) getYourProjects(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	var result []*internGitlab.Project
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetYourProjects(c.Ctx, c.GitlabInfo, token)
+		resp, err := p.getGitlabClient().GetYourProjects(c.Ctx, c.GitlabInfo, token)
 		if err != nil {
 			return err
 		}
@@ -906,7 +907,7 @@ func (p *Plugin) getLabels(c *UserContext, w http.ResponseWriter, r *http.Reques
 	projectID := r.URL.Query().Get(queryParamProjectID)
 	var result []*internGitlab.Label
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetLabels(c.Ctx, c.GitlabInfo, projectID, token)
+		resp, err := p.getGitlabClient().GetLabels(c.Ctx, c.GitlabInfo, projectID, token)
 		if err != nil {
 			return err
 		}
@@ -927,7 +928,7 @@ func (p *Plugin) getMilestones(c *UserContext, w http.ResponseWriter, r *http.Re
 	projectID := r.URL.Query().Get(queryParamProjectID)
 	var result []*internGitlab.Milestone
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetMilestones(c.Ctx, c.GitlabInfo, projectID, token)
+		resp, err := p.getGitlabClient().GetMilestones(c.Ctx, c.GitlabInfo, projectID, token)
 		if err != nil {
 			return err
 		}
@@ -948,7 +949,7 @@ func (p *Plugin) getAssignees(c *UserContext, w http.ResponseWriter, r *http.Req
 	projectID := r.URL.Query().Get(queryParamProjectID)
 	var result []*internGitlab.ProjectMember
 	err := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetProjectMembers(c.Ctx, c.GitlabInfo, projectID, token)
+		resp, err := p.getGitlabClient().GetProjectMembers(c.Ctx, c.GitlabInfo, projectID, token)
 		if err != nil {
 			return err
 		}
@@ -1016,7 +1017,7 @@ func (p *Plugin) getIssueByNumber(c *UserContext, w http.ResponseWriter, r *http
 
 	var result *gitlab.Issue
 	if cErr := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		issue, err := p.GitlabClient.GetIssueByID(c.Ctx, c.GitlabInfo, owner, repo, issueID, token)
+		issue, err := p.getGitlabClient().GetIssueByID(c.Ctx, c.GitlabInfo, owner, repo, issueID, token)
 		if err != nil {
 			return err
 		}
@@ -1044,7 +1045,7 @@ func (p *Plugin) getMergeRequestByNumber(c *UserContext, w http.ResponseWriter, 
 
 	var result *gitlab.MergeRequest
 	if cErr := p.useGitlabClient(c.GitlabInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		mergeRequest, err := p.GitlabClient.GetMergeRequestByID(c.Ctx, c.GitlabInfo, owner, repo, mergeRequestID, token)
+		mergeRequest, err := p.getGitlabClient().GetMergeRequestByID(c.Ctx, c.GitlabInfo, owner, repo, mergeRequestID, token)
 		if err != nil {
 			return err
 		}
