@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/pkg/errors"
 
@@ -63,31 +64,28 @@ func filterSubscriptionsByChannel(subs *Subscriptions, channelID string) []*subs
 }
 
 func (p *Plugin) AddSubscription(fullPath string, sub *subscription.Subscription) (*Subscriptions, error) {
-	subs, err := p.GetSubscriptions()
-	if err != nil {
-		return nil, err
-	}
+	return p.modifySubscriptions(func(subs *Subscriptions) error {
+		repoSubs := subs.Repositories[fullPath]
+		if repoSubs == nil {
+			repoSubs = []*subscription.Subscription{sub}
+		} else {
+			exists := false
+			for index, s := range repoSubs {
+				if s.ChannelID == sub.ChannelID {
+					repoSubs[index] = sub
+					exists = true
+					break
+				}
+			}
 
-	repoSubs := subs.Repositories[fullPath]
-	if repoSubs == nil {
-		repoSubs = []*subscription.Subscription{sub}
-	} else {
-		exists := false
-		for index, s := range repoSubs {
-			if s.ChannelID == sub.ChannelID {
-				repoSubs[index] = sub
-				exists = true
-				break
+			if !exists {
+				repoSubs = append(repoSubs, sub)
 			}
 		}
 
-		if !exists {
-			repoSubs = append(repoSubs, sub)
-		}
-	}
-
-	subs.Repositories[fullPath] = repoSubs
-	return subs, p.StoreSubscriptions(subs)
+		subs.Repositories[fullPath] = repoSubs
+		return nil
+	})
 }
 
 func (p *Plugin) GetSubscriptions() (*Subscriptions, error) {
@@ -106,11 +104,44 @@ func (p *Plugin) GetSubscriptions() (*Subscriptions, error) {
 	return subscriptions, nil
 }
 
-func (p *Plugin) StoreSubscriptions(s *Subscriptions) error {
-	if _, err := p.client.KV.Set(SubscriptionsKey, s); err != nil {
-		p.client.Log.Warn("can't set subscriptions in kvstore", "err", err.Error())
+// errStopModify is a sentinel returned from a modifySubscriptions mutate
+// function to abort the atomic write without performing it and without treating
+// it as a store failure. SetAtomicWithRetries returns immediately (no retry)
+// when the callback errors, so the caller distinguishes this from a real error.
+var errStopModify = errors.New("stop modifying subscriptions")
+
+// modifySubscriptions performs an atomic read-modify-write of the whole
+// subscriptions blob. The mutate function runs inside SetAtomicWithRetries'
+// callback, so on every retry it receives the freshly re-read state and
+// re-applies its change on top of it. This prevents concurrent mutations across
+// channels from silently clobbering one another (lost updates). It returns the
+// resulting subscriptions on success.
+func (p *Plugin) modifySubscriptions(mutate func(*Subscriptions) error) (*Subscriptions, error) {
+	var result *Subscriptions
+
+	err := p.client.KV.SetAtomicWithRetries(SubscriptionsKey, func(oldValue []byte) (any, error) {
+		subs := &Subscriptions{Repositories: map[string][]*subscription.Subscription{}}
+		if len(oldValue) > 0 {
+			if err := json.Unmarshal(oldValue, subs); err != nil {
+				return nil, errors.Wrap(err, "can't unmarshal subscriptions from kvstore")
+			}
+			if subs.Repositories == nil {
+				subs.Repositories = map[string][]*subscription.Subscription{}
+			}
+		}
+
+		if err := mutate(subs); err != nil {
+			return nil, err
+		}
+
+		result = subs
+		return subs, nil
+	})
+	if err != nil {
+		return nil, err
 	}
-	return nil
+
+	return result, nil
 }
 
 func (p *Plugin) GetSubscribedChannelsForProject(
@@ -162,41 +193,55 @@ func (p *Plugin) Unsubscribe(channelID string, fullPath string) (bool, *Subscrip
 		return false, nil, errors.New("invalid repository")
 	}
 
-	subs, err := p.GetSubscriptions()
+	var removed bool
+	var current *Subscriptions
+
+	subs, err := p.modifySubscriptions(func(subs *Subscriptions) error {
+		removed = false
+		current = subs
+
+		// We don't know whether fullPath is a namespace or project, so we have to check both cases
+		for _, path := range []string{fullPath, fullPath + "/"} {
+			pathSubs := subs.Repositories[path]
+			if pathSubs == nil {
+				continue
+			}
+
+			pathRemoved := false
+			for index, sub := range pathSubs {
+				if sub.ChannelID == channelID {
+					pathSubs = append(pathSubs[:index], pathSubs[index+1:]...)
+					pathRemoved = true
+					break
+				}
+			}
+
+			if pathRemoved {
+				if len(pathSubs) > 0 {
+					subs.Repositories[path] = pathSubs
+				} else {
+					delete(subs.Repositories, path)
+				}
+				removed = true
+			}
+		}
+
+		if !removed {
+			return errStopModify
+		}
+
+		return nil
+	})
+
 	if err != nil {
+		// errStopModify signals that no matching subscription existed; that is a
+		// no-op, not a failure. Any other error is a real store/read failure and
+		// must be surfaced instead of being reported as "not subscribed".
+		if errors.Cause(err) == errStopModify {
+			return false, current, nil
+		}
 		return false, nil, err
 	}
 
-	var removed bool
-
-	// We don't know whether fullPath is a namespace or project, so we have to check both cases
-	for _, path := range []string{fullPath, fullPath + "/"} {
-		pathSubs := subs.Repositories[path]
-		if pathSubs == nil {
-			continue
-		}
-
-		pathRemoved := false
-		for index, sub := range pathSubs {
-			if sub.ChannelID == channelID {
-				pathSubs = append(pathSubs[:index], pathSubs[index+1:]...)
-				pathRemoved = true
-				break
-			}
-		}
-
-		if pathRemoved {
-			if len(pathSubs) > 0 {
-				subs.Repositories[path] = pathSubs
-			} else {
-				delete(subs.Repositories, path)
-			}
-			removed = true
-		}
-	}
-
-	if !removed {
-		return false, subs, nil
-	}
-	return true, subs, p.StoreSubscriptions(subs)
+	return true, subs, nil
 }
