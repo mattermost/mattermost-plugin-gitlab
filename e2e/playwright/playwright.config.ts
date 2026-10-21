@@ -19,6 +19,7 @@ export default defineConfig({
     reporter: [
         ['list'],
         ['html', {outputFolder: './results/reporter', open: 'never'}],
+        ...(process.env.CI ? [['github'] as const] : []),
     ],
     use: {
         baseURL: testConfig.baseURL,
