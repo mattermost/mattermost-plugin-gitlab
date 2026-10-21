@@ -1,0 +1,114 @@
+# Disposable Mattermost and GitLab Community Edition for the plugin E2E suite.
+#   npm run server:up    # start and wait until healthy
+#   npm run server:down  # stop and wipe all data
+#
+# The host must resolve mattermost and gitlab.test to 127.0.0.1 so the browser
+# and the containers share one pair of URLs. scripts/ensure-hosts.sh checks this.
+name: gitlab-plugin-e2e
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mmuser
+      POSTGRES_PASSWORD: mostest
+      POSTGRES_DB: mattermost_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mmuser -d mattermost_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - e2e
+
+  mattermost:
+    # Must satisfy plugin.json's min_server_version. Only amd64 images are
+    # published; on Apple silicon Docker Desktop runs them under emulation.
+    image: ${MM_IMAGE:-mattermost/mattermost-enterprise-edition:12.0}
+    platform: linux/amd64
+    hostname: mattermost
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8065:8065"
+    environment:
+      MM_SQLSETTINGS_DRIVERNAME: postgres
+      MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:mostest@postgres:5432/mattermost_test?sslmode=disable&connect_timeout=10
+      # GitLab delivers webhooks to this name over the Compose network.
+      MM_SERVICESETTINGS_SITEURL: http://mattermost:8065
+      MM_SERVICESETTINGS_ENABLEONBOARDINGFLOW: "false"
+      MM_SERVICESETTINGS_ENABLETUTORIAL: "false"
+      MM_SERVICESETTINGS_ENABLESECURITYFIXALERT: "false"
+      MM_PLUGINSETTINGS_ENABLE: "true"
+      MM_PLUGINSETTINGS_ENABLEUPLOADS: "true"
+      MM_PLUGINSETTINGS_AUTOMATICPREPACKAGEDPLUGINS: "false"
+      MM_RATELIMITSETTINGS_ENABLE: "false"
+      MM_ANNOUNCEMENTSETTINGS_ADMINNOTICESENABLED: "false"
+      MM_ANNOUNCEMENTSETTINGS_USERNOTICESENABLED: "false"
+      MM_LOGSETTINGS_CONSOLELEVEL: INFO
+      # The image is distroless (no shell/curl), so the healthcheck pings the
+      # server through mmctl over the local-mode socket.
+      MM_SERVICESETTINGS_ENABLELOCALMODE: "true"
+    healthcheck:
+      test: ["CMD", "/mattermost/bin/mmctl", "--local", "system", "status"]
+      interval: 5s
+      timeout: 10s
+      retries: 60
+      start_period: 20s
+    networks:
+      e2e:
+        aliases:
+          - mattermost
+
+  gitlab:
+    image: ${GITLAB_IMAGE:-gitlab/gitlab-ce:18.11.12-ce.0}
+    hostname: gitlab.test
+    shm_size: "256m"
+    depends_on:
+      mattermost:
+        condition: service_healthy
+    ports:
+      - "8929:8929"
+    environment:
+      # GitLab rejects weak passwords: no predictable words, and nothing from the
+      # root user's name, username, or email (root, admin, example).
+      GITLAB_ROOT_PASSWORD: ${GITLAB_ROOT_PASSWORD:-Kv7-Qm4n-Wx2p-L9}
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://gitlab.test:8929'
+        nginx['listen_https'] = false
+        letsencrypt['enable'] = false
+        prometheus_monitoring['enable'] = false
+        alertmanager['enable'] = false
+        node_exporter['enable'] = false
+        redis_exporter['enable'] = false
+        postgres_exporter['enable'] = false
+        gitlab_exporter['enable'] = false
+        puma['worker_processes'] = 0
+        sidekiq['max_concurrency'] = 5
+        gitlab_kas['enable'] = false
+        registry['enable'] = false
+        gitlab_pages['enable'] = false
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8929/-/readiness"]
+      interval: 20s
+      timeout: 10s
+      retries: 30
+      start_period: 300s
+    networks:
+      e2e:
+        aliases:
+          - gitlab.test
+
+  # Runs CI jobs for the pipeline, job, and deployment specs. Global setup
+  # registers it against GitLab with a shell executor.
+  gitlab-runner:
+    image: ${GITLAB_RUNNER_IMAGE:-gitlab/gitlab-runner:alpine-v18.11.4}
+    depends_on:
+      gitlab:
+        condition: service_healthy
+    networks:
+      - e2e
+
+networks:
+  e2e: {}

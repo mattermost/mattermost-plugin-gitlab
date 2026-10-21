@@ -24,6 +24,7 @@ const UserAttribute = ({id, username, gitlabURL, actions}: UserAttributeProps) =
     return (
         <div style={style.container}>
             <a
+                data-testid='gitlab-user-attribute'
                 href={`${gitlabURL}/${username}`}
                 target='_blank'
                 rel='noopener noreferrer'

@@ -45,6 +45,10 @@ Team members can stay up-to-date with how many reviews, todos, assigned issues, 
 ## Development
   
 This plugin contains both a server and web app portion. Read our documentation about the [Developer Workflow](https://developers.mattermost.com/integrate/plugins/developer-workflow/) and [Developer Setup](https://developers.mattermost.com/integrate/plugins/developer-setup/) for more information about developing and extending plugins.
+
+### Playwright e2e tests
+
+Setup and commands are documented in [e2e/playwright/README.md](e2e/playwright/README.md). From the repo root, `make e2e-server-up` starts Mattermost and GitLab, and `make e2e` runs the suite.
   
 ## Help wanted!
 
