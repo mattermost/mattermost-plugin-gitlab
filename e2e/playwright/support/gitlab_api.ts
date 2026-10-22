@@ -258,7 +258,7 @@ export class GitlabApi {
         ];
         for (const [kind, filter] of queries) {
             // eslint-disable-next-line no-await-in-loop
-            const items = await this.request<Array<{iid: number; project_id: number}>>('GET', `/${kind}?scope=all&state=opened&per_page=100&${filter}`);
+            const items = await this.listAllPages<{iid: number; project_id: number}>(`/${kind}?scope=all&state=opened&per_page=100&${filter}`);
             for (const item of items) {
                 // eslint-disable-next-line no-await-in-loop
                 await this.request('PUT', `/projects/${item.project_id}/${kind}/${item.iid}`, {state_event: 'close'});
@@ -298,6 +298,24 @@ export class GitlabApi {
             await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
         }
         throw new Error(`Timed out waiting for ${description}`);
+    }
+
+    // Collects every page before the caller changes anything, since edits would shift the offsets.
+    private async listAllPages<T>(apiPath: string): Promise<T[]> {
+        const items: T[] = [];
+        let page = '1';
+        while (page) {
+            // eslint-disable-next-line no-await-in-loop
+            const response = await this.send('GET', `${apiPath}&page=${page}`);
+            // eslint-disable-next-line no-await-in-loop
+            const text = await response.text();
+            if (!response.ok) {
+                throw new Error(`GET ${apiPath} failed (${response.status}): ${text}`);
+            }
+            items.push(...JSON.parse(text) as T[]);
+            page = response.headers.get('x-next-page') ?? '';
+        }
+        return items;
     }
 
     private async request<T>(method: string, apiPath: string, body?: unknown): Promise<T> {
