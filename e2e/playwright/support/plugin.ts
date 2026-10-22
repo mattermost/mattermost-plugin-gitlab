@@ -5,15 +5,20 @@ import {execFileSync} from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import './env';
+
 import type {Client4} from '@mattermost/client';
+import {testConfig} from '@mattermost/playwright-lib';
 
 import {loginAdmin} from './admin';
 import {ENCRYPTION_KEY, PLUGIN_ID, TEAM_NAME, WEBHOOK_SECRET} from './constants';
 import {loadCredentials} from './credentials';
+import {GitlabApi} from './gitlab_api';
 import {installInstance} from './instance';
 
 const DIST_DIR = path.resolve(__dirname, '../../../dist');
 const E2E_DIR = path.resolve(__dirname, '..');
+const DISPOSABLE_SERVER_URL = 'http://mattermost:8065';
 
 type PluginSettingValues = Record<string, unknown>;
 
@@ -95,10 +100,23 @@ export async function ensureTeam(client: Client4) {
         } as Parameters<Client4['createTeam']>[0]);
     }
 
-    const refreshed = await client.getMyTeams();
-    await Promise.all(refreshed.
-        filter((team) => team.name !== TEAM_NAME).
-        map((team) => client.deleteTeam(team.id)));
+    const others = (await client.getMyTeams()).filter((team) => team.name !== TEAM_NAME);
+    if (others.length === 0) {
+        return;
+    }
+
+    const isDisposableServer = new URL(testConfig.baseURL).origin === DISPOSABLE_SERVER_URL;
+    if (!isDisposableServer && process.env.PW_DELETE_OTHER_TEAMS !== 'true') {
+        throw new Error(`Refusing to delete teams ${others.map((team) => team.name).join(', ')} on ${testConfig.baseURL}. ` +
+            'Leave them first, or set PW_DELETE_OTHER_TEAMS=true if this server is disposable.');
+    }
+    await Promise.all(others.map((team) => client.deleteTeam(team.id)));
+}
+
+async function resetGitlabState() {
+    const credentials = loadCredentials();
+    await new GitlabApi(credentials).closeItemsInvolving(credentials.e2e_user_id);
+    await GitlabApi.asConnectedUser(credentials).markAllTodosDone();
 }
 
 export async function prepareServer() {
@@ -113,4 +131,7 @@ export async function prepareServer() {
     await configurePlugin(client);
     await restartPlugin(client);
     await installInstance();
+
+    // Runs once the sysadmin is disconnected, so closing old items sends no DMs into the wizard channel.
+    await resetGitlabState();
 }

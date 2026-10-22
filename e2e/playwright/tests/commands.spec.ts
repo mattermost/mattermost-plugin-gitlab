@@ -22,11 +22,10 @@ test.describe('slash commands', () => {
         const credentials = loadCredentials();
         const channelsPage = await ensureConnected(pw);
 
-        await runCommandExpecting(channelsPage, '/gitlab me', 'You are connected to GitLab as:');
-        await expect(channelsPage.page.locator('.post-message__text').last()).toContainText(credentials.e2e_username);
+        const profile = await runCommandExpecting(channelsPage, '/gitlab me', 'You are connected to GitLab as:');
+        await expect(profile).toContainText(credentials.e2e_username);
 
-        await runCommandExpecting(channelsPage, '/gitlab instance list', 'Installed GitLab Instances');
-        const instances = channelsPage.page.locator('.post-message__text').last();
+        const instances = await runCommandExpecting(channelsPage, '/gitlab instance list', 'Installed GitLab Instances');
         await expect(instances).toContainText(INSTANCE_NAME);
         await expect(instances).toContainText(GITLAB_URL);
 
@@ -48,8 +47,7 @@ test.describe('slash commands', () => {
     test('lists the to-do summary', async ({pw}) => {
         const channelsPage = await ensureConnected(pw);
 
-        await runCommandExpecting(channelsPage, '/gitlab todo', 'To-Do list');
-        const summary = channelsPage.page.locator('.post-message__text').last();
+        const summary = await runCommandExpecting(channelsPage, '/gitlab todo', 'To-Do list');
         await expect(summary).toContainText('Review Requests');
         await expect(summary).toContainText('Merge Requests Assigned');
     });

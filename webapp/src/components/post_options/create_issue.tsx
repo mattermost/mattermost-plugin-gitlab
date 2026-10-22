@@ -7,9 +7,12 @@ import GitLabIcon from 'src/images/icons/gitlab';
 
 export default function CreateIssuePostMenuAction(): JSX.Element {
     return (
-        <span data-testid='gitlab-post-menu-create-issue'>
-            <GitLabIcon type='menu'/>
+        <>
+            <GitLabIcon
+                type='menu'
+                testId='gitlab-post-menu-create-issue'
+            />
             {'Create GitLab Issue'}
-        </span>
+        </>
     );
 }

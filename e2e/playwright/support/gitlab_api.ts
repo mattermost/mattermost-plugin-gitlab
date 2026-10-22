@@ -249,6 +249,23 @@ export class GitlabApi {
         }
     }
 
+    // Sidebar counts span every project, so items left open by an interrupted run would skew them.
+    async closeItemsInvolving(userId: number) {
+        const queries: Array<[string, string]> = [
+            ['issues', `assignee_id=${userId}`],
+            ['merge_requests', `assignee_id=${userId}`],
+            ['merge_requests', `reviewer_id=${userId}`],
+        ];
+        for (const [kind, filter] of queries) {
+            // eslint-disable-next-line no-await-in-loop
+            const items = await this.request<Array<{iid: number; project_id: number}>>('GET', `/${kind}?scope=all&state=opened&per_page=100&${filter}`);
+            for (const item of items) {
+                // eslint-disable-next-line no-await-in-loop
+                await this.request('PUT', `/projects/${item.project_id}/${kind}/${item.iid}`, {state_event: 'close'});
+            }
+        }
+    }
+
     async deleteGroup(groupId: number) {
         const response = await this.send('DELETE', `/groups/${groupId}`);
         if (response.status === 404) {

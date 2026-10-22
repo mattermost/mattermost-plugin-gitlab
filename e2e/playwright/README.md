@@ -36,7 +36,9 @@ npm run test:ui       # Playwright UI mode
 npm run show-report   # open the last HTML report
 ```
 
-`global_setup.ts` creates the sysadmin and a single `gitlab-e2e` team (a second team would move the GitLab buttons out of the channel header), bootstraps GitLab, uploads the newest `dist/*.tar.gz`, and writes the GitLab URL and OAuth credentials into the plugin config. It then runs `/gitlab instance install` and completes the wizard in the GitLab bot DM with the same OAuth application, so `gitlab-e2e` becomes the default instance. The suite is safe to rerun against the same server: the bootstrap recreates the OAuth application and the runner registration, and setup disconnects the sysadmin and uninstalls the old instance before installing it again. The first test then reconnects through the OAuth popup.
+`global_setup.ts` creates the sysadmin and a single `gitlab-e2e` team (a second team would move the GitLab buttons out of the channel header), bootstraps GitLab, uploads the newest `dist/*.tar.gz`, and writes the GitLab URL and OAuth credentials into the plugin config. It then runs `/gitlab instance install` and completes the wizard in the GitLab bot DM with the same OAuth application, so `gitlab-e2e` becomes the default instance. The suite is safe to rerun against the same server: the bootstrap recreates the OAuth application and the runner registration, and setup disconnects the sysadmin and uninstalls the old instance before installing it again. It also closes any issues and merge requests still assigned to or awaiting review from `gitlab-e2e`, and clears its to-dos, so an interrupted run does not skew the sidebar counts. The first test then reconnects through the OAuth popup.
+
+Setup deletes every other team the sysadmin belongs to. It only does so on `http://mattermost:8065` unless `PW_DELETE_OTHER_TEAMS=true` is set.
 
 The bootstrap also creates a personal access token for `gitlab-e2e`. Specs use it to act as the connected user, for example to approve merge requests or clear to-dos. Root performs most GitLab actions so that the connected user receives the DMs.
 
@@ -71,6 +73,7 @@ GitLab Community Edition has no group webhooks, so the group-subscription test a
 | `PW_BASE_URL` | `http://mattermost:8065` |
 | `PW_ADMIN_USERNAME` / `PW_ADMIN_PASSWORD` | `sysadmin` / `Sys@dmin-sample1` |
 | `PW_HEADLESS` | `true` |
+| `PW_DELETE_OTHER_TEAMS` | unset (only deletes other teams on `http://mattermost:8065`) |
 | `MM_IMAGE` (docker compose) | `mattermost/mattermost-enterprise-edition:12.0` |
 | `GITLAB_IMAGE` (docker compose) | `gitlab/gitlab-ce:18.11.12-ce.0` |
 | `GITLAB_RUNNER_IMAGE` (docker compose) | `gitlab/gitlab-runner:alpine-v18.11.4` |

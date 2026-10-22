@@ -58,10 +58,13 @@ export async function expectPost(page: Page, ...texts: Array<string | RegExp>) {
     await expect(postWithText(page, ...texts)).toBeVisible({timeout: WEBHOOK_TIMEOUT});
 }
 
-// Some replies are regular posts that persist between runs, so only the newest post counts.
+// Earlier commands can leave an identical reply on screen, so wait for one more match.
 export async function runCommandExpecting(channelsPage: ChannelsPage, command: string, reply: string | RegExp) {
+    const replies = channelsPage.page.locator('.post-message__text').filter({hasText: reply});
+    const before = await replies.count();
     await runSlashCommand(channelsPage, command);
-    await expect(channelsPage.page.locator('.post-message__text').last()).toContainText(reply);
+    await expect(replies).toHaveCount(before + 1);
+    return replies.last();
 }
 
 export async function subscribe(channelsPage: ChannelsPage, path: string, features?: string) {
