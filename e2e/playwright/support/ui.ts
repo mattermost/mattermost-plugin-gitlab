@@ -4,12 +4,13 @@
 import {expect, testConfig, type ChannelsPage, type PlaywrightExtended} from '@mattermost/playwright-lib';
 import type {Page} from '@playwright/test';
 
-import {loginAdmin} from './admin';
+import {loginAdmin, loginRegularUser} from './admin';
 import {APP_BAR_ICON, BOT_USERNAME, TEAM_NAME, TOWN_SQUARE, WEBHOOK_TIMEOUT} from './constants';
 import {loadCredentials} from './credentials';
 
-export async function openTownSquare(pw: PlaywrightExtended) {
-    const {user} = await loginAdmin();
+// Specs act as a regular member. Use {asAdmin: true} only for sysadmin-gated commands.
+export async function openTownSquare(pw: PlaywrightExtended, {asAdmin = false} = {}) {
+    const {user} = asAdmin ? await loginAdmin() : await loginRegularUser();
     const {channelsPage} = await pw.testBrowser.login(user);
     await channelsPage.goto(TEAM_NAME, TOWN_SQUARE);
     await channelsPage.toBeVisible();

@@ -5,7 +5,7 @@ import {expect, test} from '@mattermost/playwright-lib';
 
 import {GITLAB_URL, INSTANCE_NAME} from '../support/constants';
 import {loadCredentials} from '../support/credentials';
-import {ensureConnected, runCommandExpecting} from '../support/ui';
+import {ensureConnected, openTownSquare, runCommandExpecting} from '../support/ui';
 
 const UNKNOWN_ACTION = 'Unknown action, please use /gitlab help to see all actions available.';
 
@@ -18,18 +18,24 @@ test.describe('slash commands', () => {
         await runCommandExpecting(channelsPage, '/gitlab unknown-action', UNKNOWN_ACTION);
     });
 
-    test('shows the connected GitLab profile and the installed instance', async ({pw}) => {
+    test('shows the connected GitLab profile', async ({pw}) => {
         const credentials = loadCredentials();
         const channelsPage = await ensureConnected(pw);
 
         const profile = await runCommandExpecting(channelsPage, '/gitlab me', 'You are connected to GitLab as:');
         await expect(profile).toContainText(credentials.e2e_username);
 
-        const instances = await runCommandExpecting(channelsPage, '/gitlab instance list', 'Installed GitLab Instances');
+        await runCommandExpecting(channelsPage, '/gitlab connect', 'Click here to link your GitLab account.');
+    });
+
+    test('restricts instance management to system admins', async ({pw}) => {
+        const memberPage = await ensureConnected(pw);
+        await runCommandExpecting(memberPage, '/gitlab instance list', 'Only System Admins are allowed to manage instances.');
+
+        const adminPage = await openTownSquare(pw, {asAdmin: true});
+        const instances = await runCommandExpecting(adminPage, '/gitlab instance list', 'Installed GitLab Instances');
         await expect(instances).toContainText(INSTANCE_NAME);
         await expect(instances).toContainText(GITLAB_URL);
-
-        await runCommandExpecting(channelsPage, '/gitlab connect', 'Click here to link your GitLab account.');
     });
 
     test('updates personal settings and rejects invalid values', async ({pw}) => {

@@ -31,7 +31,7 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "8065:8065"
+      - "127.0.0.1:8065:8065"
     environment:
       MM_SQLSETTINGS_DRIVERNAME: postgres
       MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:mostest@postgres:5432/mattermost_test?sslmode=disable&connect_timeout=10
@@ -69,7 +69,7 @@ services:
       mattermost:
         condition: service_healthy
     ports:
-      - "8929:8929"
+      - "127.0.0.1:8929:8929"
     environment:
       # GitLab rejects weak passwords: no predictable words, and nothing from the
       # root user's name, username, or email (root, admin, example).

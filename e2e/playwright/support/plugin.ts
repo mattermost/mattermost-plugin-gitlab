@@ -10,7 +10,7 @@ import './env';
 import type {Client4} from '@mattermost/client';
 import {testConfig} from '@mattermost/playwright-lib';
 
-import {loginAdmin} from './admin';
+import {ensureRegularUser, loginAdmin} from './admin';
 import {ENCRYPTION_KEY, PLUGIN_ID, TEAM_NAME, WEBHOOK_SECRET} from './constants';
 import {loadCredentials} from './credentials';
 import {GitlabApi} from './gitlab_api';
@@ -122,6 +122,7 @@ async function resetGitlabState() {
 export async function prepareServer() {
     const {client} = await loginAdmin();
     await ensureTeam(client);
+    await ensureRegularUser(client);
     bootstrapGitlab();
 
     const bundle = findPluginBundle();
@@ -132,6 +133,6 @@ export async function prepareServer() {
     await restartPlugin(client);
     await installInstance();
 
-    // Runs once the sysadmin is disconnected, so closing old items sends no DMs into the wizard channel.
+    // Runs once every Mattermost user is disconnected, so closing old items sends no DMs.
     await resetGitlabState();
 }

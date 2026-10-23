@@ -6,7 +6,7 @@ import {expect, test} from '@mattermost/playwright-lib';
 import {loadCredentials} from '../support/credentials';
 import {connectAccount, disconnectAccount, openSubscriptionsSidebar, openTownSquare} from '../support/ui';
 
-test('connects the sysadmin through the GitLab OAuth popup', async ({pw}) => {
+test('connects a regular member through the GitLab OAuth popup', async ({pw}) => {
     const credentials = loadCredentials();
     const channelsPage = await openTownSquare(pw);
     await openSubscriptionsSidebar(channelsPage.page);

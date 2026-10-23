@@ -7,7 +7,7 @@ import type {Client4} from '@mattermost/client';
 import {ChannelsPage, TestBrowser, testConfig} from '@mattermost/playwright-lib';
 import {chromium, expect, type Locator, type Page} from '@playwright/test';
 
-import {loginAdmin} from './admin';
+import {loginAdmin, loginRegularUser} from './admin';
 import {BOT_USERNAME, INSTANCE_NAME, PLUGIN_ID, TEAM_NAME, TOWN_SQUARE} from './constants';
 import {loadCredentials} from './credentials';
 
@@ -52,6 +52,7 @@ export async function installInstance() {
 
     // The bootstrap recreates the OAuth application, which revokes tokens from an earlier connection.
     await executeCommand(client, '/gitlab disconnect');
+    await executeCommand((await loginRegularUser()).client, '/gitlab disconnect');
     await executeCommand(client, `/gitlab instance uninstall ${INSTANCE_NAME}`);
     await executeCommand(client, '/gitlab instance install');
 

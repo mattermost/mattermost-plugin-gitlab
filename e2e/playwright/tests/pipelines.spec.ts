@@ -78,6 +78,7 @@ test.describe('pipelines', () => {
 
     // The plugin sends the event sender a refresh before dispatching DMs and then
     // skips users who already got a refresh, so the sender never receives this DM.
+    // https://mattermost.atlassian.net/browse/MM-71329
     test.fixme('sends the pipeline author a DM when their pipeline fails', async () => {
         const {path} = sandbox;
         await addCiConfig(sandbox);

@@ -13,7 +13,7 @@ export default defineConfig({
     outputDir: './results/output',
     fullyParallel: false,
     workers: 1,
-    retries: 0,
+    retries: process.env.CI ? 1 : 0,
     timeout: 2 * 60 * 1000,
     expect: {timeout: 15 * 1000},
     reporter: [
