@@ -73,6 +73,7 @@ GitLab Community Edition has no group webhooks, so the group-subscription test a
 | `PW_BASE_URL` | `http://mattermost:8065` |
 | `PW_ADMIN_USERNAME` / `PW_ADMIN_PASSWORD` | `sysadmin` / `Sys@dmin-sample1` |
 | `PW_HEADLESS` | `true` |
+| `PW_REGULAR_USER_PASSWORD` | `gitlab-e2e-user`'s password. Required unless `PW_BASE_URL` is `http://mattermost:8065` |
 | `PW_DELETE_OTHER_TEAMS` | unset (only deletes other teams on `http://mattermost:8065`) |
 | `MM_IMAGE` (docker compose) | `mattermost/mattermost-enterprise-edition:12.0` |
 | `GITLAB_IMAGE` (docker compose) | `gitlab/gitlab-ce:18.11.12-ce.0` |

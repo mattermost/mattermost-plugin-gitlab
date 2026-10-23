@@ -10,7 +10,7 @@ import './env';
 import type {Client4} from '@mattermost/client';
 import {testConfig} from '@mattermost/playwright-lib';
 
-import {ensureRegularUser, loginAdmin} from './admin';
+import {ensureRegularUser, isDisposableServer, loginAdmin} from './admin';
 import {ENCRYPTION_KEY, PLUGIN_ID, TEAM_NAME, WEBHOOK_SECRET} from './constants';
 import {loadCredentials} from './credentials';
 import {GitlabApi} from './gitlab_api';
@@ -18,8 +18,6 @@ import {installInstance} from './instance';
 
 const DIST_DIR = path.resolve(__dirname, '../../../dist');
 const E2E_DIR = path.resolve(__dirname, '..');
-const DISPOSABLE_SERVER_URL = 'http://mattermost:8065';
-
 type PluginSettingValues = Record<string, unknown>;
 
 export function findPluginBundle(): string {
@@ -105,8 +103,7 @@ export async function ensureTeam(client: Client4) {
         return;
     }
 
-    const isDisposableServer = new URL(testConfig.baseURL).origin === DISPOSABLE_SERVER_URL;
-    if (!isDisposableServer && process.env.PW_DELETE_OTHER_TEAMS !== 'true') {
+    if (!isDisposableServer() && process.env.PW_DELETE_OTHER_TEAMS !== 'true') {
         throw new Error(`Refusing to delete teams ${others.map((team) => team.name).join(', ')} on ${testConfig.baseURL}. ` +
             'Leave them first, or set PW_DELETE_OTHER_TEAMS=true if this server is disposable.');
     }
