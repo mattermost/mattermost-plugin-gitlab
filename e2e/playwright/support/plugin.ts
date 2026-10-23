@@ -105,7 +105,7 @@ export async function ensureTeam(client: Client4) {
 
     if (!isDisposableServer() && process.env.PW_DELETE_OTHER_TEAMS !== 'true') {
         throw new Error(`Refusing to delete teams ${others.map((team) => team.name).join(', ')} on ${testConfig.baseURL}. ` +
-            'Leave them first, or set PW_DELETE_OTHER_TEAMS=true if this server is disposable.');
+            'Leave them first, or set PW_DELETE_OTHER_TEAMS=true to allow deleting them on this non-disposable server.');
     }
     await Promise.all(others.map((team) => client.deleteTeam(team.id)));
 }

@@ -64,7 +64,7 @@ GitLab Community Edition has no group webhooks, so the group-subscription test a
 
 ### CI
 
-`.github/workflows/e2e.yml` runs the suite on every pull request that changes more than Markdown, weekly on Mondays at 06:00 UTC, and on demand from the Actions tab. It boots the stack on the runner while the plugin builds, then runs the full suite. When a run fails, the Playwright report, traces, and container logs are uploaded as the `e2e-results-*` artifact.
+`.github/workflows/e2e.yml` runs the suite on every pull request except those that only change Markdown files or files under `docs/`, weekly on Mondays at 06:00 UTC, and on demand from the Actions tab. It boots the stack on the runner while the plugin builds, then runs the full suite. When a run fails, the Playwright report, traces, and container logs are uploaded as the `e2e-results-*` artifact.
 
 ### Environment
 
