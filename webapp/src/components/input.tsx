@@ -16,9 +16,10 @@ type PropTypes = {
     required: boolean;
     readOnly?: boolean;
     type: string;
+    testId?: string;
 };
 
-const Input = ({id, label, placeholder, value, maxLength, onChange, disabled, required, readOnly, type}: PropTypes) => {
+const Input = ({id, label, placeholder, value, maxLength, onChange, disabled, required, readOnly, type, testId}: PropTypes) => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>) => {
         onChange?.(e.target.value);
     };
@@ -29,6 +30,7 @@ const Input = ({id, label, placeholder, value, maxLength, onChange, disabled, re
             <textarea
                 style={{resize: 'none'}}
                 id={id}
+                data-testid={testId}
                 className='form-control'
                 rows={5}
                 placeholder={placeholder}
@@ -43,6 +45,7 @@ const Input = ({id, label, placeholder, value, maxLength, onChange, disabled, re
         input = (
             <input
                 id={id}
+                data-testid={testId}
                 className='form-control'
                 type={type === 'input' ? 'text' : 'number'}
                 placeholder={placeholder}

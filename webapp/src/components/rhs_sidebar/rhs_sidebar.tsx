@@ -31,6 +31,7 @@ const NotSignedIn = (props: NotSignedInProps) => {
             <div className='gitlab-rhs-ConnectPrompt'>{'Connect your account'}<br/>{'to get started'}</div>
             <a
                 className='gitlab-rhs-Connect'
+                data-testid='gitlab-rhs-connect'
                 href={`${props.pluginServerRoute}/oauth/connect`}
                 onClick={openConnectWindow}
             >
@@ -54,7 +55,10 @@ const UserHeader = (props: UserHeaderProps) => (
         />
         <div className='gitlab-rhs-UserDetails'>
             <div className='gitlab-rhs-Description'>{'Signed in as'}</div>
-            <div className='gitlab-rhs-Username'>{props.username}</div>
+            <div
+                className='gitlab-rhs-Username'
+                data-testid='gitlab-rhs-username'
+            >{props.username}</div>
         </div>
         <a
             className='gitlab-rhs-GitLabURL'
@@ -72,7 +76,10 @@ interface UserHeaderProps {
 
 const Subscription = (props: SubscriptionProps) => {
     return (
-        <div className='gitlab-rhs-SubscriptionContainer'>
+        <div
+            className='gitlab-rhs-SubscriptionContainer'
+            data-testid='gitlab-rhs-subscription'
+        >
             <div>
                 <h2 className='gitlab-rhs-SubscriptionHeader'>{'Repository'}</h2>
                 <a
@@ -102,7 +109,10 @@ interface SubscriptionProps {
 const Subscriptions = (props: SubscriptionsProps) => {
     if (props.subscriptions.length === 0) {
         return (
-            <div className='gitlab-rhs-NoSubscriptionsContainer'>
+            <div
+                className='gitlab-rhs-NoSubscriptionsContainer'
+                data-testid='gitlab-rhs-empty'
+            >
                 <div className='gitlab-rhs-NoSubscriptionsImg'>
                     <NoSubscriptionsSVG/>
                 </div>

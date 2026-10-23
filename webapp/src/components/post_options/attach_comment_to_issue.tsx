@@ -8,7 +8,10 @@ import GitLabIcon from 'src/images/icons/gitlab';
 const AttachCommentToIssuePostMenuAction = () => {
     return (
         <>
-            <GitLabIcon type='menu'/>
+            <GitLabIcon
+                type='menu'
+                testId='gitlab-post-menu-attach-comment'
+            />
             {'Attach to GitLab Issue'}
         </>
     );

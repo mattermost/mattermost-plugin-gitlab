@@ -61,7 +61,7 @@ const LinkTooltip = ({href, show}: Props) => {
         const gitlabUrl = new URL(connectedGitlabUrl);
         const init = async () => {
             if (url.host === gitlabUrl.host && validateGitlabUrl(href)) {
-                const linkInfo = getInfoAboutLink(href, url.hostname);
+                const linkInfo = getInfoAboutLink(href, url.host);
                 let res;
                 switch (linkInfo?.type) {
                 case LINK_TYPES.ISSUES:
@@ -127,7 +127,10 @@ const LinkTooltip = ({href, show}: Props) => {
     const {formatText, messageHtmlToComponent} = window.PostUtils;
 
     return (
-        <div className='gitlab-tooltip'>
+        <div
+            className='gitlab-tooltip'
+            data-testid='gitlab-link-tooltip'
+        >
             <div className='gitlab-tooltip box gitlab-tooltip--large gitlab-tooltip--bottom-left p-4'>
                 <div className='header mb-1'>
                     <a
@@ -147,8 +150,14 @@ const LinkTooltip = ({href, show}: Props) => {
 
                     <div className='tooltip-info mt-1'>
                         <a href={href}>
-                            <h5 className='mr-1'>{getTruncatedText(data.title, TOOLTIP_MAX_TITLE_LENGTH)}</h5>
-                            <span className='mr-number'>{`#${data.iid}`}</span>
+                            <h5
+                                className='mr-1'
+                                data-testid='gitlab-link-tooltip-title'
+                            >{getTruncatedText(data.title, TOOLTIP_MAX_TITLE_LENGTH)}</h5>
+                            <span
+                                className='mr-number'
+                                data-testid='gitlab-link-tooltip-number'
+                            >{`#${data.iid}`}</span>
                         </a>
                         <div className='markdown-text mt-1 mb-1'>
                             {messageHtmlToComponent(formatText(data.description), false)}
