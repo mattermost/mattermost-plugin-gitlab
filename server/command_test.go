@@ -876,18 +876,65 @@ func TestInstanceCommands(t *testing.T) {
 					GitlabOAuthClientSecret: "client-secret",
 				},
 			}
-			p, msg, _ := setupInstanceCommandTest(t, instanceList, instanceConfig)
+			p, msg, api := setupInstanceCommandTest(t, instanceList, instanceConfig)
+			api.On("KVGet", "user_id"+GitlabUserInfoKey).Return(nil, nil)
+			api.On("KVGet", "user_id"+GitlabMigrationTokenKey).Return(nil, nil)
 			p.configuration.DefaultInstanceName = "production"
 			_, _ = p.handleConnect(args, []string{})
 			assert.Contains(t, *msg, "Click here to link your GitLab account")
 		})
 		t.Run("with legacy plugin settings", func(t *testing.T) {
-			p, msg, _ := setupInstanceCommandTest(t, nil, nil)
+			p, msg, api := setupInstanceCommandTest(t, nil, nil)
+			api.On("KVGet", "user_id"+GitlabUserInfoKey).Return(nil, nil)
+			api.On("KVGet", "user_id"+GitlabMigrationTokenKey).Return(nil, nil)
 			p.configuration.GitlabURL = "https://gitlab.example.com"
 			p.configuration.GitlabOAuthClientID = "client-id"
 			p.configuration.GitlabOAuthClientSecret = "client-secret"
 			_, _ = p.handleConnect(args, []string{})
 			assert.Contains(t, *msg, "Click here to link your GitLab account")
+		})
+		t.Run("already connected with username", func(t *testing.T) {
+			instanceList := []string{"production"}
+			instanceConfig := map[string]InstanceConfiguration{
+				"production": {
+					GitlabURL:               "https://gitlab.example.com",
+					GitlabOAuthClientID:     "client-id",
+					GitlabOAuthClientSecret: "client-secret",
+				},
+			}
+			p, msg, api := setupInstanceCommandTest(t, instanceList, instanceConfig)
+			userInfo := gitlab.UserInfo{
+				UserID:         "user_id",
+				GitlabUsername: "testuser",
+			}
+			userInfoBytes, _ := json.Marshal(userInfo)
+			api.On("KVGet", "user_id"+GitlabUserInfoKey).Return(userInfoBytes, nil)
+			p.configuration.DefaultInstanceName = "production"
+			_, _ = p.handleConnect(args, []string{})
+			assert.Contains(t, *msg, "You are already connected to GitLab as `testuser`.")
+			assert.Contains(t, *msg, "`/gitlab me`")
+			assert.Contains(t, *msg, "`/gitlab disconnect`")
+		})
+		t.Run("already connected without username", func(t *testing.T) {
+			instanceList := []string{"production"}
+			instanceConfig := map[string]InstanceConfiguration{
+				"production": {
+					GitlabURL:               "https://gitlab.example.com",
+					GitlabOAuthClientID:     "client-id",
+					GitlabOAuthClientSecret: "client-secret",
+				},
+			}
+			p, msg, api := setupInstanceCommandTest(t, instanceList, instanceConfig)
+			userInfo := gitlab.UserInfo{
+				UserID: "user_id",
+			}
+			userInfoBytes, _ := json.Marshal(userInfo)
+			api.On("KVGet", "user_id"+GitlabUserInfoKey).Return(userInfoBytes, nil)
+			p.configuration.DefaultInstanceName = "production"
+			_, _ = p.handleConnect(args, []string{})
+			assert.Contains(t, *msg, "You are already connected to GitLab.")
+			assert.Contains(t, *msg, "`/gitlab me`")
+			assert.Contains(t, *msg, "`/gitlab disconnect`")
 		})
 		t.Run("not configured", func(t *testing.T) {
 			p, msg, _ := setupInstanceCommandTest(t, nil, nil)

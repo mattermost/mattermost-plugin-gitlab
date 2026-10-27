@@ -1,6 +1,10 @@
 # Changelog
 
-ALl releases can be found at https://github.com/mattermost/mattermost-plugin-gitlab/releases.
+All releases can be found at https://github.com/mattermost/mattermost-plugin-gitlab/releases.
+
+## Unreleased
+
+- **Fix** Inform users when they are already connected when running `/gitlab connect` [#593](https://github.com/mattermost/mattermost-plugin-gitlab/issues/593)
 
 ## 0.3.0 - 2019-06-05
 
