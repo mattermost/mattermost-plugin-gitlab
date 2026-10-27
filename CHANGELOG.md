@@ -2,6 +2,10 @@
 
 ALl releases can be found at https://github.com/mattermost/mattermost-plugin-gitlab/releases.
 
+## Unreleased
+
+- Specify which GitLab settings were changed and their new values after updating settings [#594](https://github.com/mattermost/mattermost-plugin-gitlab/issues/594)
+
 ## 0.3.0 - 2019-06-05
 
 - Give feedback to user when subscription has unknown feature [#47](https://github.com/manland/mattermost-plugin-gitlab/pull/47)

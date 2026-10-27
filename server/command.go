@@ -508,7 +508,7 @@ func (p *Plugin) handleSettings(ctx context.Context, args *model.CommandArgs, pa
 		return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs", true), nil
 	}
 
-	return p.getCommandResponse(args, "Settings updated.", true), nil
+	return p.getCommandResponse(args, fmt.Sprintf("Settings updated: %s set to %s.", setting, strValue), true), nil
 }
 
 func (p *Plugin) handleWebhookHandler(ctx context.Context, args *model.CommandArgs, parameters []string, info *gitlab.UserInfo) (*model.CommandResponse, *model.AppError) {
