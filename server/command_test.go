@@ -905,9 +905,6 @@ func setupSettingsCommandTest(t *testing.T) (*Plugin, *string, *plugintest.API) 
 	var capturedMessage string
 	api := &plugintest.API{}
 	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil)
-	api.On("KVDelete", mock.AnythingOfType("string")).Return(nil)
-	api.On("LogError", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	api.On("SendEphemeralPost", mock.Anything, mock.MatchedBy(func(post *model.Post) bool {
 		capturedMessage = post.Message
@@ -924,18 +921,25 @@ func TestSettingsCommand(t *testing.T) {
 	args := &model.CommandArgs{UserId: "test_user_id", ChannelId: "test_channel_id"}
 
 	t.Run("missing parameters", func(t *testing.T) {
-		p, msg, _ := setupSettingsCommandTest(t)
-		info := &gitlab.UserInfo{UserID: "test_user_id", Settings: &gitlab.UserSettings{}}
+		t.Run("no parameters", func(t *testing.T) {
+			p, msg, _ := setupSettingsCommandTest(t)
+			info := &gitlab.UserInfo{UserID: "test_user_id", Settings: &gitlab.UserSettings{}}
 
-		res, err := p.handleSettings(context.Background(), args, []string{}, info)
-		assert.Nil(t, err)
-		assert.NotNil(t, res)
-		assert.Equal(t, "Please specify both a setting and value. Use `/gitlab help` for more usage information.", *msg)
+			res, err := p.handleSettings(context.Background(), args, []string{}, info)
+			assert.Nil(t, err)
+			assert.NotNil(t, res)
+			assert.Equal(t, "Please specify both a setting and value. Use `/gitlab help` for more usage information.", *msg)
+		})
 
-		res, err = p.handleSettings(context.Background(), args, []string{"notifications"}, info)
-		assert.Nil(t, err)
-		assert.NotNil(t, res)
-		assert.Equal(t, "Please specify both a setting and value. Use `/gitlab help` for more usage information.", *msg)
+		t.Run("setting only", func(t *testing.T) {
+			p, msg, _ := setupSettingsCommandTest(t)
+			info := &gitlab.UserInfo{UserID: "test_user_id", Settings: &gitlab.UserSettings{}}
+
+			res, err := p.handleSettings(context.Background(), args, []string{"notifications"}, info)
+			assert.Nil(t, err)
+			assert.NotNil(t, res)
+			assert.Equal(t, "Please specify both a setting and value. Use `/gitlab help` for more usage information.", *msg)
+		})
 	})
 
 	t.Run("invalid value", func(t *testing.T) {
@@ -958,66 +962,69 @@ func TestSettingsCommand(t *testing.T) {
 		assert.Equal(t, "Unknown setting.", *msg)
 	})
 
-	t.Run("update notifications to on", func(t *testing.T) {
-		p, msg, api := setupSettingsCommandTest(t)
-		info := &gitlab.UserInfo{
-			UserID:         "test_user_id",
-			GitlabUsername: "gitlab_user",
-			GitlabUserID:   12345,
-			Settings:       &gitlab.UserSettings{Notifications: false},
-		}
+	updateTests := []struct {
+		name        string
+		parameters  []string
+		initial     gitlab.UserSettings
+		expected    gitlab.UserSettings
+		expectedMsg string
+		assertMocks func(t *testing.T, api *plugintest.API)
+	}{
+		{
+			name:        "update notifications to on",
+			parameters:  []string{"notifications", "on"},
+			initial:     gitlab.UserSettings{Notifications: false},
+			expected:    gitlab.UserSettings{Notifications: true},
+			expectedMsg: "Settings updated: notifications set to on.",
+			assertMocks: func(t *testing.T, api *plugintest.API) {
+				api.AssertCalled(t, "KVSetWithOptions", "gitlab_user_gitlabusername", []byte("test_user_id"), mock.AnythingOfType("model.PluginKVSetOptions"))
+				api.AssertCalled(t, "KVSetWithOptions", "12345_gitlabidusername", []byte("gitlab_user"), mock.AnythingOfType("model.PluginKVSetOptions"))
+			},
+		},
+		{
+			name:        "update notifications to off",
+			parameters:  []string{"notifications", "off"},
+			initial:     gitlab.UserSettings{Notifications: true},
+			expected:    gitlab.UserSettings{Notifications: false},
+			expectedMsg: "Settings updated: notifications set to off.",
+			assertMocks: func(t *testing.T, api *plugintest.API) {
+				api.AssertCalled(t, "KVSetWithOptions", "gitlab_user_gitlabusername", []byte(nil), mock.AnythingOfType("model.PluginKVSetOptions"))
+			},
+		},
+		{
+			name:        "update reminders to on",
+			parameters:  []string{"reminders", "on"},
+			initial:     gitlab.UserSettings{DailyReminder: false},
+			expected:    gitlab.UserSettings{DailyReminder: true},
+			expectedMsg: "Settings updated: reminders set to on.",
+		},
+		{
+			name:        "update reminders to off",
+			parameters:  []string{"reminders", "off"},
+			initial:     gitlab.UserSettings{DailyReminder: true},
+			expected:    gitlab.UserSettings{DailyReminder: false},
+			expectedMsg: "Settings updated: reminders set to off.",
+		},
+	}
 
-		res, err := p.handleSettings(context.Background(), args, []string{"notifications", "on"}, info)
-		assert.Nil(t, err)
-		assert.NotNil(t, res)
-		assert.Equal(t, "Settings updated: notifications set to on.", *msg)
-		assert.True(t, info.Settings.Notifications)
-		api.AssertCalled(t, "KVSetWithOptions", "gitlab_user_gitlabusername", []byte("test_user_id"), mock.AnythingOfType("model.PluginKVSetOptions"))
-		api.AssertCalled(t, "KVSetWithOptions", "12345_gitlabidusername", []byte("gitlab_user"), mock.AnythingOfType("model.PluginKVSetOptions"))
-	})
+	for _, tc := range updateTests {
+		t.Run(tc.name, func(t *testing.T) {
+			p, msg, api := setupSettingsCommandTest(t)
+			info := &gitlab.UserInfo{
+				UserID:         "test_user_id",
+				GitlabUsername: "gitlab_user",
+				GitlabUserID:   12345,
+				Settings:       &tc.initial,
+			}
 
-	t.Run("update notifications to off", func(t *testing.T) {
-		p, msg, api := setupSettingsCommandTest(t)
-		info := &gitlab.UserInfo{
-			UserID:         "test_user_id",
-			GitlabUsername: "gitlab_user",
-			GitlabUserID:   12345,
-			Settings:       &gitlab.UserSettings{Notifications: true},
-		}
-
-		res, err := p.handleSettings(context.Background(), args, []string{"notifications", "off"}, info)
-		assert.Nil(t, err)
-		assert.NotNil(t, res)
-		assert.Equal(t, "Settings updated: notifications set to off.", *msg)
-		assert.False(t, info.Settings.Notifications)
-		api.AssertCalled(t, "KVSetWithOptions", "gitlab_user_gitlabusername", []byte(nil), mock.AnythingOfType("model.PluginKVSetOptions"))
-	})
-
-	t.Run("update reminders to on", func(t *testing.T) {
-		p, msg, _ := setupSettingsCommandTest(t)
-		info := &gitlab.UserInfo{
-			UserID:   "test_user_id",
-			Settings: &gitlab.UserSettings{DailyReminder: false},
-		}
-
-		res, err := p.handleSettings(context.Background(), args, []string{"reminders", "on"}, info)
-		assert.Nil(t, err)
-		assert.NotNil(t, res)
-		assert.Equal(t, "Settings updated: reminders set to on.", *msg)
-		assert.True(t, info.Settings.DailyReminder)
-	})
-
-	t.Run("update reminders to off", func(t *testing.T) {
-		p, msg, _ := setupSettingsCommandTest(t)
-		info := &gitlab.UserInfo{
-			UserID:   "test_user_id",
-			Settings: &gitlab.UserSettings{DailyReminder: true},
-		}
-
-		res, err := p.handleSettings(context.Background(), args, []string{"reminders", "off"}, info)
-		assert.Nil(t, err)
-		assert.NotNil(t, res)
-		assert.Equal(t, "Settings updated: reminders set to off.", *msg)
-		assert.False(t, info.Settings.DailyReminder)
-	})
+			res, err := p.handleSettings(context.Background(), args, tc.parameters, info)
+			assert.Nil(t, err)
+			assert.NotNil(t, res)
+			assert.Equal(t, tc.expectedMsg, *msg)
+			assert.Equal(t, tc.expected, *info.Settings)
+			if tc.assertMocks != nil {
+				tc.assertMocks(t, api)
+			}
+		})
+	}
 }
