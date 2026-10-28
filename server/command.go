@@ -341,6 +341,15 @@ func (p *Plugin) handleConnect(args *model.CommandArgs, parameters []string) (*m
 		return p.getCommandResponse(args, "No instance is configured. Please specify an instance name or ask your system administrator to configure the plugin.", true), nil
 	}
 
+	if info, err := p.getGitlabUserInfoByMattermostID(args.UserId); err == nil && info != nil {
+		target := "."
+		if info.GitlabUsername != "" {
+			target = fmt.Sprintf(" as `%s`.", info.GitlabUsername)
+		}
+		message := fmt.Sprintf("You are already connected to GitLab%s To view your profile run `/gitlab me`, or to connect to a different account run `/gitlab disconnect` first.", target)
+		return p.getCommandResponse(args, message, true), nil
+	}
+
 	pluginURL := getPluginURL(p.client)
 	if pluginURL == "" {
 		return p.getCommandResponse(args, "Encountered an error connecting to GitLab.", true), nil
