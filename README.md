@@ -48,7 +48,7 @@ This plugin contains both a server and web app portion. Read our documentation a
 
 ### Playwright e2e tests
 
-Setup and commands are documented in [e2e/playwright/README.md](e2e/playwright/README.md). From the repo root, `make e2e-server-up` starts Mattermost and GitLab, and `make e2e` runs the suite.
+Setup and commands are documented in [e2e/playwright/README.md](e2e/playwright/README.md). From the repo root, `make e2e-env-up` starts Mattermost and GitLab, and `make e2e` runs the suite.
   
 ## Help wanted!
 

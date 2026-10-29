@@ -21,12 +21,12 @@ The suite needs Node.js 20 or newer. GitLab needs about 4 GB of RAM. The first b
 From the repo root:
 
 ```sh
-make e2e-server-up    # Mattermost 12.0, Postgres, GitLab CE, and a GitLab runner
+make e2e-env-up    # Mattermost 12.0, Postgres, GitLab CE, and a GitLab runner
 make e2e              # build the plugin bundle, install deps, run the suite
-make e2e-server-down  # stop and wipe both servers
+make e2e-env-down  # stop and wipe both servers
 ```
 
-Or from this directory, after `make dist` and `make e2e-server-up`:
+Or from this directory, after `make dist` and `make e2e-env-up`:
 
 ```sh
 npm ci && npx playwright install chromium

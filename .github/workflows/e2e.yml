@@ -55,7 +55,7 @@ jobs:
       # Runs in the background so GitLab's boot overlaps with the plugin build.
       - name: Start Mattermost, GitLab, and the runner
         run: |
-          (make e2e-server-up > "$RUNNER_TEMP/server-up.log" 2>&1; echo $? > "$RUNNER_TEMP/server-up.exit") &
+          (make e2e-env-up > "$RUNNER_TEMP/server-up.log" 2>&1; echo $? > "$RUNNER_TEMP/server-up.exit") &
 
       - name: Build the plugin bundle
         run: make dist
@@ -101,4 +101,4 @@ jobs:
 
       - name: Stop the servers
         if: always()
-        run: make e2e-server-down
+        run: make e2e-env-down

@@ -21,7 +21,7 @@ const CREDENTIALS_PATH = path.resolve(__dirname, '../.gitlab-credentials.json');
 
 export function loadCredentials(): GitlabCredentials {
     if (!fs.existsSync(CREDENTIALS_PATH)) {
-        throw new Error(`Missing ${CREDENTIALS_PATH}. Run \`make e2e-server-up\` and the global setup bootstrap first.`);
+        throw new Error(`Missing ${CREDENTIALS_PATH}. Run \`make e2e-env-up\` and the global setup bootstrap first.`);
     }
     return JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8')) as GitlabCredentials;
 }
