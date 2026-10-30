@@ -25,7 +25,8 @@ test.describe('slash commands', () => {
         const profile = await runCommandExpecting(channelsPage, '/gitlab me', 'You are connected to GitLab as:');
         await expect(profile).toContainText(credentials.e2e_username);
 
-        await runCommandExpecting(channelsPage, '/gitlab connect', 'Click here to link your GitLab account.');
+        const alreadyConnected = await runCommandExpecting(channelsPage, '/gitlab connect', 'You are already connected to GitLab as');
+        await expect(alreadyConnected).toContainText(credentials.e2e_username);
     });
 
     test('restricts instance management to system admins', async ({pw}) => {
@@ -41,10 +42,10 @@ test.describe('slash commands', () => {
     test('updates personal settings and rejects invalid values', async ({pw}) => {
         const channelsPage = await ensureConnected(pw);
 
-        await runCommandExpecting(channelsPage, '/gitlab settings reminders off', 'Settings updated.');
-        await runCommandExpecting(channelsPage, '/gitlab settings reminders on', 'Settings updated.');
-        await runCommandExpecting(channelsPage, '/gitlab settings notifications off', 'Settings updated.');
-        await runCommandExpecting(channelsPage, '/gitlab settings notifications on', 'Settings updated.');
+        await runCommandExpecting(channelsPage, '/gitlab settings reminders off', 'Settings updated: reminders set to off.');
+        await runCommandExpecting(channelsPage, '/gitlab settings reminders on', 'Settings updated: reminders set to on.');
+        await runCommandExpecting(channelsPage, '/gitlab settings notifications off', 'Settings updated: notifications set to off.');
+        await runCommandExpecting(channelsPage, '/gitlab settings notifications on', 'Settings updated: notifications set to on.');
         await runCommandExpecting(channelsPage, '/gitlab settings notifications maybe', 'Invalid value. Accepted values are: "on" or "off".');
         await runCommandExpecting(channelsPage, '/gitlab settings colors on', 'Unknown setting.');
         await runCommandExpecting(channelsPage, '/gitlab settings', 'Please specify both a setting and value.');

@@ -100,11 +100,11 @@ test.describe('direct message notifications', () => {
 
         await subscribe(channelsPage, path, 'issue_comments');
         try {
-            await runCommandExpecting(channelsPage, '/gitlab settings notifications off', 'Settings updated.');
+            await runCommandExpecting(channelsPage, '/gitlab settings notifications off', 'Settings updated: notifications set to off.');
             await root.commentOnIssue(project.id, issue.iid, `@${credentials.e2e_username} ${muted}`);
             await expectPost(page, 'New comment by root', muted);
         } finally {
-            await runCommandExpecting(channelsPage, '/gitlab settings notifications on', 'Settings updated.');
+            await runCommandExpecting(channelsPage, '/gitlab settings notifications on', 'Settings updated: notifications set to on.');
         }
 
         await root.commentOnIssue(project.id, issue.iid, `@${credentials.e2e_username} ${heard}`);
