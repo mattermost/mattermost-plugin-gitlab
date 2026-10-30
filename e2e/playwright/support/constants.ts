@@ -16,6 +16,3 @@ export const INSTANCE_NAME = 'gitlab-e2e';
 export const BOT_USERNAME = 'gitlab';
 
 export const WEBHOOK_TIMEOUT = 45000;
-
-// The plugin id contains dots, so an #id selector would parse them as classes.
-export const APP_BAR_ICON = `[id="app-bar-icon-${PLUGIN_ID}"]`;

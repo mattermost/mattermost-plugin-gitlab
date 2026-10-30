@@ -31,7 +31,6 @@ const NotSignedIn = (props: NotSignedInProps) => {
             <div className='gitlab-rhs-ConnectPrompt'>{'Connect your account'}<br/>{'to get started'}</div>
             <a
                 className='gitlab-rhs-Connect'
-                data-testid='gitlab-rhs-connect'
                 href={`${props.pluginServerRoute}/oauth/connect`}
                 onClick={openConnectWindow}
             >
@@ -109,10 +108,7 @@ interface SubscriptionProps {
 const Subscriptions = (props: SubscriptionsProps) => {
     if (props.subscriptions.length === 0) {
         return (
-            <div
-                className='gitlab-rhs-NoSubscriptionsContainer'
-                data-testid='gitlab-rhs-empty'
-            >
+            <div className='gitlab-rhs-NoSubscriptionsContainer'>
                 <div className='gitlab-rhs-NoSubscriptionsImg'>
                     <NoSubscriptionsSVG/>
                 </div>

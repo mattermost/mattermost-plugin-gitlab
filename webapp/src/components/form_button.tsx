@@ -10,10 +10,9 @@ type Props = {
     saving?: boolean;
     savingMessage?: string;
     onClick?: () => void;
-    testId?: string;
 };
 
-const FormButton = ({saving, disabled, savingMessage, defaultMessage, btnClass, onClick, testId}: Props) => {
+const FormButton = ({saving, disabled, savingMessage, defaultMessage, btnClass, onClick}: Props) => {
     const contents = saving ? (
         <span>
             <span
@@ -29,7 +28,6 @@ const FormButton = ({saving, disabled, savingMessage, defaultMessage, btnClass, 
     return (
         <button
             id='saveSetting'
-            data-testid={testId}
             className={className}
             disabled={disabled}
             onClick={onClick}

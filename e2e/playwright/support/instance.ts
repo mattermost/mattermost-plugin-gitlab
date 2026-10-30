@@ -5,11 +5,13 @@ import './env';
 
 import type {Client4} from '@mattermost/client';
 import {ChannelsPage, TestBrowser, testConfig} from '@mattermost/playwright-lib';
-import {chromium, expect, type Locator, type Page} from '@playwright/test';
+import {chromium, expect, type Page} from '@playwright/test';
 
 import {loginAdmin, loginRegularUser} from './admin';
 import {BOT_USERNAME, INSTANCE_NAME, PLUGIN_ID, TEAM_NAME, TOWN_SQUARE} from './constants';
 import {loadCredentials} from './credentials';
+
+const WIZARD_STEP_TIMEOUT = 15000;
 
 async function executeCommand(client: Client4, command: string) {
     const team = await client.getTeamByName(TEAM_NAME);
@@ -23,12 +25,15 @@ async function defaultInstanceName(client: Client4) {
     return settings?.defaultinstancename;
 }
 
-function latestBotPost(page: Page): Locator {
-    return page.locator('.post').filter({has: page.locator('.post__header', {hasText: BOT_USERNAME})}).last();
+// Earlier runs leave identical wizard prompts in the DM, so each step waits for the newest post.
+async function expectWizardStep(channelsPage: ChannelsPage, text: string) {
+    await channelsPage.centerView.waitUntilLastPostContains(text, WIZARD_STEP_TIMEOUT);
 }
 
-async function clickWizardButton(page: Page, name: string) {
-    await latestBotPost(page).getByRole('button', {name, exact: true}).click();
+async function clickWizardButton(channelsPage: ChannelsPage, text: string, name: string) {
+    await expectWizardStep(channelsPage, text);
+    const post = await channelsPage.centerView.getLastPost();
+    await post.container.getByRole('button', {name, exact: true}).click();
 }
 
 async function submitDialog(page: Page, fields: Record<string, string>) {
@@ -59,27 +64,24 @@ export async function installInstance() {
     const browser = await chromium.launch({headless: testConfig.headless});
     try {
         const {page} = await new TestBrowser(browser).login(user);
+        const channelsPage = new ChannelsPage(page);
         await page.goto(`${testConfig.baseURL}/${TEAM_NAME}/messages/@${BOT_USERNAME}`);
-        await new ChannelsPage(page).toBeVisible();
+        await channelsPage.toBeVisible();
 
-        await expect(latestBotPost(page)).toContainText('Are you using gitlab.com?');
-        await clickWizardButton(page, 'No');
+        await clickWizardButton(channelsPage, 'Are you using gitlab.com?', 'No');
         await submitDialog(page, {'Enter GitLab URL': credentials.gitlab_url});
 
-        await expect(latestBotPost(page)).toContainText('Register an OAuth Application in GitLab');
-        await clickWizardButton(page, 'Continue');
+        await clickWizardButton(channelsPage, 'Register an OAuth Application in GitLab', 'Continue');
 
-        await expect(latestBotPost(page)).toContainText('Application ID');
-        await clickWizardButton(page, 'Continue');
+        await clickWizardButton(channelsPage, 'Application ID', 'Continue');
         await submitDialog(page, {
             'Enter GitLab Instance name': INSTANCE_NAME,
             'Enter GitLab OAuth Application ID': credentials.client_id,
             'Enter GitLab OAuth Secret': credentials.client_secret,
         });
 
-        await expect(latestBotPost(page)).toContainText('default GitLab instance');
-        await clickWizardButton(page, 'Yes');
-        await expect(latestBotPost(page)).toContainText('Connect your GitLab account');
+        await clickWizardButton(channelsPage, 'default GitLab instance', 'Yes');
+        await expectWizardStep(channelsPage, 'Connect your GitLab account');
     } finally {
         await browser.close();
     }

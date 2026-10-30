@@ -84,27 +84,23 @@ const AttachCommentToIssueForm = ({theme, handleClose, setIsSubmitting, isSubmit
     return (
         <form
             role='form'
-            data-testid='gitlab-attach-comment-form'
             onSubmit={handleCreate}
         >
             <Modal.Body
                 style={style.modal}
             >
-                <div data-testid='gitlab-attach-comment-issue'>
-                    <GitlabIssueSelector
-                        name={'issue'}
-                        onChange={handleIssueValueChange}
-                        required={true}
-                        theme={theme}
-                        error={error}
-                        value={issueValue}
-                        addValidate={validator.addComponent}
-                        removeValidate={validator.removeComponent}
-                    />
-                </div>
+                <GitlabIssueSelector
+                    name={'issue'}
+                    onChange={handleIssueValueChange}
+                    required={true}
+                    theme={theme}
+                    error={error}
+                    value={issueValue}
+                    addValidate={validator.addComponent}
+                    removeValidate={validator.removeComponent}
+                />
                 <Input
                     id={'comment'}
-                    testId='gitlab-attach-comment-message'
                     label='Message Attached to GitLab Issue'
                     type='textarea'
                     required={true}
@@ -120,7 +116,6 @@ const AttachCommentToIssueForm = ({theme, handleClose, setIsSubmitting, isSubmit
                     onClick={handleClose}
                 />
                 <FormButton
-                    testId='gitlab-attach-comment-submit'
                     btnClass='btn btn-primary'
                     saving={isSubmitting}
                     defaultMessage='Attach'

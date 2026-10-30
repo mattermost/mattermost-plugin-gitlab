@@ -132,6 +132,7 @@ const GitlabIssueSelector = ({name, required, theme, onChange, error, value, add
             <>
                 {serverError}
                 <AsyncSelect
+                    inputId={name}
                     name={'issue'}
                     placeholder={'Search for issues containing text...'}
                     onChange={handleOnChange}

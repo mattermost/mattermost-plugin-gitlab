@@ -133,9 +133,9 @@ export default class SidebarButtons extends PureComponent<SidebarButtonsProps, S
         const yourAssignedIssues = this.props.yourAssignedIssues || [];
         const refreshClass = this.state.refreshing ? ' fa-spin' : '';
 
-        // The channel header and the team sidebar both render this component.
-        // Test ids belong to the channel-header instance, which is the one shown
-        // when the user is in a single team.
+        // The left sidebar header and the team sidebar both render this component.
+        // Test ids belong to the header instance, which is the one shown when the
+        // user is in a single team.
         const headerProps = (id: string) => (isTeamSidebar ? {} : {'data-testid': id});
 
         return (
@@ -155,7 +155,7 @@ export default class SidebarButtons extends PureComponent<SidebarButtonsProps, S
                     overlay={<Tooltip id='yourAssignedPrsTooltip'>{'Merge requests assigned'}</Tooltip>}
                 >
                     <a
-                        {...headerProps('gitlab-header-merge-requests')}
+                        aria-label='Merge requests assigned'
                         onClick={() => this.openRHS(RHSStates.PRS)}
                         style={button}
                     >
@@ -172,7 +172,7 @@ export default class SidebarButtons extends PureComponent<SidebarButtonsProps, S
                     overlay={<Tooltip id='reviewTooltip'>{'Merge requests needing review'}</Tooltip>}
                 >
                     <a
-                        {...headerProps('gitlab-header-reviews')}
+                        aria-label='Merge requests needing review'
                         onClick={() => this.openRHS(RHSStates.REVIEWS)}
                         style={button}
                     >
@@ -189,7 +189,7 @@ export default class SidebarButtons extends PureComponent<SidebarButtonsProps, S
                     overlay={<Tooltip id='issuesTooltip'>{'Issues'}</Tooltip>}
                 >
                     <a
-                        {...headerProps('gitlab-header-issues')}
+                        aria-label='Issues'
                         onClick={() => this.openRHS(RHSStates.ISSUES)}
                         style={button}
                     >
@@ -206,7 +206,7 @@ export default class SidebarButtons extends PureComponent<SidebarButtonsProps, S
                     overlay={<Tooltip id='todosTooltip'>{'To-Do list'}</Tooltip>}
                 >
                     <a
-                        {...headerProps('gitlab-header-todos')}
+                        aria-label='To-Do list'
                         onClick={() => this.openRHS(RHSStates.TODOS)}
                         style={button}
                     >
@@ -223,7 +223,7 @@ export default class SidebarButtons extends PureComponent<SidebarButtonsProps, S
                     overlay={<Tooltip id='refreshTooltip'>{'Refresh'}</Tooltip>}
                 >
                     <a
-                        {...headerProps('gitlab-header-refresh')}
+                        aria-label='Refresh'
                         href='#'
                         style={button}
                         onClick={this.getData}

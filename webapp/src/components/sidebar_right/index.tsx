@@ -127,12 +127,7 @@ function SidebarRight({theme}: {theme: Theme}) {
         break;
     }
 
-    let renderedGitlabItems: React.ReactNode = (
-        <div
-            data-testid='gitlab-sidebar-empty'
-            style={style.container}
-        >{'You have no active items'}</div>
-    );
+    let renderedGitlabItems: React.ReactNode = <div style={style.container}>{'You have no active items'}</div>;
     if (gitlabItems?.length) {
         renderedGitlabItems = gitlabItems.map((item) => (
             <GitlabItems
@@ -155,7 +150,6 @@ function SidebarRight({theme}: {theme: Theme}) {
             <div style={style.sectionHeader}>
                 <strong>
                     <a
-                        data-testid='gitlab-sidebar-heading'
                         href={listUrl}
                         target='_blank'
                         rel='noopener noreferrer'

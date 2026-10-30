@@ -169,25 +169,21 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
     return (
         <form
             role='form'
-            data-testid='gitlab-create-issue-form'
             onSubmit={handleCreate}
         >
             <Modal.Body
                 style={style.modal}
             >
-                <div data-testid='gitlab-create-issue-project'>
-                    <GitlabProjectSelector
-                        onChange={handleProjectChange}
-                        value={project?.name}
-                        required={true}
-                        theme={theme}
-                        addValidate={validator.addComponent}
-                        removeValidate={validator.removeComponent}
-                    />
-                </div>
+                <GitlabProjectSelector
+                    onChange={handleProjectChange}
+                    value={project?.name}
+                    required={true}
+                    theme={theme}
+                    addValidate={validator.addComponent}
+                    removeValidate={validator.removeComponent}
+                />
                 <Input
                     id={'title'}
-                    testId='gitlab-create-issue-title'
                     label='Issue title'
                     type='input'
                     required={true}
@@ -200,7 +196,6 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
                 {issueAttributeSelectors()}
                 <Input
                     id={'description'}
-                    testId='gitlab-create-issue-description'
                     required={false}
                     label='Issue description'
                     type='textarea'
@@ -216,7 +211,6 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
                     onClick={handleClose}
                 />
                 <FormButton
-                    testId='gitlab-create-issue-submit'
                     btnClass='btn btn-primary'
                     saving={isSubmitting}
                     defaultMessage='Submit'

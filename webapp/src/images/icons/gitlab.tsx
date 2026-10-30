@@ -5,17 +5,13 @@ import React from 'react';
 
 interface PropTypes {
     type: string;
-    testId?: string;
 }
 
-const GitLabIcon = ({type, testId}: PropTypes) => {
+const GitLabIcon = ({type}: PropTypes) => {
     const iconStyle = type === 'menu' ? {flex: '0 0 auto', width: '20px', height: '20px', padding: '2px', marginRight: '4px'} : {};
 
     return (
-        <span
-            className='MenuItem__icon'
-            data-testid={testId}
-        >
+        <span className='MenuItem__icon'>
             <svg
                 aria-hidden='true'
                 focusable='false'

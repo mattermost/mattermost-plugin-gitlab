@@ -150,14 +150,8 @@ const LinkTooltip = ({href, show}: Props) => {
 
                     <div className='tooltip-info mt-1'>
                         <a href={href}>
-                            <h5
-                                className='mr-1'
-                                data-testid='gitlab-link-tooltip-title'
-                            >{getTruncatedText(data.title, TOOLTIP_MAX_TITLE_LENGTH)}</h5>
-                            <span
-                                className='mr-number'
-                                data-testid='gitlab-link-tooltip-number'
-                            >{`#${data.iid}`}</span>
+                            <h5 className='mr-1'>{getTruncatedText(data.title, TOOLTIP_MAX_TITLE_LENGTH)}</h5>
+                            <span className='mr-number'>{`#${data.iid}`}</span>
                         </a>
                         <div className='markdown-text mt-1 mb-1'>
                             {messageHtmlToComponent(formatText(data.description), false)}

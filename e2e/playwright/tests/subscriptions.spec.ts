@@ -3,11 +3,12 @@
 
 import {expect, test, type ChannelsPage} from '@mattermost/playwright-lib';
 
+import {GitlabRhs} from '../support/components';
 import {createSandbox, destroySandbox, type Sandbox} from '../support/sandbox';
 import {
     addWebhook,
     ensureConnected,
-    openSubscriptionsSidebar,
+    expectPost,
     postWithText,
     runCommandExpecting,
     safeUnsubscribe,
@@ -27,91 +28,149 @@ test.describe('subscriptions', () => {
         channelsPage = undefined;
     });
 
-    test('adds, lists, and deletes a project subscription', async ({pw}) => {
+    /**
+     * @objective Verify a project subscription can be added, listed in the command reply and the sidebar, and deleted
+     */
+    test('adds, lists, and deletes a project subscription from slash commands and the sidebar', {tag: '@gitlab_plugin'}, async ({pw}) => {
         sandbox = await createSandbox();
         const {path} = sandbox;
+
+        // # Open the GitLab subscriptions sidebar
         channelsPage = await ensureConnected(pw);
-        const page = channelsPage.page;
-        await openSubscriptionsSidebar(page);
-        await expect(page.getByTestId('gitlab-rhs-empty')).toBeVisible();
+        const rhs = new GitlabRhs(channelsPage);
+        await rhs.open();
 
+        // * Verify the channel has no subscriptions
+        await expect(rhs.noSubscriptions).toBeVisible();
+
+        // # Subscribe to the project
         await runCommandExpecting(channelsPage, `/gitlab subscriptions add ${path}`, 'A Webhook is needed');
-        await expect(page.getByTestId('gitlab-rhs-subscription').filter({hasText: path})).toBeVisible();
 
+        // * Verify the sidebar shows the subscription
+        await expect(rhs.subscription(path)).toBeVisible();
+
+        // # List the subscriptions
         await runCommandExpecting(channelsPage, '/gitlab subscriptions list', 'Subscriptions in this channel');
-        await expect(postWithText(page, `${path} - merges,issues,tag`)).toBeVisible();
 
+        // * Verify the reply shows the project with the default features
+        await expectPost(channelsPage.page, `${path} - merges,issues,tag`);
+
+        // # Delete the subscription
         await runCommandExpecting(channelsPage, `/gitlab subscriptions delete ${path}`, 'Successfully deleted subscription');
-        await expect(page.getByTestId('gitlab-rhs-empty')).toBeVisible();
 
+        // * Verify the sidebar and the list reply show no subscriptions
+        await expect(rhs.noSubscriptions).toBeVisible();
         await runCommandExpecting(channelsPage, '/gitlab subscriptions list', 'Currently there are no subscriptions in this channel');
     });
 
-    test('stores custom features and shows them in the sidebar', async ({pw}) => {
+    /**
+     * @objective Verify a subscription keeps custom features, shows them in the sidebar, and is replaced by a later subscription
+     */
+    test('stores custom subscription features and shows them in the sidebar', {tag: '@gitlab_plugin'}, async ({pw}) => {
         sandbox = await createSandbox();
         const {path} = sandbox;
         const features = 'issues,merges,pushes,pipeline,label:"bug"';
+
+        // # Open the GitLab subscriptions sidebar and subscribe with custom features
         channelsPage = await ensureConnected(pw);
-        await openSubscriptionsSidebar(channelsPage.page);
-
+        const rhs = new GitlabRhs(channelsPage);
+        await rhs.open();
         await subscribe(channelsPage, path, features);
-        await runCommandExpecting(channelsPage, '/gitlab subscriptions list', `${path} - ${features}`);
 
-        const row = channelsPage.page.getByTestId('gitlab-rhs-subscription').filter({hasText: path});
+        // * Verify the list reply and the sidebar show each feature
+        await runCommandExpecting(channelsPage, '/gitlab subscriptions list', `${path} - ${features}`);
         for (const feature of ['issues', 'merges', 'pushes', 'pipeline']) {
             // eslint-disable-next-line no-await-in-loop
-            await expect(row.getByText(feature, {exact: true})).toBeVisible();
+            await expect(rhs.subscriptionFeature(path, feature)).toBeVisible();
         }
 
-        // Subscribing again replaces the feature list rather than adding a second subscription.
+        // # Subscribe again with a different feature
         await subscribe(channelsPage, path, 'tag');
+
+        // * Verify the feature list is replaced rather than a second subscription added
         await runCommandExpecting(channelsPage, '/gitlab subscriptions list', `${path} - tag`);
-        await expect(channelsPage.page.getByTestId('gitlab-rhs-subscription').filter({hasText: path})).toHaveCount(1);
+        await expect(rhs.subscription(path)).toHaveCount(1);
     });
 
-    test('says when a webhook already exists for the subscription', async ({pw}) => {
+    /**
+     * @objective Verify subscribing does not ask for a webhook when the project already has one
+     */
+    test('skips the webhook prompt when subscribing to a project that already has a webhook', {tag: '@gitlab_plugin'}, async ({pw}) => {
         sandbox = await createSandbox();
         const {path} = sandbox;
         channelsPage = await ensureConnected(pw);
 
+        // # List the project's webhooks before and after adding one
+        // * Verify the list is empty and then includes the plugin webhook
         await runCommandExpecting(channelsPage, `/gitlab webhook list ${path}`, `No webhooks found in ${path}`);
         await addWebhook(channelsPage, path);
         await runCommandExpecting(channelsPage, `/gitlab webhook list ${path}`, 'Merge Request Events');
 
+        // # Subscribe to the project
         await subscribe(channelsPage, path);
-        await expect(postWithText(channelsPage.page, `Successfully subscribed to ${path}`)).not.toContainText('A Webhook is needed');
+
+        // * Verify the reply does not ask for a webhook
+        await postWithText(channelsPage.page, `Successfully subscribed to ${path}`).toNotContainText('A Webhook is needed');
     });
 
-    test('rejects invalid features and label filters without issues or merges', async ({pw}) => {
+    /**
+     * @objective Verify subscriptions with unknown features or misused label filters are rejected
+     */
+    test('rejects unknown features and label filters without issues or merges', {tag: '@gitlab_plugin'}, async ({pw}) => {
         sandbox = await createSandbox();
         const {path} = sandbox;
         channelsPage = await ensureConnected(pw);
 
+        // # Subscribe with an unknown feature, a label filter without issues or merges, and an unquoted label
+        // * Verify each is rejected with its validation error
         await runCommandExpecting(channelsPage, `/gitlab subscriptions add ${path} issues,bogus`, 'unknown features bogus');
         await runCommandExpecting(channelsPage, `/gitlab subscriptions add ${path} pushes,label:"bug"`, "label filters require 'merges' or 'issues' feature");
         await runCommandExpecting(channelsPage, `/gitlab subscriptions add ${path} issues,label:bug`, 'each label must be wrapped in quotes');
+
+        // * Verify no subscription was created
         await runCommandExpecting(channelsPage, '/gitlab subscriptions list', 'Currently there are no subscriptions in this channel');
     });
 
-    test('rejects projects the connected user cannot see', async ({pw}) => {
+    /**
+     * @objective Verify a project the connected GitLab user cannot see cannot be subscribed to
+     *
+     * @precondition
+     * The connected GitLab user is not a member of the new project
+     */
+    test('rejects subscriptions to projects the connected user cannot see', {tag: '@gitlab_plugin'}, async ({pw}) => {
         sandbox = await createSandbox('none');
         channelsPage = await ensureConnected(pw);
 
+        // # Subscribe to the project
+        // * Verify the project is reported as not found
         await runCommandExpecting(channelsPage, `/gitlab subscriptions add ${sandbox.path}`, 'Resource with such path is not found.');
     });
 
-    test('rejects subscriptions and webhooks for guests', async ({pw}) => {
+    /**
+     * @objective Verify a GitLab guest cannot create subscriptions or manage webhooks for a project
+     *
+     * @precondition
+     * The connected GitLab user is a guest of the new project's group
+     */
+    test('rejects subscriptions and webhook commands from project guests', {tag: '@gitlab_plugin'}, async ({pw}) => {
         sandbox = await createSandbox('guest');
         const {path} = sandbox;
         channelsPage = await ensureConnected(pw);
 
+        // # Subscribe to the project and list its webhooks
+        // * Verify both are refused for lack of permissions
         await runCommandExpecting(channelsPage, `/gitlab subscriptions add ${path}`, "You don't have the permissions to create subscriptions for this project.");
         await runCommandExpecting(channelsPage, `/gitlab webhook list ${path}`, "You don't have permission to manage webhooks");
     });
 
-    test('reports usage errors for incomplete subscription commands', async ({pw}) => {
+    /**
+     * @objective Verify incomplete subscription commands reply with usage errors
+     */
+    test('reports usage errors for incomplete subscription commands', {tag: '@gitlab_plugin'}, async ({pw}) => {
         channelsPage = await ensureConnected(pw);
 
+        // # Run subscription commands without a subcommand or repository, and delete an unknown subscription
+        // * Verify each replies with its usage error
         await runCommandExpecting(channelsPage, '/gitlab subscriptions', 'Invalid subscribe command. Available commands are add, delete, and list');
         await runCommandExpecting(channelsPage, '/gitlab subscriptions add', 'Please provide the owner[/repo]');
         await runCommandExpecting(channelsPage, '/gitlab subscriptions delete', 'Please specify a repository.');

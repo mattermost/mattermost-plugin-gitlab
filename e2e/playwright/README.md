@@ -60,7 +60,15 @@ GitLab Community Edition has no group webhooks, so the group-subscription test a
 | `webapp_integrations` | Link tooltips and the profile popover attribute |
 | `pipelines` | `/gitlab pipelines run`, plus pipeline, job, and deployment posts on the runner |
 
-`pipelines` includes a `fixme` test for the failed-pipeline DM. The plugin does not deliver that DM to the pipeline author today.
+`pipelines` includes a `fixme` test for the failed-pipeline DM. The plugin does not deliver that DM to the pipeline author today ([MM-71329](https://mattermost.atlassian.net/browse/MM-71329)).
+
+### Writing tests
+
+Specs follow the [Mattermost Playwright guidelines](https://github.com/mattermost/mattermost/blob/master/e2e-tests/playwright/CLAUDE.OPTIONAL.md):
+
+- Every test has a JSDoc block with `@objective` (and `@precondition` when the setup is not the default), the `@gitlab_plugin` tag, and `// #` action and `// *` verification comments.
+- Specs hold no selectors. Mattermost UI goes through `@mattermost/playwright-lib` page objects, and the plugin's UI through the components in `support/components/` (`GitlabRhs`, `GitlabSidebar`, `CreateIssueModal`, `AttachCommentModal`, `GitlabLinkTooltip`, `GitlabProfileAttribute`).
+- Components locate elements by role, label, or text. Test ids are kept only for elements without an accessible name: the header counts, sidebar items, the connected username, subscription rows, and the link tooltip.
 
 ### CI
 
