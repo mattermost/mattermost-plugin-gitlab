@@ -90,6 +90,7 @@ const ReactSelectSetting = ({name, onChange, label, theme, options, isLoading, v
         // "filterOptions" to limit the number of options being rendered at a given time.
         selectComponent = (
             <AsyncSelect
+                inputId={name}
                 loadOptions={filterOptions}
                 defaultOptions={true}
                 isClearable={true}
@@ -103,6 +104,7 @@ const ReactSelectSetting = ({name, onChange, label, theme, options, isLoading, v
     } else {
         selectComponent = (
             <ReactSelect
+                inputId={name}
                 options={options}
                 menuPortalTarget={document.body}
                 menuPlacement='auto'
