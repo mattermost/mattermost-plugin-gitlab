@@ -4,6 +4,7 @@
 import React from 'react';
 
 type Props = {
+    type?: 'button' | 'submit' | 'reset';
     disabled?: boolean;
     defaultMessage?: string;
     btnClass?: string;
@@ -12,7 +13,7 @@ type Props = {
     onClick?: () => void;
 };
 
-const FormButton = ({saving, disabled, savingMessage, defaultMessage, btnClass, onClick}: Props) => {
+const FormButton = ({type = 'button', saving, disabled, savingMessage, defaultMessage, btnClass, onClick}: Props) => {
     const contents = saving ? (
         <span>
             <span
@@ -27,6 +28,7 @@ const FormButton = ({saving, disabled, savingMessage, defaultMessage, btnClass, 
 
     return (
         <button
+            type={type}
             id='saveSetting'
             className={className}
             disabled={disabled}
