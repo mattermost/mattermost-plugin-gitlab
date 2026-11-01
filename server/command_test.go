@@ -198,6 +198,14 @@ var subscribeCommandTests = []subscribeCommandTest{
 		rejectsWithoutWrite: true,
 	},
 	{
+		testName:            "Subscription fails when project has no labels",
+		parameters:          []string{"add", "group/project", `issues,merges,label:"invalid"`},
+		mockGitlab:          true,
+		mattermostURL:       "example.com",
+		want:                `the label "invalid" does not exist in group/project`,
+		rejectsWithoutWrite: true,
+	},
+	{
 		testName:      "Subscription succeeds when label exists in project",
 		parameters:    []string{"add", "group/project", `issues,merges,label:"bug"`},
 		mockGitlab:    true,
@@ -241,6 +249,16 @@ var subscribeCommandTests = []subscribeCommandTest{
 		groupLabels:         []*gitLabAPI.GroupLabel{{Name: "bug"}},
 		mattermostURL:       "example.com",
 		want:                `the label "invalid" does not exist in group`,
+		rejectsWithoutWrite: true,
+	},
+	{
+		testName:            "Subscription fails when group labels API returns error",
+		parameters:          []string{"add", "group", `issues,label:"bug"`},
+		mockGitlab:          true,
+		groupOnly:           true,
+		getLabelsErr:        errors.New("500 Internal Server Error"),
+		mattermostURL:       "example.com",
+		want:                `failed to get labels: 500 Internal Server Error`,
 		rejectsWithoutWrite: true,
 	},
 	{
@@ -488,7 +506,7 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 			mockedClient.EXPECT().GetLabels(gomock.Any(), gomock.Any(), "group/project", gomock.Any()).Return(test.labels, test.getLabelsErr)
 		}
 
-		if test.getLabelsErr == nil && !test.noAccess && (len(test.labels) == 0 || test.want == subscribeSuccessMessage) {
+		if test.getLabelsErr == nil && !test.noAccess && !test.rejectsWithoutWrite && (len(test.labels) == 0 || test.want == subscribeSuccessMessage) {
 			mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
 			if test.projectHookErr == nil {
 				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
