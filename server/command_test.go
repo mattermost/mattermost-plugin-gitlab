@@ -43,6 +43,7 @@ type subscribeCommandTest struct {
 	labels                    []*gitLabAPI.Label
 	groupLabels               []*gitLabAPI.GroupLabel
 	getLabelsErr              error
+	rejectsWithoutWrite       bool
 }
 
 const (
@@ -188,12 +189,13 @@ var subscribeCommandTests = []subscribeCommandTest{
 		noAccess:                  true,
 	},
 	{
-		testName:      "Subscription fails when label does not exist in project",
-		parameters:    []string{"add", "group/project", `issues,merges,label:"invalid"`},
-		mockGitlab:    true,
-		labels:        []*gitLabAPI.Label{{Name: "bug"}},
-		mattermostURL: "example.com",
-		want:          `the label "invalid" does not exist in group/project`,
+		testName:            "Subscription fails when label does not exist in project",
+		parameters:          []string{"add", "group/project", `issues,merges,label:"invalid"`},
+		mockGitlab:          true,
+		labels:              []*gitLabAPI.Label{{Name: "bug"}},
+		mattermostURL:       "example.com",
+		want:                `the label "invalid" does not exist in group/project`,
+		rejectsWithoutWrite: true,
 	},
 	{
 		testName:      "Subscription succeeds when label exists in project",
@@ -205,12 +207,13 @@ var subscribeCommandTests = []subscribeCommandTest{
 		want:          subscribeSuccessMessage,
 	},
 	{
-		testName:      "Subscription fails when one of multiple labels does not exist in project",
-		parameters:    []string{"add", "group/project", `issues,merges,label:"bug",label:"nonexistent"`},
-		mockGitlab:    true,
-		labels:        []*gitLabAPI.Label{{Name: "bug"}},
-		mattermostURL: "example.com",
-		want:          `the label "nonexistent" does not exist in group/project`,
+		testName:            "Subscription fails when one of multiple labels does not exist in project",
+		parameters:          []string{"add", "group/project", `issues,merges,label:"bug",label:"nonexistent"`},
+		mockGitlab:          true,
+		labels:              []*gitLabAPI.Label{{Name: "bug"}},
+		mattermostURL:       "example.com",
+		want:                `the label "nonexistent" does not exist in group/project`,
+		rejectsWithoutWrite: true,
 	},
 	{
 		testName:      "Subscription succeeds with multiple valid labels in project",
@@ -222,21 +225,23 @@ var subscribeCommandTests = []subscribeCommandTest{
 		want:          subscribeSuccessMessage,
 	},
 	{
-		testName:      "Subscription fails when project labels API returns error",
-		parameters:    []string{"add", "group/project", `issues,merges,label:"bug"`},
-		mockGitlab:    true,
-		getLabelsErr:  errors.New("500 Internal Server Error"),
-		mattermostURL: "example.com",
-		want:          `failed to get labels: 500 Internal Server Error`,
+		testName:            "Subscription fails when project labels API returns error",
+		parameters:          []string{"add", "group/project", `issues,merges,label:"bug"`},
+		mockGitlab:          true,
+		getLabelsErr:        errors.New("500 Internal Server Error"),
+		mattermostURL:       "example.com",
+		want:                `failed to get labels: 500 Internal Server Error`,
+		rejectsWithoutWrite: true,
 	},
 	{
-		testName:      "Subscription fails when label does not exist in group",
-		parameters:    []string{"add", "group", `issues,label:"invalid"`},
-		mockGitlab:    true,
-		groupOnly:     true,
-		groupLabels:   []*gitLabAPI.GroupLabel{{Name: "bug"}},
-		mattermostURL: "example.com",
-		want:          `the label "invalid" does not exist in group`,
+		testName:            "Subscription fails when label does not exist in group",
+		parameters:          []string{"add", "group", `issues,label:"invalid"`},
+		mockGitlab:          true,
+		groupOnly:           true,
+		groupLabels:         []*gitLabAPI.GroupLabel{{Name: "bug"}},
+		mattermostURL:       "example.com",
+		want:                `the label "invalid" does not exist in group`,
+		rejectsWithoutWrite: true,
 	},
 	{
 		testName:      "Subscription succeeds when label exists in group",
@@ -260,10 +265,14 @@ func TestSubscribeCommand(t *testing.T) {
 				UserID: "user_id",
 			}
 
-			p := getTestPlugin(t, mockCtrl, test)
+			p, api := getTestPlugin(t, mockCtrl, test)
 			subscribeMessage, _ := p.subscribeCommand(context.Background(), test.parameters, channelID, &configuration{}, userInfo)
 
 			assert.Equal(t, test.want, subscribeMessage, "Subscribe command message should be the same.")
+			if test.rejectsWithoutWrite {
+				api.AssertNotCalled(t, "KVSet", SubscriptionsKey, mock.Anything)
+				api.AssertNotCalled(t, "KVSetWithOptions", SubscriptionsKey, mock.Anything, mock.Anything)
+			}
 		})
 	}
 }
@@ -430,7 +439,7 @@ func TestListWebhookCommandNamespaceNotAllowed(t *testing.T) {
 	assert.Contains(t, got, "only repositories in the allowed-group namespace are allowed")
 }
 
-func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeCommandTest) *Plugin {
+func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeCommandTest) (*Plugin, *plugintest.API) {
 	p := new(Plugin)
 
 	accessLevel := gitLabAPI.OwnerPermissions
@@ -532,7 +541,7 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 	p.SetAPI(api)
 	p.client = pluginapi.NewClient(api, p.Driver)
 
-	return p
+	return p, api
 }
 
 var exampleWebhookWithAlltriggers = &gitlab.WebhookInfo{
