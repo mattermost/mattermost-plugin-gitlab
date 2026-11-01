@@ -800,11 +800,13 @@ func (g *gitlab) GetGroupLabels(ctx context.Context, user *UserInfo, groupID str
 		return nil, err
 	}
 
+	onlyGroupLabels := false
 	opts := &internGitlab.ListGroupLabelsOptions{
 		ListOptions: internGitlab.ListOptions{
 			Page:    1,
 			PerPage: 100,
 		},
+		OnlyGroupLabels: &onlyGroupLabels,
 	}
 
 	var labels []*internGitlab.GroupLabel
