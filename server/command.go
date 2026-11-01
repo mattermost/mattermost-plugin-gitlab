@@ -940,7 +940,7 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		}
 	}
 
-	if err := p.validateSubscriptionLabels(ctx, info, project, fullPath, features); err != nil {
+	if err := p.validateSubscriptionLabels(ctx, info, project, namespaceFromGroupAndProject(namespace, project), features); err != nil {
 		return err.Error()
 	}
 
