@@ -421,7 +421,9 @@ func (fm *FlowManager) submitGitlabURL(f *flow.Flow, submitted map[string]any) (
 		return "", nil, errorList, nil
 	}
 
-	fm.gitlabURL = gitlabURL
+	if err := fm.setGitlabURL(gitlabURL); err != nil {
+		return "", nil, nil, errors.Wrap(err, "failed to save GitLab URL")
+	}
 
 	return "", flow.State{
 		keyGitlabURL: gitlabURL,
@@ -804,10 +806,8 @@ func (fm *FlowManager) submitChannelAnnouncement(f *flow.Flow, submitted map[str
 }
 
 func (fm *FlowManager) setGitlabURL(gitlabURL string) error {
-	fm.gitlabURL = gitlabURL
-
-	// will need to get gitlab url from plugin config
-	config := fm.getConfiguration()
+	config := fm.getConfiguration().Clone()
+	config.GitlabURL = gitlabURL
 
 	configMap, err := config.ToMap()
 	if err != nil {
@@ -818,6 +818,8 @@ func (fm *FlowManager) setGitlabURL(gitlabURL string) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to save plugin config")
 	}
+
+	fm.gitlabURL = gitlabURL
 
 	return nil
 }
