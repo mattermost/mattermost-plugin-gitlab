@@ -133,6 +133,11 @@ export default class SidebarButtons extends PureComponent<SidebarButtonsProps, S
         const yourAssignedIssues = this.props.yourAssignedIssues || [];
         const refreshClass = this.state.refreshing ? ' fa-spin' : '';
 
+        // The left sidebar header and the team sidebar both render this component.
+        // Test ids belong to the header instance, which is the one shown when the
+        // user is in a single team.
+        const headerProps = (id: string) => (isTeamSidebar ? {} : {'data-testid': id});
+
         return (
             <div style={container}>
                 <a
@@ -150,11 +155,15 @@ export default class SidebarButtons extends PureComponent<SidebarButtonsProps, S
                     overlay={<Tooltip id='yourAssignedPrsTooltip'>{'Merge requests assigned'}</Tooltip>}
                 >
                     <a
+                        aria-label='Merge requests assigned'
                         onClick={() => this.openRHS(RHSStates.PRS)}
                         style={button}
                     >
                         <GitLabMergeRequestIcon fill={changeOpacity(this.props.theme.sidebarText, 0.6)}/>
-                        <span style={style.buttonCount}>{yourAssignedPrs.length}</span>
+                        <span
+                            {...headerProps('gitlab-header-merge-requests-count')}
+                            style={style.buttonCount}
+                        >{yourAssignedPrs.length}</span>
                     </a>
                 </OverlayTrigger>
                 <OverlayTrigger
@@ -163,11 +172,15 @@ export default class SidebarButtons extends PureComponent<SidebarButtonsProps, S
                     overlay={<Tooltip id='reviewTooltip'>{'Merge requests needing review'}</Tooltip>}
                 >
                     <a
+                        aria-label='Merge requests needing review'
                         onClick={() => this.openRHS(RHSStates.REVIEWS)}
                         style={button}
                     >
                         <GitLabReviewsIcon fill={changeOpacity(this.props.theme.sidebarText, 0.6)}/>
-                        <span style={style.buttonCount}>{reviews.length}</span>
+                        <span
+                            {...headerProps('gitlab-header-reviews-count')}
+                            style={style.buttonCount}
+                        >{reviews.length}</span>
                     </a>
                 </OverlayTrigger>
                 <OverlayTrigger
@@ -176,11 +189,15 @@ export default class SidebarButtons extends PureComponent<SidebarButtonsProps, S
                     overlay={<Tooltip id='issuesTooltip'>{'Issues'}</Tooltip>}
                 >
                     <a
+                        aria-label='Issues'
                         onClick={() => this.openRHS(RHSStates.ISSUES)}
                         style={button}
                     >
                         <GitLabIssuesIcon fill={changeOpacity(this.props.theme.sidebarText, 0.6)}/>
-                        <span style={style.buttonCount}>{yourAssignedIssues.length}</span>
+                        <span
+                            {...headerProps('gitlab-header-issues-count')}
+                            style={style.buttonCount}
+                        >{yourAssignedIssues.length}</span>
                     </a>
                 </OverlayTrigger>
                 <OverlayTrigger
@@ -189,11 +206,15 @@ export default class SidebarButtons extends PureComponent<SidebarButtonsProps, S
                     overlay={<Tooltip id='todosTooltip'>{'To-Do list'}</Tooltip>}
                 >
                     <a
+                        aria-label='To-Do list'
                         onClick={() => this.openRHS(RHSStates.TODOS)}
                         style={button}
                     >
                         <GitLabTodosIcon fill={changeOpacity(this.props.theme.sidebarText, 0.6)}/>
-                        <span style={style.buttonCount}>{todos.length}</span>
+                        <span
+                            {...headerProps('gitlab-header-todos-count')}
+                            style={style.buttonCount}
+                        >{todos.length}</span>
                     </a>
                 </OverlayTrigger>
                 <OverlayTrigger
@@ -202,6 +223,7 @@ export default class SidebarButtons extends PureComponent<SidebarButtonsProps, S
                     overlay={<Tooltip id='refreshTooltip'>{'Refresh'}</Tooltip>}
                 >
                     <a
+                        aria-label='Refresh'
                         href='#'
                         style={button}
                         onClick={this.getData}
