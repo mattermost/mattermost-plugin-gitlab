@@ -3,7 +3,7 @@
 
 import {describe, expect, it} from '@jest/globals';
 
-import {validateGitlabUrl, isValidUrl} from './tooltip_utils';
+import {validateGitlabUrl, isValidUrl, getInfoAboutLink} from './tooltip_utils';
 
 describe('validateGitlabUrl should work as expected', () => {
     it('Should return true for valid GitLab repository URL', () => {
@@ -19,6 +19,24 @@ describe('validateGitlabUrl should work as expected', () => {
     it('Should return false for non-URL string input', () => {
         const url = 'not a URL';
         expect(validateGitlabUrl(url)).toBe(false);
+    });
+
+    it('Should return the same result when called repeatedly', () => {
+        const url = 'https://gitlab.com/username/repo/-/issues/1';
+        expect(validateGitlabUrl(url)).toBe(true);
+        expect(validateGitlabUrl(url)).toBe(true);
+    });
+});
+
+describe('getInfoAboutLink should work as expected', () => {
+    it('Should parse links on a GitLab host with a port', () => {
+        const url = 'http://gitlab.test:8929/group/repo/-/merge_requests/12';
+        expect(getInfoAboutLink(url, new URL(url).host)).toEqual({
+            owner: 'group',
+            repo: 'repo',
+            type: 'merge_requests',
+            number: '12',
+        });
     });
 });
 
