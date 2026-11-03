@@ -206,11 +206,13 @@ const CreateIssueForm = ({theme, handleClose, isSubmitting, setIsSubmitting}: Pr
             <Modal.Footer>
                 {submitError}
                 <FormButton
+                    type='button'
                     btnClass='btn-link'
                     defaultMessage='Cancel'
                     onClick={handleClose}
                 />
                 <FormButton
+                    type='submit'
                     btnClass='btn btn-primary'
                     saving={isSubmitting}
                     defaultMessage='Submit'
