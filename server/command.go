@@ -656,7 +656,9 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		}
 
 		// See MM-71596
-		if len(parameters) <= 4 && strings.TrimSuffix(urlPath, "/") != defaultURL {
+		if strings.TrimSuffix(urlPath, "/") == defaultURL {
+			urlPath = defaultURL
+		} else if len(parameters) <= 4 {
 			return customWebhookURLTokenRequiredMessage
 		}
 

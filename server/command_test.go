@@ -214,6 +214,7 @@ type webhookCommandTest struct {
 	siteURL     string
 	webhook     *gitlab.WebhookInfo
 	wantToken   string
+	wantURL     string
 }
 
 const (
@@ -531,6 +532,7 @@ var addWebhookCommandTests = []webhookCommandTest{
 		siteURL:    "https://example.com/",
 		webhook:    exampleWebhookWithAlltriggers,
 		wantToken:  testConfiguredHookValue,
+		wantURL:    testDefaultWebhookURL,
 	},
 	{
 		testName:   "Create project hook with explicit trigers",
@@ -632,6 +634,9 @@ func TestAddWebhookCommand(t *testing.T) {
 			assert.Equal(t, test.want, got)
 			require.NotNil(t, gotOptions)
 			assert.Equal(t, test.wantToken, gotOptions.Token)
+			if test.wantURL != "" {
+				assert.Equal(t, test.wantURL, gotOptions.URL)
+			}
 		})
 	}
 }
