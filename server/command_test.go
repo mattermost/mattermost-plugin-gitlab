@@ -875,25 +875,64 @@ func TestInstanceCommands(t *testing.T) {
 	})
 
 	t.Run("connect", func(t *testing.T) {
+		instanceList := []string{"production"}
+		instanceConfig := map[string]InstanceConfiguration{
+			"production": {
+				GitlabURL:               "https://gitlab.example.com",
+				GitlabOAuthClientID:     "client-id",
+				GitlabOAuthClientSecret: "client-secret",
+			},
+		}
+
 		t.Run("with default instance configured", func(t *testing.T) {
-			instanceList := []string{"production"}
-			instanceConfig := map[string]InstanceConfiguration{
-				"production": {
-					GitlabURL:               "https://gitlab.example.com",
-					GitlabOAuthClientID:     "client-id",
-					GitlabOAuthClientSecret: "client-secret",
-				},
-			}
-			p, msg, _ := setupInstanceCommandTest(t, instanceList, instanceConfig)
+			p, msg, api := setupInstanceCommandTest(t, instanceList, instanceConfig)
+			api.On("KVGet", "user_id"+GitlabUserInfoKey).Return(nil, nil)
+			api.On("KVGet", "user_id"+GitlabMigrationTokenKey).Return(nil, nil)
 			p.configuration.DefaultInstanceName = "production"
 			_, _ = p.handleConnect(args, []string{})
 			assert.Contains(t, *msg, "Click here to link your GitLab account")
 		})
 		t.Run("with legacy plugin settings", func(t *testing.T) {
-			p, msg, _ := setupInstanceCommandTest(t, nil, nil)
+			p, msg, api := setupInstanceCommandTest(t, nil, nil)
+			api.On("KVGet", "user_id"+GitlabUserInfoKey).Return(nil, nil)
+			api.On("KVGet", "user_id"+GitlabMigrationTokenKey).Return(nil, nil)
 			p.configuration.GitlabURL = "https://gitlab.example.com"
 			p.configuration.GitlabOAuthClientID = "client-id"
 			p.configuration.GitlabOAuthClientSecret = "client-secret"
+			_, _ = p.handleConnect(args, []string{})
+			assert.Contains(t, *msg, "Click here to link your GitLab account")
+		})
+		t.Run("already connected with username", func(t *testing.T) {
+			p, msg, api := setupInstanceCommandTest(t, instanceList, instanceConfig)
+			userInfo := gitlab.UserInfo{
+				UserID:         "user_id",
+				GitlabUsername: "testuser",
+			}
+			userInfoBytes, _ := json.Marshal(userInfo)
+			api.On("KVGet", "user_id"+GitlabUserInfoKey).Return(userInfoBytes, nil)
+			p.configuration.DefaultInstanceName = "production"
+			_, _ = p.handleConnect(args, []string{})
+			assert.Contains(t, *msg, "You are already connected to GitLab as `testuser`.")
+			assert.Contains(t, *msg, "`/gitlab me`")
+			assert.Contains(t, *msg, "`/gitlab disconnect`")
+		})
+		t.Run("already connected without username", func(t *testing.T) {
+			p, msg, api := setupInstanceCommandTest(t, instanceList, instanceConfig)
+			userInfo := gitlab.UserInfo{
+				UserID: "user_id",
+			}
+			userInfoBytes, _ := json.Marshal(userInfo)
+			api.On("KVGet", "user_id"+GitlabUserInfoKey).Return(userInfoBytes, nil)
+			p.configuration.DefaultInstanceName = "production"
+			_, _ = p.handleConnect(args, []string{})
+			assert.Contains(t, *msg, "You are already connected to GitLab.")
+			assert.Contains(t, *msg, "`/gitlab me`")
+			assert.Contains(t, *msg, "`/gitlab disconnect`")
+		})
+		t.Run("unparseable user info fallback to connect link", func(t *testing.T) {
+			p, msg, api := setupInstanceCommandTest(t, instanceList, instanceConfig)
+			api.On("KVGet", "user_id"+GitlabUserInfoKey).Return([]byte("invalid json"), nil)
+			p.configuration.DefaultInstanceName = "production"
 			_, _ = p.handleConnect(args, []string{})
 			assert.Contains(t, *msg, "Click here to link your GitLab account")
 		})
@@ -1017,4 +1056,136 @@ func TestGetAutocompleteDataRecognizesKVOnlyInstance(t *testing.T) {
 	}
 	assert.Contains(t, triggers, "connect")
 	assert.Contains(t, triggers, "todo")
+}
+
+func setupSettingsCommandTest(t *testing.T) (*Plugin, *string, *plugintest.API) {
+	t.Helper()
+	p := new(Plugin)
+	p.configuration = &configuration{EncryptionKey: testEncryptionKey}
+
+	var capturedMessage string
+	api := &plugintest.API{}
+	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil)
+
+	api.On("SendEphemeralPost", mock.Anything, mock.MatchedBy(func(post *model.Post) bool {
+		capturedMessage = post.Message
+		return true
+	})).Return(&model.Post{})
+
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	return p, &capturedMessage, api
+}
+
+func TestSettingsCommand(t *testing.T) {
+	args := &model.CommandArgs{UserId: "test_user_id", ChannelId: "test_channel_id"}
+
+	t.Run("missing parameters", func(t *testing.T) {
+		t.Run("no parameters", func(t *testing.T) {
+			p, msg, _ := setupSettingsCommandTest(t)
+			info := &gitlab.UserInfo{UserID: "test_user_id", Settings: &gitlab.UserSettings{}}
+
+			res, err := p.handleSettings(context.Background(), args, []string{}, info)
+			assert.Nil(t, err)
+			assert.NotNil(t, res)
+			assert.Equal(t, "Please specify both a setting and value. Use `/gitlab help` for more usage information.", *msg)
+		})
+
+		t.Run("setting only", func(t *testing.T) {
+			p, msg, _ := setupSettingsCommandTest(t)
+			info := &gitlab.UserInfo{UserID: "test_user_id", Settings: &gitlab.UserSettings{}}
+
+			res, err := p.handleSettings(context.Background(), args, []string{"notifications"}, info)
+			assert.Nil(t, err)
+			assert.NotNil(t, res)
+			assert.Equal(t, "Please specify both a setting and value. Use `/gitlab help` for more usage information.", *msg)
+		})
+	})
+
+	t.Run("invalid value", func(t *testing.T) {
+		p, msg, _ := setupSettingsCommandTest(t)
+		info := &gitlab.UserInfo{UserID: "test_user_id", Settings: &gitlab.UserSettings{}}
+
+		res, err := p.handleSettings(context.Background(), args, []string{"notifications", "maybe"}, info)
+		assert.Nil(t, err)
+		assert.NotNil(t, res)
+		assert.Equal(t, "Invalid value. Accepted values are: \"on\" or \"off\".", *msg)
+	})
+
+	t.Run("unknown setting", func(t *testing.T) {
+		p, msg, _ := setupSettingsCommandTest(t)
+		info := &gitlab.UserInfo{UserID: "test_user_id", Settings: &gitlab.UserSettings{}}
+
+		res, err := p.handleSettings(context.Background(), args, []string{"unknown", "on"}, info)
+		assert.Nil(t, err)
+		assert.NotNil(t, res)
+		assert.Equal(t, "Unknown setting.", *msg)
+	})
+
+	updateTests := []struct {
+		name        string
+		parameters  []string
+		initial     gitlab.UserSettings
+		expected    gitlab.UserSettings
+		expectedMsg string
+		assertMocks func(t *testing.T, api *plugintest.API)
+	}{
+		{
+			name:        "update notifications to on",
+			parameters:  []string{"notifications", "on"},
+			initial:     gitlab.UserSettings{Notifications: false},
+			expected:    gitlab.UserSettings{Notifications: true},
+			expectedMsg: "Settings updated: notifications set to on.",
+			assertMocks: func(t *testing.T, api *plugintest.API) {
+				api.AssertCalled(t, "KVSetWithOptions", "gitlab_user_gitlabusername", []byte("test_user_id"), mock.AnythingOfType("model.PluginKVSetOptions"))
+				api.AssertCalled(t, "KVSetWithOptions", "12345_gitlabidusername", []byte("gitlab_user"), mock.AnythingOfType("model.PluginKVSetOptions"))
+			},
+		},
+		{
+			name:        "update notifications to off",
+			parameters:  []string{"notifications", "off"},
+			initial:     gitlab.UserSettings{Notifications: true},
+			expected:    gitlab.UserSettings{Notifications: false},
+			expectedMsg: "Settings updated: notifications set to off.",
+			assertMocks: func(t *testing.T, api *plugintest.API) {
+				api.AssertCalled(t, "KVSetWithOptions", "gitlab_user_gitlabusername", []byte(nil), mock.AnythingOfType("model.PluginKVSetOptions"))
+			},
+		},
+		{
+			name:        "update reminders to on",
+			parameters:  []string{"reminders", "on"},
+			initial:     gitlab.UserSettings{DailyReminder: false},
+			expected:    gitlab.UserSettings{DailyReminder: true},
+			expectedMsg: "Settings updated: reminders set to on.",
+		},
+		{
+			name:        "update reminders to off",
+			parameters:  []string{"reminders", "off"},
+			initial:     gitlab.UserSettings{DailyReminder: true},
+			expected:    gitlab.UserSettings{DailyReminder: false},
+			expectedMsg: "Settings updated: reminders set to off.",
+		},
+	}
+
+	for _, tc := range updateTests {
+		t.Run(tc.name, func(t *testing.T) {
+			p, msg, api := setupSettingsCommandTest(t)
+			info := &gitlab.UserInfo{
+				UserID:         "test_user_id",
+				GitlabUsername: "gitlab_user",
+				GitlabUserID:   12345,
+				Settings:       &tc.initial,
+			}
+
+			res, err := p.handleSettings(context.Background(), args, tc.parameters, info)
+			assert.Nil(t, err)
+			assert.NotNil(t, res)
+			assert.Equal(t, tc.expectedMsg, *msg)
+			assert.Equal(t, tc.expected, *info.Settings)
+			if tc.assertMocks != nil {
+				tc.assertMocks(t, api)
+			}
+		})
+	}
 }

@@ -34,6 +34,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	* issue_comments - includes new issue comments
 	* merge_request_comments - include new merge-request comments
 	* merge_request_assigns - includes merge request assignment and unassignment notifications
+	* issue_assigns - includes issue assignment and unassignment notifications
 	* pipeline - includes pipeline runs
 	* tag - include tag creation
     * pull_reviews - includes merge request reviews
@@ -339,6 +340,15 @@ func (p *Plugin) handleConnect(args *model.CommandArgs, parameters []string) (*m
 		return p.getCommandResponse(args, "No instance is configured. Please specify an instance name or ask your system administrator to configure the plugin.", true), nil
 	}
 
+	if info, err := p.getGitlabUserInfoByMattermostID(args.UserId); err == nil && info != nil {
+		target := "."
+		if info.GitlabUsername != "" {
+			target = fmt.Sprintf(" as `%s`.", info.GitlabUsername)
+		}
+		message := fmt.Sprintf("You are already connected to GitLab%s To view your profile run `/gitlab me`, or to connect to a different account run `/gitlab disconnect` first.", target)
+		return p.getCommandResponse(args, message, true), nil
+	}
+
 	pluginURL := getPluginURL(p.client)
 	if pluginURL == "" {
 		return p.getCommandResponse(args, "Encountered an error connecting to GitLab.", true), nil
@@ -506,7 +516,7 @@ func (p *Plugin) handleSettings(ctx context.Context, args *model.CommandArgs, pa
 		return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs", true), nil
 	}
 
-	return p.getCommandResponse(args, "Settings updated.", true), nil
+	return p.getCommandResponse(args, fmt.Sprintf("Settings updated: %s set to %s.", setting, strValue), true), nil
 }
 
 func (p *Plugin) handleWebhookHandler(ctx context.Context, args *model.CommandArgs, parameters []string, info *gitlab.UserInfo) (*model.CommandResponse, *model.AppError) {
@@ -1153,7 +1163,7 @@ func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteD
 
 	subscriptionsAdd := model.NewAutocompleteData(commandAdd, "owner[/repo] [features]", "Subscribe the current channel to receive notifications from a project")
 	subscriptionsAdd.AddTextArgument("Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
-	subscriptionsAdd.AddTextArgument("comma-delimited list of features to subscribe to: issues, confidential_issues, merges, pushes, issue_comments, merge_request_comments, merge_request_assigns, pipeline, tag, pull_reviews, label:<labelName>, deployments, releases", "[features] (optional)", `/[^,-\s]+(,[^,-\s]+)*/`)
+	subscriptionsAdd.AddTextArgument("comma-delimited list of features to subscribe to: issues, confidential_issues, merges, pushes, issue_comments, merge_request_comments, merge_request_assigns, issue_assigns, pipeline, tag, pull_reviews, label:<labelName>, deployments, releases", "[features] (optional)", `/[^,-\s]+(,[^,-\s]+)*/`)
 	subscriptions.AddCommand(subscriptionsAdd)
 
 	subscriptionsDelete := model.NewAutocompleteData(commandDelete, "owner[/repo]", "Unsubscribe the current channel from a repository")

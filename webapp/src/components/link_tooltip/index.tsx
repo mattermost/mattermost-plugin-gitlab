@@ -61,7 +61,7 @@ const LinkTooltip = ({href, show}: Props) => {
         const gitlabUrl = new URL(connectedGitlabUrl);
         const init = async () => {
             if (url.host === gitlabUrl.host && validateGitlabUrl(href)) {
-                const linkInfo = getInfoAboutLink(href, url.hostname);
+                const linkInfo = getInfoAboutLink(href, url.host);
                 let res;
                 switch (linkInfo?.type) {
                 case LINK_TYPES.ISSUES:
@@ -127,7 +127,10 @@ const LinkTooltip = ({href, show}: Props) => {
     const {formatText, messageHtmlToComponent} = window.PostUtils;
 
     return (
-        <div className='gitlab-tooltip'>
+        <div
+            className='gitlab-tooltip'
+            data-testid='gitlab-link-tooltip'
+        >
             <div className='gitlab-tooltip box gitlab-tooltip--large gitlab-tooltip--bottom-left p-4'>
                 <div className='header mb-1'>
                     <a

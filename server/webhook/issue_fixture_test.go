@@ -536,3 +536,132 @@ const ReopenIssue = `{
 													"avatar_url":"https://www.gravatar.com/avatar/c6b552a4cd47f7cf1701ea5b650cd2e3?s=80\\u0026d=identicon"
 													}]
 													}`
+
+const AssignIssue = `{
+	"object_kind":"issue",
+	"event_type":"issue",
+	"user":{
+		"name":"Administrator",
+		"username":"root",
+		"avatar_url":"https://www.gravatar.com/avatar/e64c7d89f26bd1972efa854d13d7dd61?s=80\u0026d=identicon"
+	},
+	"project":{
+		"id":24,
+		"name":"webhook",
+		"description":"",
+		"web_url":"http://localhost:3000/manland/webhook",
+		"namespace":"manland",
+		"visibility_level":20,
+		"path_with_namespace":"manland/webhook",
+		"homepage":"http://localhost:3000/manland/webhook",
+		"url":"ssh://rmaneschi@localhost:2222/manland/webhook.git",
+		"ssh_url":"ssh://rmaneschi@localhost:2222/manland/webhook.git",
+		"http_url":"http://localhost:3000/manland/webhook.git"
+	},
+	"object_attributes":{
+		"author_id":1,
+		"confidential":false,
+		"created_at":"2019-04-06 21:03:04 UTC",
+		"description":"hello world!",
+		"id":181,
+		"iid":1,
+		"state":"opened",
+		"title":"test new issue",
+		"updated_at":"2019-04-06 21:08:00 UTC",
+		"url":"http://localhost:3000/manland/webhook/issues/1",
+		"assignee_ids":[50],
+		"assignee_id":50,
+		"action":"update"
+	},
+	"labels":[],
+	"changes":{
+		"assignees":{
+			"previous":[
+				{
+					"id": 100,
+					"name": "user",
+					"username": "user",
+					"avatar_url": "https://www.gravatar.com/avatar/e64c7d89f26bd1972efa854d13d7dd61?s=80\u0026d=identicon"
+				}
+			],
+			"current":[
+				{
+					"id": 50,
+					"name": "manland",
+					"username": "manland",
+					"avatar_url": "https://www.gravatar.com/avatar/c6b552a4cd47f7cf1701ea5b650cd2e3?s=80\u0026d=identicon"
+				}
+			]
+		}
+	},
+	"repository":{
+		"name":"webhook",
+		"url":"ssh://rmaneschi@localhost:2222/manland/webhook.git",
+		"description":"",
+		"homepage":"http://localhost:3000/manland/webhook"
+	},
+	"assignees":[{
+		"name":"manland",
+		"username":"manland",
+		"avatar_url":"https://www.gravatar.com/avatar/c6b552a4cd47f7cf1701ea5b650cd2e3?s=80\u0026d=identicon"
+	}]
+}`
+
+const UnassignIssue = `{
+	"object_kind":"issue",
+	"event_type":"issue",
+	"user":{
+		"name":"Administrator",
+		"username":"root",
+		"avatar_url":"https://www.gravatar.com/avatar/e64c7d89f26bd1972efa854d13d7dd61?s=80\u0026d=identicon"
+	},
+	"project":{
+		"id":24,
+		"name":"webhook",
+		"description":"",
+		"web_url":"http://localhost:3000/manland/webhook",
+		"namespace":"manland",
+		"visibility_level":20,
+		"path_with_namespace":"manland/webhook",
+		"homepage":"http://localhost:3000/manland/webhook",
+		"url":"ssh://rmaneschi@localhost:2222/manland/webhook.git",
+		"ssh_url":"ssh://rmaneschi@localhost:2222/manland/webhook.git",
+		"http_url":"http://localhost:3000/manland/webhook.git"
+	},
+	"object_attributes":{
+		"author_id":1,
+		"confidential":false,
+		"created_at":"2019-04-06 21:03:04 UTC",
+		"description":"hello world!",
+		"id":181,
+		"iid":1,
+		"state":"opened",
+		"title":"test new issue",
+		"updated_at":"2019-04-06 21:08:00 UTC",
+		"url":"http://localhost:3000/manland/webhook/issues/1",
+		"assignee_ids":[],
+		"assignee_id":null,
+		"action":"update"
+	},
+	"labels":[],
+	"changes":{
+		"assignees":{
+			"previous":[
+				{
+					"id": 50,
+					"name": "manland",
+					"username": "manland",
+					"avatar_url": "https://www.gravatar.com/avatar/c6b552a4cd47f7cf1701ea5b650cd2e3?s=80\u0026d=identicon"
+				}
+			],
+			"current":[]
+		}
+	},
+	"repository":{
+		"name":"webhook",
+		"url":"ssh://rmaneschi@localhost:2222/manland/webhook.git",
+		"description":"",
+		"homepage":"http://localhost:3000/manland/webhook"
+	},
+	"assignees":[]
+}`

@@ -30,6 +30,7 @@ You can specify which events trigger a notification. They can see:
 - tag - include tag creation
 - pull_reviews - includes merge request reviews
 - merge_request_assigns - includes merge request assignment and unassignment notifications
+- issue_assigns - includes issue assignment and unassignment notifications
 - label:"<labelname>" - must include "merges" or "issues" in feature list when using a label
 - Defaults to "merges,issues,tag"
 
@@ -44,6 +45,10 @@ Team members can stay up-to-date with how many reviews, todos, assigned issues, 
 ## Development
   
 This plugin contains both a server and web app portion. Read our documentation about the [Developer Workflow](https://developers.mattermost.com/integrate/plugins/developer-workflow/) and [Developer Setup](https://developers.mattermost.com/integrate/plugins/developer-setup/) for more information about developing and extending plugins.
+
+### Playwright e2e tests
+
+Setup and commands are documented in [e2e/playwright/README.md](e2e/playwright/README.md). From the repo root, `make e2e-env-up` starts Mattermost and GitLab, and `make e2e` runs the suite.
   
 ## Help wanted!
 
