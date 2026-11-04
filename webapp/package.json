@@ -39,7 +39,7 @@
         "ajv": "8.17.1",
         "ajv-keywords": "5.1.0",
         "@babel/cli": "7.28.3",
-        "@babel/core": "7.26.0",
+        "@babel/core": "7.29.6",
         "@babel/eslint-parser": "7.25.9",
         "@babel/plugin-syntax-dynamic-import": "7.8.3",
         "@babel/plugin-transform-class-properties": "7.25.9",
