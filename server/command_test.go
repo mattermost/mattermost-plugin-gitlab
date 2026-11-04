@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	gitLabAPI "github.com/xanzy/go-gitlab"
 	"go.uber.org/mock/gomock"
+	"golang.org/x/oauth2"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
 	mocks "github.com/mattermost/mattermost-plugin-gitlab/server/gitlab/mocks"
@@ -212,7 +213,14 @@ type webhookCommandTest struct {
 	want        string
 	siteURL     string
 	webhook     *gitlab.WebhookInfo
+	wantToken   string
+	wantURL     string
 }
+
+const (
+	testConfiguredHookValue = "configured-hook-value"
+	testDefaultWebhookURL   = "https://example.com/" + inboundWebhookURL
+)
 
 var listWebhookCommandTests = []webhookCommandTest{
 	{
@@ -499,6 +507,7 @@ var addWebhookCommandTests = []webhookCommandTest{
 		want:       "Webhook Created:\n\n\n`https://example.com`" + allTriggersFormated,
 		siteURL:    "https://example.com",
 		webhook:    exampleWebhookWithAlltriggers,
+		wantToken:  testConfiguredHookValue,
 	},
 	{
 		testName:   "Create project hook with all trigers",
@@ -506,6 +515,24 @@ var addWebhookCommandTests = []webhookCommandTest{
 		want:       "Webhook Created:\n\n\n`https://example.com`" + allTriggersFormated,
 		siteURL:    "https://example.com",
 		webhook:    exampleWebhookWithAlltriggers,
+		wantToken:  testConfiguredHookValue,
+	},
+	{
+		testName:   "Create project hook with explicit default URL",
+		parameters: []string{"add", "group/project", "*", testDefaultWebhookURL},
+		want:       "Webhook Created:\n\n\n`https://example.com`" + allTriggersFormated,
+		siteURL:    "https://example.com",
+		webhook:    exampleWebhookWithAlltriggers,
+		wantToken:  testConfiguredHookValue,
+	},
+	{
+		testName:   "Create project hook with explicit default URL and trailing slash",
+		parameters: []string{"add", "group/project", "*", testDefaultWebhookURL + "/"},
+		want:       "Webhook Created:\n\n\n`https://example.com`" + allTriggersFormated,
+		siteURL:    "https://example.com/",
+		webhook:    exampleWebhookWithAlltriggers,
+		wantToken:  testConfiguredHookValue,
+		wantURL:    testDefaultWebhookURL,
 	},
 	{
 		testName:   "Create project hook with explicit trigers",
@@ -521,12 +548,14 @@ Triggers:
 			PushEvents:          true,
 			MergeRequestsEvents: true,
 		},
+		wantToken: testConfiguredHookValue,
 	},
 	{
-		testName:   "Create project hook with explicit URL",
-		parameters: []string{"add", "group/project", "*", "https://anothersite.com"},
+		testName:   "Create project hook with explicit URL and token",
+		parameters: []string{"add", "group/project", "*", "https://anothersite.com", "custom-token"},
 		want:       "Webhook Created:\n\n\n`https://anothersite.com`" + allTriggersFormated,
 		siteURL:    "https://example.com",
+		wantToken:  "custom-token",
 		webhook: &gitlab.WebhookInfo{
 			URL:                      "https://anothersite.com",
 			EnableSSLVerification:    true,
@@ -548,6 +577,7 @@ Triggers:
 		want:       "Webhook Created:\n\n\n`https://example.com`" + allTriggersFormated,
 		siteURL:    "https://example.com",
 		webhook:    exampleWebhookWithAlltriggers,
+		wantToken:  "1234abcd",
 	},
 	{
 		testName:   "Create Group hook with defaults",
@@ -556,6 +586,16 @@ Triggers:
 		siteURL:    "https://example.com",
 		scope:      "group",
 		webhook:    exampleWebhookWithAlltriggers,
+		wantToken:  testConfiguredHookValue,
+	},
+	{
+		testName:   "Create Group hook with explicit URL and token",
+		parameters: []string{"add", "group", "*", "https://anothersite.com", "custom-token"},
+		want:       "Webhook Created:\n\n\n`https://example.com`" + allTriggersFormated,
+		siteURL:    "https://example.com",
+		scope:      "group",
+		webhook:    exampleWebhookWithAlltriggers,
+		wantToken:  "custom-token",
 	},
 }
 
@@ -567,38 +607,82 @@ func TestAddWebhookCommand(t *testing.T) {
 			mockCtrl := gomock.NewController(t)
 			mockedClient := mocks.NewMockGitlab(mockCtrl)
 
+			var gotOptions *gitlab.AddWebhookOptions
 			if test.scope == "group" {
-				mockedClient.EXPECT().NewGroupHook(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhook, nil)
+				mockedClient.EXPECT().NewGroupHook(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(_ context.Context, _ *gitlab.UserInfo, _ *oauth2.Token, _ string, opts *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error) {
+						gotOptions = opts
+						return test.webhook, nil
+					})
 				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "", nil)
 			} else {
 				project := &gitLabAPI.Project{ID: 4}
 				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "project", nil)
 				mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(project, nil)
-				mockedClient.EXPECT().NewProjectHook(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhook, nil)
+				mockedClient.EXPECT().NewProjectHook(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(_ context.Context, _ *gitlab.UserInfo, _ *oauth2.Token, _ any, opts *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error) {
+						gotOptions = opts
+						return test.webhook, nil
+					})
 			}
 			p.GitlabClient = mockedClient
 
-			conf := &model.Config{}
-			conf.ServiceSettings.SiteURL = model.NewPointer(test.siteURL)
-
-			encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
-
-			p.configuration = &configuration{
-				EncryptionKey: testEncryptionKey,
-			}
-
-			api := &plugintest.API{}
-			api.On("GetConfig", mock.Anything).Return(conf)
-			api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
-			api.On("LogAuditRec", mock.Anything).Maybe()
-			p.SetAPI(api)
-			p.client = pluginapi.NewClient(api, p.Driver)
+			p.client = newAddWebhookTestClient(p, test.siteURL)
 
 			got := p.webhookCommand(context.Background(), test.parameters, &gitlab.UserInfo{}, true)
 
 			assert.Equal(t, test.want, got)
+			require.NotNil(t, gotOptions)
+			assert.Equal(t, test.wantToken, gotOptions.Token)
+			if test.wantURL != "" {
+				assert.Equal(t, test.wantURL, gotOptions.URL)
+			}
 		})
 	}
+}
+
+func TestAddWebhookCommandCustomURLRequiresToken(t *testing.T) {
+	tests := []struct {
+		name       string
+		parameters []string
+	}{
+		{name: "project hook", parameters: []string{"add", "group/project", "*", "https://anothersite.com"}},
+		{name: "group hook", parameters: []string{"add", "group", "*", "https://anothersite.com"}},
+		{name: "default URL with extra path", parameters: []string{"add", "group/project", "*", testDefaultWebhookURL + "/extra"}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			p := new(Plugin)
+
+			mockCtrl := gomock.NewController(t)
+			p.GitlabClient = mocks.NewMockGitlab(mockCtrl)
+			p.client = newAddWebhookTestClient(p, "https://example.com")
+
+			got := p.webhookCommand(context.Background(), test.parameters, &gitlab.UserInfo{}, true)
+
+			assert.Equal(t, customWebhookURLTokenRequiredMessage, got)
+		})
+	}
+}
+
+func newAddWebhookTestClient(p *Plugin, siteURL string) *pluginapi.Client {
+	conf := &model.Config{}
+	conf.ServiceSettings.SiteURL = model.NewPointer(siteURL)
+
+	encryptedToken, _ := encrypt([]byte(testEncryptionKey), testGitlabToken)
+
+	p.configuration = &configuration{
+		EncryptionKey: testEncryptionKey,
+		WebhookSecret: testConfiguredHookValue,
+	}
+
+	api := &plugintest.API{}
+	api.On("GetConfig", mock.Anything).Return(conf)
+	api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
+	api.On("LogAuditRec", mock.Anything).Maybe()
+	p.SetAPI(api)
+	return pluginapi.NewClient(api, p.Driver)
 }
 
 func TestAddWebhookCommandNamespaceNotAllowed(t *testing.T) {
