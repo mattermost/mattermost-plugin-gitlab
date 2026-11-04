@@ -67,7 +67,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	 * ReleaseEvents
 	 * SSLverification
   * |url| is the URL that will be called when triggered. Defaults to this plugins URL
-  * |token| Secret token. Defaults to secret token used in plugin's settings.
+  * |token| Secret token. Required when |url| is set to a custom URL. Defaults to secret token used in plugin's settings when using this plugins URL.
 * |/gitlab about| - Display build information about the plugin
 `
 
@@ -78,6 +78,8 @@ const (
 	unknownActionMessage              = "Unknown action, please use `/gitlab help` to see all actions available."
 	newWebhookEmptySiteURLmessage     = "Unable to create webhook. The Mattermot Site URL is not set. " +
 		"Set it in the Admin Console or rerun /gitlab webhook add group/project URL including the desired URL."
+	customWebhookURLTokenRequiredMessage = "A token is required when using a custom URL. " +
+		"Rerun /gitlab webhook add group/project options URL token including the desired token."
 )
 
 const (
@@ -646,9 +648,17 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 			return newWebhookEmptySiteURLmessage
 		}
 
-		urlPath := fmt.Sprintf("%v/%s", siteURL, inboundWebhookURL)
+		defaultURL := fmt.Sprintf("%v/%s", siteURL, inboundWebhookURL)
+		urlPath := defaultURL
 		if len(parameters) > 3 {
 			urlPath = parameters[3]
+		}
+
+		// See MM-71596
+		if strings.TrimSuffix(urlPath, "/") == defaultURL {
+			urlPath = defaultURL
+		} else if len(parameters) <= 4 {
+			return customWebhookURLTokenRequiredMessage
 		}
 
 		// default to all triggers unless specified
@@ -1211,7 +1221,7 @@ func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteD
 	webhookAdd.AddTextArgument("Group or Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
 	webhookAdd.AddTextArgument("[Optional] options: comma-delimited list of actions to trigger a webhook, defaults to all with SSL verification", "[* or *noSSL] or [PushEvents,][TagPushEvents,][Comments,][ConfidentialComments,][IssuesEvents,][ConfidentialIssuesEvents,][MergeRequestsEvents,][JobEvents,][PipelineEvents,][WikiPageEvents,][SSLverification]", "")
 	webhookAdd.AddTextArgument("[Optional] url: URL to be triggered triggered. Defaults to this plugins URL", "[url]", "")
-	webhookAdd.AddTextArgument("[Optional] token: Secret for webhook. Defaults to token used in plugin's settings.", "[token]", "")
+	webhookAdd.AddTextArgument("[Optional] token: Secret for webhook. Required for custom URLs. Defaults to token used in plugin's settings when using this plugins URL.", "[token]", "")
 	webhook.AddCommand(webhookAdd)
 
 	gitlab.AddCommand(webhook)
