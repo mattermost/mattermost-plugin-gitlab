@@ -345,7 +345,7 @@ func TestGetSubscribedChannelsForProject(t *testing.T) {
 				configuration: &configuration{
 					EncryptionKey: testEncryptionKey,
 				},
-				GitlabClient: mockedClient,
+				gitlabClient: mockedClient,
 			}
 			p.SetAPI(api)
 			p.client = pluginapi.NewClient(api, p.Driver)
