@@ -171,9 +171,15 @@ func (p *Plugin) withRecovery(next http.Handler) http.Handler {
 	})
 }
 
+// limitRequestBody rejects requests whose declared body exceeds maxBytes with 413 and caps reads of bodies
+// with an unknown length, so downstream handlers that don't map read errors still can't read past the limit.
 func limitRequestBody(maxBytes int64) mux.MiddlewareFunc {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.ContentLength > maxBytes {
+				http.Error(w, "Request body too large", http.StatusRequestEntityTooLarge)
+				return
+			}
 			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
 			next.ServeHTTP(w, r)
 		})

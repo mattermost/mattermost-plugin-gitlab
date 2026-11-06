@@ -357,6 +357,30 @@ func TestAPIRejectsBodyOverLimit(t *testing.T) {
 	}
 }
 
+func TestMCPRouteBodyLimit(t *testing.T) {
+	p := &Plugin{configuration: &configuration{}}
+	p.initializeAPI()
+
+	t.Run("declared length over limit returns 413", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader("{}"))
+		r.ContentLength = maxMCPRequestBodySize + 1
+
+		p.ServeHTTP(nil, w, r)
+
+		assert.Equal(t, http.StatusRequestEntityTooLarge, w.Result().StatusCode)
+	})
+
+	t.Run("within limit reaches the MCP handler", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader("{}"))
+
+		p.ServeHTTP(nil, w, r)
+
+		assert.Equal(t, http.StatusServiceUnavailable, w.Result().StatusCode)
+	})
+}
+
 func TestRequestBodyErrorStatus(t *testing.T) {
 	assert.Equal(t, http.StatusRequestEntityTooLarge, requestBodyErrorStatus(&http.MaxBytesError{Limit: 1}))
 	assert.Equal(t, http.StatusRequestEntityTooLarge, requestBodyErrorStatus(fmt.Errorf("wrapped: %w", &http.MaxBytesError{Limit: 1})))
