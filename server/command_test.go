@@ -608,6 +608,7 @@ func TestAddWebhookCommand(t *testing.T) {
 			mockedClient := mocks.NewMockGitlab(mockCtrl)
 
 			var gotOptions *gitlab.AddWebhookOptions
+			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group").Return(nil, nil)
 			if test.scope == "group" {
 				mockedClient.EXPECT().NewGroupHook(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(_ context.Context, _ *gitlab.UserInfo, _ *oauth2.Token, _ string, opts *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error) {
@@ -618,6 +619,7 @@ func TestAddWebhookCommand(t *testing.T) {
 			} else {
 				project := &gitLabAPI.Project{ID: 4}
 				mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "project", nil)
+				mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group", "project").Return(nil, nil)
 				mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(project, nil)
 				mockedClient.EXPECT().NewProjectHook(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(_ context.Context, _ *gitlab.UserInfo, _ *oauth2.Token, _ any, opts *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error) {
@@ -662,6 +664,55 @@ func TestAddWebhookCommandCustomURLRequiresToken(t *testing.T) {
 			got := p.webhookCommand(context.Background(), test.parameters, &gitlab.UserInfo{}, true)
 
 			assert.Equal(t, customWebhookURLTokenRequiredMessage, got)
+		})
+	}
+}
+
+func TestAddWebhookCommandExistingWebhook(t *testing.T) {
+	existingHook := &gitlab.WebhookInfo{URL: testDefaultWebhookURL, IssuesEvents: true}
+	otherHook := &gitlab.WebhookInfo{URL: "https://other.example.com/hook", IssuesEvents: true}
+
+	tests := []struct {
+		name         string
+		namespace    string
+		project      string
+		projectHooks []*gitlab.WebhookInfo
+		groupHooks   []*gitlab.WebhookInfo
+		wantCreate   bool
+	}{
+		{name: "project already has the webhook", namespace: "group/project", project: "project", projectHooks: []*gitlab.WebhookInfo{otherHook, existingHook}},
+		{name: "project webhook differs only by a trailing slash", namespace: "group/project", project: "project", projectHooks: []*gitlab.WebhookInfo{{URL: testDefaultWebhookURL + "/", IssuesEvents: true}}},
+		{name: "parent group already has the webhook", namespace: "group/project", project: "project", groupHooks: []*gitlab.WebhookInfo{existingHook}},
+		{name: "group already has the webhook", namespace: "group", groupHooks: []*gitlab.WebhookInfo{existingHook}},
+		{name: "only webhooks with other URLs exist", namespace: "group/project", project: "project", projectHooks: []*gitlab.WebhookInfo{otherHook}, groupHooks: []*gitlab.WebhookInfo{otherHook}, wantCreate: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			p := new(Plugin)
+
+			mockCtrl := gomock.NewController(t)
+			mockedClient := mocks.NewMockGitlab(mockCtrl)
+			mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", test.project, nil)
+			if test.project != "" {
+				mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group", test.project).Return(test.projectHooks, nil)
+			}
+			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group").Return(test.groupHooks, nil)
+			if test.wantCreate {
+				mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), "group", test.project).Return(&gitLabAPI.Project{ID: 4}, nil)
+				mockedClient.EXPECT().NewProjectHook(gomock.Any(), gomock.Any(), gomock.Any(), 4, gomock.Any()).Return(existingHook, nil)
+			}
+			p.gitlabClient = mockedClient
+			p.client = newAddWebhookTestClient(p, "https://example.com")
+
+			got := p.webhookCommand(context.Background(), []string{"add", test.namespace}, &gitlab.UserInfo{}, true)
+
+			if test.wantCreate {
+				assert.True(t, strings.HasPrefix(got, "Webhook Created:"), got)
+			} else {
+				assert.True(t, strings.HasPrefix(got, "A webhook with this URL already delivers events for "+test.namespace+", so no new webhook was created:"), got)
+				assert.Contains(t, got, "* Issues Events")
+			}
 		})
 	}
 }
@@ -721,6 +772,8 @@ func TestAddWebhookCommandForbidden(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	mockedClient := mocks.NewMockGitlab(mockCtrl)
 	mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "project", nil)
+	mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group", "project").Return(nil, gitlab.ErrForbidden)
+	mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group").Return(nil, gitlab.ErrForbidden)
 	mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(&gitLabAPI.Project{ID: 4}, nil)
 	mockedClient.EXPECT().NewProjectHook(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, gitlab.ErrForbidden)
 	p.gitlabClient = mockedClient
@@ -736,6 +789,7 @@ func TestAddWebhookCommandForbidden(t *testing.T) {
 	api.On("GetConfig", mock.Anything).Return(conf)
 	api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
 	api.On("LogAuditRec", mock.Anything).Maybe()
+	api.On("LogDebug", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
 	p.SetAPI(api)
 	p.client = pluginapi.NewClient(api, p.Driver)
 

@@ -14,6 +14,7 @@ import (
 	"hash"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	gitlabLib "github.com/xanzy/go-gitlab"
@@ -35,6 +36,10 @@ const (
 	notificationDedupKeyFmt = "notif_dedup_%s"
 	channelPostDedupKeyFmt  = "chan_dedup_%s"
 )
+
+// errWebhookExists is returned by createHook together with the webhook that
+// already delivers the namespace's events to the requested URL.
+var errWebhookExists = errors.New("a webhook with this URL already exists")
 
 type gitlabRetreiver struct {
 	p *Plugin
@@ -401,7 +406,45 @@ func effectiveAccess(perms *gitlabLib.Permissions) gitlabLib.AccessLevelValue {
 	return level
 }
 
+// findExistingHook returns a webhook that already delivers the group's or
+// project's events to hookURL. GitLab also delivers a project's events to the
+// hooks of its parent group, so both are checked for a project. Listing errors
+// are ignored so that users who cannot read hooks are still able to create one.
+func (p *Plugin) findExistingHook(ctx context.Context, gitlabClient gitlab.Gitlab, info *gitlab.UserInfo, group, project, hookURL string) *gitlab.WebhookInfo {
+	var hooks []*gitlab.WebhookInfo
+	if project != "" {
+		err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+			resp, err := gitlabClient.GetProjectHooks(ctx, info, token, group, project)
+			hooks = append(hooks, resp...)
+			return err
+		})
+		if err != nil {
+			p.client.Log.Debug("Unable to list project webhooks", "namespace", namespaceFromGroupAndProject(group, project), "err", err.Error())
+		}
+	}
+
+	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		resp, err := gitlabClient.GetGroupHooks(ctx, info, token, group)
+		hooks = append(hooks, resp...)
+		return err
+	})
+	if err != nil {
+		p.client.Log.Debug("Unable to list group webhooks", "namespace", group, "err", err.Error())
+	}
+
+	for _, hook := range hooks {
+		if hook != nil && strings.TrimSuffix(hook.URL, "/") == strings.TrimSuffix(hookURL, "/") {
+			return hook
+		}
+	}
+	return nil
+}
+
 func (p *Plugin) createHook(ctx context.Context, gitlabClient gitlab.Gitlab, info *gitlab.UserInfo, group, project string, hookOptions *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error) {
+	if existing := p.findExistingHook(ctx, gitlabClient, info, group, project, hookOptions.URL); existing != nil {
+		return existing, errWebhookExists
+	}
+
 	// If project scope
 	if project != "" {
 		var gitProject *gitlabLib.Project
