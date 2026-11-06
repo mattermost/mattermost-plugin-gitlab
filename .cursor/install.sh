@@ -6,6 +6,18 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+image_go="$(GOTOOLCHAIN=local go env GOVERSION)"
+repo_go="go$(go mod edit -json | jq -r .Go)"
+if [ "$image_go" != "$repo_go" ]; then
+    echo "WARNING: image has $image_go but go.mod requires $repo_go; update GO_VERSION in .cursor/Dockerfile." >&2
+fi
+
+image_node="$(node --version)"
+repo_node="v$(tr -d '[:space:]' < .nvmrc)"
+if [ "$image_node" != "$repo_node" ]; then
+    echo "WARNING: image has Node $image_node but .nvmrc requires $repo_node; update NODE_VERSION in .cursor/Dockerfile." >&2
+fi
+
 .cursor/start.sh
 
 make dist
