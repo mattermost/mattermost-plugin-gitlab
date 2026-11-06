@@ -670,19 +670,21 @@ func TestAddWebhookCommandCustomURLRequiresToken(t *testing.T) {
 
 func TestAddWebhookCommandExistingWebhook(t *testing.T) {
 	existingHook := &gitlab.WebhookInfo{URL: testDefaultWebhookURL, IssuesEvents: true}
-	otherHook := &gitlab.WebhookInfo{URL: "https://other.example.com/hook", IssuesEvents: true}
+	otherHook := &gitlab.WebhookInfo{URL: "https://other.example.com/hook", PushEvents: true}
 
 	tests := []struct {
-		name         string
-		namespace    string
-		project      string
-		projectHooks []*gitlab.WebhookInfo
-		groupHooks   []*gitlab.WebhookInfo
-		wantCreate   bool
+		name            string
+		namespace       string
+		project         string
+		projectHooks    []*gitlab.WebhookInfo
+		projectHooksErr error
+		groupHooks      []*gitlab.WebhookInfo
+		wantCreate      bool
 	}{
 		{name: "project already has the webhook", namespace: "group/project", project: "project", projectHooks: []*gitlab.WebhookInfo{otherHook, existingHook}},
 		{name: "project webhook differs only by a trailing slash", namespace: "group/project", project: "project", projectHooks: []*gitlab.WebhookInfo{{URL: testDefaultWebhookURL + "/", IssuesEvents: true}}},
 		{name: "parent group already has the webhook", namespace: "group/project", project: "project", groupHooks: []*gitlab.WebhookInfo{existingHook}},
+		{name: "parent group has the webhook when project webhooks cannot be listed", namespace: "group/project", project: "project", projectHooksErr: gitlab.ErrForbidden, groupHooks: []*gitlab.WebhookInfo{existingHook}},
 		{name: "group already has the webhook", namespace: "group", groupHooks: []*gitlab.WebhookInfo{existingHook}},
 		{name: "only webhooks with other URLs exist", namespace: "group/project", project: "project", projectHooks: []*gitlab.WebhookInfo{otherHook}, groupHooks: []*gitlab.WebhookInfo{otherHook}, wantCreate: true},
 	}
@@ -695,7 +697,7 @@ func TestAddWebhookCommandExistingWebhook(t *testing.T) {
 			mockedClient := mocks.NewMockGitlab(mockCtrl)
 			mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", test.project, nil)
 			if test.project != "" {
-				mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group", test.project).Return(test.projectHooks, nil)
+				mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group", test.project).Return(test.projectHooks, test.projectHooksErr)
 			}
 			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group").Return(test.groupHooks, nil)
 			if test.wantCreate {
@@ -712,6 +714,7 @@ func TestAddWebhookCommandExistingWebhook(t *testing.T) {
 			} else {
 				assert.True(t, strings.HasPrefix(got, "A webhook with this URL already delivers events for "+test.namespace+", so no new webhook was created:"), got)
 				assert.Contains(t, got, "* Issues Events")
+				assert.NotContains(t, got, "* Push Events")
 			}
 		})
 	}
@@ -732,6 +735,7 @@ func newAddWebhookTestClient(p *Plugin, siteURL string) *pluginapi.Client {
 	api.On("GetConfig", mock.Anything).Return(conf)
 	api.On("KVGet", "_usertoken").Return([]byte(encryptedToken), nil)
 	api.On("LogAuditRec", mock.Anything).Maybe()
+	api.On("LogDebug", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
 	p.SetAPI(api)
 	return pluginapi.NewClient(api, p.Driver)
 }

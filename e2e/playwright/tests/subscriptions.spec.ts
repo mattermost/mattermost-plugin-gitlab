@@ -125,8 +125,8 @@ test.describe('subscriptions', () => {
         await addWebhook(channelsPage, path);
         await runCommandExpecting(channelsPage, `/gitlab webhook add ${path}`, `A webhook with this URL already delivers events for ${path}, so no new webhook was created`);
 
-        // * Verify the project has a single webhook
-        expect(await root.listProjectHooks(project.id)).toHaveLength(1);
+        // * Verify the project has a single plugin webhook
+        expect(await root.listProjectHooks(project.id)).toEqual([expect.objectContaining({url: expect.stringContaining('/webhook')})]);
     });
 
     /**
