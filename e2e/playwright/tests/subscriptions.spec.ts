@@ -114,6 +114,22 @@ test.describe('subscriptions', () => {
     });
 
     /**
+     * @objective Verify adding the plugin webhook again keeps a single webhook on the project, so each event is delivered once
+     */
+    test('does not add a second webhook when the project already has one', {tag: '@gitlab_plugin'}, async ({pw}) => {
+        sandbox = await createSandbox();
+        const {path, project, root} = sandbox;
+        channelsPage = await ensureConnected(pw);
+
+        // # Add the plugin webhook to the project, then add it again
+        await addWebhook(channelsPage, path);
+        await runCommandExpecting(channelsPage, `/gitlab webhook add ${path}`, `A webhook with this URL already delivers events for ${path}, so no new webhook was created`);
+
+        // * Verify the project has a single webhook
+        expect(await root.listProjectHooks(project.id)).toHaveLength(1);
+    });
+
+    /**
      * @objective Verify subscriptions with unknown features or misused label filters are rejected
      */
     test('rejects unknown features and label filters without issues or merges', {tag: '@gitlab_plugin'}, async ({pw}) => {
