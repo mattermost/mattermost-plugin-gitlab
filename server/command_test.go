@@ -656,7 +656,7 @@ func TestAddWebhookCommandCustomURLRequiresToken(t *testing.T) {
 			p := new(Plugin)
 
 			mockCtrl := gomock.NewController(t)
-			p.GitlabClient = mocks.NewMockGitlab(mockCtrl)
+			p.gitlabClient = mocks.NewMockGitlab(mockCtrl)
 			p.client = newAddWebhookTestClient(p, "https://example.com")
 
 			got := p.webhookCommand(context.Background(), test.parameters, &gitlab.UserInfo{}, true)
