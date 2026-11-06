@@ -338,6 +338,55 @@ func TestCreateIssueAllowsWhenGitlabGroupEmpty(t *testing.T) {
 	assert.Equal(t, http.StatusOK, result.StatusCode)
 }
 
+func TestAPIRejectsBodyOverLimit(t *testing.T) {
+	p := setupNamespaceTestPlugin(t, "https://gitlab.example.com", "", func(m *plugintest.API) {
+		m.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe()
+	})
+	body := `{"pad":"` + strings.Repeat("a", maxAPIRequestBodySize) + `"}`
+
+	for _, route := range []string{"/user", "/prdetails", "/issue", "/attachcommenttoissue", "/settings"} {
+		t.Run(route, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest(http.MethodPost, "/api/v1"+route, strings.NewReader(body))
+			r.Header.Set("Mattermost-User-ID", "user_id")
+
+			p.ServeHTTP(nil, w, r)
+
+			assert.Equal(t, http.StatusRequestEntityTooLarge, w.Result().StatusCode)
+		})
+	}
+}
+
+func TestMCPRouteBodyLimit(t *testing.T) {
+	p := &Plugin{configuration: &configuration{}}
+	p.initializeAPI()
+
+	t.Run("declared length over limit returns 413", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader("{}"))
+		r.ContentLength = maxMCPRequestBodySize + 1
+
+		p.ServeHTTP(nil, w, r)
+
+		assert.Equal(t, http.StatusRequestEntityTooLarge, w.Result().StatusCode)
+	})
+
+	t.Run("within limit reaches the MCP handler", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader("{}"))
+
+		p.ServeHTTP(nil, w, r)
+
+		assert.Equal(t, http.StatusServiceUnavailable, w.Result().StatusCode)
+	})
+}
+
+func TestRequestBodyErrorStatus(t *testing.T) {
+	assert.Equal(t, http.StatusRequestEntityTooLarge, requestBodyErrorStatus(&http.MaxBytesError{Limit: 1}))
+	assert.Equal(t, http.StatusRequestEntityTooLarge, requestBodyErrorStatus(fmt.Errorf("wrapped: %w", &http.MaxBytesError{Limit: 1})))
+	assert.Equal(t, http.StatusBadRequest, requestBodyErrorStatus(io.ErrUnexpectedEOF))
+}
+
 func TestCompleteConnectUserToGitlab_StateValidation(t *testing.T) {
 	validUserID := "abcdefghijklmnopqrstuvwxyz"
 

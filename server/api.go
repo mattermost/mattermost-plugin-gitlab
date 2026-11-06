@@ -39,6 +39,10 @@ const (
 	queryParamSearch    = "search"
 	queryParamProjectID = "projectID"
 	requestTimeout      = 30 * time.Second
+
+	maxAPIRequestBodySize     = 1 << 20
+	maxWebhookRequestBodySize = 25 << 20
+	maxMCPRequestBodySize     = 25 << 20
 )
 
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
@@ -51,10 +55,11 @@ func (p *Plugin) initializeAPI() {
 	p.router = mux.NewRouter()
 	p.router.Use(p.withRecovery)
 
-	p.router.PathPrefix("/mcp").HandlerFunc(p.serveMCPHTTP)
+	p.router.PathPrefix("/mcp").Handler(limitRequestBody(maxMCPRequestBodySize)(http.HandlerFunc(p.serveMCPHTTP)))
 
 	oauthRouter := p.router.PathPrefix("/oauth").Subrouter()
 	apiRouter := p.router.PathPrefix("/api/v1").Subrouter()
+	apiRouter.Use(limitRequestBody(maxAPIRequestBodySize))
 	apiRouter.Use(p.checkConfigured)
 
 	p.router.HandleFunc("/webhook", p.handleWebhook).Methods(http.MethodPost)
@@ -164,6 +169,30 @@ func (p *Plugin) withRecovery(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// limitRequestBody rejects requests whose declared body exceeds maxBytes with 413 and caps reads of bodies
+// with an unknown length, so downstream handlers that don't map read errors still can't read past the limit.
+func limitRequestBody(maxBytes int64) mux.MiddlewareFunc {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.ContentLength > maxBytes {
+				http.Error(w, "Request body too large", http.StatusRequestEntityTooLarge)
+				return
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// requestBodyErrorStatus returns 413 when err comes from reading past a body size limit, 400 otherwise.
+func requestBodyErrorStatus(err error) int {
+	var maxBytesErr *http.MaxBytesError
+	if errors.As(err, &maxBytesErr) {
+		return http.StatusRequestEntityTooLarge
+	}
+	return http.StatusBadRequest
 }
 
 func (p *Plugin) checkConfigured(next http.Handler) http.Handler {
@@ -506,10 +535,12 @@ func (p *Plugin) getGitlabUser(c *Context, w http.ResponseWriter, r *http.Reques
 	req := &GitlabUserRequest{}
 	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(&req); err != nil || req.UserID == "" {
+		statusCode := http.StatusBadRequest
 		if err != nil {
 			c.Log.WithError(err).Warnf("Error decoding JSON body")
+			statusCode = requestBodyErrorStatus(err)
 		}
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Please provide a JSON object with a non-blank user_id field.", StatusCode: http.StatusBadRequest})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Please provide a JSON object with a non-blank user_id field.", StatusCode: statusCode})
 		return
 	}
 
@@ -576,7 +607,7 @@ func (p *Plugin) getPrDetails(c *UserContext, w http.ResponseWriter, r *http.Req
 	var prList []*gitlab.PRDetails
 	if err := json.NewDecoder(r.Body).Decode(&prList); err != nil {
 		c.Log.WithError(err).Warnf("Error decoding PRDetails JSON body")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Error decoding PRDetails JSON body. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("Error decoding PRDetails JSON body. Error: %s", err.Error()), StatusCode: requestBodyErrorStatus(err)})
 		return
 	}
 	var result []*gitlab.PRDetails
@@ -622,7 +653,7 @@ func (p *Plugin) createIssue(c *UserContext, w http.ResponseWriter, r *http.Requ
 
 	if err := json.NewDecoder(r.Body).Decode(&issue); err != nil {
 		c.Log.WithError(err).Warnf("There was an error while creating the issue")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("There was an error while creating the issue. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("There was an error while creating the issue. Error: %s", err.Error()), StatusCode: requestBodyErrorStatus(err)})
 		return
 	}
 
@@ -714,7 +745,7 @@ func (p *Plugin) attachCommentToIssue(c *UserContext, w http.ResponseWriter, r *
 
 	if err := json.NewDecoder(r.Body).Decode(&issue); err != nil {
 		c.Log.WithError(err).Warnf("There was an error while attaching a comment to the issue")
-		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("There was an error while attaching a comment to the issue. Error: %s", err.Error()), StatusCode: http.StatusBadRequest})
+		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: fmt.Sprintf("There was an error while attaching a comment to the issue. Error: %s", err.Error()), StatusCode: requestBodyErrorStatus(err)})
 		return
 	}
 
@@ -984,7 +1015,11 @@ func (p *Plugin) postToDo(c *UserContext, w http.ResponseWriter, r *http.Request
 func (p *Plugin) updateSettings(c *UserContext, w http.ResponseWriter, r *http.Request) {
 	var settings *gitlab.UserSettings
 	err := json.NewDecoder(r.Body).Decode(&settings)
-	if settings == nil || err != nil {
+	if err != nil {
+		http.Error(w, "Invalid request body", requestBodyErrorStatus(err))
+		return
+	}
+	if settings == nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
