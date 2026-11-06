@@ -712,6 +712,9 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		newWebhook, err := p.createHook(ctx, p.getGitlabClient(), info, group, project, hookOptions)
 		if err != nil {
 			auditRec.AddErrorDesc(err.Error())
+			if errors.Is(err, errWebhookExists) {
+				return fmt.Sprintf("A webhook with this URL already delivers events for %s, so no new webhook was created:\n%s", resolvedNamespace, newWebhook.String())
+			}
 			if errors.Is(err, gitlab.ErrForbidden) {
 				return webhookPermissionMessage(group, project)
 			}

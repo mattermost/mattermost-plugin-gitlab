@@ -103,6 +103,10 @@ export class GitlabApi {
         });
     }
 
+    async listProjectHooks(projectId: number): Promise<Array<{id: number; url: string}>> {
+        return this.request('GET', `/projects/${projectId}/hooks?per_page=100`);
+    }
+
     async createLabel(projectId: number, name: string) {
         await this.request('POST', `/projects/${projectId}/labels`, {name, color: '#428BCA'});
     }

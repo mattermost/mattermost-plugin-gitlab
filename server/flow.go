@@ -678,6 +678,9 @@ func (fm *FlowManager) submitWebhook(f *flow.Flow, submitted map[string]any) (fl
 
 	_, err = fm.createHook(ctx, gitlabClient, info, group, project, hookOptions)
 	if err != nil {
+		if errors.Is(err, errWebhookExists) {
+			return stepWebhookConfirmation, nil, nil, nil
+		}
 		if errors.Is(err, gitlab.ErrNotFound) {
 			return "", nil, nil, errors.New("project or group was not found")
 		}
