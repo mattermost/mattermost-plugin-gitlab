@@ -343,6 +343,20 @@ func (mr *MockGitlabMockRecorder) GitlabConnect(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GitlabConnect", reflect.TypeOf((*MockGitlab)(nil).GitlabConnect), arg0)
 }
 
+// GitlabURL mocks base method.
+func (m *MockGitlab) GitlabURL() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GitlabURL")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GitlabURL indicates an expected call of GitlabURL.
+func (mr *MockGitlabMockRecorder) GitlabURL() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GitlabURL", reflect.TypeOf((*MockGitlab)(nil).GitlabURL))
+}
+
 // NewGroupHook mocks base method.
 func (m *MockGitlab) NewGroupHook(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token, arg3 string, arg4 *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error) {
 	m.ctrl.T.Helper()
