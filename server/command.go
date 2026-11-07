@@ -949,8 +949,8 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		}
 	}
 
-	if err := p.validateSubscriptionLabels(ctx, info, project, namespaceFromGroupAndProject(namespace, project), features); err != nil {
-		return err.Error()
+	if labelErr := p.validateSubscriptionLabels(ctx, info, project, namespaceFromGroupAndProject(namespace, project), features); labelErr != nil {
+		return labelErr.Error()
 	}
 
 	updatedSubscriptions, subscribeErr := p.Subscribe(info, namespace, project, channelID, features)
@@ -996,6 +996,7 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 	return fmt.Sprintf("Successfully subscribed to %s.%s", fullPath, hookStatusMessage)
 }
 
+// validateSubscriptionLabels verifies that all labels specified in features exist in the target project or group.
 func (p *Plugin) validateSubscriptionLabels(ctx context.Context, info *gitlab.UserInfo, project, fullPath, features string) error {
 	if !strings.Contains(features, "label:") {
 		return nil
@@ -1014,7 +1015,7 @@ func (p *Plugin) validateSubscriptionLabels(ctx context.Context, info *gitlab.Us
 	var existingLabels []string
 	if err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		if project != "" {
-			glLabels, fetchErr := p.GitlabClient.GetLabels(ctx, info, fullPath, token)
+			glLabels, fetchErr := p.getGitlabClient().GetLabels(ctx, info, fullPath, token)
 			if fetchErr != nil {
 				return fetchErr
 			}
@@ -1022,7 +1023,7 @@ func (p *Plugin) validateSubscriptionLabels(ctx context.Context, info *gitlab.Us
 				existingLabels = append(existingLabels, l.Name)
 			}
 		} else {
-			groupLabels, fetchErr := p.GitlabClient.GetGroupLabels(ctx, info, fullPath, token)
+			groupLabels, fetchErr := p.getGitlabClient().GetGroupLabels(ctx, info, fullPath, token)
 			if fetchErr != nil {
 				return fetchErr
 			}
@@ -1032,7 +1033,7 @@ func (p *Plugin) validateSubscriptionLabels(ctx context.Context, info *gitlab.Us
 		}
 		return nil
 	}); err != nil {
-		return errors.Wrap(err, "failed to get labels")
+		return errors.Wrapf(err, "failed to verify labels for %s, please try again", fullPath)
 	}
 
 	for _, label := range labels {

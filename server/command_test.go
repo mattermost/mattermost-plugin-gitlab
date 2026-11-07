@@ -45,6 +45,7 @@ type subscribeCommandTest struct {
 	groupLabels               []*gitLabAPI.GroupLabel
 	getLabelsErr              error
 	rejectsWithoutWrite       bool
+	expectHookLookup          bool
 }
 
 const (
@@ -84,37 +85,41 @@ var subscribeCommandTests = []subscribeCommandTest{
 		mattermostURL: "example.com",
 	},
 	{
-		testName:      "Hook Found",
-		parameters:    []string{"add", "group/project"},
-		mockGitlab:    true,
-		want:          "Successfully subscribed to group/project.",
-		webhookInfo:   []*gitlab.WebhookInfo{{URL: "example.com/somewebhookURL"}},
-		mattermostURL: "example.com",
+		testName:         "Hook Found",
+		parameters:       []string{"add", "group/project"},
+		mockGitlab:       true,
+		want:             "Successfully subscribed to group/project.",
+		webhookInfo:      []*gitlab.WebhookInfo{{URL: "example.com/somewebhookURL"}},
+		mattermostURL:    "example.com",
+		expectHookLookup: true,
 	},
 	{
-		testName:      "No webhooks",
-		parameters:    []string{"add", "group/project"},
-		mattermostURL: "example.com",
-		webhookInfo:   []*gitlab.WebhookInfo{{}},
-		mockGitlab:    true,
-		want:          subscribeSuccessMessage,
+		testName:         "No webhooks",
+		parameters:       []string{"add", "group/project"},
+		mattermostURL:    "example.com",
+		webhookInfo:      []*gitlab.WebhookInfo{{}},
+		mockGitlab:       true,
+		want:             subscribeSuccessMessage,
+		expectHookLookup: true,
 	},
 	{
-		testName:      "Multiple un-matching hooks",
-		parameters:    []string{"add", "group/project"},
-		mattermostURL: "example.com",
-		mockGitlab:    true,
-		webhookInfo:   []*gitlab.WebhookInfo{{URL: "www.anotherhook.io/wrong"}, {URL: "www.213210948239324.edu/notgood"}},
-		want:          subscribeSuccessMessage,
+		testName:         "Multiple un-matching hooks",
+		parameters:       []string{"add", "group/project"},
+		mattermostURL:    "example.com",
+		mockGitlab:       true,
+		webhookInfo:      []*gitlab.WebhookInfo{{URL: "www.anotherhook.io/wrong"}, {URL: "www.213210948239324.edu/notgood"}},
+		want:             subscribeSuccessMessage,
+		expectHookLookup: true,
 	},
 	{
-		testName:       "Error getting webhooks",
-		parameters:     []string{"add", "group"},
-		mattermostURL:  "example.com",
-		mockGitlab:     true,
-		webhookInfo:    []*gitlab.WebhookInfo{{}},
-		want:           "Successfully subscribed to group.\nA Webhook is needed, run ```/gitlab webhook add group``` to create one now.\n**Note:** We are unable to determine the webhook status for this project. Please contact your project administrator",
-		projectHookErr: errors.New("unable to get project hooks"),
+		testName:         "Error getting webhooks",
+		parameters:       []string{"add", "group"},
+		mattermostURL:    "example.com",
+		mockGitlab:       true,
+		webhookInfo:      []*gitlab.WebhookInfo{{}},
+		want:             "Successfully subscribed to group.\nA Webhook is needed, run ```/gitlab webhook add group``` to create one now.\n**Note:** We are unable to determine the webhook status for this project. Please contact your project administrator",
+		projectHookErr:   errors.New("unable to get project hooks"),
+		expectHookLookup: true,
 	},
 	{
 		testName:   "Missing Organization/Repository",
@@ -155,20 +160,22 @@ var subscribeCommandTests = []subscribeCommandTest{
 		getGroupErr:   errors.New("403 Forbidden"),
 	},
 	{
-		testName:      "Group confidential_issues subscription allowed with group access",
-		parameters:    []string{"add", "group", "confidential_issues"},
-		mockGitlab:    true,
-		want:          "Successfully subscribed to group.\nA Webhook is needed, run ```/gitlab webhook add group``` to create one now.",
-		mattermostURL: "example.com",
-		groupOnly:     true,
+		testName:         "Group confidential_issues subscription allowed with group access",
+		parameters:       []string{"add", "group", "confidential_issues"},
+		mockGitlab:       true,
+		want:             "Successfully subscribed to group.\nA Webhook is needed, run ```/gitlab webhook add group``` to create one now.",
+		mattermostURL:    "example.com",
+		groupOnly:        true,
+		expectHookLookup: true,
 	},
 	{
-		testName:      "Group subscription without confidential_issues skips the group access check",
-		parameters:    []string{"add", "group", "issues"},
-		mockGitlab:    true,
-		want:          "Successfully subscribed to group.\nA Webhook is needed, run ```/gitlab webhook add group``` to create one now.",
-		mattermostURL: "example.com",
-		groupOnly:     true,
+		testName:         "Group subscription without confidential_issues skips the group access check",
+		parameters:       []string{"add", "group", "issues"},
+		mockGitlab:       true,
+		want:             "Successfully subscribed to group.\nA Webhook is needed, run ```/gitlab webhook add group``` to create one now.",
+		mattermostURL:    "example.com",
+		groupOnly:        true,
+		expectHookLookup: true,
 		// GetGroup is not mocked here, so gomock fails the test if it is called.
 	},
 	{
@@ -179,6 +186,7 @@ var subscribeCommandTests = []subscribeCommandTest{
 		webhookInfo:               []*gitlab.WebhookInfo{{}},
 		mattermostURL:             "example.com",
 		publicProjectNoMembership: true,
+		expectHookLookup:          true,
 	},
 	{
 		testName:                  "Non-member cannot subscribe to confidential issues on a public project",
@@ -207,13 +215,14 @@ var subscribeCommandTests = []subscribeCommandTest{
 		rejectsWithoutWrite: true,
 	},
 	{
-		testName:      "Subscription succeeds when label exists in project",
-		parameters:    []string{"add", "group/project", `issues,merges,label:"bug"`},
-		mockGitlab:    true,
-		labels:        []*gitLabAPI.Label{{Name: "bug"}},
-		webhookInfo:   []*gitlab.WebhookInfo{{}},
-		mattermostURL: "example.com",
-		want:          subscribeSuccessMessage,
+		testName:         "Subscription succeeds when label exists in project",
+		parameters:       []string{"add", "group/project", `issues,merges,label:"bug"`},
+		mockGitlab:       true,
+		labels:           []*gitLabAPI.Label{{Name: "bug"}},
+		webhookInfo:      []*gitlab.WebhookInfo{{}},
+		mattermostURL:    "example.com",
+		want:             subscribeSuccessMessage,
+		expectHookLookup: true,
 	},
 	{
 		testName:            "Subscription fails when one of multiple labels does not exist in project",
@@ -225,13 +234,14 @@ var subscribeCommandTests = []subscribeCommandTest{
 		rejectsWithoutWrite: true,
 	},
 	{
-		testName:      "Subscription succeeds with multiple valid labels in project",
-		parameters:    []string{"add", "group/project", `issues,merges,label:"bug",label:"enhancement"`},
-		mockGitlab:    true,
-		labels:        []*gitLabAPI.Label{{Name: "bug"}, {Name: "enhancement"}},
-		webhookInfo:   []*gitlab.WebhookInfo{{}},
-		mattermostURL: "example.com",
-		want:          subscribeSuccessMessage,
+		testName:         "Subscription succeeds with multiple valid labels in project",
+		parameters:       []string{"add", "group/project", `issues,merges,label:"bug",label:"enhancement"`},
+		mockGitlab:       true,
+		labels:           []*gitLabAPI.Label{{Name: "bug"}, {Name: "enhancement"}},
+		webhookInfo:      []*gitlab.WebhookInfo{{}},
+		mattermostURL:    "example.com",
+		want:             subscribeSuccessMessage,
+		expectHookLookup: true,
 	},
 	{
 		testName:            "Subscription fails when project labels API returns error",
@@ -239,7 +249,7 @@ var subscribeCommandTests = []subscribeCommandTest{
 		mockGitlab:          true,
 		getLabelsErr:        errors.New("500 Internal Server Error"),
 		mattermostURL:       "example.com",
-		want:                `failed to get labels: 500 Internal Server Error`,
+		want:                `failed to verify labels for group/project, please try again: 500 Internal Server Error`,
 		rejectsWithoutWrite: true,
 	},
 	{
@@ -259,18 +269,30 @@ var subscribeCommandTests = []subscribeCommandTest{
 		groupOnly:           true,
 		getLabelsErr:        errors.New("500 Internal Server Error"),
 		mattermostURL:       "example.com",
-		want:                `failed to get labels: 500 Internal Server Error`,
+		want:                `failed to verify labels for group, please try again: 500 Internal Server Error`,
 		rejectsWithoutWrite: true,
 	},
 	{
-		testName:      "Subscription succeeds when label exists in group",
-		parameters:    []string{"add", "group", `issues,label:"bug"`},
-		mockGitlab:    true,
-		groupOnly:     true,
-		groupLabels:   []*gitLabAPI.GroupLabel{{Name: "bug"}},
-		webhookInfo:   []*gitlab.WebhookInfo{{}},
-		mattermostURL: "example.com",
-		want:          "Successfully subscribed to group.\nA Webhook is needed, run ```/gitlab webhook add group``` to create one now.",
+		testName:         "Subscription succeeds when label exists in group",
+		parameters:       []string{"add", "group", `issues,label:"bug"`},
+		mockGitlab:       true,
+		groupOnly:        true,
+		groupLabels:      []*gitLabAPI.GroupLabel{{Name: "bug"}},
+		webhookInfo:      []*gitlab.WebhookInfo{{}},
+		mattermostURL:    "example.com",
+		want:             "Successfully subscribed to group.\nA Webhook is needed, run ```/gitlab webhook add group``` to create one now.",
+		expectHookLookup: true,
+	},
+	{
+		testName:         "Subscription succeeds when label exists in subgroup",
+		parameters:       []string{"add", "group", `issues,label:"subgroup-label"`},
+		mockGitlab:       true,
+		groupOnly:        true,
+		groupLabels:      []*gitLabAPI.GroupLabel{{Name: "subgroup-label"}},
+		webhookInfo:      []*gitlab.WebhookInfo{{}},
+		mattermostURL:    "example.com",
+		want:             "Successfully subscribed to group.\nA Webhook is needed, run ```/gitlab webhook add group``` to create one now.",
+		expectHookLookup: true,
 	},
 }
 
@@ -488,7 +510,7 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 		if strings.Contains(strings.Join(test.parameters, " "), "label:") {
 			mockedClient.EXPECT().GetGroupLabels(gomock.Any(), gomock.Any(), "group", gomock.Any()).Return(test.groupLabels, test.getLabelsErr)
 		}
-		if test.getLabelsErr == nil && (len(test.groupLabels) == 0 || strings.HasPrefix(test.want, "Successfully subscribed")) {
+		if test.expectHookLookup {
 			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
 		}
 	default:
@@ -514,7 +536,7 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 			mockedClient.EXPECT().GetLabels(gomock.Any(), gomock.Any(), "group/project", gomock.Any()).Return(test.labels, test.getLabelsErr)
 		}
 
-		if test.getLabelsErr == nil && !test.noAccess && !test.rejectsWithoutWrite && (len(test.labels) == 0 || test.want == subscribeSuccessMessage) {
+		if test.expectHookLookup {
 			mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
 			if test.projectHookErr == nil {
 				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
