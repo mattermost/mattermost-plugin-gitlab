@@ -69,7 +69,7 @@ const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to yo
 	 * ReleaseEvents
 	 * SSLverification
   * |url| is the URL that will be called when triggered. Defaults to this plugins URL
-  * |token| Secret token. Defaults to secret token used in plugin's settings.
+  * |token| Secret token. Required when |url| is set to a custom URL. Defaults to secret token used in plugin's settings when using this plugins URL.
 * |/gitlab about| - Display build information about the plugin
 `
 
@@ -80,6 +80,8 @@ const (
 	unknownActionMessage              = "Unknown action, please use `/gitlab help` to see all actions available."
 	newWebhookEmptySiteURLmessage     = "Unable to create webhook. The Mattermot Site URL is not set. " +
 		"Set it in the Admin Console or rerun /gitlab webhook add group/project URL including the desired URL."
+	customWebhookURLTokenRequiredMessage = "A token is required when using a custom URL. " +
+		"Rerun /gitlab webhook add group/project options URL token including the desired token."
 )
 
 const (
@@ -183,8 +185,7 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (res
 		return handler(args, parameters)
 	}
 
-	config := p.getConfiguration()
-	if err := config.IsValid(); err != nil {
+	if err := p.isConfigured(); err != nil {
 		return p.handleConfigError(args, err)
 	}
 
@@ -463,7 +464,7 @@ func (p *Plugin) handleIssue(ctx context.Context, args *model.CommandArgs, param
 func (p *Plugin) handleMe(ctx context.Context, args *model.CommandArgs, parameters []string, info *gitlab.UserInfo) (*model.CommandResponse, *model.AppError) {
 	var gitUser *gitlabLib.User
 	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := p.GitlabClient.GetUserDetails(ctx, info, token)
+		resp, err := p.getGitlabClient().GetUserDetails(ctx, info, token)
 		if err != nil {
 			return err
 		}
@@ -576,7 +577,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		namespace := parameters[1]
 		var group, project string
 		err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			respGroup, respProject, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
+			respGroup, respProject, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
 			if err != nil {
 				return err
 			}
@@ -595,7 +596,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		var webhookInfo []*gitlab.WebhookInfo
 		if project != "" {
 			err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-				resp, err := p.GitlabClient.GetProjectHooks(ctx, info, token, group, project)
+				resp, err := p.getGitlabClient().GetProjectHooks(ctx, info, token, group, project)
 				if err != nil {
 					return err
 				}
@@ -613,7 +614,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 			}
 		} else {
 			err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-				resp, err := p.GitlabClient.GetGroupHooks(ctx, info, token, group)
+				resp, err := p.getGitlabClient().GetGroupHooks(ctx, info, token, group)
 				if err != nil {
 					return err
 				}
@@ -649,9 +650,17 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 			return newWebhookEmptySiteURLmessage
 		}
 
-		urlPath := fmt.Sprintf("%v/%s", siteURL, inboundWebhookURL)
+		defaultURL := fmt.Sprintf("%v/%s", siteURL, inboundWebhookURL)
+		urlPath := defaultURL
 		if len(parameters) > 3 {
 			urlPath = parameters[3]
+		}
+
+		// See MM-71596
+		if strings.TrimSuffix(urlPath, "/") == defaultURL {
+			urlPath = defaultURL
+		} else if len(parameters) <= 4 {
+			return customWebhookURLTokenRequiredMessage
 		}
 
 		// default to all triggers unless specified
@@ -671,7 +680,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		namespace := parameters[1]
 		var group, project string
 		namespaceErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			respGroup, respProject, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
+			respGroup, respProject, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
 			if err != nil {
 				return err
 			}
@@ -702,7 +711,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 			return err.Error()
 		}
 
-		newWebhook, err := p.createHook(ctx, p.GitlabClient, info, group, project, hookOptions)
+		newWebhook, err := p.createHook(ctx, p.getGitlabClient(), info, group, project, hookOptions)
 		if err != nil {
 			auditRec.AddErrorDesc(err.Error())
 			if errors.Is(err, gitlab.ErrForbidden) {
@@ -824,7 +833,7 @@ func (p *Plugin) subscriptionDelete(userInfo *gitlab.UserInfo, config *configura
 	var getProjectError error
 	err = p.useGitlabClient(userInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		//nolint:govet // Ignore variable shadowing warning
-		resp, err := p.GitlabClient.GetProject(ctx, info, token, owner, strings.Join(remainingPath, "/"))
+		resp, err := p.getGitlabClient().GetProject(ctx, info, token, owner, strings.Join(remainingPath, "/"))
 		if err != nil {
 			getProjectError = err
 		} else {
@@ -846,7 +855,7 @@ func (p *Plugin) subscriptionDelete(userInfo *gitlab.UserInfo, config *configura
 		var getGroupError error
 		err = p.useGitlabClient(userInfo, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 			//nolint:govet // Ignore variable shadowing warning
-			resp, err := p.GitlabClient.GetGroup(ctx, info, token, owner, strings.Join(remainingPath, "/"))
+			resp, err := p.getGitlabClient().GetGroup(ctx, info, token, owner, strings.Join(remainingPath, "/"))
 			if err != nil {
 				getGroupError = err
 			} else {
@@ -895,7 +904,7 @@ func (p *Plugin) subscriptionsListCommand(channelID string) string {
 func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserInfo, config *configuration, fullPath, channelID, features string) string {
 	var namespace, project string
 	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		respGroup, respProject, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, token, fullPath, config.EnablePrivateRepo)
+		respGroup, respProject, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, fullPath, config.EnablePrivateRepo)
 		if err != nil {
 			return err
 		}
@@ -930,7 +939,7 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		}
 	} else if wantsConfidential {
 		groupAccessErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			_, groupErr := p.GitlabClient.GetGroup(ctx, info, token, namespace, "")
+			_, groupErr := p.getGitlabClient().GetGroup(ctx, info, token, namespace, "")
 			return groupErr
 		})
 		if groupAccessErr != nil {
@@ -1094,17 +1103,20 @@ func (p *Plugin) pipelinesCommand(ctx context.Context, parameters []string, chan
 // pipelineRunCommand run a pipeline in a project
 func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channelID string, info *gitlab.UserInfo) string {
 	var pipelineInfo *gitlab.PipelineInfo
+	// Pin one client for the whole operation so a concurrent instance change can't resolve the
+	// project against one GitLab host and trigger the pipeline on another.
+	gitlabClient := p.getGitlabClient()
 	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		groupName, projectName, err := p.GitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, true)
+		groupName, projectName, err := gitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, true)
 		if err != nil {
 			return err
 		}
-		project, err := p.GitlabClient.GetProject(ctx, info, token, groupName, projectName)
+		project, err := gitlabClient.GetProject(ctx, info, token, groupName, projectName)
 		if err != nil {
 			return err
 		}
 		projectID := fmt.Sprintf("%d", project.ID)
-		pipelineInfo, err = p.GitlabClient.TriggerProjectPipeline(info, token, projectID, ref)
+		pipelineInfo, err = gitlabClient.TriggerProjectPipeline(info, token, projectID, ref)
 		if err != nil {
 			return errors.Wrapf(err, "failed to run pipeline for Project: :%s", projectName)
 		}
@@ -1159,7 +1171,7 @@ func (p *Plugin) isAuthorizedSysAdmin(userID string) (bool, error) {
 }
 
 func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteData {
-	if !config.IsOAuthConfigured() {
+	if p.isConfigured() != nil {
 		gitlab := model.NewAutocompleteData("gitlab", "[command]", "Available commands: setup, about")
 
 		setup := model.NewAutocompleteData("setup", "", "Set up the GitLab plugin")
@@ -1263,7 +1275,7 @@ func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteD
 	webhookAdd.AddTextArgument("Group or Project path: includes user or group name with optional slash project name", "owner[/repo]", "")
 	webhookAdd.AddTextArgument("[Optional] options: comma-delimited list of actions to trigger a webhook, defaults to all with SSL verification", "[* or *noSSL] or [PushEvents,][TagPushEvents,][Comments,][ConfidentialComments,][IssuesEvents,][ConfidentialIssuesEvents,][MergeRequestsEvents,][JobEvents,][PipelineEvents,][WikiPageEvents,][SSLverification]", "")
 	webhookAdd.AddTextArgument("[Optional] url: URL to be triggered triggered. Defaults to this plugins URL", "[url]", "")
-	webhookAdd.AddTextArgument("[Optional] token: Secret for webhook. Defaults to token used in plugin's settings.", "[token]", "")
+	webhookAdd.AddTextArgument("[Optional] token: Secret for webhook. Required for custom URLs. Defaults to token used in plugin's settings when using this plugins URL.", "[token]", "")
 	webhook.AddCommand(webhookAdd)
 
 	gitlab.AddCommand(webhook)

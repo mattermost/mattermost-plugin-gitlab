@@ -65,6 +65,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
     if (item.web_url || item.target_url) {
         title = (
             <a
+                data-testid={`gitlab-sidebar-item-title-${item.id}`}
                 href={item.web_url || item.target_url}
                 target='_blank'
                 rel='noopener noreferrer'
@@ -175,6 +176,7 @@ function GitlabItems({item, theme}: GitlabItemsProps) {
 
     return (
         <div
+            data-testid={`gitlab-sidebar-item-${item.id}`}
             key={item.id}
             style={style.container}
         >
