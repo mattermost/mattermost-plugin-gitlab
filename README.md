@@ -70,7 +70,7 @@ Alternatively, join our public Mattermost server and join the [Integrations and 
 
 ## Feedback and feature requests
 
-Feel free to create a GitHub issue or join the [GitLab Plugin channel](https://community.mattermost.com/core/channels/gitlab-plugin) on our community Mattermost instance to discuss.
+Feel free to create a GitHub issue or join the [GitLab Plugin channel](https://community.mattermost.com/core/channels/plugin-gitlab) on our community Mattermost instance to discuss.
 
 ### Releasing new versions
 
