@@ -425,16 +425,24 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 
 	var advanced bool
 	var flowErr error
-	if p.flowManager != nil && flowName != "" {
-		advanced, flowErr = p.flowManager.AdvanceOnOAuthConnect(authedUserID, flowName)
+	if p.flowManager != nil {
+		targetFlow := flowName
+		if targetFlow == "" {
+			targetFlow = "setup"
+		}
+		advanced, flowErr = p.flowManager.AdvanceOnOAuthConnect(authedUserID, targetFlow)
 		if flowErr != nil {
 			c.Log.WithError(flowErr).Warnf("Failed to advance setup wizard on OAuth connect")
 		}
 	}
 
 	if flowErr != nil {
-		recoveryMessage := "Your GitLab account was connected, but setup could not continue automatically.\n" +
-			"To complete webhook configuration, run `/gitlab setup webhook`."
+		recoveryMessage := "Your GitLab account was connected, but setup could not continue automatically.\n"
+		if isSysAdmin, _ := p.isAuthorizedSysAdmin(userID); isSysAdmin {
+			recoveryMessage += "To complete webhook configuration, run `/gitlab setup webhook`."
+		} else {
+			recoveryMessage += "Please contact a System Admin with the required GitLab permissions to complete webhook configuration."
+		}
 		if err := p.CreateBotDMPost(userID, recoveryMessage, ""); err != nil {
 			c.Log.WithError(err).Warnf("Can't send wizard recovery message with bot dm")
 		}

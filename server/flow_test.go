@@ -4,7 +4,11 @@
 package main
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 
@@ -273,6 +277,361 @@ func TestAdvanceOnOAuthConnect(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get current step")
 		assert.False(t, advanced)
+	})
+}
+
+func setupPluginForOAuthFlowTest(t *testing.T, isSysAdmin bool) (*Plugin, *plugintest.API, *[]*model.Post, func(func(key string) *model.AppError)) {
+	t.Helper()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/oauth/token":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"access_token": "mock-token",
+				"token_type":   "Bearer",
+				"expires_in":   7200,
+			})
+		case "/api/v4/user":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":       123,
+				"username": "gitlabuser",
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(ts.Close)
+
+	siteURL := "https://mattermost.example.com"
+	mmConfig := &model.Config{}
+	mmConfig.ServiceSettings.SiteURL = &siteURL
+
+	api := &plugintest.API{}
+	api.On("GetConfig").Return(mmConfig)
+	api.On("LogDebug", mock.Anything).Return(nil).Maybe()
+	api.On("LogDebug", mock.Anything, mock.Anything).Return(nil).Maybe()
+	api.On("LogDebug", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	api.On("LogWarn", mock.Anything).Return(nil).Maybe()
+	api.On("LogWarn", mock.Anything, mock.Anything).Return(nil).Maybe()
+	api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	api.On("PublishWebSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return().Maybe()
+
+	var kvMu sync.RWMutex
+	kvStore := make(map[string][]byte)
+
+	var kvErrMu sync.RWMutex
+	var injectKVGetErr func(key string) *model.AppError
+
+	api.On("KVSet", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		kvMu.Lock()
+		defer kvMu.Unlock()
+		key := args.Get(0).(string)
+		val := args.Get(1).([]byte)
+		kvStore[key] = val
+	}).Return(true, nil).Maybe()
+
+	api.On("KVSetWithOptions", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		kvMu.Lock()
+		defer kvMu.Unlock()
+		key := args.Get(0).(string)
+		val := args.Get(1).([]byte)
+		kvStore[key] = val
+	}).Return(true, nil).Maybe()
+
+	api.On("KVGet", mock.Anything).Return(func(key string) []byte {
+		kvMu.RLock()
+		defer kvMu.RUnlock()
+		return kvStore[key]
+	}, func(key string) *model.AppError {
+		kvErrMu.RLock()
+		defer kvErrMu.RUnlock()
+		if injectKVGetErr != nil {
+			return injectKVGetErr(key)
+		}
+		return nil
+	}).Maybe()
+
+	api.On("KVDelete", mock.Anything).Run(func(args mock.Arguments) {
+		kvMu.Lock()
+		defer kvMu.Unlock()
+		delete(kvStore, args.Get(0).(string))
+	}).Return(nil).Maybe()
+
+	roles := ""
+	if isSysAdmin {
+		roles = "system_admin"
+	}
+	api.On("GetUser", mock.Anything).Return(&model.User{Roles: roles}, nil).Maybe()
+	api.On("GetDirectChannel", mock.Anything, mock.Anything).Return(&model.Channel{Id: "dm-channel"}, nil).Maybe()
+
+	var createdPosts []*model.Post
+	var postMu sync.Mutex
+	api.On("CreatePost", mock.Anything).Run(func(args mock.Arguments) {
+		post := args.Get(0).(*model.Post).Clone()
+		postMu.Lock()
+		createdPosts = append(createdPosts, post)
+		postMu.Unlock()
+	}).Return(&model.Post{Id: "post-id"}, nil).Maybe()
+
+	api.On("UpdatePost", mock.Anything).Return(&model.Post{Id: "post-id"}, nil).Maybe()
+
+	p := &Plugin{
+		configuration: &configuration{
+			GitlabURL:               ts.URL,
+			GitlabOAuthClientID:     "client_id",
+			GitlabOAuthClientSecret: "client_secret",
+			EncryptionKey:           "aaaaaaaaaaaaaaaa",
+		},
+		BotUserID: "bot-user-id",
+	}
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+	p.initializeAPI()
+	p.oauthBroker = NewOAuthBroker(func(_ OAuthCompleteEvent) {})
+
+	fm, err := p.NewFlowManager()
+	require.NoError(t, err)
+	p.flowManager = fm
+
+	setErrFn := func(fn func(key string) *model.AppError) {
+		kvErrMu.Lock()
+		defer kvErrMu.Unlock()
+		injectKVGetErr = fn
+	}
+
+	return p, api, &createdPosts, setErrFn
+}
+
+func TestOAuthCompleteCallbackFlowAdvancement(t *testing.T) {
+	t.Run("advances bound oauthFlow and suppresses welcome message", func(t *testing.T) {
+		p, _, createdPosts, _ := setupPluginForOAuthFlowTest(t, true)
+		userID := "user1111111111111111111111"
+
+		err := p.flowManager.StartOauthWizard(userID)
+		require.NoError(t, err)
+		err = p.flowManager.oauthFlow.ForUser(userID).Go(stepOAuthConnect)
+		require.NoError(t, err)
+
+		state := "abcdefghijklmno_" + userID
+		_, err = p.client.KV.Set(state, []byte(state+"#oauth"))
+		require.NoError(t, err)
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/oauth/complete?code=testcode&state="+state, nil)
+		r.Header.Set("Mattermost-User-ID", userID)
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+		assert.Equal(t, http.StatusOK, result.StatusCode)
+		body, _ := io.ReadAll(result.Body)
+		assert.Contains(t, string(body), "Completed connecting to GitLab")
+
+		currentStep, err := p.flowManager.oauthFlow.ForUser(userID).GetCurrentStep()
+		require.NoError(t, err)
+		assert.Equal(t, stepWebhookQuestion, currentStep)
+
+		for _, post := range *createdPosts {
+			assert.NotEqual(t, "custom_git_welcome", post.Type)
+			assert.NotContains(t, post.Message, "Welcome to the Mattermost GitLab Plugin")
+		}
+	})
+
+	t.Run("advances bound setupFlow and preserves oauthFlow state", func(t *testing.T) {
+		p, _, createdPosts, _ := setupPluginForOAuthFlowTest(t, true)
+		userID := "user2222222222222222222222"
+
+		err := p.flowManager.StartSetupWizard(userID, "")
+		require.NoError(t, err)
+		err = p.flowManager.setupFlow.ForUser(userID).Go(stepOAuthConnect)
+		require.NoError(t, err)
+
+		err = p.flowManager.StartOauthWizard(userID)
+		require.NoError(t, err)
+		err = p.flowManager.oauthFlow.ForUser(userID).Go(stepOAuthConnect)
+		require.NoError(t, err)
+
+		state := "abcdefghijklmno_" + userID
+		_, err = p.client.KV.Set(state, []byte(state+"#setup"))
+		require.NoError(t, err)
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/oauth/complete?code=testcode&state="+state, nil)
+		r.Header.Set("Mattermost-User-ID", userID)
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+		assert.Equal(t, http.StatusOK, result.StatusCode)
+
+		setupStep, err := p.flowManager.setupFlow.ForUser(userID).GetCurrentStep()
+		require.NoError(t, err)
+		assert.Equal(t, stepWebhookQuestion, setupStep)
+
+		oauthStep, err := p.flowManager.oauthFlow.ForUser(userID).GetCurrentStep()
+		require.NoError(t, err)
+		assert.Equal(t, stepOAuthConnect, oauthStep)
+
+		for _, post := range *createdPosts {
+			assert.NotEqual(t, "custom_git_welcome", post.Type)
+		}
+	})
+
+	t.Run("advances setupFlow on legacy parameterless callback", func(t *testing.T) {
+		p, _, createdPosts, _ := setupPluginForOAuthFlowTest(t, true)
+		userID := "user3333333333333333333333"
+
+		err := p.flowManager.StartSetupWizard(userID, "")
+		require.NoError(t, err)
+		err = p.flowManager.setupFlow.ForUser(userID).Go(stepOAuthConnect)
+		require.NoError(t, err)
+
+		state := "abcdefghijklmno_" + userID
+		_, err = p.client.KV.Set(state, []byte(state))
+		require.NoError(t, err)
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/oauth/complete?code=testcode&state="+state, nil)
+		r.Header.Set("Mattermost-User-ID", userID)
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+		assert.Equal(t, http.StatusOK, result.StatusCode)
+
+		setupStep, err := p.flowManager.setupFlow.ForUser(userID).GetCurrentStep()
+		require.NoError(t, err)
+		assert.Equal(t, stepWebhookQuestion, setupStep)
+
+		for _, post := range *createdPosts {
+			assert.NotEqual(t, "custom_git_welcome", post.Type)
+		}
+	})
+
+	t.Run("posts welcome message when no setup wizard is active", func(t *testing.T) {
+		p, _, createdPosts, _ := setupPluginForOAuthFlowTest(t, false)
+		userID := "user4444444444444444444444"
+
+		state := "abcdefghijklmno_" + userID
+		_, err := p.client.KV.Set(state, []byte(state))
+		require.NoError(t, err)
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/oauth/complete?code=testcode&state="+state, nil)
+		r.Header.Set("Mattermost-User-ID", userID)
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+		assert.Equal(t, http.StatusOK, result.StatusCode)
+
+		var welcomePost *model.Post
+		for _, post := range *createdPosts {
+			if post.Type == "custom_git_welcome" {
+				welcomePost = post
+				break
+			}
+		}
+		require.NotNil(t, welcomePost, "expected welcome message post when no setup wizard was active")
+		assert.Contains(t, welcomePost.Message, "Welcome to the Mattermost GitLab Plugin")
+	})
+
+	t.Run("handles advancement error for sysadmin with setup webhook command", func(t *testing.T) {
+		p, _, createdPosts, setKVGetErr := setupPluginForOAuthFlowTest(t, true)
+		userID := "user5555555555555555555555"
+
+		err := p.flowManager.StartOauthWizard(userID)
+		require.NoError(t, err)
+		err = p.flowManager.oauthFlow.ForUser(userID).Go(stepOAuthConnect)
+		require.NoError(t, err)
+
+		setKVGetErr(func(key string) *model.AppError {
+			if strings.Contains(key, "_flow-") {
+				return model.NewAppError("KVGet", "plugin.kv_get.error", nil, "database connection refused", http.StatusInternalServerError)
+			}
+			return nil
+		})
+
+		state := "abcdefghijklmno_" + userID
+		_, err = p.client.KV.Set(state, []byte(state+"#oauth"))
+		require.NoError(t, err)
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/oauth/complete?code=testcode&state="+state, nil)
+		r.Header.Set("Mattermost-User-ID", userID)
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+		assert.Equal(t, http.StatusOK, result.StatusCode)
+
+		for _, post := range *createdPosts {
+			assert.NotEqual(t, "custom_git_welcome", post.Type)
+		}
+
+		var recoveryPost *model.Post
+		for _, post := range *createdPosts {
+			if strings.Contains(post.Message, "setup could not continue automatically") {
+				recoveryPost = post
+				break
+			}
+		}
+		require.NotNil(t, recoveryPost, "expected recovery DM post")
+		assert.Contains(t, recoveryPost.Message, "To complete webhook configuration, run `/gitlab setup webhook`.")
+		assert.NotContains(t, recoveryPost.Message, "Please contact a System Admin")
+	})
+
+	t.Run("handles advancement error for delegate with contact admin instruction", func(t *testing.T) {
+		p, _, createdPosts, setKVGetErr := setupPluginForOAuthFlowTest(t, false)
+		userID := "user6666666666666666666666"
+
+		err := p.flowManager.StartOauthWizard(userID)
+		require.NoError(t, err)
+		err = p.flowManager.oauthFlow.ForUser(userID).Go(stepOAuthConnect)
+		require.NoError(t, err)
+
+		setKVGetErr(func(key string) *model.AppError {
+			if strings.Contains(key, "_flow-") {
+				return model.NewAppError("KVGet", "plugin.kv_get.error", nil, "database connection refused", http.StatusInternalServerError)
+			}
+			return nil
+		})
+
+		state := "abcdefghijklmno_" + userID
+		_, err = p.client.KV.Set(state, []byte(state+"#oauth"))
+		require.NoError(t, err)
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/oauth/complete?code=testcode&state="+state, nil)
+		r.Header.Set("Mattermost-User-ID", userID)
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+		assert.Equal(t, http.StatusOK, result.StatusCode)
+
+		for _, post := range *createdPosts {
+			assert.NotEqual(t, "custom_git_welcome", post.Type)
+		}
+
+		var recoveryPost *model.Post
+		for _, post := range *createdPosts {
+			if strings.Contains(post.Message, "setup could not continue automatically") {
+				recoveryPost = post
+				break
+			}
+		}
+		require.NotNil(t, recoveryPost, "expected recovery DM post")
+		assert.Contains(t, recoveryPost.Message, "Please contact a System Admin with the required GitLab permissions to complete webhook configuration.")
+		assert.NotContains(t, recoveryPost.Message, "/gitlab setup webhook")
 	})
 }
 
