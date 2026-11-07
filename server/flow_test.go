@@ -4,6 +4,7 @@
 package main
 
 import (
+	"net/http"
 	"sync"
 	"testing"
 
@@ -219,6 +220,59 @@ func TestAdvanceOnOAuthConnect(t *testing.T) {
 		current, err = fm.oauthFlow.ForUser(userID).GetCurrentStep()
 		require.NoError(t, err)
 		assert.Equal(t, stepGitlabURL, current)
+	})
+
+	t.Run("advances specifically bound flow when specified", func(t *testing.T) {
+		fm, _ := setupTestFlowManager(t)
+		userID := "user-bound-flow-test"
+
+		// Start setupFlow and move to stepOAuthConnect
+		err := fm.StartSetupWizard(userID, "")
+		require.NoError(t, err)
+		err = fm.setupFlow.ForUser(userID).Go(stepOAuthConnect)
+		require.NoError(t, err)
+
+		// Start oauthFlow and move to stepOAuthConnect
+		err = fm.StartOauthWizard(userID)
+		require.NoError(t, err)
+		err = fm.oauthFlow.ForUser(userID).Go(stepOAuthConnect)
+		require.NoError(t, err)
+
+		// Specifically advance setupFlow
+		advanced, err := fm.AdvanceOnOAuthConnect(userID, "setup")
+		require.NoError(t, err)
+		assert.True(t, advanced)
+
+		// setupFlow was advanced
+		setupStep, err := fm.setupFlow.ForUser(userID).GetCurrentStep()
+		require.NoError(t, err)
+		assert.Equal(t, stepWebhookQuestion, setupStep)
+
+		// oauthFlow remained at stepOAuthConnect
+		oauthStep, err := fm.oauthFlow.ForUser(userID).GetCurrentStep()
+		require.NoError(t, err)
+		assert.Equal(t, stepOAuthConnect, oauthStep)
+	})
+
+	t.Run("preserves lookup errors and returns them", func(t *testing.T) {
+		fm, api := setupTestFlowManager(t)
+		userID := "user-lookup-err-test"
+
+		// Start oauthFlow
+		err := fm.StartOauthWizard(userID)
+		require.NoError(t, err)
+
+		// Simulate a storage failure on KVGet
+		appErr := model.NewAppError("KVGet", "plugin.kv_get.error", nil, "database connection refused", http.StatusInternalServerError)
+		api.ExpectedCalls = nil
+		api.On("KVGet", mock.Anything).Return(nil, appErr)
+		api.On("LogWarn", mock.Anything).Return(nil).Maybe()
+		api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+
+		advanced, err := fm.AdvanceOnOAuthConnect(userID)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get current step")
+		assert.False(t, advanced)
 	})
 }
 

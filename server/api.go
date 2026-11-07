@@ -260,8 +260,12 @@ func (p *Plugin) connectUserToGitlab(c *Context, w http.ResponseWriter, r *http.
 	}
 
 	state := fmt.Sprintf("%v_%v", model.NewId()[0:15], userID)
+	storedVal := state
+	if flowParam := r.URL.Query().Get("flow"); flowParam != "" {
+		storedVal = state + "#" + flowParam
+	}
 
-	if _, err := p.client.KV.Set(state, []byte(state)); err != nil {
+	if _, err := p.client.KV.Set(state, []byte(storedVal)); err != nil {
 		c.Log.WithError(err).Warnf("Can't store state oauth2")
 		http.Error(w, "can't store state oauth2", http.StatusInternalServerError)
 		return
@@ -355,7 +359,14 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		return
 	}
 
-	if string(storedState) != state {
+	storedStateStr := string(storedState)
+	var flowName string
+	if parts := strings.SplitN(storedStateStr, "#", 2); len(parts) == 2 {
+		storedStateStr = parts[0]
+		flowName = parts[1]
+	}
+
+	if storedStateStr != state {
 		rErr = errors.New("invalid state token")
 		http.Error(w, "Invalid OAuth state", http.StatusBadRequest)
 		return
@@ -413,15 +424,21 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 	}
 
 	var advanced bool
-	if p.flowManager != nil {
-		var flowErr error
-		advanced, flowErr = p.flowManager.AdvanceOnOAuthConnect(authedUserID)
+	var flowErr error
+	if p.flowManager != nil && flowName != "" {
+		advanced, flowErr = p.flowManager.AdvanceOnOAuthConnect(authedUserID, flowName)
 		if flowErr != nil {
 			c.Log.WithError(flowErr).Warnf("Failed to advance setup wizard on OAuth connect")
 		}
 	}
 
-	if !advanced {
+	if flowErr != nil {
+		recoveryMessage := "Your GitLab account was connected, but setup could not continue automatically.\n" +
+			"To complete webhook configuration, run `/gitlab setup webhook`."
+		if err := p.CreateBotDMPost(userID, recoveryMessage, ""); err != nil {
+			c.Log.WithError(err).Warnf("Can't send wizard recovery message with bot dm")
+		}
+	} else if !advanced {
 		// Only post introduction message if no setup wizard is running
 		// Post intro post
 		message := fmt.Sprintf("#### Welcome to the Mattermost GitLab Plugin!\n"+

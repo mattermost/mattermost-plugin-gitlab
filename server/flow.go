@@ -73,7 +73,7 @@ func (p *Plugin) NewFlowManager() (*FlowManager, error) {
 		fm.stepOAuthInput(),
 		fm.stepSetDefaultInstance(),
 		fm.stepDefaultInstanceDeclined(),
-		fm.stepOAuthConnect(),
+		fm.stepOAuthConnect("setup"),
 
 		fm.stepWebhookQuestion(),
 		fm.stepWebhookWarning(),
@@ -98,7 +98,7 @@ func (p *Plugin) NewFlowManager() (*FlowManager, error) {
 		fm.stepOAuthInput(),
 		fm.stepSetDefaultInstance(),
 		fm.stepDefaultInstanceDeclined(),
-		fm.stepOAuthConnect(),
+		fm.stepOAuthConnect("oauth"),
 
 		fm.stepWebhookQuestion(),
 		fm.stepWebhookWarning().Terminal(),
@@ -273,29 +273,40 @@ func (fm *FlowManager) StartOauthWizard(userID string) error {
 	return nil
 }
 
-// AdvanceOnOAuthConnect checks whether a setup wizard (oauthFlow or setupFlow) is currently
+// AdvanceOnOAuthConnect checks whether a setup wizard bound to the OAuth request is currently
 // awaiting user OAuth connection, and if so advances it to the webhook configuration step.
-// oauthFlow is prioritized first as it represents the modern multi-instance installation flow.
+// If boundFlow is specified ("oauth" or "setup"), only that specific wizard is advanced.
+// If boundFlow is empty, it checks oauthFlow first, then setupFlow for backward compatibility with tests.
 // Returns true if an active wizard was found and advanced.
-func (fm *FlowManager) AdvanceOnOAuthConnect(userID string) (bool, error) {
-	for _, f := range []*flow.Flow{
-		fm.oauthFlow,
-		fm.setupFlow,
-	} {
-		if f == nil {
+func (fm *FlowManager) AdvanceOnOAuthConnect(userID string, boundFlow ...string) (bool, error) {
+	target := ""
+	if len(boundFlow) > 0 {
+		target = boundFlow[0]
+	}
+
+	flows := []struct {
+		name string
+		flow *flow.Flow
+	}{
+		{"oauth", fm.oauthFlow},
+		{"setup", fm.setupFlow},
+	}
+
+	for _, entry := range flows {
+		if target != "" && entry.name != target {
 			continue
 		}
-		userFlow := f.ForUser(userID)
+		if entry.flow == nil {
+			continue
+		}
+		userFlow := entry.flow.ForUser(userID)
 		stepName, err := userFlow.GetCurrentStep()
 		if err != nil {
-			if fm.client != nil {
-				fm.client.Log.Warn("Failed to get current step for flow", "error", err)
-			}
-			continue
+			return false, fmt.Errorf("failed to get current step for %s flow: %w", entry.name, err)
 		}
 		if stepName == stepOAuthConnect {
 			if err := userFlow.Go(stepWebhookQuestion); err != nil {
-				return true, fmt.Errorf("failed to advance flow to %s: %w", stepWebhookQuestion, err)
+				return true, fmt.Errorf("failed to advance %s flow to %s: %w", entry.name, stepWebhookQuestion, err)
 			}
 			return true, nil
 		}
@@ -590,9 +601,9 @@ func (fm *FlowManager) submitOAuthConfig(f *flow.Flow, submitted map[string]any)
 	}, nil, nil
 }
 
-func (fm *FlowManager) stepOAuthConnect() flow.Step {
+func (fm *FlowManager) stepOAuthConnect(flowName string) flow.Step {
 	connectPretext := "##### :white_check_mark: Step {{ if .UsePreregisteredApplication }}1{{ else }}2{{ end }}: Connect your GitLab account"
-	connectURL := fmt.Sprintf("%s/oauth/connect", getPluginURL(fm.client))
+	connectURL := fmt.Sprintf("%s/oauth/connect?flow=%s", getPluginURL(fm.client), flowName)
 	connectText := fmt.Sprintf("Go [here](%s) to connect your account.", connectURL)
 	return flow.NewStep(stepOAuthConnect).
 		WithText(connectText).
