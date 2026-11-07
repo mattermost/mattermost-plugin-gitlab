@@ -35,6 +35,7 @@ type Gitlab interface {
 	SearchIssues(ctx context.Context, user *UserInfo, search string, token *oauth2.Token) ([]*internGitlab.Issue, error)
 	GetYourProjects(ctx context.Context, user *UserInfo, token *oauth2.Token) ([]*internGitlab.Project, error)
 	GetLabels(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.Label, error)
+	GetGroupLabels(ctx context.Context, user *UserInfo, groupID string, token *oauth2.Token) ([]*internGitlab.GroupLabel, error)
 	GetProjectMembers(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.ProjectMember, error)
 	GetMilestones(ctx context.Context, user *UserInfo, projectID string, token *oauth2.Token) ([]*internGitlab.Milestone, error)
 	GetIssueByID(ctx context.Context, user *UserInfo, owner, repo string, issueID int, token *oauth2.Token) (*Issue, error)

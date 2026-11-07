@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
+	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
 
 const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to your GitLab account
@@ -947,6 +949,10 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		}
 	}
 
+	if labelErr := p.validateSubscriptionLabels(ctx, info, project, namespaceFromGroupAndProject(namespace, project), features); labelErr != nil {
+		return labelErr.Error()
+	}
+
 	updatedSubscriptions, subscribeErr := p.Subscribe(info, namespace, project, channelID, features)
 	if subscribeErr != nil {
 		p.client.Log.Warn(
@@ -988,6 +994,55 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 	p.sendChannelSubscriptionsUpdated(updatedSubscriptions, channelID)
 
 	return fmt.Sprintf("Successfully subscribed to %s.%s", fullPath, hookStatusMessage)
+}
+
+// validateSubscriptionLabels verifies that all labels specified in features exist in the target project or group.
+func (p *Plugin) validateSubscriptionLabels(ctx context.Context, info *gitlab.UserInfo, project, fullPath, features string) error {
+	if !strings.Contains(features, "label:") {
+		return nil
+	}
+
+	sub, err := subscription.New("", info.UserID, features, fullPath)
+	if err != nil {
+		return err
+	}
+
+	labels, err := sub.Labels()
+	if err != nil || len(labels) == 0 {
+		return err
+	}
+
+	var existingLabels []string
+	if err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		if project != "" {
+			glLabels, fetchErr := p.getGitlabClient().GetLabels(ctx, info, fullPath, token)
+			if fetchErr != nil {
+				return fetchErr
+			}
+			for _, l := range glLabels {
+				existingLabels = append(existingLabels, l.Name)
+			}
+		} else {
+			groupLabels, fetchErr := p.getGitlabClient().GetGroupLabels(ctx, info, fullPath, token)
+			if fetchErr != nil {
+				return fetchErr
+			}
+			for _, l := range groupLabels {
+				existingLabels = append(existingLabels, l.Name)
+			}
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrapf(err, "failed to verify labels for %s, please try again", fullPath)
+	}
+
+	for _, label := range labels {
+		if !slices.Contains(existingLabels, label) {
+			return fmt.Errorf("the label \"%s\" does not exist in %s", label, fullPath)
+		}
+	}
+
+	return nil
 }
 
 // subscribeCommand process the /gitlab subscribe command.

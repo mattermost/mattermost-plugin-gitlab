@@ -193,6 +193,21 @@ func (mr *MockGitlabMockRecorder) GetLabels(arg0, arg1, arg2, arg3 any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLabels", reflect.TypeOf((*MockGitlab)(nil).GetLabels), arg0, arg1, arg2, arg3)
 }
 
+// GetGroupLabels mocks base method.
+func (m *MockGitlab) GetGroupLabels(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 string, arg3 *oauth2.Token) ([]*gitlab0.GroupLabel, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGroupLabels", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].([]*gitlab0.GroupLabel)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetGroupLabels indicates an expected call of GetGroupLabels.
+func (mr *MockGitlabMockRecorder) GetGroupLabels(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGroupLabels", reflect.TypeOf((*MockGitlab)(nil).GetGroupLabels), arg0, arg1, arg2, arg3)
+}
+
 // GetMergeRequestByID mocks base method.
 func (m *MockGitlab) GetMergeRequestByID(arg0 context.Context, arg1 *gitlab.UserInfo, arg2, arg3 string, arg4 int, arg5 *oauth2.Token) (*gitlab.MergeRequest, error) {
 	m.ctrl.T.Helper()
