@@ -412,19 +412,16 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		c.Log.WithError(err).Warnf("Can't store GitLab to GitLab id mapping")
 	}
 
-	flow := p.flowManager.setupFlow.ForUser(authedUserID)
-
-	stepName, err := flow.GetCurrentStep()
-	if err != nil {
-		c.Log.WithError(err).Warnf("Failed to get current step")
+	var advanced bool
+	if p.flowManager != nil {
+		var flowErr error
+		advanced, flowErr = p.flowManager.AdvanceOnOAuthConnect(authedUserID)
+		if flowErr != nil {
+			c.Log.WithError(flowErr).Warnf("Failed to advance setup wizard on OAuth connect")
+		}
 	}
 
-	if stepName == stepOAuthConnect {
-		err = flow.Go(stepWebhookQuestion)
-		if err != nil {
-			c.Log.WithError(err).Warnf("Failed go to next step")
-		}
-	} else {
+	if !advanced {
 		// Only post introduction message if no setup wizard is running
 		// Post intro post
 		message := fmt.Sprintf("#### Welcome to the Mattermost GitLab Plugin!\n"+

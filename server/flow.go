@@ -98,7 +98,11 @@ func (p *Plugin) NewFlowManager() (*FlowManager, error) {
 		fm.stepOAuthInput(),
 		fm.stepSetDefaultInstance(),
 		fm.stepDefaultInstanceDeclined(),
-		fm.stepOAuthConnect().Terminal(),
+		fm.stepOAuthConnect(),
+
+		fm.stepWebhookQuestion(),
+		fm.stepWebhookWarning().Terminal(),
+		fm.stepWebhookConfirmation().Terminal(),
 
 		fm.stepCancel("setup oauth"),
 	)
@@ -110,6 +114,7 @@ func (p *Plugin) NewFlowManager() (*FlowManager, error) {
 	}
 	webhookFlow.WithSteps(
 		fm.stepWebhookQuestion(),
+		fm.stepWebhookWarning().Terminal(),
 		flow.NewStep(stepWebhookConfirmation).
 			WithText("Use `/gitlab subscriptions add` to subscribe any Mattermost channel to your GitLab repository. [Learn more](https://mattermost.gitbook.io/plugin-gitlab/feature-summary#subscribe-to-unsubscribe-from-a-repository)").
 			Terminal(),
@@ -266,6 +271,36 @@ func (fm *FlowManager) StartOauthWizard(userID string) error {
 	}
 
 	return nil
+}
+
+// AdvanceOnOAuthConnect checks whether a setup wizard (setupFlow or oauthFlow) is currently
+// awaiting user OAuth connection, and if so advances it to the webhook configuration step.
+// Returns true if an active wizard was found and advanced.
+func (fm *FlowManager) AdvanceOnOAuthConnect(userID string) (bool, error) {
+	for _, f := range []*flow.Flow{
+		fm.setupFlow,
+		fm.oauthFlow,
+	} {
+		if f == nil {
+			continue
+		}
+		userFlow := f.ForUser(userID)
+		stepName, err := userFlow.GetCurrentStep()
+		if err != nil {
+			if fm.client != nil {
+				fm.client.Log.Warn("Failed to get current step for flow", "error", err)
+			}
+			continue
+		}
+		if stepName == stepOAuthConnect {
+			if err := userFlow.Go(stepWebhookQuestion); err != nil {
+				return true, fmt.Errorf("failed to advance flow to %s: %w", stepWebhookQuestion, err)
+			}
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func (fm *FlowManager) stepWelcome() flow.Step {
