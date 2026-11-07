@@ -273,13 +273,14 @@ func (fm *FlowManager) StartOauthWizard(userID string) error {
 	return nil
 }
 
-// AdvanceOnOAuthConnect checks whether a setup wizard (setupFlow or oauthFlow) is currently
+// AdvanceOnOAuthConnect checks whether a setup wizard (oauthFlow or setupFlow) is currently
 // awaiting user OAuth connection, and if so advances it to the webhook configuration step.
+// oauthFlow is prioritized first as it represents the modern multi-instance installation flow.
 // Returns true if an active wizard was found and advanced.
 func (fm *FlowManager) AdvanceOnOAuthConnect(userID string) (bool, error) {
 	for _, f := range []*flow.Flow{
-		fm.setupFlow,
 		fm.oauthFlow,
+		fm.setupFlow,
 	} {
 		if f == nil {
 			continue

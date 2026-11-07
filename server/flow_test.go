@@ -162,6 +162,37 @@ func TestAdvanceOnOAuthConnect(t *testing.T) {
 		assert.Equal(t, stepWebhookQuestion, current)
 	})
 
+	t.Run("prioritizes oauthFlow over setupFlow when both are at stepOAuthConnect", func(t *testing.T) {
+		fm, _ := setupTestFlowManager(t)
+		userID := "user-dual-flow-test"
+
+		// Start setupFlow and move to stepOAuthConnect
+		err := fm.StartSetupWizard(userID, "")
+		require.NoError(t, err)
+		err = fm.setupFlow.ForUser(userID).Go(stepOAuthConnect)
+		require.NoError(t, err)
+
+		// Start oauthFlow and move to stepOAuthConnect
+		err = fm.StartOauthWizard(userID)
+		require.NoError(t, err)
+		err = fm.oauthFlow.ForUser(userID).Go(stepOAuthConnect)
+		require.NoError(t, err)
+
+		advanced, err := fm.AdvanceOnOAuthConnect(userID)
+		require.NoError(t, err)
+		assert.True(t, advanced)
+
+		// oauthFlow must be advanced to stepWebhookQuestion
+		oauthStep, err := fm.oauthFlow.ForUser(userID).GetCurrentStep()
+		require.NoError(t, err)
+		assert.Equal(t, stepWebhookQuestion, oauthStep)
+
+		// setupFlow remains at stepOAuthConnect
+		setupStep, err := fm.setupFlow.ForUser(userID).GetCurrentStep()
+		require.NoError(t, err)
+		assert.Equal(t, stepOAuthConnect, setupStep)
+	})
+
 	t.Run("returns false when no flow is active", func(t *testing.T) {
 		fm, _ := setupTestFlowManager(t)
 
