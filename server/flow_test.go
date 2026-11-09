@@ -80,6 +80,18 @@ func TestSubmitWebhook(t *testing.T) {
 		assert.Contains(t, err.Error(), "SSL Verification, Tag Push Events, Comments")
 	})
 
+	t.Run("names the group when a group webhook is missing triggers", func(t *testing.T) {
+		mockedClient := mocks.NewMockGitlab(gomock.NewController(t))
+		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), "group", gomock.Any()).Return("group", "", nil)
+		mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group").Return([]*gitlab.WebhookInfo{{URL: pluginWebhookURL}}, nil)
+		fm := newFlowManager(mockedClient)
+
+		_, _, _, err := fm.submitWebhook(&flow.Flow{UserID: "user-id"}, map[string]any{"namespace": "group"})
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "already exists for group, but")
+	})
+
 	t.Run("creates a webhook when the project has none", func(t *testing.T) {
 		mockedClient := mocks.NewMockGitlab(gomock.NewController(t))
 		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), "group/project", gomock.Any()).Return("group", "project", nil)

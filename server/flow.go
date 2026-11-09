@@ -668,7 +668,7 @@ func (fm *FlowManager) submitWebhook(f *flow.Flow, submitted map[string]any) (fl
 	var fullName string
 	var repoOrGroup string
 
-	if group == "" {
+	if project == "" {
 		fullName = group
 		repoOrGroup = "group"
 	} else {
