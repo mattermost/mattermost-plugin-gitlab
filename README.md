@@ -1,6 +1,6 @@
 # Mattermost GitLab Plugin
 
-[![Build Status](https://img.shields.io/circleci/project/github/mattermost/mattermost-plugin-gitlab/master.svg)](https://circleci.com/gh/mattermost/mattermost-plugin-gitlab)
+[![Build Status](https://github.com/mattermost/mattermost-plugin-gitlab/actions/workflows/ci.yml/badge.svg)](https://github.com/mattermost/mattermost-plugin-gitlab/actions/workflows/ci.yml)
 [![Code Coverage](https://img.shields.io/codecov/c/github/mattermost/mattermost-plugin-gitlab/master.svg)](https://codecov.io/gh/mattermost/mattermost-plugin-gitlab)
 [![Release](https://img.shields.io/github/v/release/mattermost/mattermost-plugin-gitlab)](https://github.com/mattermost/mattermost-plugin-gitlab/releases/latest)
 [![HW](https://img.shields.io/github/issues/mattermost/mattermost-plugin-gitlab/Up%20For%20Grabs?color=dark%20green&label=Help%20Wanted)](https://github.com/mattermost/mattermost-plugin-gitlab/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A%22Up+For+Grabs%22+label%3A%22Help+Wanted%22)
@@ -11,7 +11,7 @@ A GitLab plugin for Mattermost. This plugin supports a two-way integration betwe
 
 Originally developed by [Romain Maneschi](https://github.com/manland). This project is a fork of the [mattermost-plugin-github](https://github.com/mattermost/mattermost-plugin-github). Thanks to all contributors of it.
 
-See the [Mattermost Product Documentation](https://docs.mattermost.com/integrate/gitlab-interoperability.html) for details on installing, configuring, enabling, and using this Mattermost integration.
+See the [Mattermost Product Documentation](https://docs.mattermost.com/integrations-guide/gitlab) for details on installing, configuring, enabling, and using this Mattermost integration.
 
 ## Feature summary of GitLab to Mattermost notifications
 
@@ -22,15 +22,19 @@ Notify your team of the latest updates by sending notifications from your GitLab
 You can specify which events trigger a notification. They can see:
 
 - issues - includes new and closed issues
+- confidential_issues - includes confidential issues
 - merges - includes new and closed merge requests
 - pushes - includes pushes
 - issue_comments - includes new issue comments
 - merge_request_comments - include new merge-request comments
-- pipeline - include pipeline
+- pipeline - include pipeline status
 - tag - include tag creation
 - pull_reviews - includes merge request reviews
 - merge_request_assigns - includes merge request assignment and unassignment notifications
 - issue_assigns - includes issue assignment and unassignment notifications
+- deployments - includes deployment status updates
+- releases - includes release published notifications
+- jobs - includes CI/CD job notifications
 - label:"<labelname>" - must include "merges" or "issues" in feature list when using a label
 - Defaults to "merges,issues,tag"
 
@@ -52,7 +56,7 @@ Setup and commands are documented in [e2e/playwright/README.md](e2e/playwright/R
   
 ## Help wanted!
 
-If you're interested in joining our community of developers who contribute to Mattermost - check out the current set of issues [that are being requested](https://github.com/mattermost/mattermost-plugin-gitlab/issues?q=is%3Aissue+is%3Aopen+label%3AEnhancement).
+If you're interested in joining our community of developers who contribute to Mattermost - check out the current set of issues [that are being requested](https://github.com/mattermost/mattermost-plugin-gitlab/issues?q=is%3Aissue+is%3Aopen+label%3A%22Type/Enhancement%22).
 
 You can also find issues labeled ["Help Wanted"](https://github.com/mattermost/mattermost-plugin-gitlab/issues?q=is%3Aissue+is%3Aopen+label%3A%22Help+Wanted%22) in the GitLab plugin repository that we have laid out the primary requirements for and could use some coding help from the community.
 
@@ -60,15 +64,13 @@ You can also find issues labeled ["Help Wanted"](https://github.com/mattermost/m
 
 For Mattermost customers - please open a [support case](https://mattermost.zendesk.com/hc/en-us/requests/new) to ensure your issue is tracked properly.
 
-For Questions, suggestions, and help - please find us on our forum at [https://forum.mattermost.org/c/plugins](https://forum.mattermost.org/c/plugins).
+For questions, suggestions, and help - please find us on our forum at [https://forum.mattermost.com/](https://forum.mattermost.com/).
 
 Alternatively, join our public Mattermost server and join the [Integrations and Apps channel](https://community.mattermost.com/core/channels/integrations).
 
 ## Feedback and feature requests
 
-Feel free to create a GitHub issue or [join the GitLab Plugin channel on our community Mattermost instance](https://community.mattermost.com/core/channels/plugin-gitlab) to discuss.
-
-Share your thoughts in the [Plugin: GitLab Channel](https://community.mattermost.com/core/channels/gitlab-plugin) on our Mattermost community!
+Feel free to create a GitHub issue or join the [GitLab Plugin channel](https://community.mattermost.com/core/channels/plugin-gitlab) on our community Mattermost instance to discuss.
 
 ### Releasing new versions
 
