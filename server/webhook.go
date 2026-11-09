@@ -72,16 +72,16 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(r.Body)
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxWebhookRequestBodySize))
 	if err != nil {
-		http.Error(w, "Bad request body", http.StatusBadRequest)
+		http.Error(w, "Bad request body", requestBodyErrorStatus(err))
 		return
 	}
 
 	eventType := gitlabLib.WebhookEventType(r)
 	event, err := gitlabLib.ParseWebhook(eventType, body)
 	if err != nil {
-		p.client.Log.Debug("Can't parse webhook", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"), "event", string(body))
+		p.client.Log.Debug("Can't parse webhook", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"), "body_size", len(body))
 		http.Error(w, "Unable to handle request", http.StatusBadRequest)
 		return
 	}
