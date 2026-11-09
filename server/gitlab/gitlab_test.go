@@ -49,3 +49,17 @@ func TestGetGroupHooksPagination(t *testing.T) {
 	assert.Equal(t, Group, hooks[0].Scope)
 	assert.Equal(t, []string{"1", "2"}, requestedPages)
 }
+
+func TestMissingTriggers(t *testing.T) {
+	options := &AddWebhookOptions{PushEvents: true, IssuesEvents: true, EnableSSLVerification: true}
+
+	t.Run("lists requested triggers the webhook lacks", func(t *testing.T) {
+		missing := options.MissingTriggers(&WebhookInfo{PushEvents: true, NoteEvents: true})
+
+		assert.Equal(t, []string{"SSL Verification", "Issues Events"}, missing)
+	})
+
+	t.Run("is empty when every requested trigger is enabled", func(t *testing.T) {
+		assert.Empty(t, options.MissingTriggers(&WebhookInfo{PushEvents: true, IssuesEvents: true, EnableSSLVerification: true}))
+	})
+}

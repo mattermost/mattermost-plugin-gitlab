@@ -36,9 +36,25 @@ func TestSubmitWebhook(t *testing.T) {
 	}
 
 	t.Run("succeeds without creating a webhook when the project already has one", func(t *testing.T) {
+		existingHook := &gitlab.WebhookInfo{
+			URL:                      pluginWebhookURL,
+			ConfidentialNoteEvents:   true,
+			PushEvents:               true,
+			IssuesEvents:             true,
+			ConfidentialIssuesEvents: true,
+			MergeRequestsEvents:      true,
+			TagPushEvents:            true,
+			NoteEvents:               true,
+			JobEvents:                true,
+			PipelineEvents:           true,
+			WikiPageEvents:           true,
+			DeploymentEvents:         true,
+			ReleaseEvents:            true,
+			EnableSSLVerification:    true,
+		}
 		mockedClient := mocks.NewMockGitlab(gomock.NewController(t))
 		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), "group/project", gomock.Any()).Return("group", "project", nil)
-		mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group", "project").Return([]*gitlab.WebhookInfo{{URL: pluginWebhookURL}}, nil)
+		mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group", "project").Return([]*gitlab.WebhookInfo{existingHook}, nil)
 		mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group").Return(nil, nil)
 		fm := newFlowManager(mockedClient)
 
@@ -48,6 +64,20 @@ func TestSubmitWebhook(t *testing.T) {
 		assert.Equal(t, stepWebhookConfirmation, next)
 		assert.Nil(t, state)
 		assert.Nil(t, errs)
+	})
+
+	t.Run("reports the triggers an existing webhook is missing", func(t *testing.T) {
+		mockedClient := mocks.NewMockGitlab(gomock.NewController(t))
+		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), "group/project", gomock.Any()).Return("group", "project", nil)
+		mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group", "project").Return([]*gitlab.WebhookInfo{{URL: pluginWebhookURL, PushEvents: true}}, nil)
+		mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group").Return(nil, nil)
+		fm := newFlowManager(mockedClient)
+
+		_, _, _, err := fm.submitWebhook(&flow.Flow{UserID: "user-id"}, map[string]any{"namespace": "group/project"})
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "does not have these triggers enabled")
+		assert.Contains(t, err.Error(), "SSL Verification, Tag Push Events, Comments")
 	})
 
 	t.Run("creates a webhook when the project has none", func(t *testing.T) {

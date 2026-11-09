@@ -46,3 +46,34 @@ type AddWebhookOptions struct {
 	EnableSSLVerification    bool
 	Token                    string
 }
+
+// MissingTriggers returns the names of the requested triggers that the existing webhook does not have enabled.
+func (o *AddWebhookOptions) MissingTriggers(w *WebhookInfo) []string {
+	checks := []struct {
+		name      string
+		requested bool
+		enabled   bool
+	}{
+		{"SSL Verification", o.EnableSSLVerification, w.EnableSSLVerification},
+		{"Push Events", o.PushEvents, w.PushEvents},
+		{"Tag Push Events", o.TagPushEvents, w.TagPushEvents},
+		{"Comments", o.NoteEvents, w.NoteEvents},
+		{"Confidential Comments", o.ConfidentialNoteEvents, w.ConfidentialNoteEvents},
+		{"Issues Events", o.IssuesEvents, w.IssuesEvents},
+		{"Confidential Issues Events", o.ConfidentialIssuesEvents, w.ConfidentialIssuesEvents},
+		{"Merge Request Events", o.MergeRequestsEvents, w.MergeRequestsEvents},
+		{"Job Events", o.JobEvents, w.JobEvents},
+		{"Pipeline Events", o.PipelineEvents, w.PipelineEvents},
+		{"Wiki Page Events", o.WikiPageEvents, w.WikiPageEvents},
+		{"Release Events", o.ReleaseEvents, w.ReleaseEvents},
+		{"Deployment Events", o.DeploymentEvents, w.DeploymentEvents},
+	}
+
+	var missing []string
+	for _, c := range checks {
+		if c.requested && !c.enabled {
+			missing = append(missing, c.name)
+		}
+	}
+	return missing
+}

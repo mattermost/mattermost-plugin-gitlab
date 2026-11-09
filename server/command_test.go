@@ -715,6 +715,8 @@ func TestAddWebhookCommandExistingWebhook(t *testing.T) {
 				assert.True(t, strings.HasPrefix(got, "A webhook with this URL already delivers events for "+test.namespace+", so no new webhook was created:"), got)
 				assert.Contains(t, got, "* Issues Events")
 				assert.NotContains(t, got, "* Push Events")
+				assert.Contains(t, got, "does not have these requested triggers enabled")
+				assert.Contains(t, got, "SSL Verification, Push Events, Tag Push Events, Comments, Confidential Comments, Confidential Issues Events")
 			}
 		})
 	}

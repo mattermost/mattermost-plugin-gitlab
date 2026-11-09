@@ -676,9 +676,12 @@ func (fm *FlowManager) submitWebhook(f *flow.Flow, submitted map[string]any) (fl
 		repoOrGroup = "repository"
 	}
 
-	_, err = fm.createHook(ctx, gitlabClient, info, group, project, hookOptions)
+	hook, err := fm.createHook(ctx, gitlabClient, info, group, project, hookOptions)
 	if err != nil {
 		if errors.Is(err, errWebhookExists) {
+			if missing := hookOptions.MissingTriggers(hook); len(missing) > 0 {
+				return "", nil, nil, errors.Errorf("A webhook with this URL already exists for %s, but it does not have these triggers enabled: %s. Enable them in the GitLab webhook settings and run /gitlab setup webhook again.", fullName, strings.Join(missing, ", "))
+			}
 			return stepWebhookConfirmation, nil, nil, nil
 		}
 		if errors.Is(err, gitlab.ErrNotFound) {

@@ -718,7 +718,11 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 					URL:    newWebhook.URL,
 					Scope:  newWebhook.Scope.String(),
 				})
-				return fmt.Sprintf("A webhook with this URL already delivers events for %s, so no new webhook was created:\n%s", resolvedNamespace, newWebhook.String())
+				response := fmt.Sprintf("A webhook with this URL already delivers events for %s, so no new webhook was created:\n%s", resolvedNamespace, newWebhook.String())
+				if missing := hookOptions.MissingTriggers(newWebhook); len(missing) > 0 {
+					response += fmt.Sprintf("\nThe existing webhook does not have these requested triggers enabled: %s. Enable them in the GitLab webhook settings to receive those events.", strings.Join(missing, ", "))
+				}
+				return response
 			}
 			auditRec.AddErrorDesc(err.Error())
 			if errors.Is(err, gitlab.ErrForbidden) {
