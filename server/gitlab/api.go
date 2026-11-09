@@ -263,7 +263,7 @@ func getProjectHookInfo(hook *internGitlab.ProjectHook) *WebhookInfo {
 
 func getGroupHookInfo(hook *internGitlab.GroupHook) *WebhookInfo {
 	webhook := &WebhookInfo{
-		Scope:                    Project,
+		Scope:                    Group,
 		URL:                      hook.URL,
 		ID:                       hook.ID,
 		ConfidentialNoteEvents:   hook.ConfidentialNoteEvents,

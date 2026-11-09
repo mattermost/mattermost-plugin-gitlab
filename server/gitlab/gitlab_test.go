@@ -46,5 +46,6 @@ func TestGetGroupHooksPagination(t *testing.T) {
 	require.Len(t, hooks, 2)
 	assert.Equal(t, "https://example.com/first", hooks[0].URL)
 	assert.Equal(t, "https://example.com/second", hooks[1].URL)
+	assert.Equal(t, Group, hooks[0].Scope)
 	assert.Equal(t, []string{"1", "2"}, requestedPages)
 }
