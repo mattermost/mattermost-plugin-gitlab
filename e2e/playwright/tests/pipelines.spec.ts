@@ -95,11 +95,11 @@ test.describe('pipelines', () => {
      * @precondition
      * The gitlab-runner service is registered, and a new project has a plugin webhook
      */
-    // The plugin sends the event sender a refresh before dispatching DMs and then
-    // skips users who already got a refresh, so the sender never receives this DM.
-    // https://mattermost.atlassian.net/browse/MM-71329
-    test.fixme('DMs the pipeline author when their pipeline fails', {tag: '@gitlab_plugin'}, async () => {
+    test('DMs the pipeline author when their pipeline fails', {tag: '@gitlab_plugin'}, async () => {
         const {path} = sandbox;
+
+        // # Make sure notifications are on
+        await runCommandExpecting(channelsPage, '/gitlab settings notifications on', 'Settings updated: notifications set to on.');
 
         // # Add CI configuration and run a pipeline on the branch whose build fails
         await addCiConfig(sandbox);
@@ -109,7 +109,7 @@ test.describe('pipelines', () => {
         await openBotDirectMessage(channelsPage);
 
         // * Verify the failed-pipeline DM arrives
-        await expectPipelinePost(channelsPage, `${path} Your pipeline has failed for`);
+        await expectPipelinePost(channelsPage, `${path} Your pipeline has failed for Add CI configuration`, 'View Pipeline');
     });
 });
 

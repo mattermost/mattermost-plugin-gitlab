@@ -183,12 +183,12 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		p.logWarnings(warnings)
 	}
 
-	alreadySentRefresh := make(map[string]bool)
-	p.sendRefreshIfNotAlreadySent(alreadySentRefresh, fromUser)
+	mattermostIDByGitlabUsername := make(map[string]string)
+	p.sendRefreshIfNotAlreadySent(mattermostIDByGitlabUsername, fromUser)
 	for _, res := range handlers {
 		p.client.Log.Info("new msg", "message", res.Message, "from", res.From)
 		for _, to := range res.ToUsers {
-			userTo := p.sendRefreshIfNotAlreadySent(alreadySentRefresh, to)
+			userTo := p.sendRefreshIfNotAlreadySent(mattermostIDByGitlabUsername, to)
 			if len(userTo) > 0 && len(res.Message) > 0 {
 				info, err := p.getGitlabUserInfoByMattermostID(userTo)
 				if err != nil {
@@ -205,7 +205,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				p.sendChannelNotification(to, res.Message)
 			}
 		}
-		p.sendRefreshIfNotAlreadySent(alreadySentRefresh, res.From)
+		p.sendRefreshIfNotAlreadySent(mattermostIDByGitlabUsername, res.From)
 	}
 }
 
@@ -309,12 +309,17 @@ func (p *Plugin) sendChannelNotification(channelID, message string) {
 	}
 }
 
-func (p *Plugin) sendRefreshIfNotAlreadySent(alreadySentRefresh map[string]bool, gitlabUsername string) string {
-	if len(gitlabUsername) == 0 || alreadySentRefresh[gitlabUsername] {
+// sendRefreshIfNotAlreadySent refreshes the user once per webhook and returns
+// their Mattermost user ID on every call, so a refreshed user still gets DMs.
+func (p *Plugin) sendRefreshIfNotAlreadySent(mattermostIDByGitlabUsername map[string]string, gitlabUsername string) string {
+	if len(gitlabUsername) == 0 {
 		return ""
 	}
-	alreadySentRefresh[gitlabUsername] = true
+	if userMattermostID, ok := mattermostIDByGitlabUsername[gitlabUsername]; ok {
+		return userMattermostID
+	}
 	userMattermostID := p.getGitlabToUserIDMapping(gitlabUsername)
+	mattermostIDByGitlabUsername[gitlabUsername] = userMattermostID
 	if len(userMattermostID) > 0 {
 		p.sendRefreshEvent(userMattermostID)
 	}
