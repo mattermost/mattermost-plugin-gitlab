@@ -406,10 +406,17 @@ func effectiveAccess(perms *gitlabLib.Permissions) gitlabLib.AccessLevelValue {
 	return level
 }
 
+const sslVerificationOffNote = "SSL verification is off on the existing webhook. Leave it off if GitLab cannot verify Mattermost's certificate."
+
+func existingWebhookTokenNote(runAgain string) string {
+	return "Its secret token can't be checked; if the webhook secret was regenerated, update the token on this webhook in GitLab or delete it and run " + runAgain + "."
+}
+
 // findExistingHook returns a webhook that already delivers the group's or
-// project's events to hookURL. GitLab also delivers a project's events to the
-// hooks of its parent group, so both are checked for a project. Listing errors
-// are ignored so that users who cannot read hooks are still able to create one.
+// project's events to hookURL. GitLab also delivers those events to hooks on
+// the group and every ancestor group, so each of those is checked. Listing
+// errors are ignored so that users who cannot read hooks are still able to
+// create one.
 func (p *Plugin) findExistingHook(ctx context.Context, gitlabClient gitlab.Gitlab, info *gitlab.UserInfo, group, project, hookURL string) *gitlab.WebhookInfo {
 	var hooks []*gitlab.WebhookInfo
 	if project != "" {
@@ -423,13 +430,15 @@ func (p *Plugin) findExistingHook(ctx context.Context, gitlabClient gitlab.Gitla
 		}
 	}
 
-	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		resp, err := gitlabClient.GetGroupHooks(ctx, info, token, group)
-		hooks = append(hooks, resp...)
-		return err
-	})
-	if err != nil {
-		p.client.Log.Debug("Unable to list group webhooks", "namespace", group, "err", err.Error())
+	for _, groupPath := range groupAndAncestors(group) {
+		err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+			resp, err := gitlabClient.GetGroupHooks(ctx, info, token, groupPath)
+			hooks = append(hooks, resp...)
+			return err
+		})
+		if err != nil {
+			p.client.Log.Debug("Unable to list group webhooks", "namespace", groupPath, "err", err.Error())
+		}
 	}
 
 	for _, hook := range hooks {
@@ -438,6 +447,21 @@ func (p *Plugin) findExistingHook(ctx context.Context, gitlabClient gitlab.Gitla
 		}
 	}
 	return nil
+}
+
+func groupAndAncestors(group string) []string {
+	if group == "" {
+		return nil
+	}
+	paths := []string{group}
+	for {
+		slash := strings.LastIndex(group, "/")
+		if slash <= 0 {
+			return paths
+		}
+		group = group[:slash]
+		paths = append(paths, group)
+	}
 }
 
 func (p *Plugin) createHook(ctx context.Context, gitlabClient gitlab.Gitlab, info *gitlab.UserInfo, group, project string, hookOptions *gitlab.AddWebhookOptions) (*gitlab.WebhookInfo, error) {

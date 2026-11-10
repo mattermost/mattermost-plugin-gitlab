@@ -47,14 +47,14 @@ type AddWebhookOptions struct {
 	Token                    string
 }
 
-// MissingTriggers returns the names of the requested triggers that the existing webhook does not have enabled.
+// MissingTriggers returns the names of the requested event triggers that the existing webhook does not have enabled.
+// SSL verification is a delivery setting, reported by SSLVerificationDisabled.
 func (o *AddWebhookOptions) MissingTriggers(w *WebhookInfo) []string {
 	checks := []struct {
 		name      string
 		requested bool
 		enabled   bool
 	}{
-		{"SSL Verification", o.EnableSSLVerification, w.EnableSSLVerification},
 		{"Push Events", o.PushEvents, w.PushEvents},
 		{"Tag Push Events", o.TagPushEvents, w.TagPushEvents},
 		{"Comments", o.NoteEvents, w.NoteEvents},
@@ -76,4 +76,9 @@ func (o *AddWebhookOptions) MissingTriggers(w *WebhookInfo) []string {
 		}
 	}
 	return missing
+}
+
+// SSLVerificationDisabled reports that SSL verification was requested and the existing webhook has it turned off.
+func (o *AddWebhookOptions) SSLVerificationDisabled(w *WebhookInfo) bool {
+	return o.EnableSSLVerification && !w.EnableSSLVerification
 }

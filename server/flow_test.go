@@ -62,8 +62,39 @@ func TestSubmitWebhook(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, stepWebhookConfirmation, next)
-		assert.Nil(t, state)
+		assert.Contains(t, state.GetString(keyExistingWebhookNote), "secret token can't be checked")
+		assert.Empty(t, state.GetString(keySSLVerificationNote))
 		assert.Nil(t, errs)
+	})
+
+	t.Run("confirms setup when the existing webhook only has SSL verification off", func(t *testing.T) {
+		existingHook := &gitlab.WebhookInfo{
+			URL:                      pluginWebhookURL,
+			ConfidentialNoteEvents:   true,
+			PushEvents:               true,
+			IssuesEvents:             true,
+			ConfidentialIssuesEvents: true,
+			MergeRequestsEvents:      true,
+			TagPushEvents:            true,
+			NoteEvents:               true,
+			JobEvents:                true,
+			PipelineEvents:           true,
+			WikiPageEvents:           true,
+			DeploymentEvents:         true,
+			ReleaseEvents:            true,
+		}
+		mockedClient := mocks.NewMockGitlab(gomock.NewController(t))
+		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), "group/project", gomock.Any()).Return("group", "project", nil)
+		mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group", "project").Return([]*gitlab.WebhookInfo{existingHook}, nil)
+		mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group").Return(nil, nil)
+		fm := newFlowManager(mockedClient)
+
+		next, state, _, err := fm.submitWebhook(&flow.Flow{UserID: "user-id"}, map[string]any{"namespace": "group/project"})
+
+		require.NoError(t, err)
+		assert.Equal(t, stepWebhookConfirmation, next)
+		assert.Equal(t, sslVerificationOffNote, state.GetString(keySSLVerificationNote))
+		assert.Contains(t, state.GetString(keyExistingWebhookNote), "secret token can't be checked")
 	})
 
 	t.Run("reports the triggers an existing webhook is missing", func(t *testing.T) {
@@ -77,7 +108,10 @@ func TestSubmitWebhook(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "does not have these triggers enabled")
-		assert.Contains(t, err.Error(), "SSL Verification, Tag Push Events, Comments")
+		assert.Contains(t, err.Error(), "Tag Push Events, Comments")
+		assert.NotContains(t, err.Error(), "SSL Verification")
+		assert.Contains(t, err.Error(), sslVerificationOffNote)
+		assert.Contains(t, err.Error(), "secret token can't be checked")
 	})
 
 	t.Run("names the group when a group webhook is missing triggers", func(t *testing.T) {
@@ -101,10 +135,11 @@ func TestSubmitWebhook(t *testing.T) {
 		mockedClient.EXPECT().NewProjectHook(gomock.Any(), gomock.Any(), gomock.Any(), 4, gomock.Any()).Return(&gitlab.WebhookInfo{URL: pluginWebhookURL}, nil)
 		fm := newFlowManager(mockedClient)
 
-		next, _, _, err := fm.submitWebhook(&flow.Flow{UserID: "user-id"}, map[string]any{"namespace": "group/project"})
+		next, state, _, err := fm.submitWebhook(&flow.Flow{UserID: "user-id"}, map[string]any{"namespace": "group/project"})
 
 		require.NoError(t, err)
 		assert.Equal(t, stepWebhookConfirmation, next)
+		assert.Nil(t, state)
 	})
 }
 

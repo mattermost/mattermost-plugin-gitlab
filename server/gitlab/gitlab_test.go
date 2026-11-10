@@ -54,12 +54,16 @@ func TestMissingTriggers(t *testing.T) {
 	options := &AddWebhookOptions{PushEvents: true, IssuesEvents: true, EnableSSLVerification: true}
 
 	t.Run("lists requested triggers the webhook lacks", func(t *testing.T) {
-		missing := options.MissingTriggers(&WebhookInfo{PushEvents: true, NoteEvents: true})
+		hook := &WebhookInfo{PushEvents: true, NoteEvents: true}
+		missing := options.MissingTriggers(hook)
 
-		assert.Equal(t, []string{"SSL Verification", "Issues Events"}, missing)
+		assert.Equal(t, []string{"Issues Events"}, missing)
+		assert.True(t, options.SSLVerificationDisabled(hook))
 	})
 
 	t.Run("is empty when every requested trigger is enabled", func(t *testing.T) {
-		assert.Empty(t, options.MissingTriggers(&WebhookInfo{PushEvents: true, IssuesEvents: true, EnableSSLVerification: true}))
+		hook := &WebhookInfo{PushEvents: true, IssuesEvents: true, EnableSSLVerification: true}
+		assert.Empty(t, options.MissingTriggers(hook))
+		assert.False(t, options.SSLVerificationDisabled(hook))
 	})
 }
