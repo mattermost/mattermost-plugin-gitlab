@@ -408,6 +408,8 @@ func effectiveAccess(perms *gitlabLib.Permissions) gitlabLib.AccessLevelValue {
 
 const sslVerificationOffNote = "SSL verification is off on the existing webhook. Leave it off if GitLab cannot verify Mattermost's certificate."
 
+const customTokenNotAppliedNote = "The token you provided was not applied to the existing webhook."
+
 func existingWebhookTokenNote(runAgain string) string {
 	return "Its secret token can't be checked; if the webhook secret was regenerated, update the token on this webhook in GitLab or delete it and run " + runAgain + "."
 }

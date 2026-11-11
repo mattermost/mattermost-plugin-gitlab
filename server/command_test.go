@@ -745,6 +745,36 @@ func newAddWebhookTestClient(p *Plugin, siteURL string) *pluginapi.Client {
 	return pluginapi.NewClient(api, p.Driver)
 }
 
+func TestAddWebhookCommandExistingWebhookCustomToken(t *testing.T) {
+	tests := []struct {
+		name           string
+		parameters     []string
+		wantNotApplied bool
+	}{
+		{name: "custom token", parameters: []string{"add", "group/project", "*", testDefaultWebhookURL, "custom-token"}, wantNotApplied: true},
+		{name: "configured token", parameters: []string{"add", "group/project"}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			p := new(Plugin)
+
+			mockCtrl := gomock.NewController(t)
+			mockedClient := mocks.NewMockGitlab(mockCtrl)
+			mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), true).Return("group", "project", nil)
+			mockedClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group", "project").Return([]*gitlab.WebhookInfo{{URL: testDefaultWebhookURL}}, nil)
+			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), "group").Return(nil, nil)
+			p.gitlabClient = mockedClient
+			p.client = newAddWebhookTestClient(p, "https://example.com")
+
+			got := p.webhookCommand(context.Background(), test.parameters, &gitlab.UserInfo{}, true)
+
+			assert.Contains(t, got, "A webhook with this URL already exists for group/project")
+			assert.Equal(t, test.wantNotApplied, strings.Contains(got, customTokenNotAppliedNote), got)
+		})
+	}
+}
+
 func TestAddWebhookCommandAncestorGroupWebhook(t *testing.T) {
 	existingHook := &gitlab.WebhookInfo{URL: testDefaultWebhookURL, IssuesEvents: true}
 	p := new(Plugin)
