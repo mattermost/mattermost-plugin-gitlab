@@ -68,8 +68,9 @@ test.describe('subscriptions', () => {
      */
     test('stores custom subscription features and shows them in the sidebar', {tag: '@gitlab_plugin'}, async ({pw}) => {
         sandbox = await createSandbox();
-        const {path} = sandbox;
+        const {root, project, path} = sandbox;
         const features = 'issues,merges,pushes,pipeline,label:"bug"';
+        await root.createLabel(project.id, 'bug');
 
         // # Open the GitLab subscriptions sidebar and subscribe with custom features
         channelsPage = await ensureConnected(pw);

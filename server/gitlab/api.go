@@ -791,6 +791,46 @@ func (g *gitlab) GetLabels(ctx context.Context, user *UserInfo, projectID string
 	return labels, nil
 }
 
+// GetGroupLabels lists labels for a group, including project and descendant group labels.
+func (g *gitlab) GetGroupLabels(ctx context.Context, user *UserInfo, groupID string, token *oauth2.Token) ([]*internGitlab.GroupLabel, error) {
+	client, err := g.GitlabConnect(*token)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to GitLab: %w", err)
+	}
+	if err := g.checkGroup(groupID); err != nil {
+		return nil, err
+	}
+
+	onlyGroupLabels := false
+	includeDescendants := true
+	opts := &internGitlab.ListGroupLabelsOptions{
+		ListOptions: internGitlab.ListOptions{
+			Page:    1,
+			PerPage: 100,
+		},
+		OnlyGroupLabels:          &onlyGroupLabels,
+		IncludeDescendantGrouops: &includeDescendants,
+	}
+
+	var labels []*internGitlab.GroupLabel
+	for {
+		page, resp, err := client.GroupLabels.ListGroupLabels(groupID, opts, internGitlab.WithContext(ctx))
+		if respErr := checkResponse(resp); respErr != nil {
+			return nil, fmt.Errorf("failed to list labels for group %s: %w", groupID, respErr)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to list labels for group %s: %w", groupID, err)
+		}
+		labels = append(labels, page...)
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+
+	return labels, nil
+}
+
 // topLevelGroupFromProject returns the top-level group name (first path segment)
 // for a project under a group namespace. Returns empty string if not a group.
 func topLevelGroupFromProject(p *internGitlab.Project) string {
