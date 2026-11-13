@@ -289,8 +289,12 @@ func (p *Plugin) connectUserToGitlab(c *Context, w http.ResponseWriter, r *http.
 	}
 
 	state := fmt.Sprintf("%v_%v", model.NewId()[0:15], userID)
+	storedVal := state
+	if flowParam := r.URL.Query().Get("flow"); flowParam == "setup" || flowParam == "oauth" {
+		storedVal = state + "#" + flowParam
+	}
 
-	if _, err := p.client.KV.Set(state, []byte(state)); err != nil {
+	if _, err := p.client.KV.Set(state, []byte(storedVal)); err != nil {
 		c.Log.WithError(err).Warnf("Can't store state oauth2")
 		http.Error(w, "can't store state oauth2", http.StatusInternalServerError)
 		return
@@ -384,7 +388,14 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		return
 	}
 
-	if string(storedState) != state {
+	storedStateStr := string(storedState)
+	var flowName string
+	if parts := strings.SplitN(storedStateStr, "#", 2); len(parts) == 2 {
+		storedStateStr = parts[0]
+		flowName = parts[1]
+	}
+
+	if storedStateStr != state {
 		rErr = errors.New("invalid state token")
 		http.Error(w, "Invalid OAuth state", http.StatusBadRequest)
 		return
@@ -441,19 +452,30 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		c.Log.WithError(err).Warnf("Can't store GitLab to GitLab id mapping")
 	}
 
-	flow := p.flowManager.setupFlow.ForUser(authedUserID)
-
-	stepName, err := flow.GetCurrentStep()
-	if err != nil {
-		c.Log.WithError(err).Warnf("Failed to get current step")
+	var advanced bool
+	var flowErr error
+	if p.flowManager != nil {
+		targetFlow := flowName
+		if targetFlow == "" {
+			targetFlow = "setup"
+		}
+		advanced, flowErr = p.flowManager.AdvanceOnOAuthConnect(authedUserID, targetFlow)
+		if flowErr != nil {
+			c.Log.WithError(flowErr).Warnf("Failed to advance setup wizard on OAuth connect")
+		}
 	}
 
-	if stepName == stepOAuthConnect {
-		err = flow.Go(stepWebhookQuestion)
-		if err != nil {
-			c.Log.WithError(err).Warnf("Failed go to next step")
+	if flowErr != nil && advanced {
+		recoveryMessage := "Your GitLab account was connected, but setup could not continue automatically.\n"
+		if isSysAdmin, _ := p.isAuthorizedSysAdmin(userID); isSysAdmin {
+			recoveryMessage += "To complete webhook configuration, run `/gitlab setup webhook`."
+		} else {
+			recoveryMessage += "Please contact a System Admin with the required GitLab permissions to complete webhook configuration."
 		}
-	} else {
+		if err := p.CreateBotDMPost(userID, recoveryMessage, ""); err != nil {
+			c.Log.WithError(err).Warnf("Can't send wizard recovery message with bot dm")
+		}
+	} else if !advanced {
 		// Only post introduction message if no setup wizard is running
 		// Post intro post
 		message := fmt.Sprintf("#### Welcome to the Mattermost GitLab Plugin!\n"+
