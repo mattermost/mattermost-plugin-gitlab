@@ -135,7 +135,7 @@ func TestAdvanceOnOAuthConnect(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, stepOAuthConnect, current)
 
-		advanced, err := fm.AdvanceOnOAuthConnect(userID)
+		advanced, err := fm.AdvanceOnOAuthConnect(userID, "oauth")
 		require.NoError(t, err)
 		assert.True(t, advanced)
 
@@ -158,7 +158,7 @@ func TestAdvanceOnOAuthConnect(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, stepOAuthConnect, current)
 
-		advanced, err := fm.AdvanceOnOAuthConnect(userID)
+		advanced, err := fm.AdvanceOnOAuthConnect(userID, "setup")
 		require.NoError(t, err)
 		assert.True(t, advanced)
 
@@ -167,7 +167,7 @@ func TestAdvanceOnOAuthConnect(t *testing.T) {
 		assert.Equal(t, stepWebhookQuestion, current)
 	})
 
-	t.Run("prioritizes oauthFlow over setupFlow when both are at stepOAuthConnect", func(t *testing.T) {
+	t.Run("advances only specified bound flow when multiple flows are active", func(t *testing.T) {
 		fm, _ := setupTestFlowManager(t)
 		userID := "user-dual-flow-test"
 
@@ -183,7 +183,7 @@ func TestAdvanceOnOAuthConnect(t *testing.T) {
 		err = fm.oauthFlow.ForUser(userID).Go(stepOAuthConnect)
 		require.NoError(t, err)
 
-		advanced, err := fm.AdvanceOnOAuthConnect(userID)
+		advanced, err := fm.AdvanceOnOAuthConnect(userID, "oauth")
 		require.NoError(t, err)
 		assert.True(t, advanced)
 
@@ -201,7 +201,7 @@ func TestAdvanceOnOAuthConnect(t *testing.T) {
 	t.Run("returns false when no flow is active", func(t *testing.T) {
 		fm, _ := setupTestFlowManager(t)
 
-		advanced, err := fm.AdvanceOnOAuthConnect("unknown-user")
+		advanced, err := fm.AdvanceOnOAuthConnect("unknown-user", "oauth")
 		require.NoError(t, err)
 		assert.False(t, advanced)
 	})
@@ -217,7 +217,7 @@ func TestAdvanceOnOAuthConnect(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, stepGitlabURL, current)
 
-		advanced, err := fm.AdvanceOnOAuthConnect(userID)
+		advanced, err := fm.AdvanceOnOAuthConnect(userID, "oauth")
 		require.NoError(t, err)
 		assert.False(t, advanced)
 
@@ -226,36 +226,16 @@ func TestAdvanceOnOAuthConnect(t *testing.T) {
 		assert.Equal(t, stepGitlabURL, current)
 	})
 
-	t.Run("advances specifically bound flow when specified", func(t *testing.T) {
+	t.Run("returns false for unknown flow name", func(t *testing.T) {
 		fm, _ := setupTestFlowManager(t)
-		userID := "user-bound-flow-test"
+		userID := "user-unknown-flow"
 
-		// Start setupFlow and move to stepOAuthConnect
-		err := fm.StartSetupWizard(userID, "")
-		require.NoError(t, err)
-		err = fm.setupFlow.ForUser(userID).Go(stepOAuthConnect)
+		err := fm.StartOauthWizard(userID)
 		require.NoError(t, err)
 
-		// Start oauthFlow and move to stepOAuthConnect
-		err = fm.StartOauthWizard(userID)
+		advanced, err := fm.AdvanceOnOAuthConnect(userID, "unknown")
 		require.NoError(t, err)
-		err = fm.oauthFlow.ForUser(userID).Go(stepOAuthConnect)
-		require.NoError(t, err)
-
-		// Specifically advance setupFlow
-		advanced, err := fm.AdvanceOnOAuthConnect(userID, "setup")
-		require.NoError(t, err)
-		assert.True(t, advanced)
-
-		// setupFlow was advanced
-		setupStep, err := fm.setupFlow.ForUser(userID).GetCurrentStep()
-		require.NoError(t, err)
-		assert.Equal(t, stepWebhookQuestion, setupStep)
-
-		// oauthFlow remained at stepOAuthConnect
-		oauthStep, err := fm.oauthFlow.ForUser(userID).GetCurrentStep()
-		require.NoError(t, err)
-		assert.Equal(t, stepOAuthConnect, oauthStep)
+		assert.False(t, advanced)
 	})
 
 	t.Run("preserves lookup errors and returns them", func(t *testing.T) {
@@ -273,14 +253,14 @@ func TestAdvanceOnOAuthConnect(t *testing.T) {
 		api.On("LogWarn", mock.Anything).Return(nil).Maybe()
 		api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 
-		advanced, err := fm.AdvanceOnOAuthConnect(userID)
+		advanced, err := fm.AdvanceOnOAuthConnect(userID, "oauth")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to get current step")
 		assert.False(t, advanced)
 	})
 }
 
-func setupPluginForOAuthFlowTest(t *testing.T, isSysAdmin bool) (*Plugin, *plugintest.API, *[]*model.Post, func(func(key string) *model.AppError)) {
+func setupPluginForOAuthFlowTest(t *testing.T, isSysAdmin bool) (*Plugin, *plugintest.API, *[]*model.Post, func(func(key string) *model.AppError), func(func(key string) *model.AppError)) {
 	t.Helper()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -323,22 +303,63 @@ func setupPluginForOAuthFlowTest(t *testing.T, isSysAdmin bool) (*Plugin, *plugi
 
 	var kvErrMu sync.RWMutex
 	var injectKVGetErr func(key string) *model.AppError
+	var injectKVSetErr func(key string) *model.AppError
 
-	api.On("KVSet", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+	api.On("KVSet", mock.Anything, mock.Anything).Return(func(key string, val []byte) bool {
+		kvErrMu.RLock()
+		defer kvErrMu.RUnlock()
+		if injectKVSetErr != nil && injectKVSetErr(key) != nil {
+			return false
+		}
+		return true
+	}, func(key string, val []byte) *model.AppError {
+		kvErrMu.RLock()
+		defer kvErrMu.RUnlock()
+		if injectKVSetErr != nil {
+			return injectKVSetErr(key)
+		}
+		return nil
+	}).Run(func(args mock.Arguments) {
+		kvErrMu.RLock()
+		inject := injectKVSetErr
+		kvErrMu.RUnlock()
+		key := args.Get(0).(string)
+		if inject != nil && inject(key) != nil {
+			return
+		}
 		kvMu.Lock()
 		defer kvMu.Unlock()
-		key := args.Get(0).(string)
 		val := args.Get(1).([]byte)
 		kvStore[key] = val
-	}).Return(true, nil).Maybe()
+	}).Maybe()
 
-	api.On("KVSetWithOptions", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+	api.On("KVSetWithOptions", mock.Anything, mock.Anything, mock.Anything).Return(func(key string, val []byte, opt model.PluginKVSetOptions) bool {
+		kvErrMu.RLock()
+		defer kvErrMu.RUnlock()
+		if injectKVSetErr != nil && injectKVSetErr(key) != nil {
+			return false
+		}
+		return true
+	}, func(key string, val []byte, opt model.PluginKVSetOptions) *model.AppError {
+		kvErrMu.RLock()
+		defer kvErrMu.RUnlock()
+		if injectKVSetErr != nil {
+			return injectKVSetErr(key)
+		}
+		return nil
+	}).Run(func(args mock.Arguments) {
+		kvErrMu.RLock()
+		inject := injectKVSetErr
+		kvErrMu.RUnlock()
+		key := args.Get(0).(string)
+		if inject != nil && inject(key) != nil {
+			return
+		}
 		kvMu.Lock()
 		defer kvMu.Unlock()
-		key := args.Get(0).(string)
 		val := args.Get(1).([]byte)
 		kvStore[key] = val
-	}).Return(true, nil).Maybe()
+	}).Maybe()
 
 	api.On("KVGet", mock.Anything).Return(func(key string) []byte {
 		kvMu.RLock()
@@ -395,18 +416,23 @@ func setupPluginForOAuthFlowTest(t *testing.T, isSysAdmin bool) (*Plugin, *plugi
 	require.NoError(t, err)
 	p.flowManager = fm
 
-	setErrFn := func(fn func(key string) *model.AppError) {
+	setGetErrFn := func(fn func(key string) *model.AppError) {
 		kvErrMu.Lock()
 		defer kvErrMu.Unlock()
 		injectKVGetErr = fn
 	}
+	setSetErrFn := func(fn func(key string) *model.AppError) {
+		kvErrMu.Lock()
+		defer kvErrMu.Unlock()
+		injectKVSetErr = fn
+	}
 
-	return p, api, &createdPosts, setErrFn
+	return p, api, &createdPosts, setGetErrFn, setSetErrFn
 }
 
 func TestOAuthCompleteCallbackFlowAdvancement(t *testing.T) {
 	t.Run("advances bound oauthFlow and suppresses welcome message", func(t *testing.T) {
-		p, _, createdPosts, _ := setupPluginForOAuthFlowTest(t, true)
+		p, _, createdPosts, _, _ := setupPluginForOAuthFlowTest(t, true)
 		userID := "user1111111111111111111111"
 
 		err := p.flowManager.StartOauthWizard(userID)
@@ -441,7 +467,7 @@ func TestOAuthCompleteCallbackFlowAdvancement(t *testing.T) {
 	})
 
 	t.Run("advances bound setupFlow and preserves oauthFlow state", func(t *testing.T) {
-		p, _, createdPosts, _ := setupPluginForOAuthFlowTest(t, true)
+		p, _, createdPosts, _, _ := setupPluginForOAuthFlowTest(t, true)
 		userID := "user2222222222222222222222"
 
 		err := p.flowManager.StartSetupWizard(userID, "")
@@ -482,7 +508,7 @@ func TestOAuthCompleteCallbackFlowAdvancement(t *testing.T) {
 	})
 
 	t.Run("advances setupFlow on legacy parameterless callback", func(t *testing.T) {
-		p, _, createdPosts, _ := setupPluginForOAuthFlowTest(t, true)
+		p, _, createdPosts, _, _ := setupPluginForOAuthFlowTest(t, true)
 		userID := "user3333333333333333333333"
 
 		err := p.flowManager.StartSetupWizard(userID, "")
@@ -514,7 +540,7 @@ func TestOAuthCompleteCallbackFlowAdvancement(t *testing.T) {
 	})
 
 	t.Run("posts welcome message when no setup wizard is active", func(t *testing.T) {
-		p, _, createdPosts, _ := setupPluginForOAuthFlowTest(t, false)
+		p, _, createdPosts, _, _ := setupPluginForOAuthFlowTest(t, false)
 		userID := "user4444444444444444444444"
 
 		state := "abcdefghijklmno_" + userID
@@ -543,7 +569,7 @@ func TestOAuthCompleteCallbackFlowAdvancement(t *testing.T) {
 	})
 
 	t.Run("handles advancement error for sysadmin with setup webhook command", func(t *testing.T) {
-		p, _, createdPosts, setKVGetErr := setupPluginForOAuthFlowTest(t, true)
+		p, _, createdPosts, _, setKVSetErr := setupPluginForOAuthFlowTest(t, true)
 		userID := "user5555555555555555555555"
 
 		err := p.flowManager.StartOauthWizard(userID)
@@ -551,9 +577,9 @@ func TestOAuthCompleteCallbackFlowAdvancement(t *testing.T) {
 		err = p.flowManager.oauthFlow.ForUser(userID).Go(stepOAuthConnect)
 		require.NoError(t, err)
 
-		setKVGetErr(func(key string) *model.AppError {
+		setKVSetErr(func(key string) *model.AppError {
 			if strings.Contains(key, "_flow-") {
-				return model.NewAppError("KVGet", "plugin.kv_get.error", nil, "database connection refused", http.StatusInternalServerError)
+				return model.NewAppError("KVSetWithOptions", "plugin.kv_set.error", nil, "database connection refused", http.StatusInternalServerError)
 			}
 			return nil
 		})
@@ -589,7 +615,7 @@ func TestOAuthCompleteCallbackFlowAdvancement(t *testing.T) {
 	})
 
 	t.Run("handles advancement error for delegate with contact admin instruction", func(t *testing.T) {
-		p, _, createdPosts, setKVGetErr := setupPluginForOAuthFlowTest(t, false)
+		p, _, createdPosts, _, setKVSetErr := setupPluginForOAuthFlowTest(t, false)
 		userID := "user6666666666666666666666"
 
 		err := p.flowManager.StartOauthWizard(userID)
@@ -597,9 +623,9 @@ func TestOAuthCompleteCallbackFlowAdvancement(t *testing.T) {
 		err = p.flowManager.oauthFlow.ForUser(userID).Go(stepOAuthConnect)
 		require.NoError(t, err)
 
-		setKVGetErr(func(key string) *model.AppError {
+		setKVSetErr(func(key string) *model.AppError {
 			if strings.Contains(key, "_flow-") {
-				return model.NewAppError("KVGet", "plugin.kv_get.error", nil, "database connection refused", http.StatusInternalServerError)
+				return model.NewAppError("KVSetWithOptions", "plugin.kv_set.error", nil, "database connection refused", http.StatusInternalServerError)
 			}
 			return nil
 		})
@@ -633,6 +659,42 @@ func TestOAuthCompleteCallbackFlowAdvancement(t *testing.T) {
 		assert.Contains(t, recoveryPost.Message, "Please contact a System Admin with the required GitLab permissions to complete webhook configuration.")
 		assert.NotContains(t, recoveryPost.Message, "/gitlab setup webhook")
 	})
+
+	t.Run("falls through to welcome message when flow step lookup fails for user not in wizard", func(t *testing.T) {
+		p, _, createdPosts, setKVGetErr, _ := setupPluginForOAuthFlowTest(t, false)
+		userID := "user7777777777777777777777"
+
+		// Inject KVGet error so GetCurrentStep fails on lookup
+		setKVGetErr(func(key string) *model.AppError {
+			if strings.Contains(key, "_flow-") {
+				return model.NewAppError("KVGet", "plugin.kv_get.error", nil, "database connection refused", http.StatusInternalServerError)
+			}
+			return nil
+		})
+
+		state := "abcdefghijklmno_" + userID
+		_, err := p.client.KV.Set(state, []byte(state))
+		require.NoError(t, err)
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/oauth/complete?code=testcode&state="+state, nil)
+		r.Header.Set("Mattermost-User-ID", userID)
+
+		p.ServeHTTP(nil, w, r)
+
+		result := w.Result()
+		defer func() { _ = result.Body.Close() }()
+		assert.Equal(t, http.StatusOK, result.StatusCode)
+
+		var welcomePost *model.Post
+		for _, post := range *createdPosts {
+			if post.Type == "custom_git_welcome" {
+				welcomePost = post
+			}
+			assert.NotContains(t, post.Message, "setup could not continue automatically")
+		}
+		require.NotNil(t, welcomePost, "expected welcome message post when flow lookup failed on non-wizard connect")
+	})
 }
 
 func TestOAuthFlowWebhookSteps(t *testing.T) {
@@ -646,7 +708,7 @@ func TestOAuthFlowWebhookSteps(t *testing.T) {
 		err = fm.oauthFlow.ForUser(userID).Go(stepOAuthConnect)
 		require.NoError(t, err)
 
-		advanced, err := fm.AdvanceOnOAuthConnect(userID)
+		advanced, err := fm.AdvanceOnOAuthConnect(userID, "oauth")
 		require.NoError(t, err)
 		assert.True(t, advanced)
 
@@ -669,7 +731,7 @@ func TestOAuthFlowWebhookSteps(t *testing.T) {
 		err = fm.oauthFlow.ForUser(userID).Go(stepOAuthConnect)
 		require.NoError(t, err)
 
-		advanced, err := fm.AdvanceOnOAuthConnect(userID)
+		advanced, err := fm.AdvanceOnOAuthConnect(userID, "oauth")
 		require.NoError(t, err)
 		assert.True(t, advanced)
 

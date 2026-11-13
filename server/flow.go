@@ -273,43 +273,35 @@ func (fm *FlowManager) StartOauthWizard(userID string) error {
 	return nil
 }
 
-// AdvanceOnOAuthConnect checks whether a setup wizard bound to the OAuth request is currently
-// awaiting user OAuth connection, and if so advances it to the webhook configuration step.
-// If boundFlow is specified ("oauth" or "setup"), only that specific wizard is advanced.
-// If boundFlow is empty, it checks oauthFlow first, then setupFlow for backward compatibility with tests.
+// AdvanceOnOAuthConnect checks whether the setup wizard specified by boundFlow ("oauth" or "setup")
+// is currently awaiting user OAuth connection, and if so advances it to the webhook configuration step.
 // Returns true if an active wizard was found and advanced.
-func (fm *FlowManager) AdvanceOnOAuthConnect(userID string, boundFlow ...string) (bool, error) {
-	target := ""
-	if len(boundFlow) > 0 {
-		target = boundFlow[0]
+func (fm *FlowManager) AdvanceOnOAuthConnect(userID, boundFlow string) (bool, error) {
+	var target *flow.Flow
+	switch boundFlow {
+	case "oauth":
+		target = fm.oauthFlow
+	case "setup":
+		target = fm.setupFlow
+	default:
+		return false, nil
 	}
 
-	flows := []struct {
-		name string
-		flow *flow.Flow
-	}{
-		{"oauth", fm.oauthFlow},
-		{"setup", fm.setupFlow},
+	if target == nil {
+		return false, nil
 	}
 
-	for _, entry := range flows {
-		if target != "" && entry.name != target {
-			continue
+	userFlow := target.ForUser(userID)
+	stepName, err := userFlow.GetCurrentStep()
+	if err != nil {
+		return false, fmt.Errorf("failed to get current step for %s flow: %w", boundFlow, err)
+	}
+
+	if stepName == stepOAuthConnect {
+		if err := userFlow.Go(stepWebhookQuestion); err != nil {
+			return true, fmt.Errorf("failed to advance %s flow to %s: %w", boundFlow, stepWebhookQuestion, err)
 		}
-		if entry.flow == nil {
-			continue
-		}
-		userFlow := entry.flow.ForUser(userID)
-		stepName, err := userFlow.GetCurrentStep()
-		if err != nil {
-			return false, fmt.Errorf("failed to get current step for %s flow: %w", entry.name, err)
-		}
-		if stepName == stepOAuthConnect {
-			if err := userFlow.Go(stepWebhookQuestion); err != nil {
-				return true, fmt.Errorf("failed to advance %s flow to %s: %w", entry.name, stepWebhookQuestion, err)
-			}
-			return true, nil
-		}
+		return true, nil
 	}
 
 	return false, nil

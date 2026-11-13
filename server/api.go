@@ -261,7 +261,7 @@ func (p *Plugin) connectUserToGitlab(c *Context, w http.ResponseWriter, r *http.
 
 	state := fmt.Sprintf("%v_%v", model.NewId()[0:15], userID)
 	storedVal := state
-	if flowParam := r.URL.Query().Get("flow"); flowParam != "" {
+	if flowParam := r.URL.Query().Get("flow"); flowParam == "setup" || flowParam == "oauth" {
 		storedVal = state + "#" + flowParam
 	}
 
@@ -436,7 +436,7 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		}
 	}
 
-	if flowErr != nil {
+	if flowErr != nil && advanced {
 		recoveryMessage := "Your GitLab account was connected, but setup could not continue automatically.\n"
 		if isSysAdmin, _ := p.isAuthorizedSysAdmin(userID); isSysAdmin {
 			recoveryMessage += "To complete webhook configuration, run `/gitlab setup webhook`."
