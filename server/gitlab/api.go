@@ -162,17 +162,29 @@ func (g *gitlab) GetGroupHooks(ctx context.Context, user *UserInfo, token *oauth
 		return nil, err
 	}
 
-	hooks, resp, err := client.Groups.ListGroupHooks(owner, nil, internGitlab.WithContext(ctx))
-	if respErr := checkResponse(resp); respErr != nil {
-		return nil, respErr
-	}
-	if err != nil {
-		return nil, err
+	opt := &internGitlab.ListGroupHooksOptions{
+		PerPage: perPage,
+		Page:    1,
 	}
 
 	var webhooks []*WebhookInfo
-	for _, hook := range hooks {
-		webhooks = append(webhooks, getGroupHookInfo(hook))
+	for {
+		hooks, resp, err := client.Groups.ListGroupHooks(owner, opt, internGitlab.WithContext(ctx))
+		if respErr := checkResponse(resp); respErr != nil {
+			return nil, respErr
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		for _, hook := range hooks {
+			webhooks = append(webhooks, getGroupHookInfo(hook))
+		}
+
+		if resp.NextPage == 0 {
+			break
+		}
+		opt.Page = resp.NextPage
 	}
 
 	return webhooks, nil
@@ -251,7 +263,7 @@ func getProjectHookInfo(hook *internGitlab.ProjectHook) *WebhookInfo {
 
 func getGroupHookInfo(hook *internGitlab.GroupHook) *WebhookInfo {
 	webhook := &WebhookInfo{
-		Scope:                    Project,
+		Scope:                    Group,
 		URL:                      hook.URL,
 		ID:                       hook.ID,
 		ConfidentialNoteEvents:   hook.ConfidentialNoteEvents,

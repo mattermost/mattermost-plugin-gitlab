@@ -111,7 +111,7 @@ func (p *Plugin) NewFlowManager() (*FlowManager, error) {
 	webhookFlow.WithSteps(
 		fm.stepWebhookQuestion(),
 		flow.NewStep(stepWebhookConfirmation).
-			WithText("Use `/gitlab subscriptions add` to subscribe any Mattermost channel to your GitLab repository. [Learn more](https://mattermost.gitbook.io/plugin-gitlab/feature-summary#subscribe-to-unsubscribe-from-a-repository)").
+			WithText(webhookConfirmationText()).
 			Terminal(),
 
 		fm.stepCancel("setup webhook"),
@@ -203,7 +203,16 @@ const (
 	keyDefaultInstanceName         = "DefaultInstanceName"
 	keyUsePreregisteredApplication = "UsePreregisteredApplication"
 	keyIsOAuthConfigured           = "IsOAuthConfigured"
+	keyExistingWebhookNote         = "ExistingWebhookNote"
+	keySSLVerificationNote         = "SSLVerificationNote"
 )
+
+func webhookConfirmationText() string {
+	return "{{ if .ExistingWebhookNote }}{{ .ExistingWebhookNote }}\n\n{{ end }}" +
+		"{{ if .SSLVerificationNote }}{{ .SSLVerificationNote }}\n\n{{ end }}" +
+		"Use `/gitlab subscriptions add` to subscribe any Mattermost channel to your GitLab repository. " +
+		"[Learn more](https://mattermost.gitbook.io/plugin-gitlab/feature-summary#subscribe-to-unsubscribe-from-a-repository)"
+}
 
 func cancelButton() flow.Button {
 	return flow.Button{
@@ -668,7 +677,7 @@ func (fm *FlowManager) submitWebhook(f *flow.Flow, submitted map[string]any) (fl
 	var fullName string
 	var repoOrGroup string
 
-	if group == "" {
+	if project == "" {
 		fullName = group
 		repoOrGroup = "group"
 	} else {
@@ -676,8 +685,25 @@ func (fm *FlowManager) submitWebhook(f *flow.Flow, submitted map[string]any) (fl
 		repoOrGroup = "repository"
 	}
 
-	_, err = fm.createHook(ctx, gitlabClient, info, group, project, hookOptions)
+	hook, err := fm.createHook(ctx, gitlabClient, info, group, project, hookOptions)
 	if err != nil {
+		if errors.Is(err, errWebhookExists) {
+			if missing := hookOptions.MissingTriggers(hook); len(missing) > 0 {
+				message := fmt.Sprintf("A webhook with this URL already exists for %s, but it does not have these triggers enabled: %s. Enable them in the GitLab webhook settings and run /gitlab setup webhook again.", fullName, strings.Join(missing, ", "))
+				if hookOptions.SSLVerificationDisabled(hook) {
+					message += " " + sslVerificationOffNote
+				}
+				message += " " + existingWebhookTokenNote("/gitlab setup webhook again")
+				return "", nil, nil, errors.New(message)
+			}
+			state := flow.State{
+				keyExistingWebhookNote: fmt.Sprintf("A webhook with this URL already exists for %s, so no new webhook was created. %s", fullName, existingWebhookTokenNote("/gitlab setup webhook again")),
+			}
+			if hookOptions.SSLVerificationDisabled(hook) {
+				state[keySSLVerificationNote] = sslVerificationOffNote
+			}
+			return stepWebhookConfirmation, state, nil, nil
+		}
 		if errors.Is(err, gitlab.ErrNotFound) {
 			return "", nil, nil, errors.New("project or group was not found")
 		}
@@ -706,7 +732,7 @@ func (fm *FlowManager) stepWebhookWarning() flow.Step {
 func (fm *FlowManager) stepWebhookConfirmation() flow.Step {
 	return flow.NewStep(stepWebhookConfirmation).
 		WithTitle("Success! :tada: You've successfully set up your Mattermost GitLab integration! ").
-		WithText("Use `/gitlab subscriptions add` to subscribe any Mattermost channel to your GitLab repository. [Learn more](https://mattermost.gitbook.io/plugin-gitlab/feature-summary#subscribe-to-unsubscribe-from-a-repository)").
+		WithText(webhookConfirmationText()).
 		Next("")
 }
 
