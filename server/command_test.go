@@ -36,6 +36,8 @@ type subscribeCommandTest struct {
 	mockGitlab     bool
 	// groupOnly resolves the namespace to a group rather than a project.
 	groupOnly bool
+	// userOnly resolves the namespace to a personal user namespace.
+	userOnly bool
 	// getGroupErr is returned by GetGroup, simulating no access to the group.
 	getGroupErr error
 	// publicProjectNoMembership resolves to a public project with no membership,
@@ -294,6 +296,16 @@ var subscribeCommandTests = []subscribeCommandTest{
 		want:             "Successfully subscribed to group.\nA Webhook is needed, run ```/gitlab webhook add group``` to create one now.",
 		expectHookLookup: true,
 	},
+	{
+		testName:         "Subscription succeeds for user namespace with label filter",
+		parameters:       []string{"add", "user", `issues,label:"bug"`},
+		mockGitlab:       true,
+		userOnly:         true,
+		webhookInfo:      []*gitlab.WebhookInfo{{}},
+		mattermostURL:    "example.com",
+		want:             "Successfully subscribed to user.\nA Webhook is needed, run ```/gitlab webhook add user``` to create one now.",
+		expectHookLookup: true,
+	},
 }
 
 func TestSubscribeCommand(t *testing.T) {
@@ -498,6 +510,14 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 	mockedClient := mocks.NewMockGitlab(mockCtrl)
 	switch {
 	case !test.mockGitlab:
+	case test.userOnly:
+		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("user", "", nil)
+		if strings.Contains(strings.Join(test.parameters, " "), "label:") {
+			mockedClient.EXPECT().GetGroupLabels(gomock.Any(), gomock.Any(), "user", gomock.Any()).Return(nil, gitlab.ErrNotFound)
+		}
+		if test.expectHookLookup {
+			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
+		}
 	case test.groupOnly:
 		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("group", "", nil)
 		if test.getGroupErr != nil {
