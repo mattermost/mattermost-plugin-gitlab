@@ -361,6 +361,9 @@ func TestSubscribeCommand(t *testing.T) {
 				api.AssertNotCalled(t, "KVSet", SubscriptionsKey, mock.Anything)
 				api.AssertNotCalled(t, "KVSetWithOptions", SubscriptionsKey, mock.Anything, mock.Anything)
 			}
+			if test.assertLockHeldOnKVSet {
+				api.AssertCalled(t, "KVSetWithOptions", SubscriptionsKey, mock.Anything, mock.Anything)
+			}
 		})
 	}
 }
