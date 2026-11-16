@@ -558,7 +558,11 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 			mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("user", "", true, nil)
 		}
 		if test.expectHookLookup {
-			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
+			if test.assertLockHeldOnKVSet {
+				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr).AnyTimes()
+			} else {
+				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
+			}
 		}
 	case test.groupOnly:
 		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("group", "", false, nil)
@@ -573,7 +577,11 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 			mockedClient.EXPECT().GetGroupLabels(gomock.Any(), gomock.Any(), "group", gomock.Any()).Return(test.groupLabels, test.getLabelsErr)
 		}
 		if test.expectHookLookup {
-			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
+			if test.assertLockHeldOnKVSet {
+				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr).AnyTimes()
+			} else {
+				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
+			}
 		}
 	default:
 		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("group", "project", false, nil)
@@ -636,6 +644,11 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 
 	if test.assertLockHeldOnKVSet {
 		var switchDone chan struct{}
+		newClient := mocks.NewMockGitlab(mockCtrl)
+		if test.expectHookLookup {
+			newClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr).AnyTimes()
+			newClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr).AnyTimes()
+		}
 		api.On("KVSet", SubscriptionsKey, mock.Anything).Run(func(args mock.Arguments) {
 			if p.effectiveLock.TryLock() {
 				p.effectiveLock.Unlock()
@@ -644,7 +657,7 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 
 			switchDone = make(chan struct{})
 			go func() {
-				p.setEffective(&effectiveConfig{}, mocks.NewMockGitlab(mockCtrl))
+				p.setEffective(&effectiveConfig{}, newClient)
 				close(switchDone)
 			}()
 
