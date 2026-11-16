@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin/plugintest"
@@ -558,11 +557,7 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 			mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("user", "", true, nil)
 		}
 		if test.expectHookLookup {
-			if test.assertLockHeldOnKVSet {
-				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr).AnyTimes()
-			} else {
-				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
-			}
+			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
 		}
 	case test.groupOnly:
 		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("group", "", false, nil)
@@ -577,11 +572,7 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 			mockedClient.EXPECT().GetGroupLabels(gomock.Any(), gomock.Any(), "group", gomock.Any()).Return(test.groupLabels, test.getLabelsErr)
 		}
 		if test.expectHookLookup {
-			if test.assertLockHeldOnKVSet {
-				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr).AnyTimes()
-			} else {
-				mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
-			}
+			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
 		}
 	default:
 		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("group", "project", false, nil)
@@ -642,39 +633,15 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 	api.On("KVGet", "user_id_gitlabtoken").Return(jsonInfo, nil).Once()
 	api.On("KVGet", "subscriptions").Return(subVal, nil)
 
+	api.On("KVSet", mock.Anything, mock.Anything).Return(nil)
 	if test.assertLockHeldOnKVSet {
-		var switchDone chan struct{}
-		newClient := mocks.NewMockGitlab(mockCtrl)
-		if test.expectHookLookup {
-			newClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr).AnyTimes()
-			newClient.EXPECT().GetProjectHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr).AnyTimes()
-		}
-		api.On("KVSet", SubscriptionsKey, mock.Anything).Run(func(args mock.Arguments) {
-			if p.effectiveLock.TryLock() {
-				p.effectiveLock.Unlock()
-				t.Errorf("effectiveLock was not held during subscription KVSet")
-			}
-
-			switchDone = make(chan struct{})
-			go func() {
-				p.setEffective(&effectiveConfig{}, newClient)
-				close(switchDone)
-			}()
-
-			select {
-			case <-switchDone:
-				t.Errorf("setEffective was able to acquire lock during subscription KVSet")
-			case <-time.After(30 * time.Millisecond):
-				// Successfully blocked while effectiveLock.RLock is held
-			}
-		}).Return(nil)
-		t.Cleanup(func() {
-			if switchDone != nil {
-				<-switchDone
-			}
-		})
-	} else {
-		api.On("KVSet", mock.Anything, mock.Anything).Return(nil)
+		api.On("KVSetWithOptions", SubscriptionsKey, mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).
+			Run(func(args mock.Arguments) {
+				if p.effectiveLock.TryLock() {
+					p.effectiveLock.Unlock()
+					t.Errorf("effectiveLock was not held during subscription KVSetWithOptions")
+				}
+			}).Return(true, nil).Once()
 	}
 	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil)
 	api.On("PublishWebSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
