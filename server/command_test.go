@@ -38,6 +38,8 @@ type subscribeCommandTest struct {
 	groupOnly bool
 	// userOnly resolves the namespace to a personal user namespace.
 	userOnly bool
+	// switchInstanceOnResolve simulates a concurrent instance change occurring during resolution before the write.
+	switchInstanceOnResolve bool
 	// getGroupErr is returned by GetGroup, simulating no access to the group.
 	getGroupErr error
 	// publicProjectNoMembership resolves to a public project with no membership,
@@ -316,6 +318,16 @@ var subscribeCommandTests = []subscribeCommandTest{
 		want:             "Successfully subscribed to user.\nA Webhook is needed, run ```/gitlab webhook add user``` to create one now.",
 		expectHookLookup: true,
 	},
+	{
+		testName:                "Subscription rejected without write when instance changes before write",
+		parameters:              []string{"add", "user", `issues,label:"bug"`},
+		mockGitlab:              true,
+		userOnly:                true,
+		switchInstanceOnResolve: true,
+		mattermostURL:           "example.com",
+		want:                    "GitLab instance configuration changed while processing the subscription. Please try again.",
+		rejectsWithoutWrite:     true,
+	},
 }
 
 func TestSubscribeCommand(t *testing.T) {
@@ -521,7 +533,16 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 	switch {
 	case !test.mockGitlab:
 	case test.userOnly:
-		mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("user", "", true, nil)
+		if test.switchInstanceOnResolve {
+			newClient := mocks.NewMockGitlab(mockCtrl)
+			mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+				DoAndReturn(func(context.Context, *gitlab.UserInfo, *oauth2.Token, string, bool) (string, string, bool, error) {
+					p.gitlabClient = newClient
+					return "user", "", true, nil
+				})
+		} else {
+			mockedClient.EXPECT().ResolveNamespaceAndProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return("user", "", true, nil)
+		}
 		if test.expectHookLookup {
 			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
 		}

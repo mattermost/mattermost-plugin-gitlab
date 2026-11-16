@@ -958,6 +958,11 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		return labelErr.Error()
 	}
 
+	if p.getGitlabClient() != gitlabClient {
+		p.client.Log.Warn("GitLab instance configuration changed while processing the subscription")
+		return "GitLab instance configuration changed while processing the subscription. Please try again."
+	}
+
 	updatedSubscriptions, subscribeErr := p.Subscribe(info, namespace, project, channelID, features)
 	if subscribeErr != nil {
 		p.client.Log.Warn(
