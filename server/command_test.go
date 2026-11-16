@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin/plugintest"
@@ -40,6 +41,8 @@ type subscribeCommandTest struct {
 	userOnly bool
 	// switchInstanceOnResolve simulates a concurrent instance change occurring during resolution before the write.
 	switchInstanceOnResolve bool
+	// assertLockHeldOnKVSet verifies effectiveLock is held during KVSet and blocks concurrent instance switch.
+	assertLockHeldOnKVSet bool
 	// getGroupErr is returned by GetGroup, simulating no access to the group.
 	getGroupErr error
 	// publicProjectNoMembership resolves to a public project with no membership,
@@ -327,6 +330,17 @@ var subscribeCommandTests = []subscribeCommandTest{
 		mattermostURL:           "example.com",
 		want:                    "GitLab instance configuration changed while processing the subscription. Please try again.",
 		rejectsWithoutWrite:     true,
+	},
+	{
+		testName:              "Subscription synchronizes write with effectiveLock and blocks concurrent instance switch",
+		parameters:            []string{"add", "user", `issues,label:"bug"`},
+		mockGitlab:            true,
+		userOnly:              true,
+		webhookInfo:           []*gitlab.WebhookInfo{{}},
+		mattermostURL:         "example.com",
+		assertLockHeldOnKVSet: true,
+		want:                  "Successfully subscribed to user.\nA Webhook is needed, run ```/gitlab webhook add user``` to create one now.",
+		expectHookLookup:      true,
 	},
 }
 
@@ -620,7 +634,35 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 	api.On("KVGet", "user_id_gitlabtoken").Return(jsonInfo, nil).Once()
 	api.On("KVGet", "subscriptions").Return(subVal, nil)
 
-	api.On("KVSet", mock.Anything, mock.Anything).Return(nil)
+	if test.assertLockHeldOnKVSet {
+		var switchDone chan struct{}
+		api.On("KVSet", SubscriptionsKey, mock.Anything).Run(func(args mock.Arguments) {
+			if p.effectiveLock.TryLock() {
+				p.effectiveLock.Unlock()
+				t.Errorf("effectiveLock was not held during subscription KVSet")
+			}
+
+			switchDone = make(chan struct{})
+			go func() {
+				p.setEffective(&effectiveConfig{}, mocks.NewMockGitlab(mockCtrl))
+				close(switchDone)
+			}()
+
+			select {
+			case <-switchDone:
+				t.Errorf("setEffective was able to acquire lock during subscription KVSet")
+			case <-time.After(30 * time.Millisecond):
+				// Successfully blocked while effectiveLock.RLock is held
+			}
+		}).Return(nil)
+		t.Cleanup(func() {
+			if switchDone != nil {
+				<-switchDone
+			}
+		})
+	} else {
+		api.On("KVSet", mock.Anything, mock.Anything).Return(nil)
+	}
 	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil)
 	api.On("PublishWebSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	api.On("LogWarn",
