@@ -902,10 +902,13 @@ func (p *Plugin) subscriptionsListCommand(channelID string) string {
 
 // subscriptionsAddCommand subscripes to A GitLab Project
 func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserInfo, config *configuration, fullPath, channelID, features string) string {
+	// Pin one client for the whole operation so a concurrent instance change can't resolve the
+	// target against one GitLab host and validate on another.
+	gitlabClient := p.getGitlabClient()
 	var namespace, project string
 	var isUser bool
 	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		respGroup, respProject, respIsUser, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, fullPath, config.EnablePrivateRepo)
+		respGroup, respProject, respIsUser, err := gitlabClient.ResolveNamespaceAndProject(ctx, info, token, fullPath, config.EnablePrivateRepo)
 		if err != nil {
 			return err
 		}
@@ -941,7 +944,7 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		}
 	} else if wantsConfidential {
 		groupAccessErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			_, groupErr := p.getGitlabClient().GetGroup(ctx, info, token, namespace, "")
+			_, groupErr := gitlabClient.GetGroup(ctx, info, token, namespace, "")
 			return groupErr
 		})
 		if groupAccessErr != nil {
@@ -951,7 +954,7 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		}
 	}
 
-	if labelErr := p.validateSubscriptionLabels(ctx, info, project, namespaceFromGroupAndProject(namespace, project), features, isUser); labelErr != nil {
+	if labelErr := p.validateSubscriptionLabels(ctx, gitlabClient, info, project, namespaceFromGroupAndProject(namespace, project), features, isUser); labelErr != nil {
 		return labelErr.Error()
 	}
 
@@ -1000,7 +1003,7 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 
 // validateSubscriptionLabels verifies that all labels specified in features exist in the target project or group.
 // For confirmed personal user namespaces (which have no group-level labels in GitLab), label validation is skipped.
-func (p *Plugin) validateSubscriptionLabels(ctx context.Context, info *gitlab.UserInfo, project, fullPath, features string, isUser bool) error {
+func (p *Plugin) validateSubscriptionLabels(ctx context.Context, gitlabClient gitlab.Gitlab, info *gitlab.UserInfo, project, fullPath, features string, isUser bool) error {
 	if isUser || !strings.Contains(features, "label:") {
 		return nil
 	}
@@ -1018,7 +1021,7 @@ func (p *Plugin) validateSubscriptionLabels(ctx context.Context, info *gitlab.Us
 	var existingLabels []string
 	if err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		if project != "" {
-			glLabels, fetchErr := p.getGitlabClient().GetLabels(ctx, info, fullPath, token)
+			glLabels, fetchErr := gitlabClient.GetLabels(ctx, info, fullPath, token)
 			if fetchErr != nil {
 				return fetchErr
 			}
@@ -1026,7 +1029,7 @@ func (p *Plugin) validateSubscriptionLabels(ctx context.Context, info *gitlab.Us
 				existingLabels = append(existingLabels, l.Name)
 			}
 		} else {
-			groupLabels, fetchErr := p.getGitlabClient().GetGroupLabels(ctx, info, fullPath, token)
+			groupLabels, fetchErr := gitlabClient.GetGroupLabels(ctx, info, fullPath, token)
 			if fetchErr != nil {
 				return fetchErr
 			}
