@@ -493,13 +493,14 @@ func (mr *MockGitlabMockRecorder) NewProjectHook(arg0, arg1, arg2, arg3, arg4 an
 }
 
 // ResolveNamespaceAndProject mocks base method.
-func (m *MockGitlab) ResolveNamespaceAndProject(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token, arg3 string, arg4 bool) (string, string, error) {
+func (m *MockGitlab) ResolveNamespaceAndProject(arg0 context.Context, arg1 *gitlab.UserInfo, arg2 *oauth2.Token, arg3 string, arg4 bool) (string, string, bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveNamespaceAndProject", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret2, _ := ret[2].(bool)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
 }
 
 // ResolveNamespaceAndProject indicates an expected call of ResolveNamespaceAndProject.

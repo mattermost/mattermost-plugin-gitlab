@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"runtime/debug"
 	"slices"
 	"strings"
@@ -578,7 +577,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		namespace := parameters[1]
 		var group, project string
 		err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			respGroup, respProject, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
+			respGroup, respProject, _, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
 			if err != nil {
 				return err
 			}
@@ -681,7 +680,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		namespace := parameters[1]
 		var group, project string
 		namespaceErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			respGroup, respProject, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
+			respGroup, respProject, _, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
 			if err != nil {
 				return err
 			}
@@ -904,13 +903,15 @@ func (p *Plugin) subscriptionsListCommand(channelID string) string {
 // subscriptionsAddCommand subscripes to A GitLab Project
 func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserInfo, config *configuration, fullPath, channelID, features string) string {
 	var namespace, project string
+	var isUser bool
 	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		respGroup, respProject, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, fullPath, config.EnablePrivateRepo)
+		respGroup, respProject, respIsUser, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, fullPath, config.EnablePrivateRepo)
 		if err != nil {
 			return err
 		}
 		namespace = respGroup
 		project = respProject
+		isUser = respIsUser
 		return nil
 	})
 	if err != nil {
@@ -950,7 +951,7 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		}
 	}
 
-	if labelErr := p.validateSubscriptionLabels(ctx, info, project, namespaceFromGroupAndProject(namespace, project), features); labelErr != nil {
+	if labelErr := p.validateSubscriptionLabels(ctx, info, project, namespaceFromGroupAndProject(namespace, project), features, isUser); labelErr != nil {
 		return labelErr.Error()
 	}
 
@@ -997,21 +998,10 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 	return fmt.Sprintf("Successfully subscribed to %s.%s", fullPath, hookStatusMessage)
 }
 
-func isNotFoundError(err error) bool {
-	if errors.Is(err, gitlab.ErrNotFound) {
-		return true
-	}
-	var errResp *gitlabLib.ErrorResponse
-	if errors.As(err, &errResp) && errResp.Response != nil && errResp.Response.StatusCode == http.StatusNotFound {
-		return true
-	}
-	return false
-}
-
 // validateSubscriptionLabels verifies that all labels specified in features exist in the target project or group.
-// For user namespaces (which are not groups and have no group-level labels in GitLab), label validation is skipped.
-func (p *Plugin) validateSubscriptionLabels(ctx context.Context, info *gitlab.UserInfo, project, fullPath, features string) error {
-	if !strings.Contains(features, "label:") {
+// For confirmed personal user namespaces (which have no group-level labels in GitLab), label validation is skipped.
+func (p *Plugin) validateSubscriptionLabels(ctx context.Context, info *gitlab.UserInfo, project, fullPath, features string, isUser bool) error {
+	if isUser || !strings.Contains(features, "label:") {
 		return nil
 	}
 
@@ -1026,7 +1016,6 @@ func (p *Plugin) validateSubscriptionLabels(ctx context.Context, info *gitlab.Us
 	}
 
 	var existingLabels []string
-	var isUserNamespace bool
 	if err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
 		if project != "" {
 			glLabels, fetchErr := p.getGitlabClient().GetLabels(ctx, info, fullPath, token)
@@ -1039,10 +1028,6 @@ func (p *Plugin) validateSubscriptionLabels(ctx context.Context, info *gitlab.Us
 		} else {
 			groupLabels, fetchErr := p.getGitlabClient().GetGroupLabels(ctx, info, fullPath, token)
 			if fetchErr != nil {
-				if isNotFoundError(fetchErr) {
-					isUserNamespace = true
-					return nil
-				}
 				return fetchErr
 			}
 			for _, l := range groupLabels {
@@ -1052,10 +1037,6 @@ func (p *Plugin) validateSubscriptionLabels(ctx context.Context, info *gitlab.Us
 		return nil
 	}); err != nil {
 		return errors.Wrapf(err, "failed to verify labels for %s, please try again", fullPath)
-	}
-
-	if isUserNamespace {
-		return nil
 	}
 
 	for _, label := range labels {
@@ -1130,7 +1111,7 @@ func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channel
 	// project against one GitLab host and trigger the pipeline on another.
 	gitlabClient := p.getGitlabClient()
 	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		groupName, projectName, err := gitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, true)
+		groupName, projectName, _, err := gitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, true)
 		if err != nil {
 			return err
 		}

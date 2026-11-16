@@ -631,7 +631,7 @@ func (fm *FlowManager) submitWebhook(f *flow.Flow, submitted map[string]any) (fl
 
 	var group, project string
 	err := fm.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		respGroup, respProject, err := gitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, config.EnablePrivateRepo)
+		respGroup, respProject, _, err := gitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, config.EnablePrivateRepo)
 		if err != nil {
 			return err
 		}

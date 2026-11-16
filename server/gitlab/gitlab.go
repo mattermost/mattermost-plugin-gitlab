@@ -55,7 +55,7 @@ type Gitlab interface {
 	NewGroupHook(ctx context.Context, user *UserInfo, token *oauth2.Token, groupName string, groupHookOptions *AddWebhookOptions) (*WebhookInfo, error)
 	TriggerProjectPipeline(userInfo *UserInfo, token *oauth2.Token, projectID string, ref string) (*PipelineInfo, error)
 	// ResolveNamespaceAndProject accepts full path to User, Group or namespaced Project and returns corresponding
-	// namespace and project name.
+	// namespace, project name, and whether the resolved entity is a personal user namespace.
 	//
 	// ErrNotFound will be returned if no resource can be found.
 	// If allowPrivate is set to false, and resolved group/project is private, ErrPrivateResource will be returned.
@@ -65,7 +65,7 @@ type Gitlab interface {
 		token *oauth2.Token,
 		fullPath string,
 		allowPrivate bool,
-	) (namespace string, project string, err error)
+	) (namespace string, project string, isUser bool, err error)
 
 	GitlabMCP
 }

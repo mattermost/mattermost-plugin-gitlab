@@ -1090,11 +1090,11 @@ func (g *gitlab) ResolveNamespaceAndProject(
 	token *oauth2.Token,
 	fullPath string,
 	allowPrivate bool,
-) (owner string, repo string, err error) {
+) (owner string, repo string, isUser bool, err error) {
 	// Initialize client
 	client, err := g.GitlabConnect(*token)
 	if err != nil {
-		return "", "", err
+		return "", "", false, err
 	}
 
 	fullPath = strings.TrimPrefix(fullPath, g.gitlabURL)
@@ -1148,32 +1148,32 @@ func (g *gitlab) ResolveNamespaceAndProject(
 		return nil
 	})
 	if err := errGroup.Wait(); err != nil {
-		return "", "", err
+		return "", "", false, err
 	}
 
 	// Decide what to return
 	if user != nil {
-		return user.Username, "", nil
+		return user.Username, "", true, nil
 	}
 
 	if group != nil {
 		if !allowPrivate && group.Visibility != internGitlab.PublicVisibility {
-			return "", "", errors.Wrap(ErrPrivateResource,
+			return "", "", false, errors.Wrap(ErrPrivateResource,
 				"You can't add a private group on this Mattermost instance. Please enable private repositories in the System Console.",
 			)
 		}
-		return group.FullPath, "", nil
+		return group.FullPath, "", false, nil
 	}
 
 	if project != nil {
 		if !allowPrivate && project.Visibility != internGitlab.PublicVisibility {
-			return "", "", errors.Wrap(ErrPrivateResource,
+			return "", "", false, errors.Wrap(ErrPrivateResource,
 				"You can't add a private group on this Mattermost instance. Please enable private repositories in the System Console.",
 			)
 		}
-		return project.Namespace.FullPath, project.Path, nil
+		return project.Namespace.FullPath, project.Path, false, nil
 	}
-	return "", "", ErrNotFound
+	return "", "", false, ErrNotFound
 }
 
 func (g *gitlab) GetIssueByID(ctx context.Context, user *UserInfo, owner, repo string, issueID int, token *oauth2.Token) (*Issue, error) {
