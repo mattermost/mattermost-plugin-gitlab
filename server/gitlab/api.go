@@ -798,7 +798,7 @@ func listAllProjectMilestones(ctx context.Context, client *internGitlab.Client, 
 			Page:    1,
 			PerPage: 100,
 		},
-		IncludeParentMilestones: internGitlab.Ptr(true),
+		IncludeParentMilestones: new(true),
 	}
 
 	var all []*internGitlab.Milestone
