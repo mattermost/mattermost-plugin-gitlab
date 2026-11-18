@@ -58,9 +58,7 @@ GitLab Community Edition has no group webhooks, so the group-subscription test a
 | `sidebar` | Review and to-do lists and counts |
 | `post_actions` | Create GitLab issue and attach to issue from the post menu, and `/gitlab issue create` |
 | `webapp_integrations` | Link tooltips and the profile popover attribute |
-| `pipelines` | `/gitlab pipelines run`, plus pipeline, job, and deployment posts on the runner |
-
-`pipelines` includes a `fixme` test for the failed-pipeline DM. The plugin does not deliver that DM to the pipeline author today ([MM-71329](https://mattermost.atlassian.net/browse/MM-71329)).
+| `pipelines` | `/gitlab pipelines run`, pipeline, job, and deployment posts on the runner, and the failed-pipeline DM |
 
 ### Writing tests
 
