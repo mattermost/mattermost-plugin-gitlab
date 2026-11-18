@@ -735,7 +735,7 @@ func TestSendDMNotificationSkipsDeleteWhenClaimWasNeverMade(t *testing.T) {
 	api.On("GetDirectChannel", "user-1", p.BotUserID).
 		Return(nil, model.NewAppError("GetDirectChannel", "id", nil, "boom", http.StatusInternalServerError))
 
-	p.sendDMNotification("user-1", "hello")
+	assert.False(t, p.sendDMNotification("user-1", "hello"), "no post was attempted")
 
 	api.AssertNotCalled(t, "KVCompareAndDelete", mock.Anything, mock.Anything)
 	api.AssertNumberOfCalls(t, "KVSetWithOptions", 1)

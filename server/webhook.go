@@ -290,8 +290,10 @@ func (p *Plugin) sendDMNotification(userID, message string) bool {
 		p.client.Log.Warn("can't send dm post", "err", err.Error())
 		// CreatePost may have persisted the DM despite erroring, so only the
 		// pre-post lookup failure is safe to release.
-		if claimToken != "" && errors.Is(err, errDMChannelUnavailable) {
-			p.releaseDedupKey("sendDMNotification", dedupKey, claimToken)
+		if errors.Is(err, errDMChannelUnavailable) {
+			if claimToken != "" {
+				p.releaseDedupKey("sendDMNotification", dedupKey, claimToken)
+			}
 			return false
 		}
 	}
