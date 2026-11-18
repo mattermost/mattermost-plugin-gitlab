@@ -185,11 +185,16 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	mattermostIDByGitlabUsername := make(map[string]string)
 	p.sendRefreshIfNotAlreadySent(mattermostIDByGitlabUsername, fromUser)
+	dmRecipients := make(map[string]struct{})
 	for _, res := range handlers {
 		p.client.Log.Info("new msg", "message", res.Message, "from", res.From)
 		for _, to := range res.ToUsers {
 			userTo := p.sendRefreshIfNotAlreadySent(mattermostIDByGitlabUsername, to)
 			if len(userTo) > 0 && len(res.Message) > 0 {
+				if _, alreadyDMed := dmRecipients[userTo]; alreadyDMed {
+					continue
+				}
+				dmRecipients[userTo] = struct{}{}
 				info, err := p.getGitlabUserInfoByMattermostID(userTo)
 				if err != nil {
 					p.client.Log.Warn("can't get user info to know if user wants to receive notifications", "err", err.Message)

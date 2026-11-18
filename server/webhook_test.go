@@ -376,6 +376,52 @@ func TestHandleWebhookFailedPipelineUnconnectedAuthor(t *testing.T) {
 	api.AssertNotCalled(t, "CreatePost", mock.Anything)
 }
 
+type twoHandlersForOneUserWebhookHandler struct {
+	fakeWebhookHandler
+}
+
+func (twoHandlersForOneUserWebhookHandler) HandleIssueComment(_ context.Context, _ *gitlabLib.IssueCommentEvent) ([]*webhook.HandleWebhook, []string, error) {
+	return []*webhook.HandleWebhook{
+		{Message: "commented on your issue", From: "bob", ToUsers: []string{"alice"}},
+		{Message: "mentioned you", From: "bob", ToUsers: []string{"alice"}},
+	}, nil, nil
+}
+
+func TestHandleWebhookUserInMultipleHandlersGetsOneDM(t *testing.T) {
+	const aliceMattermostID = "alice-mm-id"
+
+	infoJSON, err := json.Marshal(&gitlab.UserInfo{
+		UserID:   aliceMattermostID,
+		Settings: &gitlab.UserSettings{Notifications: true},
+	})
+	require.NoError(t, err)
+
+	p := &Plugin{configuration: &configuration{WebhookSecret: "secret"}, WebhookHandler: twoHandlersForOneUserWebhookHandler{}}
+
+	api := &plugintest.API{}
+	api.On("KVGet", "alice"+GitlabUsernameKey).Return([]byte(aliceMattermostID), nil)
+	api.On("KVGet", "bob"+GitlabUsernameKey).Return(nil, nil)
+	api.On("KVGet", aliceMattermostID+GitlabUserInfoKey).Return(infoJSON, nil)
+	api.On("PublishWebSocketEvent", WsEventRefresh, map[string]any(nil), &model.WebsocketBroadcast{UserId: aliceMattermostID}).Return(nil)
+	api.On("LogInfo", "new msg", "message", mock.Anything, "from", mock.Anything).Return(nil)
+	api.On("GetDirectChannel", aliceMattermostID, p.BotUserID).Return(&model.Channel{Id: "alice-dm"}, nil)
+	api.On("CreatePost", mock.Anything).Return(&model.Post{}, nil)
+	fakeDedupKV(api)
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	req := httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"object_kind":"note","object_attributes":{"noteable_type":"Issue"},"user":{"username":"bob"},"project":{}}`)) //nolint:misspell // noteable_type is GitLab's field name
+	req.Header.Add("X-Gitlab-Token", "secret")
+	req.Header.Add("X-Gitlab-Event", string(gitlabLib.EventTypeNote))
+	w := httptest.NewRecorder()
+
+	p.handleWebhook(w, req)
+
+	require.Equal(t, http.StatusOK, w.Result().StatusCode)
+	api.AssertNumberOfCalls(t, "CreatePost", 1)
+	api.AssertNumberOfCalls(t, "PublishWebSocketEvent", 1)
+}
+
 func TestNotificationDedupKey(t *testing.T) {
 	t.Run("same recipient and message produce the same key", func(t *testing.T) {
 		assert.Equal(t,
