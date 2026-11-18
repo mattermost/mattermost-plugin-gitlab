@@ -194,14 +194,13 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				if _, alreadyDMed := dmRecipients[userTo]; alreadyDMed {
 					continue
 				}
-				dmRecipients[userTo] = struct{}{}
 				info, err := p.getGitlabUserInfoByMattermostID(userTo)
 				if err != nil {
 					p.client.Log.Warn("can't get user info to know if user wants to receive notifications", "err", err.Message)
 					continue
 				}
-				if info.Settings.Notifications {
-					p.sendDMNotification(userTo, res.Message)
+				if info.Settings.Notifications && p.sendDMNotification(userTo, res.Message) {
+					dmRecipients[userTo] = struct{}{}
 				}
 			}
 		}
@@ -277,11 +276,14 @@ func (p *Plugin) releaseDedupKey(caller, dedupKey, claimToken string) {
 	}
 }
 
-func (p *Plugin) sendDMNotification(userID, message string) {
+// sendDMNotification reports whether a DM was posted or may have been posted.
+// It returns false when the DM was skipped or provably never posted, so the
+// caller can still send the recipient a different message.
+func (p *Plugin) sendDMNotification(userID, message string) bool {
 	dedupKey := notificationDedupKey(userID, message)
 	deliver, claimToken := p.claimDedupKey("sendDMNotification", dedupKey)
 	if !deliver {
-		return
+		return false
 	}
 
 	if err := p.CreateBotDMPost(userID, message, "custom_git_review_request"); err != nil {
@@ -290,8 +292,10 @@ func (p *Plugin) sendDMNotification(userID, message string) {
 		// pre-post lookup failure is safe to release.
 		if claimToken != "" && errors.Is(err, errDMChannelUnavailable) {
 			p.releaseDedupKey("sendDMNotification", dedupKey, claimToken)
+			return false
 		}
 	}
+	return true
 }
 
 // sendChannelNotification keys the claim on channel and message rather than on
