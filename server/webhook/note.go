@@ -47,6 +47,7 @@ func (w *webhook) handleDMIssueComment(event *gitlab.IssueCommentEvent) ([]*Hand
 		IID:               fmt.Sprintf("%d", event.Issue.IID),
 		URL:               event.ObjectAttributes.URL,
 		body:              event.ObjectAttributes.Description,
+		confidential:      event.Issue.Confidential || event.EventType == eventTypeConfidentialNote,
 	}); mention != nil {
 		handlers = append(handlers, mention)
 	}
@@ -133,6 +134,7 @@ func (w *webhook) handleDMMergeRequestComment(event *gitlab.MergeCommentEvent) (
 		IID:               fmt.Sprintf("%d", event.MergeRequest.IID),
 		URL:               event.ObjectAttributes.URL,
 		body:              event.ObjectAttributes.Description,
+		confidential:      event.EventType == eventTypeConfidentialNote,
 	}); mention != nil {
 		handlers = append(handlers, mention)
 	}

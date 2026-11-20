@@ -23,6 +23,7 @@ import (
 
 	"github.com/mattermost/mattermost/server/public/model"
 	"github.com/mattermost/mattermost/server/public/plugin"
+	"github.com/mattermost/mattermost/server/public/pluginapi/cluster"
 	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/bot/logger"
 	"github.com/mattermost/mattermost/server/public/pluginapi/experimental/flow"
 	internGitlab "github.com/xanzy/go-gitlab"
@@ -428,24 +429,45 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		return
 	}
 
-	if err = p.storeGitlabUserInfo(userInfo); err != nil {
-		c.Log.WithError(err).Warnf("Can't store user info")
+	storeErr := func() error {
+		mutex, mutexErr := cluster.NewMutex(p.API, userID+ConnectMutexKey)
+		if mutexErr != nil {
+			c.Log.WithError(mutexErr).Warnf("Can't create connect mutex")
+			return mutexErr
+		}
+		if lockErr := mutex.LockWithContext(c.Ctx); lockErr != nil {
+			c.Log.WithError(lockErr).Warnf("Can't acquire connect mutex")
+			return lockErr
+		}
+		defer mutex.Unlock()
 
-		rErr = errors.Wrap(err, "Unable to connect user to GitLab")
+		previousUserInfo, _ := p.getGitlabUserInfoByMattermostID(userID)
+
+		if err = p.storeGitlabUserInfo(userInfo); err != nil {
+			c.Log.WithError(err).Warnf("Can't store user info")
+			return err
+		}
+
+		if err = p.storeGitlabUserToken(userInfo.UserID, tok); err != nil {
+			c.Log.WithError(err).Warnf("Can't store user token")
+			return err
+		}
+
+		if err = p.storeGitlabToUserIDMapping(userInfo.GitlabUsername, userID); err != nil {
+			c.Log.WithError(err).Warnf("Can't store GitLab to user id mapping")
+		}
+
+		if previousUserInfo != nil && previousUserInfo.GitlabUsername != "" && previousUserInfo.GitlabUsername != userInfo.GitlabUsername {
+			if err = p.deleteGitlabToUserIDMappingIfOwned(previousUserInfo.GitlabUsername, userID); err != nil {
+				c.Log.WithError(err).Warnf("Can't delete previous GitLab to user id mapping")
+			}
+		}
+		return nil
+	}()
+	if storeErr != nil {
+		rErr = errors.Wrap(storeErr, "Unable to connect user to GitLab")
 		http.Error(w, "Unable to connect user to GitLab", http.StatusInternalServerError)
 		return
-	}
-
-	if err = p.storeGitlabUserToken(userInfo.UserID, tok); err != nil {
-		c.Log.WithError(err).Warnf("Can't store user token")
-
-		rErr = errors.Wrap(err, "Unable to connect user to GitLab")
-		http.Error(w, "Unable to connect user to GitLab", http.StatusInternalServerError)
-		return
-	}
-
-	if err = p.storeGitlabToUserIDMapping(userInfo.GitlabUsername, userID); err != nil {
-		c.Log.WithError(err).Warnf("Can't store GitLab to user id mapping")
 	}
 
 	if err = p.storeGitlabIDToUserIDMapping(userInfo.GitlabUsername, userInfo.GitlabUserID); err != nil {

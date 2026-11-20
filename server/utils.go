@@ -109,26 +109,66 @@ func normalizePath(full, baseURL string) string {
 	return strings.TrimSuffix(strings.TrimSpace(strings.Replace(full, baseURL, "", 1)), "/")
 }
 
+func isGitlabUsernameSeparator(c rune) bool {
+	return c == '-' || c == '.' || c == '_'
+}
+
+func isGitlabUsernameChar(c rune) bool {
+	return isGitlabUsernameSeparator(c) || unicode.IsLetter(c) || unicode.IsNumber(c)
+}
+
 func parseGitlabUsernamesFromText(text string) []string {
 	usernameMap := map[string]bool{}
 	usernames := []string{}
 
-	for _, word := range strings.FieldsFunc(text, func(c rune) bool {
-		return c != '-' && c != '@' && !unicode.IsLetter(c) && !unicode.IsNumber(c)
-	}) {
-		if len(word) < 2 || word[0] != '@' {
+	runes := []rune(text)
+	for i := 0; i < len(runes); i++ {
+		if runes[i] != '@' {
 			continue
 		}
 
-		if word[1] == '-' || word[len(word)-1] == '-' {
+		// Leading underscores are markdown emphasis around the mention, not part of a word.
+		openers := 0
+		for openers < i && runes[i-openers-1] == '_' {
+			openers++
+		}
+
+		// An '@' glued to a preceding word, as in an email address, is not a mention.
+		if prev := i - openers - 1; prev >= 0 {
+			glued := isGitlabUsernameChar(runes[prev]) || runes[prev] == '@'
+			if openers == 0 && runes[prev] == '.' {
+				glued = false
+			}
+			if glued {
+				continue
+			}
+		}
+
+		end := i + 1
+		for end < len(runes) && isGitlabUsernameChar(runes[end]) {
+			end++
+		}
+		word := string(runes[i+1 : end])
+		followedByAt := end < len(runes) && runes[end] == '@'
+		i = end - 1
+		if followedByAt {
 			continue
 		}
 
-		if strings.Contains(word, "--") {
+		// A trailing '.' is sentence punctuation, never part of a GitLab username.
+		name := strings.TrimRight(word, ".")
+		for closers := 0; closers < openers && strings.HasSuffix(name, "_"); closers++ {
+			name = strings.TrimSuffix(name, "_")
+		}
+		name = strings.TrimRight(name, ".")
+		if name == "" || name[0] == '-' || name[0] == '.' || name[len(name)-1] == '-' {
 			continue
 		}
 
-		name := word[1:]
+		if hasConsecutiveUsernameSeparators(name) {
+			continue
+		}
+
 		if !usernameMap[name] {
 			usernames = append(usernames, name)
 			usernameMap[name] = true
@@ -136,6 +176,18 @@ func parseGitlabUsernamesFromText(text string) []string {
 	}
 
 	return usernames
+}
+
+func hasConsecutiveUsernameSeparators(name string) bool {
+	prevSeparator := false
+	for _, c := range name {
+		isSeparator := isGitlabUsernameSeparator(c)
+		if isSeparator && prevSeparator {
+			return true
+		}
+		prevSeparator = isSeparator
+	}
+	return false
 }
 
 func fullPathFromNamespaceAndProject(namespace, project string) string {

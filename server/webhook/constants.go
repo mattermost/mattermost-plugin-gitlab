@@ -31,6 +31,9 @@ const (
 	// notes. It differs from gitlab.EventConfidentialNote, which is the
 	// X-Gitlab-Event header value ("Confidential Note Hook").
 	eventTypeConfidentialNote = "confidential_note"
+	// eventTypeConfidentialIssue is the payload's event_type value for
+	// confidential issues.
+	eventTypeConfidentialIssue = "confidential_issue"
 
 	PrivateVisibilityLevel = 0
 	PublicVisibilityLevel  = 20

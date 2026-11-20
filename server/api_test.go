@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/mattermost/mattermost/server/public/model"
@@ -19,8 +20,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
+	mocks "github.com/mattermost/mattermost-plugin-gitlab/server/gitlab/mocks"
 )
 
 func TestCheckConfigured(t *testing.T) {
@@ -580,6 +583,157 @@ func TestCompleteConnectUserToGitlab_StateValidation(t *testing.T) {
 		data, _ := io.ReadAll(result.Body)
 		assert.Contains(t, string(data), "Not authorized")
 	})
+}
+
+func TestCompleteConnectUserToGitlabUsernameMapping(t *testing.T) {
+	const (
+		userID      = "abcdefghijklmnopqrstuvwxyz"
+		otherUserID = "zyxwvutsrqponmlkjihgfedcba"
+		state       = "abcdefghijklmno_" + userID
+	)
+
+	tests := []struct {
+		name               string
+		oldUsername        string
+		oldUsernameOwnerID string
+		newUsername        string
+		expectOldMapping   string
+	}{
+		{
+			name:               "reconnect with a renamed GitLab account removes the old username mapping",
+			oldUsername:        "old-name",
+			oldUsernameOwnerID: userID,
+			newUsername:        "new-name",
+			expectOldMapping:   "",
+		},
+		{
+			name:               "old username already claimed by another user is left alone",
+			oldUsername:        "old-name",
+			oldUsernameOwnerID: otherUserID,
+			newUsername:        "new-name",
+			expectOldMapping:   otherUserID,
+		},
+		{
+			name:               "reconnect with the same username keeps the mapping",
+			oldUsername:        "same-name",
+			oldUsernameOwnerID: userID,
+			newUsername:        "same-name",
+			expectOldMapping:   userID,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/oauth/token" {
+					http.NotFound(w, r)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"access_token":"new-token","token_type":"Bearer","refresh_token":"refresh","expires_in":7200}`))
+			}))
+			defer tokenServer.Close()
+
+			oldInfoJSON, err := json.Marshal(&gitlab.UserInfo{
+				UserID:         userID,
+				GitlabUsername: test.oldUsername,
+				GitlabUserID:   42,
+				Settings:       &gitlab.UserSettings{Notifications: true},
+			})
+			require.NoError(t, err)
+
+			var kvMu sync.Mutex
+			kv := map[string][]byte{
+				state:                                []byte(state),
+				userID + GitlabUserInfoKey:           oldInfoJSON,
+				test.oldUsername + GitlabUsernameKey: []byte(test.oldUsernameOwnerID),
+				"42" + GitlabIDUsernameKey:           []byte(test.oldUsername),
+			}
+
+			siteURL := "https://mattermost.example.com"
+			mmConfig := &model.Config{}
+			mmConfig.ServiceSettings.SiteURL = &siteURL
+
+			mockedClient := mocks.NewMockGitlab(gomock.NewController(t))
+			mockedClient.EXPECT().GetCurrentUser(gomock.Any(), userID, gomock.Any()).Return(&gitlab.UserInfo{
+				UserID:         userID,
+				GitlabUsername: test.newUsername,
+				GitlabUserID:   42,
+				Settings:       &gitlab.UserSettings{Notifications: true},
+			}, nil)
+
+			p := &Plugin{
+				configuration: &configuration{
+					GitlabURL:               tokenServer.URL,
+					GitlabOAuthClientID:     "client_id",
+					GitlabOAuthClientSecret: "client_secret",
+					EncryptionKey:           "aaaaaaaaaaaaaaaa",
+				},
+				BotUserID: "bot-id",
+			}
+			p.setEffective(&effectiveConfig{
+				GitlabURL:    tokenServer.URL,
+				ClientID:     "client_id",
+				ClientSecret: "client_secret",
+			}, mockedClient)
+			p.initializeAPI()
+
+			api := &plugintest.API{}
+			allowAnyLogs(api)
+			api.On("GetConfig").Return(mmConfig)
+			api.On("KVGet", mock.AnythingOfType("string")).Return(func(key string) ([]byte, *model.AppError) {
+				kvMu.Lock()
+				defer kvMu.Unlock()
+				return kv[key], nil
+			}).Maybe()
+			api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.Anything).
+				Return(func(key string, value []byte, opts model.PluginKVSetOptions) (bool, *model.AppError) {
+					kvMu.Lock()
+					defer kvMu.Unlock()
+					if opts.Atomic && !bytes.Equal(kv[key], opts.OldValue) {
+						return false, nil
+					}
+					if value == nil {
+						delete(kv, key)
+					} else {
+						kv[key] = value
+					}
+					return true, nil
+				}).Maybe()
+			api.On("KVDelete", mock.AnythingOfType("string")).Return(func(key string) *model.AppError {
+				kvMu.Lock()
+				defer kvMu.Unlock()
+				delete(kv, key)
+				return nil
+			}).Maybe()
+			api.On("KVCompareAndDelete", mock.AnythingOfType("string"), mock.Anything).
+				Return(func(key string, oldValue []byte) (bool, *model.AppError) {
+					kvMu.Lock()
+					defer kvMu.Unlock()
+					if !bytes.Equal(kv[key], oldValue) {
+						return false, nil
+					}
+					delete(kv, key)
+					return true, nil
+				}).Maybe()
+			api.On("GetDirectChannel", userID, p.BotUserID).Return(&model.Channel{Id: "dm-channel"}, nil).Maybe()
+			api.On("CreatePost", mock.Anything).Return(&model.Post{}, nil).Maybe()
+			api.On("PublishWebSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+			p.SetAPI(api)
+			p.client = pluginapi.NewClient(api, p.Driver)
+			p.oauthBroker = NewOAuthBroker(func(_ OAuthCompleteEvent) {})
+
+			w := httptest.NewRecorder()
+			r := httptest.NewRequest(http.MethodGet, "/oauth/complete?code=test&state="+state, nil)
+			r.Header.Set("Mattermost-User-ID", userID)
+
+			p.ServeHTTP(nil, w, r)
+
+			require.Equal(t, http.StatusOK, w.Result().StatusCode, w.Body.String())
+			assert.Equal(t, userID, p.getGitlabToUserIDMapping(test.newUsername))
+			assert.Equal(t, test.expectOldMapping, p.getGitlabToUserIDMapping(test.oldUsername))
+		})
+	}
 }
 
 func TestAttachCommentToIssueReturns403WhenNamespaceNotAllowed(t *testing.T) {

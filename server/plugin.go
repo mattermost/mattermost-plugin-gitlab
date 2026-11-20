@@ -37,6 +37,7 @@ const (
 	GitlabUserTokenKey            = "_usertoken"
 	GitlabMigrationTokenKey       = "_gitlabtoken"
 	TokenMutexKey                 = "-oauth-token" //#nosec G101 -- False positive
+	ConnectMutexKey               = "-gitlab-connect"
 	GitlabUsernameKey             = "_gitlabusername"
 	GitlabIDUsernameKey           = "_gitlabidusername"
 	WsEventConnect                = "gitlab_connect"
@@ -636,6 +637,15 @@ func (p *Plugin) storeGitlabIDToUserIDMapping(gitlabUsername string, gitlabID in
 func (p *Plugin) deleteGitlabToUserIDMapping(gitlabUsername string) error {
 	if err := p.client.KV.Delete(gitlabUsername + GitlabUsernameKey); err != nil {
 		return errors.Wrap(err, "encountered error deleting GitLab username mapping")
+	}
+	return nil
+}
+
+// deleteGitlabToUserIDMappingIfOwned removes the username mapping only while it
+// still points at userID, so a username since claimed by another user survives.
+func (p *Plugin) deleteGitlabToUserIDMappingIfOwned(gitlabUsername, userID string) error {
+	if _, appErr := p.API.KVCompareAndDelete(gitlabUsername+GitlabUsernameKey, []byte(userID)); appErr != nil {
+		return errors.Wrap(appErr, "encountered error deleting GitLab username mapping")
 	}
 	return nil
 }
