@@ -831,46 +831,14 @@ func (g *gitlab) GetGroupLabels(ctx context.Context, user *UserInfo, groupID str
 	return labels, nil
 }
 
-// topLevelGroupFromProject returns the top-level group name (first path segment)
-// for a project under a group namespace. Returns empty string if not a group.
-func topLevelGroupFromProject(p *internGitlab.Project) string {
-	if p == nil || p.Namespace == nil || !strings.EqualFold(p.Namespace.Kind, "group") || p.Namespace.FullPath == "" {
-		return ""
-	}
-	first, _, _ := strings.Cut(p.Namespace.FullPath, "/")
-	return first
-}
-
-func convertGroupMilestones(gms []*internGitlab.GroupMilestone) []*internGitlab.Milestone {
-	out := make([]*internGitlab.Milestone, 0, len(gms))
-	for _, gm := range gms {
-		if gm == nil {
-			continue
-		}
-		out = append(out, &internGitlab.Milestone{
-			ID:          gm.ID,
-			IID:         gm.IID,
-			Title:       gm.Title,
-			Description: gm.Description,
-			State:       gm.State,
-			DueDate:     gm.DueDate,
-			StartDate:   gm.StartDate,
-			CreatedAt:   gm.CreatedAt,
-			UpdatedAt:   gm.UpdatedAt,
-			// GroupMilestone does not expose WebURL; leave empty.
-			WebURL: "",
-		})
-	}
-	return out
-}
-
-// listAllProjectMilestones paginates project milestones for the given project.
+// listAllProjectMilestones paginates the project's milestones together with those of all its ancestor groups.
 func listAllProjectMilestones(ctx context.Context, client *internGitlab.Client, projectID string) ([]*internGitlab.Milestone, error) {
 	popts := &internGitlab.ListMilestonesOptions{
 		ListOptions: internGitlab.ListOptions{
 			Page:    1,
 			PerPage: 100,
 		},
+		IncludeParentMilestones: new(true),
 	}
 
 	var all []*internGitlab.Milestone
@@ -897,55 +865,11 @@ func (g *gitlab) GetMilestones(ctx context.Context, user *UserInfo, projectID st
 		return nil, fmt.Errorf("failed to connect to GitLab: %w", err)
 	}
 
-	// Resolve project to find its namespace and top-level group
-	project, resp, err := client.Projects.GetProject(projectID, nil, internGitlab.WithContext(ctx))
-	if respErr := checkResponse(resp); respErr != nil {
-		return nil, fmt.Errorf("failed to get project %s: %w", projectID, respErr)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get project %s: %w", projectID, err)
-	}
-	if err = g.checkGroup(project.PathWithNamespace); err != nil {
+	if err = g.ensureProjectInAllowedGroup(ctx, client, projectID); err != nil {
 		return nil, err
 	}
 
-	topGroup := topLevelGroupFromProject(project)
-
-	if topGroup != "" {
-		opts := &internGitlab.ListGroupMilestonesOptions{
-			ListOptions: internGitlab.ListOptions{
-				Page:    1,
-				PerPage: 100,
-			},
-		}
-
-		var (
-			all  []*internGitlab.Milestone
-			page []*internGitlab.GroupMilestone
-			resp *internGitlab.Response
-		)
-		for {
-			page, resp, err = client.GroupMilestones.ListGroupMilestones(topGroup, opts, internGitlab.WithContext(ctx))
-			if respErr := checkResponse(resp); respErr != nil {
-				return nil, fmt.Errorf("failed to list group milestones for %s: %w", topGroup, respErr)
-			}
-			if err != nil {
-				return nil, fmt.Errorf("failed to list group milestones for %s: %w", topGroup, err)
-			}
-			all = append(all, convertGroupMilestones(page)...)
-			if resp.NextPage == 0 {
-				break
-			}
-			opts.Page = resp.NextPage
-		}
-		return all, nil
-	}
-
-	all, err := listAllProjectMilestones(ctx, client, projectID)
-	if err != nil {
-		return nil, err
-	}
-	return all, nil
+	return listAllProjectMilestones(ctx, client, projectID)
 }
 
 // ensureProjectInAllowedGroup fetches the project by ID or path and returns an error if it is not in the allowed GitLab group.

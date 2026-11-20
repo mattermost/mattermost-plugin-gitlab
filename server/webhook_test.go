@@ -168,7 +168,7 @@ func TestHandleWebhookBadSecret(t *testing.T) {
 func TestHandleWebhookBadBody(t *testing.T) {
 	p := &Plugin{configuration: &configuration{WebhookSecret: "secret"}, WebhookHandler: fakeWebhookHandler{}}
 	mock := &plugintest.API{}
-	mock.On("LogDebug", "Can't parse webhook", "err", "unexpected event type: ", "header", "", "event", "{}").Return(nil)
+	mock.On("LogDebug", "Can't parse webhook", "err", "unexpected event type: ", "header", "", "body_size", 2).Return(nil)
 	p.SetAPI(mock)
 	p.client = pluginapi.NewClient(mock, p.Driver)
 	req := httptest.NewRequest("POST", "/", bytes.NewBufferString(`{}`))
@@ -177,7 +177,17 @@ func TestHandleWebhookBadBody(t *testing.T) {
 	p.handleWebhook(w, req)
 	resp := w.Result()
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-	mock.AssertCalled(t, "LogDebug", "Can't parse webhook", "err", "unexpected event type: ", "header", "", "event", "{}")
+	mock.AssertCalled(t, "LogDebug", "Can't parse webhook", "err", "unexpected event type: ", "header", "", "body_size", 2)
+}
+
+func TestHandleWebhookRejectsBodyOverLimit(t *testing.T) {
+	p := &Plugin{configuration: &configuration{WebhookSecret: "secret"}, WebhookHandler: fakeWebhookHandler{}}
+	body := `{"pad":"` + strings.Repeat("a", maxWebhookRequestBodySize) + `"}`
+	req := httptest.NewRequest("POST", "/", strings.NewReader(body))
+	req.Header.Add("X-Gitlab-Token", "secret")
+	w := httptest.NewRecorder()
+	p.handleWebhook(w, req)
+	assert.Equal(t, http.StatusRequestEntityTooLarge, w.Result().StatusCode)
 }
 
 func TestHandleWebhookWithKnowAuthorButUnknowToUser(t *testing.T) {
@@ -277,6 +287,175 @@ func TestHandleWebhookForChildPipelineNotficationEnabled(t *testing.T) {
 	mock.AssertNumberOfCalls(t, "KVGet", 1)
 	mock.AssertCalled(t, "PublishWebSocketEvent", WsEventRefresh, map[string]any(nil), &model.WebsocketBroadcast{UserId: "1"})
 	mock.AssertNumberOfCalls(t, "PublishWebSocketEvent", 1)
+}
+
+const failedPipelineBody = `{
+	"object_kind": "pipeline",
+	"object_attributes": {"id": 3, "status": "failed", "source": "web"},
+	"user": {"username": "author"},
+	"project": {"path_with_namespace": "group/repo", "web_url": "https://gitlab.example.com/group/repo"},
+	"commit": {"message": "Add CI configuration"}
+}`
+
+func TestHandleWebhookFailedPipelineDMsAuthor(t *testing.T) {
+	const (
+		authorMattermostID = "author-mm-id"
+		wantDM             = "[group/repo](https://gitlab.example.com/group/repo) Your pipeline has failed for Add CI configuration [View Pipeline](https://gitlab.example.com/group/repo/-/pipelines/3)"
+	)
+
+	run := func(t *testing.T, notifications bool) *plugintest.API {
+		infoJSON, err := json.Marshal(&gitlab.UserInfo{
+			UserID:   authorMattermostID,
+			Settings: &gitlab.UserSettings{Notifications: notifications},
+		})
+		require.NoError(t, err)
+
+		p := &Plugin{configuration: &configuration{WebhookSecret: "secret", GitlabURL: "https://gitlab.example.com"}}
+		p.WebhookHandler = webhook.NewWebhook(&gitlabRetreiver{p: p})
+
+		api := &plugintest.API{}
+		api.On("KVGet", "author"+GitlabUsernameKey).Return([]byte(authorMattermostID), nil).Once()
+		api.On("KVGet", authorMattermostID+GitlabUserInfoKey).Return(infoJSON, nil)
+		api.On("KVGet", SubscriptionsKey).Return(nil, nil)
+		api.On("PublishWebSocketEvent", WsEventRefresh, map[string]any(nil), &model.WebsocketBroadcast{UserId: authorMattermostID}).Return(nil).Once()
+		api.On("LogInfo", "new msg", "message", mock.Anything, "from", mock.Anything).Return(nil)
+		api.On("GetDirectChannel", authorMattermostID, p.BotUserID).Return(&model.Channel{Id: "author-dm"}, nil)
+		api.On("CreatePost", mock.MatchedBy(func(post *model.Post) bool {
+			return post.ChannelId == "author-dm" && post.Message == wantDM
+		})).Return(&model.Post{}, nil)
+		fakeDedupKV(api)
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+
+		req := httptest.NewRequest("POST", "/", bytes.NewBufferString(failedPipelineBody))
+		req.Header.Add("X-Gitlab-Token", "secret")
+		req.Header.Add("X-Gitlab-Event", string(gitlabLib.EventTypePipeline))
+		w := httptest.NewRecorder()
+
+		p.handleWebhook(w, req)
+
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+		api.AssertNumberOfCalls(t, "PublishWebSocketEvent", 1)
+		return api
+	}
+
+	t.Run("author with notifications on gets the DM", func(t *testing.T) {
+		api := run(t, true)
+
+		api.AssertNumberOfCalls(t, "CreatePost", 1)
+	})
+
+	t.Run("author with notifications off gets no DM", func(t *testing.T) {
+		api := run(t, false)
+
+		api.AssertNotCalled(t, "CreatePost", mock.Anything)
+	})
+}
+
+func TestHandleWebhookFailedPipelineUnconnectedAuthor(t *testing.T) {
+	p := &Plugin{configuration: &configuration{WebhookSecret: "secret", GitlabURL: "https://gitlab.example.com"}}
+	p.WebhookHandler = webhook.NewWebhook(&gitlabRetreiver{p: p})
+
+	api := &plugintest.API{}
+	api.On("KVGet", "author"+GitlabUsernameKey).Return(nil, nil).Once()
+	api.On("KVGet", SubscriptionsKey).Return(nil, nil)
+	api.On("LogInfo", "new msg", "message", mock.Anything, "from", mock.Anything).Return(nil)
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	req := httptest.NewRequest("POST", "/", bytes.NewBufferString(failedPipelineBody))
+	req.Header.Add("X-Gitlab-Token", "secret")
+	req.Header.Add("X-Gitlab-Event", string(gitlabLib.EventTypePipeline))
+	w := httptest.NewRecorder()
+
+	p.handleWebhook(w, req)
+
+	require.Equal(t, http.StatusOK, w.Result().StatusCode)
+	api.AssertNumberOfCalls(t, "KVGet", 2) // username lookup once, plus subscriptions
+	api.AssertNotCalled(t, "PublishWebSocketEvent", mock.Anything, mock.Anything, mock.Anything)
+	api.AssertNotCalled(t, "CreatePost", mock.Anything)
+}
+
+type twoHandlersForOneUserWebhookHandler struct {
+	fakeWebhookHandler
+}
+
+func (twoHandlersForOneUserWebhookHandler) HandleIssueComment(_ context.Context, _ *gitlabLib.IssueCommentEvent) ([]*webhook.HandleWebhook, []string, error) {
+	return []*webhook.HandleWebhook{
+		{Message: "commented on your issue", From: "bob", ToUsers: []string{"alice"}},
+		{Message: "mentioned you", From: "bob", ToUsers: []string{"alice"}},
+	}, nil, nil
+}
+
+func TestHandleWebhookUserInMultipleHandlersGetsOneDM(t *testing.T) {
+	const aliceMattermostID = "alice-mm-id"
+
+	infoJSON, err := json.Marshal(&gitlab.UserInfo{
+		UserID:   aliceMattermostID,
+		Settings: &gitlab.UserSettings{Notifications: true},
+	})
+	require.NoError(t, err)
+
+	p := &Plugin{configuration: &configuration{WebhookSecret: "secret"}, WebhookHandler: twoHandlersForOneUserWebhookHandler{}}
+
+	api := &plugintest.API{}
+	api.On("KVGet", "alice"+GitlabUsernameKey).Return([]byte(aliceMattermostID), nil)
+	api.On("KVGet", "bob"+GitlabUsernameKey).Return(nil, nil)
+	api.On("KVGet", aliceMattermostID+GitlabUserInfoKey).Return(infoJSON, nil)
+	api.On("PublishWebSocketEvent", WsEventRefresh, map[string]any(nil), &model.WebsocketBroadcast{UserId: aliceMattermostID}).Return(nil)
+	api.On("LogInfo", "new msg", "message", mock.Anything, "from", mock.Anything).Return(nil)
+	api.On("GetDirectChannel", aliceMattermostID, p.BotUserID).Return(&model.Channel{Id: "alice-dm"}, nil)
+	api.On("CreatePost", mock.Anything).Return(&model.Post{}, nil)
+	fakeDedupKV(api)
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	req := httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"object_kind":"note","object_attributes":{"noteable_type":"Issue"},"user":{"username":"bob"},"project":{}}`)) //nolint:misspell // noteable_type is GitLab's field name
+	req.Header.Add("X-Gitlab-Token", "secret")
+	req.Header.Add("X-Gitlab-Event", string(gitlabLib.EventTypeNote))
+	w := httptest.NewRecorder()
+
+	p.handleWebhook(w, req)
+
+	require.Equal(t, http.StatusOK, w.Result().StatusCode)
+	api.AssertNumberOfCalls(t, "CreatePost", 1)
+	api.AssertNumberOfCalls(t, "PublishWebSocketEvent", 1)
+}
+
+func TestHandleWebhookSkippedClaimDoesNotBlockLaterMessage(t *testing.T) {
+	const aliceMattermostID = "alice-mm-id"
+
+	infoJSON, err := json.Marshal(&gitlab.UserInfo{
+		UserID:   aliceMattermostID,
+		Settings: &gitlab.UserSettings{Notifications: true},
+	})
+	require.NoError(t, err)
+
+	p := &Plugin{configuration: &configuration{WebhookSecret: "secret"}, WebhookHandler: twoHandlersForOneUserWebhookHandler{}}
+
+	api := &plugintest.API{}
+	api.On("KVGet", "alice"+GitlabUsernameKey).Return([]byte(aliceMattermostID), nil)
+	api.On("KVGet", "bob"+GitlabUsernameKey).Return(nil, nil)
+	api.On("KVGet", aliceMattermostID+GitlabUserInfoKey).Return(infoJSON, nil)
+	api.On("PublishWebSocketEvent", WsEventRefresh, map[string]any(nil), &model.WebsocketBroadcast{UserId: aliceMattermostID}).Return(nil)
+	api.On("LogInfo", "new msg", "message", mock.Anything, "from", mock.Anything).Return(nil)
+	api.On("LogDebug", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	api.On("GetDirectChannel", aliceMattermostID, p.BotUserID).Return(&model.Channel{Id: "alice-dm"}, nil)
+	api.On("CreatePost", mock.MatchedBy(func(post *model.Post) bool { return post.Message == "mentioned you" })).Return(&model.Post{}, nil)
+	kv := fakeDedupKV(api)
+	kv.claimed[notificationDedupKey(aliceMattermostID, "commented on your issue")] = "earlier-claim"
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	req := httptest.NewRequest("POST", "/", bytes.NewBufferString(`{"object_kind":"note","object_attributes":{"noteable_type":"Issue"},"user":{"username":"bob"},"project":{}}`)) //nolint:misspell // noteable_type is GitLab's field name
+	req.Header.Add("X-Gitlab-Token", "secret")
+	req.Header.Add("X-Gitlab-Event", string(gitlabLib.EventTypeNote))
+	w := httptest.NewRecorder()
+
+	p.handleWebhook(w, req)
+
+	require.Equal(t, http.StatusOK, w.Result().StatusCode)
+	api.AssertNumberOfCalls(t, "CreatePost", 1)
 }
 
 func TestNotificationDedupKey(t *testing.T) {
@@ -507,7 +686,7 @@ func TestSendDMNotificationFailsOpenOnKVError(t *testing.T) {
 	p := newTestPluginWithAPI(api)
 	api.On("GetDirectChannel", "user-1", p.BotUserID).Return(&model.Channel{Id: "dm-channel"}, nil)
 
-	p.sendDMNotification("user-1", "hello")
+	assert.True(t, p.sendDMNotification("user-1", "hello"))
 
 	api.AssertNumberOfCalls(t, "CreatePost", 1)
 }
@@ -522,7 +701,7 @@ func TestSendDMNotificationReleasesClaimOnDirectChannelFailure(t *testing.T) {
 	api.On("GetDirectChannel", "user-1", p.BotUserID).
 		Return(nil, model.NewAppError("GetDirectChannel", "id", nil, "boom", http.StatusInternalServerError))
 
-	p.sendDMNotification("user-1", "hello")
+	assert.False(t, p.sendDMNotification("user-1", "hello"))
 
 	api.AssertNotCalled(t, "CreatePost", mock.Anything)
 	assert.Empty(t, kv.keys(), "the claim should be released when no post was attempted")
@@ -540,7 +719,7 @@ func TestSendDMNotificationKeepsClaimOnCreatePostFailure(t *testing.T) {
 	p := newTestPluginWithAPI(api)
 	api.On("GetDirectChannel", "user-1", p.BotUserID).Return(&model.Channel{Id: "dm-channel"}, nil)
 
-	p.sendDMNotification("user-1", "hello")
+	assert.True(t, p.sendDMNotification("user-1", "hello"), "a failed post may still have been persisted")
 
 	assert.Equal(t, []string{notificationDedupKey("user-1", "hello")}, kv.keys())
 }
@@ -556,7 +735,7 @@ func TestSendDMNotificationSkipsDeleteWhenClaimWasNeverMade(t *testing.T) {
 	api.On("GetDirectChannel", "user-1", p.BotUserID).
 		Return(nil, model.NewAppError("GetDirectChannel", "id", nil, "boom", http.StatusInternalServerError))
 
-	p.sendDMNotification("user-1", "hello")
+	assert.False(t, p.sendDMNotification("user-1", "hello"), "no post was attempted")
 
 	api.AssertNotCalled(t, "KVCompareAndDelete", mock.Anything, mock.Anything)
 	api.AssertNumberOfCalls(t, "KVSetWithOptions", 1)

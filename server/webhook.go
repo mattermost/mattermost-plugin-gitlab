@@ -82,16 +82,16 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(r.Body)
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxWebhookRequestBodySize))
 	if err != nil {
-		http.Error(w, "Bad request body", http.StatusBadRequest)
+		http.Error(w, "Bad request body", requestBodyErrorStatus(err))
 		return
 	}
 
 	eventType := gitlabLib.WebhookEventType(r)
 	event, err := gitlabLib.ParseWebhook(eventType, body)
 	if err != nil {
-		p.client.Log.Debug("Can't parse webhook", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"), "event", string(body))
+		p.client.Log.Debug("Can't parse webhook", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"), "body_size", len(body))
 		http.Error(w, "Unable to handle request", http.StatusBadRequest)
 		return
 	}
@@ -183,20 +183,24 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		p.logWarnings(warnings)
 	}
 
-	alreadySentRefresh := make(map[string]bool)
-	p.sendRefreshIfNotAlreadySent(alreadySentRefresh, fromUser)
+	mattermostIDByGitlabUsername := make(map[string]string)
+	p.sendRefreshIfNotAlreadySent(mattermostIDByGitlabUsername, fromUser)
+	dmRecipients := make(map[string]struct{})
 	for _, res := range handlers {
 		p.client.Log.Info("new msg", "message", res.Message, "from", res.From)
 		for _, to := range res.ToUsers {
-			userTo := p.sendRefreshIfNotAlreadySent(alreadySentRefresh, to)
+			userTo := p.sendRefreshIfNotAlreadySent(mattermostIDByGitlabUsername, to)
 			if len(userTo) > 0 && len(res.Message) > 0 {
+				if _, alreadyDMed := dmRecipients[userTo]; alreadyDMed {
+					continue
+				}
 				info, err := p.getGitlabUserInfoByMattermostID(userTo)
 				if err != nil {
 					p.client.Log.Warn("can't get user info to know if user wants to receive notifications", "err", err.Message)
 					continue
 				}
-				if info.Settings.Notifications {
-					p.sendDMNotification(userTo, res.Message)
+				if info.Settings.Notifications && p.sendDMNotification(userTo, res.Message) {
+					dmRecipients[userTo] = struct{}{}
 				}
 			}
 		}
@@ -205,7 +209,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				p.sendChannelNotification(to, res.Message)
 			}
 		}
-		p.sendRefreshIfNotAlreadySent(alreadySentRefresh, res.From)
+		p.sendRefreshIfNotAlreadySent(mattermostIDByGitlabUsername, res.From)
 	}
 }
 
@@ -272,21 +276,28 @@ func (p *Plugin) releaseDedupKey(caller, dedupKey, claimToken string) {
 	}
 }
 
-func (p *Plugin) sendDMNotification(userID, message string) {
+// sendDMNotification reports whether a DM was posted or may have been posted.
+// It returns false when the DM was skipped or provably never posted, so the
+// caller can still send the recipient a different message.
+func (p *Plugin) sendDMNotification(userID, message string) bool {
 	dedupKey := notificationDedupKey(userID, message)
 	deliver, claimToken := p.claimDedupKey("sendDMNotification", dedupKey)
 	if !deliver {
-		return
+		return false
 	}
 
 	if err := p.CreateBotDMPost(userID, message, "custom_git_review_request"); err != nil {
 		p.client.Log.Warn("can't send dm post", "err", err.Error())
 		// CreatePost may have persisted the DM despite erroring, so only the
 		// pre-post lookup failure is safe to release.
-		if claimToken != "" && errors.Is(err, errDMChannelUnavailable) {
-			p.releaseDedupKey("sendDMNotification", dedupKey, claimToken)
+		if errors.Is(err, errDMChannelUnavailable) {
+			if claimToken != "" {
+				p.releaseDedupKey("sendDMNotification", dedupKey, claimToken)
+			}
+			return false
 		}
 	}
+	return true
 }
 
 // sendChannelNotification keys the claim on channel and message rather than on
@@ -309,12 +320,17 @@ func (p *Plugin) sendChannelNotification(channelID, message string) {
 	}
 }
 
-func (p *Plugin) sendRefreshIfNotAlreadySent(alreadySentRefresh map[string]bool, gitlabUsername string) string {
-	if len(gitlabUsername) == 0 || alreadySentRefresh[gitlabUsername] {
+// sendRefreshIfNotAlreadySent refreshes the user once per webhook and returns
+// their Mattermost user ID on every call, so a refreshed user still gets DMs.
+func (p *Plugin) sendRefreshIfNotAlreadySent(mattermostIDByGitlabUsername map[string]string, gitlabUsername string) string {
+	if len(gitlabUsername) == 0 {
 		return ""
 	}
-	alreadySentRefresh[gitlabUsername] = true
+	if userMattermostID, ok := mattermostIDByGitlabUsername[gitlabUsername]; ok {
+		return userMattermostID
+	}
 	userMattermostID := p.getGitlabToUserIDMapping(gitlabUsername)
+	mattermostIDByGitlabUsername[gitlabUsername] = userMattermostID
 	if len(userMattermostID) > 0 {
 		p.sendRefreshEvent(userMattermostID)
 	}
