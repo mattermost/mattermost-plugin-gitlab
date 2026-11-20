@@ -127,8 +127,14 @@ func parseGitlabUsernamesFromText(text string) []string {
 			continue
 		}
 
+		// Leading underscores are markdown emphasis around the mention, not part of a word.
+		openers := 0
+		for openers < i && runes[i-openers-1] == '_' {
+			openers++
+		}
+
 		// An '@' glued to a preceding word, as in an email address, is not a mention.
-		if i > 0 && runes[i-1] != '.' && (isGitlabUsernameChar(runes[i-1]) || runes[i-1] == '@') {
+		if prev := i - openers - 1; prev >= 0 && runes[prev] != '.' && (isGitlabUsernameChar(runes[prev]) || runes[prev] == '@') {
 			continue
 		}
 
@@ -145,6 +151,9 @@ func parseGitlabUsernamesFromText(text string) []string {
 
 		// A trailing '.' is sentence punctuation, never part of a GitLab username.
 		name := strings.TrimRight(word, ".")
+		for closers := 0; closers < openers && strings.HasSuffix(name, "_"); closers++ {
+			name = strings.TrimSuffix(name, "_")
+		}
 		if name == "" || name[0] == '-' || name[0] == '.' || name[len(name)-1] == '-' {
 			continue
 		}

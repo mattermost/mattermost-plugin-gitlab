@@ -44,6 +44,10 @@ func TestParseGitlabUsernamesFromText(t *testing.T) {
 		{Text: "@john @john.smith @john_doe", Expected: []string{"john", "john.smith", "john_doe"}},
 		{Text: "@john..smith", Expected: []string{}},
 		{Text: "john.smith@example.com", Expected: []string{}},
+		{Text: "Please ask _@john_.", Expected: []string{"john"}},
+		{Text: "__@john__", Expected: []string{"john"}},
+		{Text: "_@john.smith_", Expected: []string{"john.smith"}},
+		{Text: "a_@john", Expected: []string{}},
 	}
 
 	for _, tc := range tcs {

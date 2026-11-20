@@ -37,6 +37,7 @@ const (
 	GitlabUserTokenKey            = "_usertoken"
 	GitlabMigrationTokenKey       = "_gitlabtoken"
 	TokenMutexKey                 = "-oauth-token" //#nosec G101 -- False positive
+	ConnectMutexKey               = "-gitlab-connect"
 	GitlabUsernameKey             = "_gitlabusername"
 	GitlabIDUsernameKey           = "_gitlabidusername"
 	WsEventConnect                = "gitlab_connect"
