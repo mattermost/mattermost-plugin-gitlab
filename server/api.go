@@ -435,7 +435,10 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 			c.Log.WithError(mutexErr).Warnf("Can't create connect mutex")
 			return mutexErr
 		}
-		mutex.Lock()
+		if lockErr := mutex.LockWithContext(c.Ctx); lockErr != nil {
+			c.Log.WithError(lockErr).Warnf("Can't acquire connect mutex")
+			return lockErr
+		}
 		defer mutex.Unlock()
 
 		previousUserInfo, _ := p.getGitlabUserInfoByMattermostID(userID)

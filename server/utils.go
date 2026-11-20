@@ -134,8 +134,14 @@ func parseGitlabUsernamesFromText(text string) []string {
 		}
 
 		// An '@' glued to a preceding word, as in an email address, is not a mention.
-		if prev := i - openers - 1; prev >= 0 && runes[prev] != '.' && (isGitlabUsernameChar(runes[prev]) || runes[prev] == '@') {
-			continue
+		if prev := i - openers - 1; prev >= 0 {
+			glued := isGitlabUsernameChar(runes[prev]) || runes[prev] == '@'
+			if openers == 0 && runes[prev] == '.' {
+				glued = false
+			}
+			if glued {
+				continue
+			}
 		}
 
 		end := i + 1
@@ -154,6 +160,7 @@ func parseGitlabUsernamesFromText(text string) []string {
 		for closers := 0; closers < openers && strings.HasSuffix(name, "_"); closers++ {
 			name = strings.TrimSuffix(name, "_")
 		}
+		name = strings.TrimRight(name, ".")
 		if name == "" || name[0] == '-' || name[0] == '.' || name[len(name)-1] == '-' {
 			continue
 		}
