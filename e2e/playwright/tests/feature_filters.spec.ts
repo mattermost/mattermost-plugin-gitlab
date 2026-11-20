@@ -34,8 +34,8 @@ test.describe('subscription feature filters', () => {
         const {root, project, path} = sandbox;
 
         // # Subscribe to issues labeled "bug"
-        await subscribe(channelsPage, path, 'issues,label:"bug"');
         await root.createLabel(project.id, 'bug');
+        await subscribe(channelsPage, path, 'issues,label:"bug"');
 
         // # Open one unlabeled and one labeled issue
         const unlabeled = await root.createIssue(project.id, `E2E unlabeled ${uniquePath('')}`);

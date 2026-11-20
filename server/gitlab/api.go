@@ -791,6 +791,46 @@ func (g *gitlab) GetLabels(ctx context.Context, user *UserInfo, projectID string
 	return labels, nil
 }
 
+// GetGroupLabels lists labels for a group, including project and descendant group labels.
+func (g *gitlab) GetGroupLabels(ctx context.Context, user *UserInfo, groupID string, token *oauth2.Token) ([]*internGitlab.GroupLabel, error) {
+	client, err := g.GitlabConnect(*token)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to GitLab: %w", err)
+	}
+	if err := g.checkGroup(groupID); err != nil {
+		return nil, err
+	}
+
+	onlyGroupLabels := false
+	includeDescendants := true
+	opts := &internGitlab.ListGroupLabelsOptions{
+		ListOptions: internGitlab.ListOptions{
+			Page:    1,
+			PerPage: 100,
+		},
+		OnlyGroupLabels:          &onlyGroupLabels,
+		IncludeDescendantGrouops: &includeDescendants,
+	}
+
+	var labels []*internGitlab.GroupLabel
+	for {
+		page, resp, err := client.GroupLabels.ListGroupLabels(groupID, opts, internGitlab.WithContext(ctx))
+		if respErr := checkResponse(resp); respErr != nil {
+			return nil, fmt.Errorf("failed to list labels for group %s: %w", groupID, respErr)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to list labels for group %s: %w", groupID, err)
+		}
+		labels = append(labels, page...)
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+
+	return labels, nil
+}
+
 // listAllProjectMilestones paginates the project's milestones together with those of all its ancestor groups.
 func listAllProjectMilestones(ctx context.Context, client *internGitlab.Client, projectID string) ([]*internGitlab.Milestone, error) {
 	popts := &internGitlab.ListMilestonesOptions{
@@ -974,11 +1014,11 @@ func (g *gitlab) ResolveNamespaceAndProject(
 	token *oauth2.Token,
 	fullPath string,
 	allowPrivate bool,
-) (owner string, repo string, err error) {
+) (owner string, repo string, isUser bool, err error) {
 	// Initialize client
 	client, err := g.GitlabConnect(*token)
 	if err != nil {
-		return "", "", err
+		return "", "", false, err
 	}
 
 	fullPath = strings.TrimPrefix(fullPath, g.gitlabURL)
@@ -1032,32 +1072,32 @@ func (g *gitlab) ResolveNamespaceAndProject(
 		return nil
 	})
 	if err := errGroup.Wait(); err != nil {
-		return "", "", err
+		return "", "", false, err
 	}
 
 	// Decide what to return
 	if user != nil {
-		return user.Username, "", nil
+		return user.Username, "", true, nil
 	}
 
 	if group != nil {
 		if !allowPrivate && group.Visibility != internGitlab.PublicVisibility {
-			return "", "", errors.Wrap(ErrPrivateResource,
+			return "", "", false, errors.Wrap(ErrPrivateResource,
 				"You can't add a private group on this Mattermost instance. Please enable private repositories in the System Console.",
 			)
 		}
-		return group.FullPath, "", nil
+		return group.FullPath, "", false, nil
 	}
 
 	if project != nil {
 		if !allowPrivate && project.Visibility != internGitlab.PublicVisibility {
-			return "", "", errors.Wrap(ErrPrivateResource,
+			return "", "", false, errors.Wrap(ErrPrivateResource,
 				"You can't add a private group on this Mattermost instance. Please enable private repositories in the System Console.",
 			)
 		}
-		return project.Namespace.FullPath, project.Path, nil
+		return project.Namespace.FullPath, project.Path, false, nil
 	}
-	return "", "", ErrNotFound
+	return "", "", false, ErrNotFound
 }
 
 func (g *gitlab) GetIssueByID(ctx context.Context, user *UserInfo, owner, repo string, issueID int, token *oauth2.Token) (*Issue, error) {
