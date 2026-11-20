@@ -640,6 +640,15 @@ func (p *Plugin) deleteGitlabToUserIDMapping(gitlabUsername string) error {
 	return nil
 }
 
+// deleteGitlabToUserIDMappingIfOwned removes the username mapping only while it
+// still points at userID, so a username since claimed by another user survives.
+func (p *Plugin) deleteGitlabToUserIDMappingIfOwned(gitlabUsername, userID string) error {
+	if _, appErr := p.API.KVCompareAndDelete(gitlabUsername+GitlabUsernameKey, []byte(userID)); appErr != nil {
+		return errors.Wrap(appErr, "encountered error deleting GitLab username mapping")
+	}
+	return nil
+}
+
 func (p *Plugin) deleteGitlabIDToUserIDMapping(gitlabID int) error {
 	if err := p.client.KV.Delete(fmt.Sprintf("%d%s", gitlabID, GitlabIDUsernameKey)); err != nil {
 		return errors.Wrap(err, "encountered error deleting GitLab id mapping")

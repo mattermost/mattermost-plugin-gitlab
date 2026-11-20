@@ -38,6 +38,15 @@ type HandleWebhook struct {
 	From       string
 	ToUsers    []string
 	ToChannels []string
+	// RequiredAccess, when set, means Message quotes project content that each
+	// user in ToUsers must be able to read on GitLab before it is delivered.
+	RequiredAccess *ContentAccess
+}
+
+type ContentAccess struct {
+	Namespace    string
+	Project      string
+	Confidential bool
 }
 
 type Webhook interface {
@@ -93,10 +102,11 @@ func cleanWebhookHandlerTo(handler *HandleWebhook) *HandleWebhook {
 	}
 
 	return &HandleWebhook{
-		From:       handler.From,
-		Message:    handler.Message,
-		ToUsers:    cleanedUsers,
-		ToChannels: cleanedChannels,
+		From:           handler.From,
+		Message:        handler.Message,
+		ToUsers:        cleanedUsers,
+		ToChannels:     cleanedChannels,
+		RequiredAccess: handler.RequiredAccess,
 	}
 }
 
@@ -106,15 +116,22 @@ type mentionDetails struct {
 	IID               string
 	URL               string
 	body              string
+	confidential      bool
 }
 
 func (w *webhook) handleMention(m mentionDetails) *HandleWebhook {
 	mentionedUsernames := w.gitlabRetreiver.ParseGitlabUsernamesFromText(m.body)
 	if len(mentionedUsernames) > 0 {
+		namespace, project := normalizeNamespacedProject(m.pathWithNamespace)
 		return &HandleWebhook{
 			From:    m.senderUsername,
 			Message: fmt.Sprintf("[%s](%s) mentioned you on [%s#%s](%s):\n>%s", m.senderUsername, w.gitlabRetreiver.GetUserURL(m.senderUsername), m.pathWithNamespace, m.IID, m.URL, m.body),
 			ToUsers: mentionedUsernames,
+			RequiredAccess: &ContentAccess{
+				Namespace:    namespace,
+				Project:      project,
+				Confidential: m.confidential,
+			},
 		}
 	}
 	return nil

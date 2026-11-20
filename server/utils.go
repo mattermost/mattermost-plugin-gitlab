@@ -109,26 +109,50 @@ func normalizePath(full, baseURL string) string {
 	return strings.TrimSuffix(strings.TrimSpace(strings.Replace(full, baseURL, "", 1)), "/")
 }
 
+func isGitlabUsernameSeparator(c rune) bool {
+	return c == '-' || c == '.' || c == '_'
+}
+
+func isGitlabUsernameChar(c rune) bool {
+	return isGitlabUsernameSeparator(c) || unicode.IsLetter(c) || unicode.IsNumber(c)
+}
+
 func parseGitlabUsernamesFromText(text string) []string {
 	usernameMap := map[string]bool{}
 	usernames := []string{}
 
-	for _, word := range strings.FieldsFunc(text, func(c rune) bool {
-		return c != '-' && c != '@' && !unicode.IsLetter(c) && !unicode.IsNumber(c)
-	}) {
-		if len(word) < 2 || word[0] != '@' {
+	runes := []rune(text)
+	for i := 0; i < len(runes); i++ {
+		if runes[i] != '@' {
 			continue
 		}
 
-		if word[1] == '-' || word[len(word)-1] == '-' {
+		// An '@' glued to a preceding word, as in an email address, is not a mention.
+		if i > 0 && runes[i-1] != '.' && (isGitlabUsernameChar(runes[i-1]) || runes[i-1] == '@') {
 			continue
 		}
 
-		if strings.Contains(word, "--") {
+		end := i + 1
+		for end < len(runes) && isGitlabUsernameChar(runes[end]) {
+			end++
+		}
+		word := string(runes[i+1 : end])
+		followedByAt := end < len(runes) && runes[end] == '@'
+		i = end - 1
+		if followedByAt {
 			continue
 		}
 
-		name := word[1:]
+		// A trailing '.' is sentence punctuation, never part of a GitLab username.
+		name := strings.TrimRight(word, ".")
+		if name == "" || name[0] == '-' || name[0] == '.' || name[len(name)-1] == '-' {
+			continue
+		}
+
+		if hasConsecutiveUsernameSeparators(name) {
+			continue
+		}
+
 		if !usernameMap[name] {
 			usernames = append(usernames, name)
 			usernameMap[name] = true
@@ -136,6 +160,18 @@ func parseGitlabUsernamesFromText(text string) []string {
 	}
 
 	return usernames
+}
+
+func hasConsecutiveUsernameSeparators(name string) bool {
+	prevSeparator := false
+	for _, c := range name {
+		isSeparator := isGitlabUsernameSeparator(c)
+		if isSeparator && prevSeparator {
+			return true
+		}
+		prevSeparator = isSeparator
+	}
+	return false
 }
 
 func fullPathFromNamespaceAndProject(namespace, project string) string {
