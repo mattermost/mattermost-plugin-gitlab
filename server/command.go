@@ -966,8 +966,8 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 			return nil, nil, true
 		}
 
-		subs, err := p.Subscribe(info, namespace, project, channelID, features)
-		return subs, err, false
+		subs, subErr := p.Subscribe(info, namespace, project, channelID, features)
+		return subs, subErr, false
 	}()
 
 	if instanceChanged {
