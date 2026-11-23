@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
+	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
 )
 
 const commandHelp = `* |/gitlab connect| - Connect your Mattermost account to your GitLab account
@@ -575,7 +577,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		namespace := parameters[1]
 		var group, project string
 		err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			respGroup, respProject, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
+			respGroup, respProject, _, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
 			if err != nil {
 				return err
 			}
@@ -678,7 +680,7 @@ func (p *Plugin) webhookCommand(ctx context.Context, parameters []string, info *
 		namespace := parameters[1]
 		var group, project string
 		namespaceErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			respGroup, respProject, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
+			respGroup, respProject, _, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, namespace, enablePrivateRepo)
 			if err != nil {
 				return err
 			}
@@ -900,14 +902,19 @@ func (p *Plugin) subscriptionsListCommand(channelID string) string {
 
 // subscriptionsAddCommand subscripes to A GitLab Project
 func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserInfo, config *configuration, fullPath, channelID, features string) string {
+	// Pin one client for the whole operation so a concurrent instance change can't resolve the
+	// target against one GitLab host and validate on another.
+	gitlabClient := p.getGitlabClient()
 	var namespace, project string
+	var isUser bool
 	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		respGroup, respProject, err := p.getGitlabClient().ResolveNamespaceAndProject(ctx, info, token, fullPath, config.EnablePrivateRepo)
+		respGroup, respProject, respIsUser, err := gitlabClient.ResolveNamespaceAndProject(ctx, info, token, fullPath, config.EnablePrivateRepo)
 		if err != nil {
 			return err
 		}
 		namespace = respGroup
 		project = respProject
+		isUser = respIsUser
 		return nil
 	})
 	if err != nil {
@@ -937,7 +944,7 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		}
 	} else if wantsConfidential {
 		groupAccessErr := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-			_, groupErr := p.getGitlabClient().GetGroup(ctx, info, token, namespace, "")
+			_, groupErr := gitlabClient.GetGroup(ctx, info, token, namespace, "")
 			return groupErr
 		})
 		if groupAccessErr != nil {
@@ -947,7 +954,26 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 		}
 	}
 
-	updatedSubscriptions, subscribeErr := p.Subscribe(info, namespace, project, channelID, features)
+	if labelErr := p.validateSubscriptionLabels(ctx, gitlabClient, info, project, namespaceFromGroupAndProject(namespace, project), features, isUser); labelErr != nil {
+		return labelErr.Error()
+	}
+
+	updatedSubscriptions, subscribeErr, instanceChanged := func() (*Subscriptions, error, bool) {
+		p.effectiveLock.RLock()
+		defer p.effectiveLock.RUnlock()
+
+		if p.gitlabClient != gitlabClient {
+			return nil, nil, true
+		}
+
+		subs, subErr := p.Subscribe(info, namespace, project, channelID, features)
+		return subs, subErr, false
+	}()
+
+	if instanceChanged {
+		p.client.Log.Warn("GitLab instance configuration changed while processing the subscription")
+		return "GitLab instance configuration changed while processing the subscription. Please try again."
+	}
 	if subscribeErr != nil {
 		p.client.Log.Warn(
 			"failed to subscribe",
@@ -988,6 +1014,56 @@ func (p *Plugin) subscriptionsAddCommand(ctx context.Context, info *gitlab.UserI
 	p.sendChannelSubscriptionsUpdated(updatedSubscriptions, channelID)
 
 	return fmt.Sprintf("Successfully subscribed to %s.%s", fullPath, hookStatusMessage)
+}
+
+// validateSubscriptionLabels verifies that all labels specified in features exist in the target project or group.
+// For confirmed personal user namespaces (which have no group-level labels in GitLab), label validation is skipped.
+func (p *Plugin) validateSubscriptionLabels(ctx context.Context, gitlabClient gitlab.Gitlab, info *gitlab.UserInfo, project, fullPath, features string, isUser bool) error {
+	if isUser || !strings.Contains(features, "label:") {
+		return nil
+	}
+
+	sub, err := subscription.New("", info.UserID, features, fullPath)
+	if err != nil {
+		return err
+	}
+
+	labels, err := sub.Labels()
+	if err != nil || len(labels) == 0 {
+		return err
+	}
+
+	var existingLabels []string
+	if err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+		if project != "" {
+			glLabels, fetchErr := gitlabClient.GetLabels(ctx, info, fullPath, token)
+			if fetchErr != nil {
+				return fetchErr
+			}
+			for _, l := range glLabels {
+				existingLabels = append(existingLabels, l.Name)
+			}
+		} else {
+			groupLabels, fetchErr := gitlabClient.GetGroupLabels(ctx, info, fullPath, token)
+			if fetchErr != nil {
+				return fetchErr
+			}
+			for _, l := range groupLabels {
+				existingLabels = append(existingLabels, l.Name)
+			}
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrapf(err, "failed to verify labels for %s, please try again", fullPath)
+	}
+
+	for _, label := range labels {
+		if !slices.Contains(existingLabels, label) {
+			return fmt.Errorf("the label \"%s\" does not exist in %s", label, fullPath)
+		}
+	}
+
+	return nil
 }
 
 // subscribeCommand process the /gitlab subscribe command.
@@ -1053,7 +1129,7 @@ func (p *Plugin) pipelineRunCommand(ctx context.Context, namespace, ref, channel
 	// project against one GitLab host and trigger the pipeline on another.
 	gitlabClient := p.getGitlabClient()
 	err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
-		groupName, projectName, err := gitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, true)
+		groupName, projectName, _, err := gitlabClient.ResolveNamespaceAndProject(ctx, info, token, namespace, true)
 		if err != nil {
 			return err
 		}
