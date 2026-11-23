@@ -66,15 +66,14 @@ test.describe('direct message notifications', () => {
         // * Verify the mention DM arrives
         await expectPost(page, `mentioned you on ${reference(other.iid)}`, mention);
 
-        // # Close, reopen, and unassign the assigned issue
+        // # Close and reopen the assigned issue
+        // The unassignment DM does not exist on release-2.0 (added in #709).
         await root.closeIssue(project.id, issue.iid);
 
         // * Verify a DM arrives for each change
         await expectPost(page, `closed your issue ${reference(issue.iid)}`);
         await root.reopenIssue(project.id, issue.iid);
         await expectPost(page, `reopened your issue ${reference(issue.iid)}`);
-        await root.updateIssue(project.id, issue.iid, {assignee_ids: []});
-        await expectPost(page, `unassigned you from issue ${reference(issue.iid)}`);
     });
 
     /**
@@ -137,14 +136,14 @@ test.describe('direct message notifications', () => {
         await subscribe(channelsPage, path, 'issue_comments');
         try {
             // # Turn notifications off and mention the user
-            await runCommandExpecting(channelsPage, '/gitlab settings notifications off', 'Settings updated: notifications set to off.');
+            await runCommandExpecting(channelsPage, '/gitlab settings notifications off', 'Settings updated.');
             await root.commentOnIssue(project.id, issue.iid, `@${credentials.e2e_username} ${muted}`);
 
             // * Verify the comment webhook was handled
             await expectPost(page, 'New comment by root', muted);
         } finally {
             // # Turn notifications back on
-            await runCommandExpecting(channelsPage, '/gitlab settings notifications on', 'Settings updated: notifications set to on.');
+            await runCommandExpecting(channelsPage, '/gitlab settings notifications on', 'Settings updated.');
         }
 
         // # Mention the user again

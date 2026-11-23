@@ -13,7 +13,7 @@ const ALL_CHANNEL_FEATURES = [
     'pushes',
     'issue_comments',
     'merge_request_comments',
-    'issue_assigns',
+    // issue_assigns does not exist on release-2.0 (added in #709).
     'merge_request_assigns',
     'tag',
     'releases',
@@ -41,8 +41,8 @@ test.describe('channel notifications for subscribed events', () => {
      * @precondition
      * Town Square is subscribed to a new project with every channel feature, and the project has a plugin webhook
      */
-    test('posts issue creation, labels, assignment, comments, and state changes in the subscribed channel', {tag: '@gitlab_plugin'}, async () => {
-        const {root, project, credentials} = sandbox;
+    test('posts issue creation, labels, comments, and state changes in the subscribed channel', {tag: '@gitlab_plugin'}, async () => {
+        const {root, project} = sandbox;
         const page = channelsPage.page;
 
         // # Open an issue in GitLab
@@ -58,16 +58,7 @@ test.describe('channel notifications for subscribed events', () => {
         // * Verify the label change is posted
         await expectPost(page, issue.title, 'issue labeled bug by');
 
-        // # Assign and then unassign the connected user
-        await root.updateIssue(project.id, issue.iid, {assignee_ids: [credentials.e2e_user_id]});
-
-        // * Verify the assignment is posted
-        await expectPost(page, issue.title, `was assigned to ${credentials.e2e_username}`);
-
-        await root.updateIssue(project.id, issue.iid, {assignee_ids: []});
-
-        // * Verify the unassignment is posted
-        await expectPost(page, issue.title, `was unassigned from ${credentials.e2e_username}`);
+        // Issue assignment channel posts do not exist on release-2.0 (added in #709).
 
         // # Comment on the issue
         const comment = `Issue comment ${uniquePath('')}`;

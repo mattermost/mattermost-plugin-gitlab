@@ -25,9 +25,9 @@ test.describe('slash commands', () => {
     });
 
     /**
-     * @objective Verify /gitlab me and /gitlab connect report the linked GitLab account
+     * @objective Verify /gitlab me reports the linked GitLab account
      */
-    test('shows the connected GitLab profile from /gitlab me and /gitlab connect', {tag: '@gitlab_plugin'}, async ({pw}) => {
+    test('shows the connected GitLab profile from /gitlab me', {tag: '@gitlab_plugin'}, async ({pw}) => {
         // # Log in as a connected member and open Town Square
         const credentials = loadCredentials();
         const channelsPage = await ensureConnected(pw);
@@ -38,11 +38,7 @@ test.describe('slash commands', () => {
         // * Verify the reply names the connected GitLab user
         await profile.toContainText(credentials.e2e_username);
 
-        // # Run /gitlab connect while already connected
-        const alreadyConnected = await runCommandExpecting(channelsPage, '/gitlab connect', 'You are already connected to GitLab as');
-
-        // * Verify the reply names the connected GitLab user instead of offering a new connection
-        await alreadyConnected.toContainText(credentials.e2e_username);
+        // On release-2.0, /gitlab connect while connected offers a new connection (fixed in #720), so it is not checked here.
     });
 
     /**
@@ -75,11 +71,11 @@ test.describe('slash commands', () => {
         const channelsPage = await ensureConnected(pw);
 
         // # Toggle reminders and notifications off and on
-        // * Verify each change is confirmed with the setting name and value
-        await runCommandExpecting(channelsPage, '/gitlab settings reminders off', 'Settings updated: reminders set to off.');
-        await runCommandExpecting(channelsPage, '/gitlab settings reminders on', 'Settings updated: reminders set to on.');
-        await runCommandExpecting(channelsPage, '/gitlab settings notifications off', 'Settings updated: notifications set to off.');
-        await runCommandExpecting(channelsPage, '/gitlab settings notifications on', 'Settings updated: notifications set to on.');
+        // * Verify each change is confirmed (release-2.0 does not echo the setting name and value, added in #721)
+        await runCommandExpecting(channelsPage, '/gitlab settings reminders off', 'Settings updated.');
+        await runCommandExpecting(channelsPage, '/gitlab settings reminders on', 'Settings updated.');
+        await runCommandExpecting(channelsPage, '/gitlab settings notifications off', 'Settings updated.');
+        await runCommandExpecting(channelsPage, '/gitlab settings notifications on', 'Settings updated.');
 
         // # Run /gitlab settings with an invalid value, an unknown setting, and no arguments
         // * Verify each is rejected with a usage error

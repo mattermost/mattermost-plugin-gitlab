@@ -46,26 +46,7 @@ test.describe('subscription feature filters', () => {
         await expectNoPost(channelsPage.page, unlabeled.title);
     });
 
-    /**
-     * @objective Verify an issue_assigns subscription posts assignments without new issue events
-     *
-     * @precondition
-     * A new project has a plugin webhook
-     */
-    test('posts issue assignments without new issue events when only issue_assigns is subscribed', {tag: '@gitlab_plugin'}, async () => {
-        const {root, project, path, credentials} = sandbox;
-
-        // # Subscribe to issue assignments only
-        await subscribe(channelsPage, path, 'issue_assigns');
-
-        // # Open an issue and assign the connected user
-        const issue = await root.createIssue(project.id, `E2E assign only ${uniquePath('')}`);
-        await root.updateIssue(project.id, issue.iid, {assignee_ids: [credentials.e2e_user_id]});
-
-        // * Verify the assignment is posted but the new issue is not
-        await expectPost(channelsPage.page, issue.title, 'was assigned to');
-        await expectNoPost(channelsPage.page, issue.title, 'new issue by');
-    });
+    // The issue_assigns-only test is omitted: the feature does not exist on release-2.0 (added in #709).
 
     /**
      * @objective Verify an issues subscription skips merge request and push events
