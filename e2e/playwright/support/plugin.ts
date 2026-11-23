@@ -43,7 +43,7 @@ export async function restartPlugin(client: Client4) {
     await waitForPlugin(client);
 }
 
-async function waitForPlugin(client: Client4) {
+export async function waitForPlugin(client: Client4) {
     const deadline = Date.now() + 20000;
     while (Date.now() < deadline) {
         const plugins = await client.getPlugins();
@@ -116,13 +116,18 @@ async function resetGitlabState() {
     await GitlabApi.asConnectedUser(credentials).markAllTodosDone();
 }
 
-export async function prepareServer() {
+// prepareStack readies Mattermost and GitLab without touching the plugin.
+export async function prepareStack() {
     const {client} = await loginAdmin();
     await ensureTeam(client);
     await ensureRegularUser(client);
     bootstrapGitlab();
+}
 
-    const bundle = findPluginBundle();
+// installAndConfigurePlugin installs a bundle and sets it up the way an admin would:
+// plugin settings, then the `/gitlab instance install` wizard.
+export async function installAndConfigurePlugin(bundle: string) {
+    const {client} = await loginAdmin();
     // eslint-disable-next-line no-console
     console.log(`Installing ${bundle}`);
     await installPlugin(client, bundle);
@@ -132,4 +137,9 @@ export async function prepareServer() {
 
     // Runs once every Mattermost user is disconnected, so closing old items sends no DMs.
     await resetGitlabState();
+}
+
+export async function prepareServer() {
+    await prepareStack();
+    await installAndConfigurePlugin(findPluginBundle());
 }

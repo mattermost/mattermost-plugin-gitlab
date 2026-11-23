@@ -63,10 +63,16 @@ export class GitlabRhs {
 
     // Connects through the GitLab OAuth popup that "Connect account" opens.
     async connect(credentials: GitlabCredentials) {
+        await this.signInThroughPopup(credentials);
+        await expect(this.username).toHaveText(credentials.e2e_username, {timeout: 30000});
+    }
+
+    // Completes the OAuth popup without checking the sidebar, whose username test id
+    // older releases lack. The upgrade seed confirms the connection with /gitlab me.
+    async signInThroughPopup(credentials: GitlabCredentials) {
         const popupPromise = this.channelsPage.page.waitForEvent('popup');
         await this.connectLink.click();
         await new GitlabSignInPopup(await popupPromise).signIn(credentials.e2e_username, credentials.e2e_password);
-        await expect(this.username).toHaveText(credentials.e2e_username, {timeout: 30000});
     }
 }
 

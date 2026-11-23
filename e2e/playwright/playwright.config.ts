@@ -3,8 +3,22 @@
 
 import './support/env';
 
-import {defineConfig} from '@playwright/test';
+import {defineConfig, type Project} from '@playwright/test';
 import {testConfig} from '@mattermost/playwright-lib';
+
+const chromium = {browserName: 'chromium'} as const;
+
+// E2E_UPGRADE_FROM switches to the upgrade run: install the base release and seed
+// data through it, upgrade to dist/, then verify that data on the new build. The
+// three projects run in order, and the normal run never picks up tests/upgrade/.
+// Retries are off so a retried seed cannot leave a second set of seeded data behind.
+const projects: Project[] = process.env.E2E_UPGRADE_FROM ? [
+    {name: 'upgrade-seed', testMatch: /upgrade\/seed\.spec\.ts/, retries: 0, use: chromium},
+    {name: 'upgrade-apply', testMatch: /upgrade\/apply\.spec\.ts/, retries: 0, use: chromium, dependencies: ['upgrade-seed']},
+    {name: 'upgrade-verify', testMatch: /upgrade\/verify\/.*\.spec\.ts/, retries: 0, use: chromium, dependencies: ['upgrade-apply']},
+] : [
+    {name: 'chrome', testIgnore: /upgrade\//, use: chromium},
+];
 
 // One GitLab user and one set of subscriptions, so the suite stays serial.
 export default defineConfig({
@@ -30,10 +44,5 @@ export default defineConfig({
         screenshot: 'only-on-failure',
         video: 'retain-on-failure',
     },
-    projects: [
-        {
-            name: 'chrome',
-            use: {browserName: 'chromium'},
-        },
-    ],
+    projects,
 });
