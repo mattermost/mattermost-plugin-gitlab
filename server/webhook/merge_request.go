@@ -40,6 +40,9 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 	case stateOpened:
 		switch event.ObjectAttributes.Action {
 		case actionOpen:
+			for _, reviewerID := range event.ObjectAttributes.ReviewerIDs {
+				toUsers = append(toUsers, w.gitlabRetreiver.GetUsernameByID(reviewerID))
+			}
 			message = fmt.Sprintf("[%s](%s) requested your review on [#%d](%s) in [%s](%s)", senderGitlabUsername, w.gitlabRetreiver.GetUserURL(senderGitlabUsername), event.ObjectAttributes.IID, event.ObjectAttributes.URL, event.ObjectAttributes.Target.PathWithNamespace, event.Repository.Homepage)
 			handlers = []*HandleWebhook{{
 				Message: message,

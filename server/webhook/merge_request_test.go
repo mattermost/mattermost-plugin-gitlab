@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/xanzy/go-gitlab"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/subscription"
@@ -387,6 +388,69 @@ var testDataMergeRequest = []testDataMergeRequestStr{
 		}},
 		warnings: []string{"each label must be wrapped in quotes, e.g. label:\"bug\""},
 	},
+}
+
+func TestMergeRequestOpenNotifiesInitialReviewers(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name        string
+		assigneeIDs []int
+		reviewerIDs []int
+		wantUsers   []string
+	}{
+		{
+			name:        "author is assignee and reviewer is assigned at creation",
+			assigneeIDs: []int{1},
+			reviewerIDs: []int{50},
+			wantUsers:   []string{"manland"},
+		},
+		{
+			name:        "multiple initial reviewers without an assignee",
+			reviewerIDs: []int{50, 100},
+			wantUsers:   []string{"manland", "user"},
+		},
+		{
+			name:        "assignee still receives the notification",
+			assigneeIDs: []int{100},
+			reviewerIDs: []int{50},
+			wantUsers:   []string{"manland", "user"},
+		},
+		{
+			name:        "assignee who is also a reviewer receives one notification",
+			assigneeIDs: []int{50},
+			reviewerIDs: []int{50},
+			wantUsers:   []string{"manland"},
+		},
+		{
+			name:        "reviewer who opened the merge request is not notified",
+			reviewerIDs: []int{1, 50},
+			wantUsers:   []string{"manland"},
+		},
+		{
+			name:        "merge request without reviewers keeps existing recipients",
+			assigneeIDs: []int{50},
+			wantUsers:   []string{"manland"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			event := &gitlab.MergeEvent{}
+			require.NoError(t, json.Unmarshal([]byte(OpenMergeRequest), event))
+			event.ObjectAttributes.AssigneeIDs = test.assigneeIDs
+			event.ObjectAttributes.ReviewerIDs = test.reviewerIDs
+			w := NewWebhook(newFakeWebhook(nil))
+
+			handlers, warnings, err := w.HandleMergeRequest(context.Background(), event)
+
+			require.NoError(t, err)
+			assert.Empty(t, warnings)
+			require.Len(t, handlers, 1)
+			assert.ElementsMatch(t, test.wantUsers, handlers[0].ToUsers)
+			assert.Equal(t, "root", handlers[0].From)
+			assert.Contains(t, handlers[0].Message, "requested your review")
+		})
+	}
 }
 
 func TestMergeRequestWebhook(t *testing.T) {
