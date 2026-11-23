@@ -93,6 +93,61 @@ test.describe('post menu actions and the issue modal', () => {
     });
 
     /**
+     * @objective Verify the issue modal applies a selected label, assignee, and milestone to the created GitLab issue
+     *
+     * @precondition
+     * A new project the connected user owns has a label, a similarly named decoy label, and a milestone
+     */
+    test('creates a GitLab issue with a label, assignee, and milestone chosen in the modal', {tag: '@gitlab_plugin'}, async ({pw}) => {
+        const {root, project, group, path, credentials} = sandbox;
+        const milestone = `v1.0-${uniquePath('')}`;
+        const title = `E2E issue with attributes ${uniquePath('')}`;
+        await root.createLabel(project.id, 'bug');
+
+        // A decoy that contains the typed text and sorts first, so picking bug must not take it.
+        await root.createLabel(project.id, 'a-bug');
+        await root.createGroupMilestone(group.id, milestone);
+
+        // # Open the issue modal from /gitlab issue create
+        const channelsPage = await ensureConnected(pw);
+        const projectsLoaded = channelsPage.page.waitForResponse((response) => response.url().endsWith('/api/v1/projects') && response.ok());
+        await runSlashCommand(channelsPage, `/gitlab issue create ${title}`);
+        const modal = new CreateIssueModal(channelsPage.page);
+        await expect(modal.title).toHaveValue(title);
+
+        // # Pick the project, then its label, assignee, and milestone
+        await projectsLoaded;
+        await modal.selectProject(path);
+        await modal.selectLabel('bug');
+        await modal.selectAssignee(credentials.e2e_username);
+        await modal.selectMilestone(milestone);
+
+        // * Verify all picks are reflected in the modal, then submit
+        // Submitting immediately after the last keyboard pick can outrun the
+        // react-select state update, so wait until every pick is shown.
+        await modal.expectSelections('bug', credentials.e2e_username, milestone);
+        await modal.submit();
+
+        // * Verify the modal closes and GitLab has the issue with the chosen attributes
+        await modal.toBeHidden();
+        await expect.poll(async () => {
+            const issue = await root.findIssue(project.id, title);
+            if (!issue) {
+                return undefined;
+            }
+            return {
+                labels: issue.labels,
+                assignees: issue.assignees.map((assignee) => assignee.username),
+                milestone: issue.milestone?.title,
+            };
+        }, {timeout: GITLAB_TIMEOUT}).toEqual({
+            labels: ['bug'],
+            assignees: [credentials.e2e_username],
+            milestone,
+        });
+    });
+
+    /**
      * @objective Verify /gitlab issue create opens the issue modal with the given title and requires a project
      */
     test('opens the issue modal from /gitlab issue create with the title prefilled', {tag: '@gitlab_plugin'}, async ({pw}) => {

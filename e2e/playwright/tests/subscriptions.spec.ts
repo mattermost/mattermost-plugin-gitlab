@@ -64,6 +64,34 @@ test.describe('subscriptions', () => {
     });
 
     /**
+     * @objective Verify /gitlab unsubscribe removes a project subscription and rejects a missing repository
+     */
+    test('removes a project subscription with the /gitlab unsubscribe command', {tag: '@gitlab_plugin'}, async ({pw}) => {
+        sandbox = await createSandbox();
+        const {path} = sandbox;
+
+        // # Open the GitLab subscriptions sidebar and subscribe to the project
+        channelsPage = await ensureConnected(pw);
+        const rhs = new GitlabRhs(channelsPage);
+        await rhs.open();
+        await subscribe(channelsPage, path);
+
+        // * Verify the sidebar shows the subscription
+        await expect(rhs.subscription(path)).toBeVisible();
+
+        // # Unsubscribe from the project
+        await runCommandExpecting(channelsPage, `/gitlab unsubscribe ${path}`, 'Successfully deleted subscription');
+
+        // * Verify the sidebar and the list reply show no subscriptions
+        await expect(rhs.noSubscriptions).toBeVisible();
+        await runCommandExpecting(channelsPage, '/gitlab subscriptions list', 'Currently there are no subscriptions in this channel');
+
+        // # Run unsubscribe without a repository
+        // * Verify it replies with its usage error
+        await runCommandExpecting(channelsPage, '/gitlab unsubscribe', 'Please specify a repository.');
+    });
+
+    /**
      * @objective Verify a subscription keeps custom features, shows them in the sidebar, and is replaced by a later subscription
      */
     test('stores custom subscription features and shows them in the sidebar', {tag: '@gitlab_plugin'}, async ({pw}) => {

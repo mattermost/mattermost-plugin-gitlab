@@ -28,6 +28,13 @@ export type GitlabIssue = {
     web_url: string;
 };
 
+export type GitlabIssueDetail = GitlabIssue & {
+    description: string;
+    labels: string[];
+    assignees: Array<{username: string}>;
+    milestone: {title: string} | null;
+};
+
 export type GitlabMergeRequest = {
     id: number;
     iid: number;
@@ -107,6 +114,13 @@ export class GitlabApi {
         await this.request('POST', `/projects/${projectId}/labels`, {name, color: '#428BCA'});
     }
 
+    // The plugin's milestone selector lists the project's milestones plus those of its
+    // parent groups (listAllProjectMilestones in server/gitlab/api.go), so a group
+    // milestone also covers the inherited case.
+    async createGroupMilestone(groupId: number, title: string) {
+        await this.request('POST', `/groups/${groupId}/milestones`, {title});
+    }
+
     async createIssue(projectId: number, title: string, options: IssueOptions = {}): Promise<GitlabIssue> {
         return this.request('POST', `/projects/${projectId}/issues`, {
             title,
@@ -135,6 +149,11 @@ export class GitlabApi {
 
     async listIssues(projectId: number): Promise<Array<GitlabIssue & {description: string}>> {
         return this.request('GET', `/projects/${projectId}/issues?per_page=100`);
+    }
+
+    async findIssue(projectId: number, title: string): Promise<GitlabIssueDetail | undefined> {
+        const issues = await this.request<GitlabIssueDetail[]>('GET', `/projects/${projectId}/issues?per_page=100`);
+        return issues.find((issue) => issue.title === title);
     }
 
     async listIssueComments(projectId: number, iid: number): Promise<Array<{body: string; system: boolean}>> {
