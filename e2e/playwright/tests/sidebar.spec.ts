@@ -10,6 +10,7 @@ import {ensureConnected} from '../support/ui';
 
 const EXPECTED_TODOS = 2;
 const COUNT_TIMEOUT = 20000;
+const TODO_POLL_TIMEOUT = 30000;
 
 test.describe('sidebar review and to-do lists', () => {
     let sandbox: Sandbox;
@@ -64,7 +65,10 @@ test.describe('sidebar review and to-do lists', () => {
         await expect(sidebar.item(todoFor(todos, review.iid, 'review_requested').id)).toContainText(review.title);
 
         // # Mark every to-do done in GitLab and refresh the counts
+        // Wait for GitLab to report no pending to-dos before refreshing, since the
+        // sidebar refresh is a single fetch and would otherwise read a stale list.
         await user.markAllTodosDone();
+        await waitForNoTodos(sandbox);
         await sidebar.refresh();
 
         // * Verify the to-do count and list are empty
@@ -74,8 +78,12 @@ test.describe('sidebar review and to-do lists', () => {
 });
 
 async function waitForTodos(sandbox: Sandbox) {
-    await expect.poll(async () => (await sandbox.user.listTodos()).length, {timeout: 30000}).toBe(EXPECTED_TODOS);
+    await expect.poll(async () => (await sandbox.user.listTodos()).length, {timeout: TODO_POLL_TIMEOUT}).toBe(EXPECTED_TODOS);
     return sandbox.user.listTodos();
+}
+
+async function waitForNoTodos(sandbox: Sandbox) {
+    await expect.poll(async () => (await sandbox.user.listTodos()).length, {timeout: TODO_POLL_TIMEOUT}).toBe(0);
 }
 
 function todoFor(todos: GitlabTodo[], iid: number, action: string) {

@@ -48,17 +48,20 @@ GitLab Community Edition has no group webhooks, so the group-subscription test a
 
 | Spec | Covers |
 | --- | --- |
-| `connect` | OAuth connect and disconnect |
+| `connect` | OAuth connect and disconnect, and the `disconnect` command |
 | `commands` | `help`, `about`, `me`, `instance list`, `connect`, `settings`, `todo`, and usage errors |
-| `subscriptions` | Add, list, delete, custom features, validation, permissions, `webhook list` |
+| `subscriptions` | Add, list, delete, `unsubscribe`, custom features, validation, permissions, `webhook list` |
 | `channel_events` | Issue, merge request, comment, push, tag, and release posts |
 | `feature_filters` | Label filters, feature exclusion, confidential issues |
 | `dm_notifications` | Assignment, comment, mention, review, approval, merge DMs, and muting with `settings` |
 | `notifications` | Project and group subscriptions, plus the assigned issue and merge request lists |
 | `sidebar` | Review and to-do lists and counts |
-| `post_actions` | Create GitLab issue and attach to issue from the post menu, and `/gitlab issue create` |
+| `post_actions` | Create GitLab issue (incl. label, assignee, and milestone) and attach to issue from the post menu, and `/gitlab issue create` |
 | `webapp_integrations` | Link tooltips and the profile popover attribute |
 | `pipelines` | `/gitlab pipelines run`, pipeline, job, and deployment posts on the runner, and the failed-pipeline DM |
+| `permalinks` | Blob permalink code previews (`fixme`, see below) |
+
+`permalinks` is a `fixme`: the code-preview feature only recognizes `gitlab.com` permalinks (`gitlabPermalinkRegex` in `server/plugin.go` is anchored to that host) and `EnableCodePreview` defaults to `public`, which skips the suite's private projects. That host restriction is a product bug (code previews never work for self-hosted GitLab) and will be tracked in a separate ticket. Exercising it against the self-hosted `gitlab.test` stack needs the regex to accept the configured host.
 
 ### Writing tests
 

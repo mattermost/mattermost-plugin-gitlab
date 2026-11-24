@@ -2,7 +2,7 @@
 // See LICENSE.txt for license information.
 
 import {expect, type ChannelsPage} from '@mattermost/playwright-lib';
-import type {Locator} from '@playwright/test';
+import type {Locator, Page} from '@playwright/test';
 
 const LISTS = {
     mergeRequests: {button: 'Merge requests assigned', count: 'gitlab-header-merge-requests-count', title: 'Merge Requests Assigned'},
@@ -16,15 +16,19 @@ export type GitlabList = keyof typeof LISTS;
 // The GitLab buttons in the left sidebar header and the item list each one opens
 // in the right-hand sidebar. The header only renders while the user is in a single team.
 export class GitlabSidebar {
+    readonly page: Page;
     readonly header: Locator;
     readonly list: Locator;
     readonly refreshButton: Locator;
+    readonly refreshIcon: Locator;
     readonly emptyList: Locator;
 
     constructor(channelsPage: ChannelsPage) {
+        this.page = channelsPage.page;
         this.header = channelsPage.sidebarLeft.container;
         this.list = channelsPage.sidebarRight.container;
         this.refreshButton = this.header.getByRole('link', {name: 'Refresh', exact: true});
+        this.refreshIcon = this.refreshButton.locator('i.fa-refresh');
         this.emptyList = this.list.getByText('You have no active items');
     }
 
@@ -49,8 +53,14 @@ export class GitlabSidebar {
         return this.list.getByTestId(`gitlab-sidebar-item-title-${id}`);
     }
 
+    // The webapp ignores a Refresh click while an earlier fetch (the one on mount, or a
+    // previous click) is still in flight, so wait for the spinner to stop, then wait for
+    // the fetch this click starts. Otherwise the click can be dropped and the counts stay stale.
     async refresh() {
+        await expect(this.refreshIcon).not.toHaveClass(/fa-spin/);
+        const fetched = this.page.waitForResponse((response) => response.url().endsWith('/lhs-data') && response.request().method() === 'GET');
         await this.refreshButton.click();
+        await fetched;
     }
 
     async openList(list: GitlabList) {
