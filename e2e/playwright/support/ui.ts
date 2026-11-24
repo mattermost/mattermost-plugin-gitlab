@@ -58,12 +58,17 @@ export async function expectNoPost(page: Page, ...texts: Array<string | RegExp>)
 export async function expectNoPostWithin(page: Page, window: number, ...texts: Array<string | RegExp>) {
     const posts = postsWithText(page, ...texts);
     const deadline = Date.now() + window;
-    do {
+    for (;;) {
         // eslint-disable-next-line no-await-in-loop
         expect(await posts.count(), `no post containing ${texts.join(', ')}`).toBe(0);
+
+        // Stop only after a check made at or past the deadline, so the last interval is covered too.
+        if (Date.now() >= deadline) {
+            return;
+        }
         // eslint-disable-next-line no-await-in-loop
         await page.waitForTimeout(500);
-    } while (Date.now() < deadline);
+    }
 }
 
 // Earlier commands, and webhook posts landing in between, can leave matching posts
