@@ -13,7 +13,8 @@ import {loadCredentials} from './credentials';
 
 const WIZARD_STEP_TIMEOUT = 15000;
 
-async function executeCommand(client: Client4, command: string) {
+// Runs a slash command in Town Square as the client's user, without a browser.
+export async function executeCommand(client: Client4, command: string) {
     const team = await client.getTeamByName(TEAM_NAME);
     const channel = await client.getChannelByName(team.id, TOWN_SQUARE);
     await client.executeCommand(command, {channel_id: channel.id, team_id: team.id});

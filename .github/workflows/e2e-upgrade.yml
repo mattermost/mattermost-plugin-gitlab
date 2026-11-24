@@ -1,0 +1,128 @@
+name: e2e-upgrade
+
+# Installs a previous release, seeds data through it, upgrades to the plugin built
+# from this commit, and checks the seeded data still works. See the "Upgrade tests"
+# section of e2e/playwright/README.md.
+on:
+  pull_request:
+    # Changes that could break reading data an earlier release stored.
+    paths:
+      - "server/plugin.go"
+      - "server/configuration.go"
+      - "server/subscriptions.go"
+      - "server/instance.go"
+      - "server/utils.go"
+      - "server/webhook.go"
+      - "server/gitlab/user.go"
+      - "server/subscription/**"
+      - "plugin.json"
+      - "build/manifest/**"
+      - "e2e/playwright/**"
+      - ".github/workflows/e2e-upgrade.yml"
+  schedule:
+    # Daily at 04:00 UTC
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "Release to upgrade from (vX.Y.Z, or latest for the newest release of the build's major)"
+        default: latest
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-upgrade-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  upgrade:
+    name: Upgrade from a previous release
+    runs-on: ubuntu-latest
+    # GitLab's first boot alone takes several minutes.
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      E2E_DIR: e2e/playwright
+    steps:
+      # make dist derives the plugin version from git tags, so fetch all of them.
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            webapp/package-lock.json
+            e2e/playwright/package-lock.json
+
+      # The browser and the containers share these names.
+      - name: Map E2E hostnames
+        run: echo "127.0.0.1 mattermost gitlab.test" | sudo tee -a /etc/hosts
+
+      # Runs in the background so GitLab's boot overlaps with the plugin build.
+      - name: Start Mattermost, GitLab, and the runner
+        run: |
+          (set +e; make e2e-env-up > "$RUNNER_TEMP/server-up.log" 2>&1; echo $? > "$RUNNER_TEMP/server-up.exit") &
+
+      - name: Build the plugin bundle
+        run: make dist
+
+      - name: Install E2E dependencies
+        run: |
+          cd "$E2E_DIR"
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Type-check the suite
+        run: |
+          cd "$E2E_DIR"
+          npm run tsc
+
+      - name: Wait for the servers to be healthy
+        timeout-minutes: 20
+        run: |
+          while [ ! -f "$RUNNER_TEMP/server-up.exit" ]; do sleep 5; done
+          cat "$RUNNER_TEMP/server-up.log"
+          exit "$(cat "$RUNNER_TEMP/server-up.exit")"
+
+      - name: Run the upgrade tests
+        env:
+          E2E_UPGRADE_FROM: ${{ inputs.from || 'latest' }}
+          # Lists releases and downloads the base bundle.
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd "$E2E_DIR"
+          npm test
+
+      - name: Collect container logs
+        if: failure()
+        run: |
+          cd "$E2E_DIR"
+          mkdir -p results
+          docker compose ps -a > results/containers.txt
+          docker compose logs --no-color > results/containers.log
+
+      - name: Upload results
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-upgrade-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: e2e/playwright/results
+          retention-days: 14
+
+      - name: Stop the servers
+        if: always()
+        run: make e2e-env-down
