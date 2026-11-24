@@ -6,15 +6,13 @@ import {expect, test} from '@mattermost/playwright-lib';
 import {GitlabRhs} from '../../../support/components';
 import {loadCredentials} from '../../../support/credentials';
 import {GitlabApi, uniquePath} from '../../../support/gitlab_api';
-import {expectNoPost, expectPost, openTownSquare, runCommandExpecting} from '../../../support/ui';
-import {UPGRADE_FEATURES, UPGRADE_LABEL, readUpgradeState, removeSeededData} from '../../../support/upgrade';
+import {expectNoPostWithin, expectPost, openTownSquare, runCommandExpecting} from '../../../support/ui';
+import {UPGRADE_FEATURES, UPGRADE_LABEL, readUpgradeState} from '../../../support/upgrade';
+
+// How long the unlabeled issue must stay unposted after the labeled one arrives.
+const FILTERED_WINDOW = 10 * 1000;
 
 test.describe('subscriptions after the upgrade', () => {
-    // The last verify spec, so it removes what the seed created.
-    test.afterAll(async () => {
-        await removeSeededData(readUpgradeState());
-    });
-
     /**
      * @objective Verify a subscription created on the base release is still stored with its features
      *
@@ -55,8 +53,8 @@ test.describe('subscriptions after the upgrade', () => {
         const unlabeled = await root.createIssue(projectId, `E2E upgrade unlabeled ${uniquePath('')}`);
         const labeled = await root.createIssue(projectId, `E2E upgrade labeled ${uniquePath('')}`, {labels: [UPGRADE_LABEL]});
 
-        // * Verify only the labeled issue is posted
+        // * Verify only the labeled issue is posted, and the unlabeled one stays filtered out afterwards
         await expectPost(channelsPage.page, labeled.title, 'new issue by');
-        await expectNoPost(channelsPage.page, unlabeled.title);
+        await expectNoPostWithin(channelsPage.page, FILTERED_WINDOW, unlabeled.title);
     });
 });

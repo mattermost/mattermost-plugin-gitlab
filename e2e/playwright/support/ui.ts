@@ -53,6 +53,19 @@ export async function expectNoPost(page: Page, ...texts: Array<string | RegExp>)
     await expect(postsWithText(page, ...texts)).toHaveCount(0);
 }
 
+// expectNoPost checks once. This keeps checking for the whole window, so a post that
+// arrives late still fails the test.
+export async function expectNoPostWithin(page: Page, window: number, ...texts: Array<string | RegExp>) {
+    const posts = postsWithText(page, ...texts);
+    const deadline = Date.now() + window;
+    do {
+        // eslint-disable-next-line no-await-in-loop
+        expect(await posts.count(), `no post containing ${texts.join(', ')}`).toBe(0);
+        // eslint-disable-next-line no-await-in-loop
+        await page.waitForTimeout(500);
+    } while (Date.now() < deadline);
+}
+
 // Earlier commands, and webhook posts landing in between, can leave matching posts
 // on screen, so wait for one more match than before the command ran.
 export async function runCommandExpecting(channelsPage: ChannelsPage, command: string, reply: string | RegExp) {

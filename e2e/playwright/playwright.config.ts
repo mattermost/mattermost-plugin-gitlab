@@ -11,11 +11,14 @@ const chromium = {browserName: 'chromium'} as const;
 // E2E_UPGRADE_FROM switches to the upgrade run: install the base release and seed
 // data through it, upgrade to dist/, then verify that data on the new build. The
 // three projects run in order, and the normal run never picks up tests/upgrade/.
+// upgrade-cleanup is the seed's teardown: it runs once the other three finish, even
+// when one fails, so a failed check never removes data a later check needs.
 // Retries are off so a retried seed cannot leave a second set of seeded data behind.
 const projects: Project[] = process.env.E2E_UPGRADE_FROM ? [
-    {name: 'upgrade-seed', testMatch: /upgrade\/seed\.spec\.ts/, retries: 0, use: chromium},
+    {name: 'upgrade-seed', testMatch: /upgrade\/seed\.spec\.ts/, retries: 0, use: chromium, teardown: 'upgrade-cleanup'},
     {name: 'upgrade-apply', testMatch: /upgrade\/apply\.spec\.ts/, retries: 0, use: chromium, dependencies: ['upgrade-seed']},
     {name: 'upgrade-verify', testMatch: /upgrade\/verify\/.*\.spec\.ts/, retries: 0, use: chromium, dependencies: ['upgrade-apply']},
+    {name: 'upgrade-cleanup', testMatch: /upgrade\/cleanup\.teardown\.ts/, retries: 0, use: chromium},
 ] : [
     {name: 'chrome', testIgnore: /upgrade\//, use: chromium},
 ];

@@ -80,6 +80,7 @@ Setting `E2E_UPGRADE_FROM` turns the run into an upgrade test: install an earlie
 
 ```sh
 make dist                              # from the repo root
+cd e2e/playwright
 E2E_UPGRADE_FROM=latest npm test       # or a release tag, e.g. E2E_UPGRADE_FROM=v2.0.0
 ```
 
@@ -87,13 +88,14 @@ E2E_UPGRADE_FROM=latest npm test       # or a release tag, e.g. E2E_UPGRADE_FROM
 
 **Which version the build has.** `make dist` takes the version from git tags: a tagged commit gets its tag, any other commit gets the latest reachable tag plus `+<hash>`. So on master the build is usually newer than the latest release (for example `2.0.0` → `2.1.0-rc1+7ee08ed`), and the run is a real version upgrade. Right after a final release is tagged, the build has the same version as that release with only a different hash. The run then still swaps new code in over the release's data, and the report annotates it as `relaxed` instead of `strict`.
 
-The run is three Playwright projects, each depending on the one before:
+The run is three Playwright projects, each depending on the one before, plus a cleanup:
 
 | Project | Does |
 | --- | --- |
 | `upgrade-seed` | Installs the earlier release, configures it, and completes its install wizard. Connects the member through OAuth, subscribes Town Square to a new project with `issues,issue_comments,label:"upgrade"`, adds the webhook, and checks a labeled issue is posted. Writes what it created to `results/upgrade/upgrade-state.json`. |
 | `upgrade-apply` | Uploads `dist/` over the release and restarts the plugin without touching its settings. Checks the running version is the `dist/` bundle's, in the same major and not older, and that the server logged no plugin errors during the upgrade (read from the `docker compose` logs, so skipped on other servers). |
-| `upgrade-verify` | Checks the member is still connected and `/gitlab todo` works, so the stored token still decrypts. Checks the settings and the default instance carried over, the subscription and its features are still listed, and the webhook still delivers with the label filter applied. Then removes the seeded project. |
+| `upgrade-verify` | Checks the member is still connected and `/gitlab todo` works, so the stored token still decrypts. Checks the settings and the default instance carried over, the subscription and its features are still listed, and the webhook still delivers with the label filter applied. |
+| `upgrade-cleanup` | The seed's teardown. Once the others finish, even after a failure, removes the Town Square subscription, the seeded project, and the state file. |
 
 The seed creates everything through the plugin's own commands, OAuth flow, and wizard, never by writing to the KV store, so the stored data is in the earlier release's format. The plugin's KV store is not wiped first. For a clean slate, run `make e2e-env-down` and `make e2e-env-up`. The upgrade run reinstalls the plugin on the shared server, so do not run it while another run uses the same stack.
 
