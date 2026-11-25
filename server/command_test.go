@@ -269,6 +269,16 @@ var subscribeCommandTests = []subscribeCommandTest{
 		rejectsWithoutWrite: true,
 	},
 	{
+		testName:            "Subscription fails when group label search returns only substring match",
+		parameters:          []string{"add", "group", `issues,label:"bug"`},
+		mockGitlab:          true,
+		groupOnly:           true,
+		groupLabels:         []*gitLabAPI.GroupLabel{{Name: "bugfix"}},
+		mattermostURL:       "example.com",
+		want:                `the label "bug" does not exist in group`,
+		rejectsWithoutWrite: true,
+	},
+	{
 		testName:            "Subscription fails when group labels API returns error",
 		parameters:          []string{"add", "group", `issues,label:"bug"`},
 		mockGitlab:          true,
@@ -572,7 +582,7 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 			mockedClient.EXPECT().GetGroup(gomock.Any(), gomock.Any(), gomock.Any(), "group", "").Return(&gitLabAPI.Group{}, nil)
 		}
 		if strings.Contains(strings.Join(test.parameters, " "), "label:") {
-			mockedClient.EXPECT().GetGroupLabels(gomock.Any(), gomock.Any(), "group", gomock.Any()).Return(test.groupLabels, test.getLabelsErr)
+			mockedClient.EXPECT().GetGroupLabels(gomock.Any(), gomock.Any(), "group", gomock.Not(""), gomock.Any()).Return(test.groupLabels, test.getLabelsErr)
 		}
 		if test.expectHookLookup {
 			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)

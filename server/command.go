@@ -1043,13 +1043,26 @@ func (p *Plugin) validateSubscriptionLabels(ctx context.Context, gitlabClient gi
 			for _, l := range glLabels {
 				existingLabels = append(existingLabels, l.Name)
 			}
-		} else {
-			groupLabels, fetchErr := gitlabClient.GetGroupLabels(ctx, info, fullPath, token)
+			return nil
+		}
+
+		for _, label := range labels {
+			if slices.Contains(existingLabels, label) {
+				continue
+			}
+			groupLabels, fetchErr := gitlabClient.GetGroupLabels(ctx, info, fullPath, label, token)
 			if fetchErr != nil {
 				return fetchErr
 			}
+			found := false
 			for _, l := range groupLabels {
 				existingLabels = append(existingLabels, l.Name)
+				if l.Name == label {
+					found = true
+				}
+			}
+			if !found {
+				break
 			}
 		}
 		return nil
