@@ -397,9 +397,10 @@ func (p *Plugin) permissionToSubscribe(ctx context.Context, userID, namespace, p
 }
 
 // canReadContent reports whether a message quoting project content may be
-// delivered to the user. Non-confidential content of a public project whose
-// matching feature is open to everyone may be delivered to anyone who can load
-// the project; everything else requires Reporter access. Lookups are cached in
+// delivered to the user. Non-confidential content of a public or internal
+// project whose matching feature is open to everyone may be delivered to anyone
+// who can load the project with their own token; everything else requires
+// Reporter access. Lookups are cached in
 // projectsByRecipient, including failed ones as nil, so each recipient costs at
 // most one GitLab call per project per webhook.
 func (p *Plugin) canReadContent(ctx context.Context, userID string, access *webhook.ContentAccess, projectsByRecipient map[string]*gitlabLib.Project) bool {
@@ -417,7 +418,8 @@ func (p *Plugin) canReadContent(ctx context.Context, userID string, access *webh
 		return false
 	}
 
-	if project.Visibility == gitlabLib.PublicVisibility && !access.Confidential && isFeatureOpenToAll(project, access.Feature) {
+	readableByAnyUser := project.Visibility == gitlabLib.PublicVisibility || project.Visibility == gitlabLib.InternalVisibility
+	if readableByAnyUser && !access.Confidential && isFeatureOpenToAll(project, access.Feature) {
 		return true
 	}
 

@@ -959,6 +959,12 @@ func publicProjectForNonMember(issues, mergeRequests, repository gitlabLib.Acces
 	}
 }
 
+func internalProjectForNonMember(issues, mergeRequests, repository gitlabLib.AccessControlValue) *gitlabLib.Project {
+	project := publicProjectForNonMember(issues, mergeRequests, repository)
+	project.Visibility = gitlabLib.InternalVisibility
+	return project
+}
+
 var errProjectNotFound = errors.New("GET https://gitlab.example.com/api/v4/projects/group%2Fproject: 404 {message: 404 Project Not Found}")
 
 // setupMentionWebhookPlugin connects each GitLab username to the Mattermost ID
@@ -1191,6 +1197,61 @@ func TestHandleWebhookMentionDMRequiresProjectAccess(t *testing.T) {
 			eventType: gitlabLib.EventConfidentialNote,
 			body:      mentionConfidentialNoteBody,
 			project:   publicProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+		},
+		{
+			name:      "internal project with all features enabled, issue note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionIssueNoteBody,
+			project:   internalProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+			expectDM:  true,
+		},
+		{
+			name:      "internal project with all features enabled, merge request note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionMergeRequestNoteBody,
+			project:   internalProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+			expectDM:  true,
+		},
+		{
+			name:      "internal project with all features enabled, push commit message, recipient is not a member",
+			eventType: gitlabLib.EventTypePush,
+			body:      mentionPushBody,
+			project:   internalProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+			expectDM:  true,
+		},
+		{
+			name:      "internal project with members-only issues, issue note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionIssueNoteBody,
+			project:   internalProjectForNonMember(gitlabLib.PrivateAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+		},
+		{
+			name:      "internal project with members-only repository, push commit message, recipient is not a member",
+			eventType: gitlabLib.EventTypePush,
+			body:      mentionPushBody,
+			project:   internalProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.PrivateAccessControl),
+		},
+		{
+			name:      "internal project with all features enabled, confidential note, recipient is not a member",
+			eventType: gitlabLib.EventConfidentialNote,
+			body:      mentionConfidentialNoteBody,
+			project:   internalProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+		},
+		{
+			name:      "internal project with all features enabled, confidential issue note, recipient is only a guest",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionConfidentialIssueNoteBody,
+			project: func() *gitlabLib.Project {
+				project := internalProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl)
+				project.Permissions = projectWithAccess(gitlabLib.GuestPermissions).Permissions
+				return project
+			}(),
+		},
+		{
+			name:       "internal project, recipient cannot load the project",
+			eventType:  gitlabLib.EventTypeNote,
+			body:       mentionIssueNoteBody,
+			projectErr: errProjectNotFound,
 		},
 	}
 
