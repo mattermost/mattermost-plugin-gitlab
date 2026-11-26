@@ -1216,6 +1216,7 @@ func TestInstanceCommands(t *testing.T) {
 
 			_, _ = p.handleUnInstallInstance(args, []string{"production"})
 			assert.Contains(t, *msg, "failed to update default instance")
+			assert.Equal(t, "production", p.configuration.DefaultInstanceName)
 			api.AssertNotCalled(t, "KVSetWithOptions", mock.Anything, mock.Anything, mock.Anything)
 		})
 	})

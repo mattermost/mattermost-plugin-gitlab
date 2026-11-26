@@ -147,19 +147,6 @@ func (p *Plugin) uninstallInstance(instanceName string) error {
 		return fmt.Errorf("instance name '%s' not found in the list", instanceName)
 	}
 
-	var instanceConfigMap map[string]InstanceConfiguration
-	if err := p.client.KV.Get(instanceConfigMapKey, &instanceConfigMap); err != nil {
-		p.client.Log.Error("Failed to load instance config map while uninstalling instance", "error", err)
-		return fmt.Errorf("failed to load instance config map")
-	}
-	if instanceConfigMap == nil {
-		return fmt.Errorf("instance config map is empty")
-	}
-
-	if _, ok := instanceConfigMap[instanceName]; !ok {
-		return fmt.Errorf("instance config for '%s' does not exist", instanceName)
-	}
-
 	remaining := slices.DeleteFunc(slices.Clone(instanceNameList), func(s string) bool { return s == instanceName })
 
 	// Update DefaultInstanceName before mutating KV so a SavePluginConfig failure leaves the
@@ -174,11 +161,26 @@ func (p *Plugin) uninstallInstance(instanceName string) error {
 		}
 	}
 
-	delete(instanceConfigMap, instanceName)
+	err := p.client.KV.SetAtomicWithRetries(instanceConfigMapKey, func(oldValue []byte) (any, error) {
+		var instanceConfigMap map[string]InstanceConfiguration
+		if len(oldValue) > 0 {
+			if unmarshalErr := json.Unmarshal(oldValue, &instanceConfigMap); unmarshalErr != nil {
+				return nil, fmt.Errorf("failed to unmarshal instance config map: %w", unmarshalErr)
+			}
+		}
+		if instanceConfigMap == nil {
+			return nil, fmt.Errorf("instance config map is empty")
+		}
+		if _, ok := instanceConfigMap[instanceName]; !ok {
+			return nil, fmt.Errorf("instance config for '%s' does not exist", instanceName)
+		}
 
-	if _, err := p.client.KV.Set(instanceConfigMapKey, instanceConfigMap); err != nil {
+		delete(instanceConfigMap, instanceName)
+		return instanceConfigMap, nil
+	})
+	if err != nil {
 		p.client.Log.Error("Failed to save updated instance config map while uninstalling instance", "error", err)
-		return fmt.Errorf("failed to save updated config map")
+		return err
 	}
 
 	if _, err := p.client.KV.Set(instanceConfigNameListKey, remaining); err != nil {
@@ -258,7 +260,7 @@ func (p *Plugin) setDefaultInstance(instanceName string) error {
 }
 
 func (p *Plugin) saveDefaultInstanceName(instanceName string) error {
-	config := p.getConfiguration()
+	config := p.getConfiguration().Clone()
 	config.DefaultInstanceName = instanceName
 	config.sanitize()
 
