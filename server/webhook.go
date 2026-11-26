@@ -396,10 +396,10 @@ func (p *Plugin) permissionToSubscribe(ctx context.Context, userID, namespace, p
 	return effectiveAccess(result.Permissions) > gitlabLib.GuestPermissions
 }
 
-// canReadContent reports whether the user can read the project content a
-// message quotes. Confidential content requires Reporter access. Otherwise a
-// public project suffices, while other projects also require Reporter access
-// since Guests cannot read their code or merge requests. Lookups are cached in
+// canReadContent reports whether a message quoting project content may be
+// delivered to the user. Non-confidential content of a public project whose
+// matching feature is open to everyone may be delivered to anyone who can load
+// the project; everything else requires Reporter access. Lookups are cached in
 // projectsByRecipient, including failed ones as nil, so each recipient costs at
 // most one GitLab call per project per webhook.
 func (p *Plugin) canReadContent(ctx context.Context, userID string, access *webhook.ContentAccess, projectsByRecipient map[string]*gitlabLib.Project) bool {
@@ -417,11 +417,26 @@ func (p *Plugin) canReadContent(ctx context.Context, userID string, access *webh
 		return false
 	}
 
-	if project.Visibility == gitlabLib.PublicVisibility && !access.Confidential {
+	if project.Visibility == gitlabLib.PublicVisibility && !access.Confidential && isFeatureOpenToAll(project, access.Feature) {
 		return true
 	}
 
 	return effectiveAccess(project.Permissions) > gitlabLib.GuestPermissions
+}
+
+func isFeatureOpenToAll(project *gitlabLib.Project, feature webhook.ContentFeature) bool {
+	var level gitlabLib.AccessControlValue
+	switch feature {
+	case webhook.ContentFeatureIssues:
+		level = project.IssuesAccessLevel
+	case webhook.ContentFeatureMergeRequests:
+		level = project.MergeRequestsAccessLevel
+	case webhook.ContentFeatureRepository:
+		level = project.RepositoryAccessLevel
+	default:
+		return false
+	}
+	return level == gitlabLib.EnabledAccessControl || level == gitlabLib.PublicAccessControl
 }
 
 // fetchProjectAsUser loads a project using the given Mattermost user's GitLab

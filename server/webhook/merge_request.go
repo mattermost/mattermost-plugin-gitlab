@@ -136,6 +136,7 @@ func (w *webhook) handleDMMergeRequest(event *gitlab.MergeEvent) ([]*HandleWebho
 			IID:               fmt.Sprintf("%d", event.ObjectAttributes.IID),
 			URL:               event.ObjectAttributes.URL,
 			body:              sanitizeDescription(event.ObjectAttributes.Description),
+			feature:           ContentFeatureMergeRequests,
 		}); mention != nil {
 			handlers = append(handlers, mention)
 		}

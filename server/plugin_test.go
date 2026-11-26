@@ -602,6 +602,8 @@ func TestHandleRevokedTokenWithoutNotifyDisconnectsSilently(t *testing.T) {
 	api.On("KVGet", userID+GitlabUserInfoKey).Return(infoJSON, nil)
 	// pluginapi KV.Delete is implemented via KVSetWithOptions with a nil value.
 	api.On("KVSetWithOptions", mock.AnythingOfType("string"), []byte(nil), mock.Anything).Return(true, nil)
+	api.On("KVSetWithOptions", "mutex_"+userID+ConnectMutexKey, mock.Anything, mock.Anything).Return(true, nil)
+	api.On("KVCompareAndDelete", "gitlab-user"+GitlabUsernameKey, []byte(userID)).Return(true, nil)
 	api.On("GetUser", userID).Return(nil, &model.AppError{Message: "not found"})
 	api.On("PublishWebSocketEvent", WsEventDisconnect, mock.Anything, mock.Anything).Return()
 	p.SetAPI(api)

@@ -87,6 +87,7 @@ func (w *webhook) handleDMIssue(event *gitlab.IssueEvent) ([]*HandleWebhook, err
 			IID:               fmt.Sprintf("%d", event.ObjectAttributes.IID),
 			URL:               event.ObjectAttributes.URL,
 			body:              sanitizeDescription(event.ObjectAttributes.Description),
+			feature:           ContentFeatureIssues,
 			confidential:      event.ObjectAttributes.Confidential || event.EventType == eventTypeConfidentialIssue,
 		}); mention != nil {
 			handlers = append(handlers, mention)

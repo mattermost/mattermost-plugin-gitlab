@@ -34,6 +34,7 @@ func (w *webhook) handleDMPush(event *gitlab.PushEvent) ([]*HandleWebhook, error
 			IID:               commit.ID,
 			URL:               commit.URL,
 			body:              commit.Message,
+			feature:           ContentFeatureRepository,
 		}); mention != nil {
 			handlers = append(handlers, mention)
 		}

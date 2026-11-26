@@ -46,8 +46,19 @@ type HandleWebhook struct {
 type ContentAccess struct {
 	Namespace    string
 	Project      string
+	Feature      ContentFeature
 	Confidential bool
 }
+
+// ContentFeature is the project feature whose access level governs who can
+// read the quoted content.
+type ContentFeature string
+
+const (
+	ContentFeatureIssues        ContentFeature = "issues"
+	ContentFeatureMergeRequests ContentFeature = "merge_requests"
+	ContentFeatureRepository    ContentFeature = "repository"
+)
 
 type Webhook interface {
 	HandleIssue(ctx context.Context, event *gitlab.IssueEvent, eventType gitlab.EventType) ([]*HandleWebhook, []string, error)
@@ -116,6 +127,7 @@ type mentionDetails struct {
 	IID               string
 	URL               string
 	body              string
+	feature           ContentFeature
 	confidential      bool
 }
 
@@ -130,6 +142,7 @@ func (w *webhook) handleMention(m mentionDetails) *HandleWebhook {
 			RequiredAccess: &ContentAccess{
 				Namespace:    namespace,
 				Project:      project,
+				Feature:      m.feature,
 				Confidential: m.confidential,
 			},
 		}

@@ -593,32 +593,68 @@ func TestCompleteConnectUserToGitlabUsernameMapping(t *testing.T) {
 	)
 
 	tests := []struct {
-		name               string
-		oldUsername        string
-		oldUsernameOwnerID string
-		newUsername        string
-		expectOldMapping   string
+		name                 string
+		oldUsername          string
+		oldUsernameOwnerID   string
+		newUsername          string
+		failTokenSave        bool
+		failMappingDelete    bool
+		expectStatus         int
+		expectNewMapping     string
+		expectOldMapping     string
+		expectStoredUsername string
 	}{
 		{
-			name:               "reconnect with a renamed GitLab account removes the old username mapping",
-			oldUsername:        "old-name",
-			oldUsernameOwnerID: userID,
-			newUsername:        "new-name",
-			expectOldMapping:   "",
+			name:                 "reconnect with a renamed GitLab account removes the old username mapping",
+			oldUsername:          "old-name",
+			oldUsernameOwnerID:   userID,
+			newUsername:          "new-name",
+			expectStatus:         http.StatusOK,
+			expectNewMapping:     userID,
+			expectOldMapping:     "",
+			expectStoredUsername: "new-name",
 		},
 		{
-			name:               "old username already claimed by another user is left alone",
-			oldUsername:        "old-name",
-			oldUsernameOwnerID: otherUserID,
-			newUsername:        "new-name",
-			expectOldMapping:   otherUserID,
+			name:                 "old username already claimed by another user is left alone",
+			oldUsername:          "old-name",
+			oldUsernameOwnerID:   otherUserID,
+			newUsername:          "new-name",
+			expectStatus:         http.StatusOK,
+			expectNewMapping:     userID,
+			expectOldMapping:     otherUserID,
+			expectStoredUsername: "new-name",
 		},
 		{
-			name:               "reconnect with the same username keeps the mapping",
-			oldUsername:        "same-name",
-			oldUsernameOwnerID: userID,
-			newUsername:        "same-name",
-			expectOldMapping:   userID,
+			name:                 "reconnect with the same username keeps the mapping",
+			oldUsername:          "same-name",
+			oldUsernameOwnerID:   userID,
+			newUsername:          "same-name",
+			expectStatus:         http.StatusOK,
+			expectNewMapping:     userID,
+			expectOldMapping:     userID,
+			expectStoredUsername: "same-name",
+		},
+		{
+			name:                 "failed token save after a rename leaves no mapping for the old username",
+			oldUsername:          "old-name",
+			oldUsernameOwnerID:   userID,
+			newUsername:          "new-name",
+			failTokenSave:        true,
+			expectStatus:         http.StatusInternalServerError,
+			expectNewMapping:     "",
+			expectOldMapping:     "",
+			expectStoredUsername: "new-name",
+		},
+		{
+			name:                 "failed delete of the old username mapping keeps the previous user info",
+			oldUsername:          "old-name",
+			oldUsernameOwnerID:   userID,
+			newUsername:          "new-name",
+			failMappingDelete:    true,
+			expectStatus:         http.StatusInternalServerError,
+			expectNewMapping:     "",
+			expectOldMapping:     userID,
+			expectStoredUsername: "old-name",
 		},
 	}
 
@@ -655,6 +691,8 @@ func TestCompleteConnectUserToGitlabUsernameMapping(t *testing.T) {
 			mmConfig.ServiceSettings.SiteURL = &siteURL
 
 			mockedClient := mocks.NewMockGitlab(gomock.NewController(t))
+			kvErr := model.NewAppError("KV", "kv.error", nil, "", http.StatusInternalServerError)
+
 			mockedClient.EXPECT().GetCurrentUser(gomock.Any(), userID, gomock.Any()).Return(&gitlab.UserInfo{
 				UserID:         userID,
 				GitlabUsername: test.newUsername,
@@ -690,6 +728,9 @@ func TestCompleteConnectUserToGitlabUsernameMapping(t *testing.T) {
 				Return(func(key string, value []byte, opts model.PluginKVSetOptions) (bool, *model.AppError) {
 					kvMu.Lock()
 					defer kvMu.Unlock()
+					if test.failTokenSave && key == userID+GitlabUserTokenKey {
+						return false, kvErr
+					}
 					if opts.Atomic && !bytes.Equal(kv[key], opts.OldValue) {
 						return false, nil
 					}
@@ -710,6 +751,9 @@ func TestCompleteConnectUserToGitlabUsernameMapping(t *testing.T) {
 				Return(func(key string, oldValue []byte) (bool, *model.AppError) {
 					kvMu.Lock()
 					defer kvMu.Unlock()
+					if test.failMappingDelete {
+						return false, kvErr
+					}
 					if !bytes.Equal(kv[key], oldValue) {
 						return false, nil
 					}
@@ -729,9 +773,15 @@ func TestCompleteConnectUserToGitlabUsernameMapping(t *testing.T) {
 
 			p.ServeHTTP(nil, w, r)
 
-			require.Equal(t, http.StatusOK, w.Result().StatusCode, w.Body.String())
-			assert.Equal(t, userID, p.getGitlabToUserIDMapping(test.newUsername))
+			require.Equal(t, test.expectStatus, w.Result().StatusCode, w.Body.String())
+			if test.newUsername != test.oldUsername {
+				assert.Equal(t, test.expectNewMapping, p.getGitlabToUserIDMapping(test.newUsername))
+			}
 			assert.Equal(t, test.expectOldMapping, p.getGitlabToUserIDMapping(test.oldUsername))
+
+			storedInfo, apiErr := p.getGitlabUserInfoByMattermostID(userID)
+			require.Nil(t, apiErr)
+			assert.Equal(t, test.expectStoredUsername, storedInfo.GitlabUsername)
 		})
 	}
 }

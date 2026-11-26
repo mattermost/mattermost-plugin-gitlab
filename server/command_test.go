@@ -1150,6 +1150,7 @@ func setupSettingsCommandTest(t *testing.T) (*Plugin, *string, *plugintest.API) 
 	var capturedMessage string
 	api := &plugintest.API{}
 	api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil)
+	api.On("KVCompareAndDelete", mock.AnythingOfType("string"), mock.Anything).Return(true, nil).Maybe()
 
 	api.On("SendEphemeralPost", mock.Anything, mock.MatchedBy(func(post *model.Post) bool {
 		capturedMessage = post.Message
@@ -1233,7 +1234,7 @@ func TestSettingsCommand(t *testing.T) {
 			expected:    gitlab.UserSettings{Notifications: false},
 			expectedMsg: "Settings updated: notifications set to off.",
 			assertMocks: func(t *testing.T, api *plugintest.API) {
-				api.AssertCalled(t, "KVSetWithOptions", "gitlab_user_gitlabusername", []byte(nil), mock.AnythingOfType("model.PluginKVSetOptions"))
+				api.AssertCalled(t, "KVCompareAndDelete", "gitlab_user_gitlabusername", []byte("test_user_id"))
 			},
 		},
 		{

@@ -441,7 +441,15 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 		}
 		defer mutex.Unlock()
 
+		// The previous mapping must be gone before the new user info replaces the
+		// only record of the previous username.
 		previousUserInfo, _ := p.getGitlabUserInfoByMattermostID(userID)
+		if previousUserInfo != nil && previousUserInfo.GitlabUsername != "" && previousUserInfo.GitlabUsername != userInfo.GitlabUsername {
+			if err = p.deleteGitlabToUserIDMappingIfOwned(previousUserInfo.GitlabUsername, userID); err != nil {
+				c.Log.WithError(err).Warnf("Can't delete previous GitLab to user id mapping")
+				return err
+			}
+		}
 
 		if err = p.storeGitlabUserInfo(userInfo); err != nil {
 			c.Log.WithError(err).Warnf("Can't store user info")
@@ -455,12 +463,6 @@ func (p *Plugin) completeConnectUserToGitlab(c *Context, w http.ResponseWriter, 
 
 		if err = p.storeGitlabToUserIDMapping(userInfo.GitlabUsername, userID); err != nil {
 			c.Log.WithError(err).Warnf("Can't store GitLab to user id mapping")
-		}
-
-		if previousUserInfo != nil && previousUserInfo.GitlabUsername != "" && previousUserInfo.GitlabUsername != userInfo.GitlabUsername {
-			if err = p.deleteGitlabToUserIDMappingIfOwned(previousUserInfo.GitlabUsername, userID); err != nil {
-				c.Log.WithError(err).Warnf("Can't delete previous GitLab to user id mapping")
-			}
 		}
 		return nil
 	}()

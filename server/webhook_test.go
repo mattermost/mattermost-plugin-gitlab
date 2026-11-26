@@ -947,6 +947,18 @@ func projectWithAccess(level gitlabLib.AccessLevelValue) *gitlabLib.Project {
 	}
 }
 
+// publicProjectForNonMember returns a public project as seen by a user who is
+// not a member, with the given feature access levels.
+func publicProjectForNonMember(issues, mergeRequests, repository gitlabLib.AccessControlValue) *gitlabLib.Project {
+	return &gitlabLib.Project{
+		PathWithNamespace:        "group/project",
+		Visibility:               gitlabLib.PublicVisibility,
+		IssuesAccessLevel:        issues,
+		MergeRequestsAccessLevel: mergeRequests,
+		RepositoryAccessLevel:    repository,
+	}
+}
+
 var errProjectNotFound = errors.New("GET https://gitlab.example.com/api/v4/projects/group%2Fproject: 404 {message: 404 Project Not Found}")
 
 // setupMentionWebhookPlugin connects each GitLab username to the Mattermost ID
@@ -1110,6 +1122,75 @@ func TestHandleWebhookMentionDMRequiresProjectAccess(t *testing.T) {
 			body:      mentionConfidentialNoteBody,
 			project:   projectWithAccess(gitlabLib.DeveloperPermissions),
 			expectDM:  true,
+		},
+		{
+			name:      "public project with members-only merge requests, merge request note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionMergeRequestNoteBody,
+			project:   publicProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.PrivateAccessControl, gitlabLib.EnabledAccessControl),
+		},
+		{
+			name:      "public project with members-only issues, issue note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionIssueNoteBody,
+			project:   publicProjectForNonMember(gitlabLib.PrivateAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+		},
+		{
+			name:      "public project with members-only repository, push commit message, recipient is not a member",
+			eventType: gitlabLib.EventTypePush,
+			body:      mentionPushBody,
+			project:   publicProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.PrivateAccessControl),
+		},
+		{
+			name:      "public project without feature access levels, issue note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionIssueNoteBody,
+			project:   publicProjectForNonMember("", "", ""),
+		},
+		{
+			name:      "public project with members-only merge requests, merge request note, recipient is a developer",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionMergeRequestNoteBody,
+			project: func() *gitlabLib.Project {
+				project := publicProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.PrivateAccessControl, gitlabLib.EnabledAccessControl)
+				project.Permissions = projectWithAccess(gitlabLib.DeveloperPermissions).Permissions
+				return project
+			}(),
+			expectDM: true,
+		},
+		{
+			name:      "public project with members-only issues, merge request note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionMergeRequestNoteBody,
+			project:   publicProjectForNonMember(gitlabLib.PrivateAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+			expectDM:  true,
+		},
+		{
+			name:      "public project with all features enabled, issue note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionIssueNoteBody,
+			project:   publicProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+			expectDM:  true,
+		},
+		{
+			name:      "public project with all features enabled, merge request note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionMergeRequestNoteBody,
+			project:   publicProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+			expectDM:  true,
+		},
+		{
+			name:      "public project with all features enabled, push commit message, recipient is not a member",
+			eventType: gitlabLib.EventTypePush,
+			body:      mentionPushBody,
+			project:   publicProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+			expectDM:  true,
+		},
+		{
+			name:      "public project with all features enabled, confidential note, recipient is not a member",
+			eventType: gitlabLib.EventConfidentialNote,
+			body:      mentionConfidentialNoteBody,
+			project:   publicProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
 		},
 	}
 
