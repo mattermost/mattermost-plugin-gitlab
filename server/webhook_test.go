@@ -7,8 +7,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -21,8 +24,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	gitlabLib "github.com/xanzy/go-gitlab"
+	"go.uber.org/mock/gomock"
+	"golang.org/x/oauth2"
 
 	"github.com/mattermost/mattermost-plugin-gitlab/server/gitlab"
+	mocks "github.com/mattermost/mattermost-plugin-gitlab/server/gitlab/mocks"
 	"github.com/mattermost/mattermost-plugin-gitlab/server/webhook"
 )
 
@@ -888,4 +894,545 @@ func TestSendChannelNotification(t *testing.T) {
 
 		assert.Equal(t, []string{channelPostDedupKey("channel-1", "hello")}, kv.keys())
 	})
+}
+
+//nolint:misspell // "noteable_type" is GitLab's actual webhook field name
+const (
+	mentionIssueNoteBody = `{"object_kind":"note","event_type":"note","user":{"username":"sender"},
+		"project":{"path_with_namespace":"group/project","visibility":"private"},
+		"object_attributes":{"noteable_type":"Issue","note":"secret plan, cc @%[1]s","description":"secret plan, cc @%[1]s","url":"https://gitlab.example.com/group/project/-/issues/1#note_1"},
+		"issue":{"iid":1,"confidential":false}}`
+	mentionConfidentialNoteBody = `{"object_kind":"note","event_type":"confidential_note","user":{"username":"sender"},
+		"project":{"path_with_namespace":"group/project","visibility":"private"},
+		"object_attributes":{"noteable_type":"Issue","note":"secret plan, cc @%[1]s","description":"secret plan, cc @%[1]s","url":"https://gitlab.example.com/group/project/-/issues/1#note_1"},
+		"issue":{"iid":1,"confidential":false}}`
+	mentionConfidentialIssueNoteBody = `{"object_kind":"note","event_type":"note","user":{"username":"sender"},
+		"project":{"path_with_namespace":"group/project","visibility":"private"},
+		"object_attributes":{"noteable_type":"Issue","note":"secret plan, cc @%[1]s","description":"secret plan, cc @%[1]s","url":"https://gitlab.example.com/group/project/-/issues/1#note_1"},
+		"issue":{"iid":1,"confidential":true}}`
+	mentionMergeRequestNoteBody = `{"object_kind":"note","event_type":"note","user":{"username":"sender"},
+		"project":{"path_with_namespace":"group/project","visibility":"private"},
+		"object_attributes":{"noteable_type":"MergeRequest","note":"secret plan, cc @%[1]s","description":"secret plan, cc @%[1]s","url":"https://gitlab.example.com/group/project/-/merge_requests/1#note_1"},
+		"merge_request":{"iid":1}}`
+	mentionPushBody = `{"object_kind":"push","user_name":"sender","user_username":"sender",
+		"project":{"path_with_namespace":"group/project","visibility":"private","web_url":"https://gitlab.example.com/group/project"},
+		"commits":[{"id":"abc123","message":"secret fix, cc @%[1]s","url":"https://gitlab.example.com/group/project/-/commit/abc123"}],
+		"total_commits_count":1}`
+	mentionIssueBody = `{"object_kind":"issue","event_type":"issue","user":{"username":"sender"},
+		"project":{"path_with_namespace":"group/project","visibility":"private"},
+		"object_attributes":{"iid":1,"action":"close","confidential":false,"description":"secret plan, cc @%[1]s","url":"https://gitlab.example.com/group/project/-/issues/1"}}`
+	mentionConfidentialIssueBody = `{"object_kind":"issue","event_type":"confidential_issue","user":{"username":"sender"},
+		"project":{"path_with_namespace":"group/project","visibility":"private"},
+		"object_attributes":{"iid":1,"action":"close","confidential":true,"description":"secret plan, cc @%[1]s","url":"https://gitlab.example.com/group/project/-/issues/1"}}`
+)
+
+func allowAnyLogs(api *plugintest.API) {
+	for _, method := range []string{"LogDebug", "LogInfo", "LogWarn", "LogError"} {
+		for n := 1; n <= 15; n += 2 {
+			args := make([]any, n)
+			for i := range args {
+				args[i] = mock.Anything
+			}
+			api.On(method, args...).Return(nil).Maybe()
+		}
+	}
+}
+
+func projectWithAccess(level gitlabLib.AccessLevelValue) *gitlabLib.Project {
+	return &gitlabLib.Project{
+		PathWithNamespace: "group/project",
+		Visibility:        gitlabLib.PrivateVisibility,
+		Permissions: &gitlabLib.Permissions{
+			ProjectAccess: &gitlabLib.ProjectAccess{AccessLevel: level},
+		},
+	}
+}
+
+// publicProjectForNonMember returns a public project as seen by a user who is
+// not a member, with the given feature access levels.
+func publicProjectForNonMember(issues, mergeRequests, repository gitlabLib.AccessControlValue) *gitlabLib.Project {
+	return &gitlabLib.Project{
+		PathWithNamespace:        "group/project",
+		Visibility:               gitlabLib.PublicVisibility,
+		IssuesAccessLevel:        issues,
+		MergeRequestsAccessLevel: mergeRequests,
+		RepositoryAccessLevel:    repository,
+	}
+}
+
+func internalProjectForNonMember(issues, mergeRequests, repository gitlabLib.AccessControlValue) *gitlabLib.Project {
+	project := publicProjectForNonMember(issues, mergeRequests, repository)
+	project.Visibility = gitlabLib.InternalVisibility
+	return project
+}
+
+func internalProjectForExternalMember(level gitlabLib.AccessLevelValue) *gitlabLib.Project {
+	project := internalProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl)
+	project.Permissions = projectWithAccess(level).Permissions
+	return project
+}
+
+var errProjectNotFound = errors.New("GET https://gitlab.example.com/api/v4/projects/group%2Fproject: 404 {message: 404 Project Not Found}")
+
+// setupMentionWebhookPlugin connects each GitLab username to the Mattermost ID
+// "<username>-mm-id" with notifications on. getProject answers GitLab project
+// lookups made with that user's token. It returns the IDs of users DMed.
+func setupMentionWebhookPlugin(t *testing.T, gitlabUsernames []string, getProject func(gitlabUsername string) (*gitlabLib.Project, error), externalUsernames ...string) (*Plugin, func() []string) {
+	t.Helper()
+
+	encryptedToken, err := encrypt([]byte(testEncryptionKey), testGitlabToken)
+	require.NoError(t, err)
+
+	kv := map[string][]byte{}
+	for _, username := range gitlabUsernames {
+		mattermostID := username + "-mm-id"
+		infoJSON, err := json.Marshal(&gitlab.UserInfo{
+			UserID:         mattermostID,
+			GitlabUsername: username,
+			Settings:       &gitlab.UserSettings{Notifications: true},
+		})
+		require.NoError(t, err)
+		kv[username+GitlabUsernameKey] = []byte(mattermostID)
+		kv[mattermostID+GitlabUserInfoKey] = infoJSON
+		kv[mattermostID+GitlabUserTokenKey] = []byte(encryptedToken)
+	}
+
+	mockedClient := mocks.NewMockGitlab(gomock.NewController(t))
+	mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, info *gitlab.UserInfo, _ *oauth2.Token, _, _ string) (*gitlabLib.Project, error) {
+			return getProject(info.GitlabUsername)
+		}).AnyTimes()
+	mockedClient.EXPECT().GetUserDetails(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, info *gitlab.UserInfo, _ *oauth2.Token) (*gitlabLib.User, error) {
+			return &gitlabLib.User{Username: info.GitlabUsername, External: slices.Contains(externalUsernames, info.GitlabUsername)}, nil
+		}).AnyTimes()
+
+	p := &Plugin{
+		configuration: &configuration{
+			WebhookSecret:     "secret",
+			GitlabURL:         "https://gitlab.example.com",
+			EnablePrivateRepo: true,
+			EncryptionKey:     testEncryptionKey,
+		},
+		BotUserID:    "bot-id",
+		gitlabClient: mockedClient,
+	}
+	p.WebhookHandler = webhook.NewWebhook(&gitlabRetreiver{p: p})
+
+	var mu sync.Mutex
+	var dmed []string
+
+	api := &plugintest.API{}
+	allowAnyLogs(api)
+	fakeDedupKV(api)
+	api.On("KVGet", mock.AnythingOfType("string")).Return(func(key string) ([]byte, *model.AppError) {
+		return kv[key], nil
+	}).Maybe()
+	api.On("PublishWebSocketEvent", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	api.On("GetDirectChannel", mock.AnythingOfType("string"), p.BotUserID).Return(func(userID, _ string) (*model.Channel, *model.AppError) {
+		return &model.Channel{Id: userID + "-dm"}, nil
+	}).Maybe()
+	api.On("CreatePost", mock.Anything).Run(func(args mock.Arguments) {
+		mu.Lock()
+		defer mu.Unlock()
+		dmed = append(dmed, strings.TrimSuffix(args.Get(0).(*model.Post).ChannelId, "-dm"))
+	}).Return(&model.Post{}, nil).Maybe()
+	p.SetAPI(api)
+	p.client = pluginapi.NewClient(api, p.Driver)
+
+	return p, func() []string {
+		mu.Lock()
+		defer mu.Unlock()
+		return append([]string(nil), dmed...)
+	}
+}
+
+func postMentionWebhook(t *testing.T, p *Plugin, eventType gitlabLib.EventType, body string) {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(body))
+	req.Header.Add("X-Gitlab-Token", "secret")
+	req.Header.Add("X-Gitlab-Event", string(eventType))
+	w := httptest.NewRecorder()
+
+	p.handleWebhook(w, req)
+
+	require.Equal(t, http.StatusOK, w.Result().StatusCode)
+}
+
+func TestHandleWebhookMentionDMRequiresProjectAccess(t *testing.T) {
+	const mentioned = "mallory"
+
+	tests := []struct {
+		name       string
+		eventType  gitlabLib.EventType
+		body       string
+		project    *gitlabLib.Project
+		projectErr error
+		external   bool
+		expectDM   bool
+	}{
+		{
+			name:       "issue note, recipient cannot access project",
+			eventType:  gitlabLib.EventTypeNote,
+			body:       mentionIssueNoteBody,
+			projectErr: errProjectNotFound,
+		},
+		{
+			name:       "merge request note, recipient cannot access project",
+			eventType:  gitlabLib.EventTypeNote,
+			body:       mentionMergeRequestNoteBody,
+			projectErr: errProjectNotFound,
+		},
+		{
+			name:       "push commit message, recipient cannot access project",
+			eventType:  gitlabLib.EventTypePush,
+			body:       mentionPushBody,
+			projectErr: errProjectNotFound,
+		},
+		{
+			name:       "issue description, recipient cannot access project",
+			eventType:  gitlabLib.EventTypeIssue,
+			body:       mentionIssueBody,
+			projectErr: errProjectNotFound,
+		},
+		{
+			name:      "confidential note, recipient is only a guest",
+			eventType: gitlabLib.EventConfidentialNote,
+			body:      mentionConfidentialNoteBody,
+			project:   projectWithAccess(gitlabLib.GuestPermissions),
+		},
+		{
+			name:      "note on confidential issue, recipient is only a guest",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionConfidentialIssueNoteBody,
+			project:   projectWithAccess(gitlabLib.GuestPermissions),
+		},
+		{
+			name:      "confidential issue description, recipient is only a guest",
+			eventType: gitlabLib.EventConfidentialIssue,
+			body:      mentionConfidentialIssueBody,
+			project:   projectWithAccess(gitlabLib.GuestPermissions),
+		},
+		{
+			name:      "issue note, recipient is a developer",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionIssueNoteBody,
+			project:   projectWithAccess(gitlabLib.DeveloperPermissions),
+			expectDM:  true,
+		},
+		{
+			name:      "merge request note, recipient is a developer",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionMergeRequestNoteBody,
+			project:   projectWithAccess(gitlabLib.DeveloperPermissions),
+			expectDM:  true,
+		},
+		{
+			name:      "push commit message, recipient is a developer",
+			eventType: gitlabLib.EventTypePush,
+			body:      mentionPushBody,
+			project:   projectWithAccess(gitlabLib.DeveloperPermissions),
+			expectDM:  true,
+		},
+		{
+			name:      "confidential note, recipient is a developer",
+			eventType: gitlabLib.EventConfidentialNote,
+			body:      mentionConfidentialNoteBody,
+			project:   projectWithAccess(gitlabLib.DeveloperPermissions),
+			expectDM:  true,
+		},
+		{
+			name:      "public project with members-only merge requests, merge request note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionMergeRequestNoteBody,
+			project:   publicProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.PrivateAccessControl, gitlabLib.EnabledAccessControl),
+		},
+		{
+			name:      "public project with members-only issues, issue note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionIssueNoteBody,
+			project:   publicProjectForNonMember(gitlabLib.PrivateAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+		},
+		{
+			name:      "public project with members-only repository, push commit message, recipient is not a member",
+			eventType: gitlabLib.EventTypePush,
+			body:      mentionPushBody,
+			project:   publicProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.PrivateAccessControl),
+		},
+		{
+			name:      "public project without feature access levels, issue note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionIssueNoteBody,
+			project:   publicProjectForNonMember("", "", ""),
+		},
+		{
+			name:      "public project with members-only merge requests, merge request note, recipient is a developer",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionMergeRequestNoteBody,
+			project: func() *gitlabLib.Project {
+				project := publicProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.PrivateAccessControl, gitlabLib.EnabledAccessControl)
+				project.Permissions = projectWithAccess(gitlabLib.DeveloperPermissions).Permissions
+				return project
+			}(),
+			expectDM: true,
+		},
+		{
+			name:      "public project with members-only issues, merge request note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionMergeRequestNoteBody,
+			project:   publicProjectForNonMember(gitlabLib.PrivateAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+			expectDM:  true,
+		},
+		{
+			name:      "public project with all features enabled, issue note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionIssueNoteBody,
+			project:   publicProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+			expectDM:  true,
+		},
+		{
+			name:      "public project with all features enabled, merge request note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionMergeRequestNoteBody,
+			project:   publicProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+			expectDM:  true,
+		},
+		{
+			name:      "public project with all features enabled, push commit message, recipient is not a member",
+			eventType: gitlabLib.EventTypePush,
+			body:      mentionPushBody,
+			project:   publicProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+			expectDM:  true,
+		},
+		{
+			name:      "public project with all features enabled, confidential note, recipient is not a member",
+			eventType: gitlabLib.EventConfidentialNote,
+			body:      mentionConfidentialNoteBody,
+			project:   publicProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+		},
+		{
+			name:      "internal project with all features enabled, issue note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionIssueNoteBody,
+			project:   internalProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+			expectDM:  true,
+		},
+		{
+			name:      "internal project with all features enabled, merge request note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionMergeRequestNoteBody,
+			project:   internalProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+			expectDM:  true,
+		},
+		{
+			name:      "internal project with all features enabled, push commit message, recipient is not a member",
+			eventType: gitlabLib.EventTypePush,
+			body:      mentionPushBody,
+			project:   internalProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+			expectDM:  true,
+		},
+		{
+			name:      "internal project with members-only issues, issue note, recipient is not a member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionIssueNoteBody,
+			project:   internalProjectForNonMember(gitlabLib.PrivateAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+		},
+		{
+			name:      "internal project with members-only repository, push commit message, recipient is not a member",
+			eventType: gitlabLib.EventTypePush,
+			body:      mentionPushBody,
+			project:   internalProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.PrivateAccessControl),
+		},
+		{
+			name:      "internal project with all features enabled, confidential note, recipient is not a member",
+			eventType: gitlabLib.EventConfidentialNote,
+			body:      mentionConfidentialNoteBody,
+			project:   internalProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+		},
+		{
+			name:      "internal project with all features enabled, confidential issue note, recipient is only a guest",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionConfidentialIssueNoteBody,
+			project: func() *gitlabLib.Project {
+				project := internalProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl)
+				project.Permissions = projectWithAccess(gitlabLib.GuestPermissions).Permissions
+				return project
+			}(),
+		},
+		{
+			name:      "internal project with all features enabled, issue note, recipient is an external guest",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionIssueNoteBody,
+			project:   internalProjectForExternalMember(gitlabLib.GuestPermissions),
+			external:  true,
+			expectDM:  true,
+		},
+		{
+			name:      "internal project with all features enabled, merge request note, recipient is an external guest",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionMergeRequestNoteBody,
+			project:   internalProjectForExternalMember(gitlabLib.GuestPermissions),
+			external:  true,
+		},
+		{
+			name:      "internal project with all features enabled, push commit message, recipient is an external guest",
+			eventType: gitlabLib.EventTypePush,
+			body:      mentionPushBody,
+			project:   internalProjectForExternalMember(gitlabLib.GuestPermissions),
+			external:  true,
+		},
+		{
+			name:      "internal project with all features enabled, merge request note, recipient is an external developer",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionMergeRequestNoteBody,
+			project:   internalProjectForExternalMember(gitlabLib.DeveloperPermissions),
+			external:  true,
+			expectDM:  true,
+		},
+		{
+			name:      "internal project with all features enabled, push commit message, recipient is an external developer",
+			eventType: gitlabLib.EventTypePush,
+			body:      mentionPushBody,
+			project:   internalProjectForExternalMember(gitlabLib.DeveloperPermissions),
+			external:  true,
+			expectDM:  true,
+		},
+		{
+			name:      "public project with all features enabled, merge request note, recipient is an external non-member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionMergeRequestNoteBody,
+			project:   publicProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+			external:  true,
+			expectDM:  true,
+		},
+		{
+			name:       "internal project, recipient cannot load the project",
+			eventType:  gitlabLib.EventTypeNote,
+			body:       mentionIssueNoteBody,
+			projectErr: errProjectNotFound,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var externalUsernames []string
+			if test.external {
+				externalUsernames = append(externalUsernames, mentioned)
+			}
+			p, dmed := setupMentionWebhookPlugin(t, []string{mentioned}, func(string) (*gitlabLib.Project, error) {
+				return test.project, test.projectErr
+			}, externalUsernames...)
+
+			postMentionWebhook(t, p, test.eventType, fmt.Sprintf(test.body, mentioned))
+
+			if test.expectDM {
+				assert.Equal(t, []string{mentioned + "-mm-id"}, dmed())
+			} else {
+				assert.Empty(t, dmed(), "mention DM must not reach a user without access to the content")
+			}
+		})
+	}
+}
+
+func TestHandleWebhookMentionDMGoesToFullUsername(t *testing.T) {
+	tests := []struct {
+		name      string
+		mentioned string
+		truncated string
+	}{
+		{name: "username with a dot", mentioned: "john.smith", truncated: "john"},
+		{name: "username with an underscore", mentioned: "john_doe", truncated: "john"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			p, dmed := setupMentionWebhookPlugin(t, []string{test.mentioned, test.truncated}, func(string) (*gitlabLib.Project, error) {
+				return projectWithAccess(gitlabLib.DeveloperPermissions), nil
+			})
+
+			postMentionWebhook(t, p, gitlabLib.EventTypeNote, fmt.Sprintf(mentionIssueNoteBody, test.mentioned))
+
+			assert.Equal(t, []string{test.mentioned + "-mm-id"}, dmed())
+		})
+	}
+}
+
+// GitLab's project hook attributes carry only visibility_level, never the
+// visibility string, so the private-repo gate must honor visibility_level.
+func TestHandleWebhookPrivateRepoDisabledHonorsVisibilityLevel(t *testing.T) {
+	const (
+		recipient    = "mallory"
+		privateLevel = webhook.PrivateVisibilityLevel
+		publicLevel  = webhook.PublicVisibilityLevel
+	)
+
+	const (
+		//nolint:misspell // noteable is how GitLab spells it in their API
+		issueNoteBody = `{"object_kind":"note","event_type":"note","user":{"username":"sender"},
+			"project":{"path_with_namespace":"group/project","visibility_level":%[2]d},
+			"object_attributes":{"noteable_type":"Issue","note":"secret plan, cc @%[1]s","description":"secret plan, cc @%[1]s","url":"https://gitlab.example.com/group/project/-/issues/1#note_1"},
+			"issue":{"iid":1,"confidential":false}}`
+		//nolint:misspell // noteable is how GitLab spells it in their API
+		mergeRequestNoteBody = `{"object_kind":"note","event_type":"note","user":{"username":"sender"},
+			"project":{"path_with_namespace":"group/project","visibility_level":%[2]d},
+			"object_attributes":{"noteable_type":"MergeRequest","note":"secret plan, cc @%[1]s","description":"secret plan, cc @%[1]s","url":"https://gitlab.example.com/group/project/-/merge_requests/1#note_1"},
+			"merge_request":{"iid":1}}`
+		issueBody = `{"object_kind":"issue","event_type":"issue","user":{"username":"sender"},
+			"project":{"path_with_namespace":"group/project","visibility_level":%[2]d},
+			"object_attributes":{"iid":1,"action":"close","confidential":false,"description":"secret plan, cc @%[1]s","url":"https://gitlab.example.com/group/project/-/issues/1"}}`
+		mergeRequestBody = `{"object_kind":"merge_request","event_type":"merge_request","user":{"username":"sender"},
+			"project":{"path_with_namespace":"group/project","visibility_level":%[2]d},
+			"object_attributes":{"iid":1,"state":"opened","action":"open","description":"secret plan, cc @%[1]s","url":"https://gitlab.example.com/group/project/-/merge_requests/1","target":{"path_with_namespace":"group/project","visibility_level":%[2]d}},
+			"repository":{"homepage":"https://gitlab.example.com/group/project"}}`
+		pushBody = `{"object_kind":"push","user_name":"sender","user_username":"sender",
+			"project":{"path_with_namespace":"group/project","visibility_level":%[2]d,"web_url":"https://gitlab.example.com/group/project"},
+			"commits":[{"id":"abc123","message":"secret fix, cc @%[1]s","url":"https://gitlab.example.com/group/project/-/commit/abc123"}],
+			"total_commits_count":1}`
+		tagBody = `{"object_kind":"tag_push","ref":"refs/tags/v1","user_name":"sender","user_username":"sender",
+			"message":"secret release, cc @%[1]s",
+			"project":{"path_with_namespace":"group/project","visibility_level":%[2]d,"web_url":"https://gitlab.example.com/group/project"}}`
+		failedPipelineBody = `{"object_kind":"pipeline","user":{"username":"%[1]s"},
+			"project":{"path_with_namespace":"group/project","visibility_level":%[2]d,"web_url":"https://gitlab.example.com/group/project"},
+			"object_attributes":{"id":7,"status":"failed","source":"push"},
+			"commit":{"message":"secret fix","url":"https://gitlab.example.com/group/project/-/commit/abc123"}}`
+	)
+
+	tests := []struct {
+		name      string
+		eventType gitlabLib.EventType
+		body      string
+	}{
+		{name: "issue note", eventType: gitlabLib.EventTypeNote, body: issueNoteBody},
+		{name: "merge request note", eventType: gitlabLib.EventTypeNote, body: mergeRequestNoteBody},
+		{name: "issue", eventType: gitlabLib.EventTypeIssue, body: issueBody},
+		{name: "merge request", eventType: gitlabLib.EventTypeMergeRequest, body: mergeRequestBody},
+		{name: "push", eventType: gitlabLib.EventTypePush, body: pushBody},
+		{name: "tag", eventType: gitlabLib.EventTypeTagPush, body: tagBody},
+		{name: "failed pipeline", eventType: gitlabLib.EventTypePipeline, body: failedPipelineBody},
+	}
+
+	for _, test := range tests {
+		for _, visibility := range []struct {
+			level    int
+			expectDM bool
+		}{
+			{level: privateLevel, expectDM: false},
+			{level: publicLevel, expectDM: true},
+		} {
+			t.Run(fmt.Sprintf("%s, visibility_level %d", test.name, visibility.level), func(t *testing.T) {
+				p, dmed := setupMentionWebhookPlugin(t, []string{recipient}, func(string) (*gitlabLib.Project, error) {
+					return projectWithAccess(gitlabLib.DeveloperPermissions), nil
+				})
+				p.configuration.EnablePrivateRepo = false
+
+				postMentionWebhook(t, p, test.eventType, fmt.Sprintf(test.body, recipient, visibility.level))
+
+				if visibility.expectDM {
+					assert.Equal(t, []string{recipient + "-mm-id"}, dmed())
+				} else {
+					assert.Empty(t, dmed(), "private project content must not be delivered while private repositories are disabled")
+				}
+			})
+		}
+	}
 }

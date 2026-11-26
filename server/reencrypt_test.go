@@ -79,7 +79,7 @@ func mockForceDisconnectUser(t *testing.T, api *plugintest.API, userID string) {
 	api.On("KVSetWithOptions", userID+GitlabUserTokenKey, isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Maybe()
 	api.On("KVSetWithOptions", userID+GitlabUserInfoKey, isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Maybe()
 	// Username and GitLab ID mapping deletes.
-	api.On("KVSetWithOptions", testGitlabUsername+GitlabUsernameKey, isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Maybe()
+	api.On("KVCompareAndDelete", testGitlabUsername+GitlabUsernameKey, []byte(userID)).Return(true, nil).Maybe()
 	api.On("KVSetWithOptions", fmt.Sprintf("%d%s", testGitlabUserID, GitlabIDUsernameKey), isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Maybe()
 	api.On("GetUser", userID).Return(&model.User{Props: model.StringMap{"git_user": testGitlabUsername}}, nil).Maybe()
 	api.On("UpdateUser", mock.Anything).Return(&model.User{}, nil).Maybe()
@@ -520,7 +520,7 @@ func TestForceDisconnectUser_HappyPath(t *testing.T) {
 
 	api.On("KVSetWithOptions", testUserID+GitlabUserTokenKey, isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
 	api.On("KVSetWithOptions", testUserID+GitlabUserInfoKey, isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
-	api.On("KVSetWithOptions", testGitlabUsername+GitlabUsernameKey, isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
+	api.On("KVCompareAndDelete", testGitlabUsername+GitlabUsernameKey, []byte(testUserID)).Return(true, nil).Once()
 	api.On("KVSetWithOptions", fmt.Sprintf("%d%s", testGitlabUserID, GitlabIDUsernameKey), isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
 	api.On("GetUser", testUserID).Return(&model.User{Props: model.StringMap{"git_user": testGitlabUsername}}, nil).Once()
 	api.On("UpdateUser", mock.Anything).Return(&model.User{}, nil).Once()
@@ -555,7 +555,7 @@ func TestForceDisconnectUser_UserInfoNotFound(t *testing.T) {
 	p.forceDisconnectUser(testUserID)
 
 	// Mapping deletes must NOT be called when we have no GitLab identity info.
-	api.AssertNotCalled(t, "KVSetWithOptions", testGitlabUsername+GitlabUsernameKey, isNilBytes, mock.Anything)
+	api.AssertNotCalled(t, "KVCompareAndDelete", testGitlabUsername+GitlabUsernameKey, mock.Anything)
 	api.AssertExpectations(t)
 }
 
@@ -568,7 +568,7 @@ func TestForceDisconnectUser_DMFailure(t *testing.T) {
 	api.On("KVGet", infoKey).Return(marshaledUserInfo(t), nil).Once()
 	api.On("KVSetWithOptions", testUserID+GitlabUserTokenKey, isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
 	api.On("KVSetWithOptions", testUserID+GitlabUserInfoKey, isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
-	api.On("KVSetWithOptions", testGitlabUsername+GitlabUsernameKey, isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
+	api.On("KVCompareAndDelete", testGitlabUsername+GitlabUsernameKey, []byte(testUserID)).Return(true, nil).Once()
 	api.On("KVSetWithOptions", fmt.Sprintf("%d%s", testGitlabUserID, GitlabIDUsernameKey), isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
 	api.On("GetUser", testUserID).Return(&model.User{Props: model.StringMap{}}, nil).Once()
 	api.On("PublishWebSocketEvent", WsEventDisconnect, mock.Anything, mock.Anything).Return(nil).Once()
@@ -595,6 +595,9 @@ func TestDisconnectGitlabAccount_FallbackWhenUserInfoMissing(t *testing.T) {
 	api.On("KVGet", testUserID+GitlabUserInfoKey).Return(nil, nil)
 	api.On("KVGet", testUserID+GitlabMigrationTokenKey).Return(nil, nil)
 
+	api.On("KVSetWithOptions", "mutex_"+testUserID+ConnectMutexKey, isNonNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
+	api.On("KVSetWithOptions", "mutex_"+testUserID+ConnectMutexKey, isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
+
 	// forceDisconnectUser best-effort cleanup (no user info available).
 	api.On("KVSetWithOptions", testUserID+GitlabUserTokenKey, isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
 	api.On("KVSetWithOptions", testUserID+GitlabUserInfoKey, isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
@@ -608,5 +611,29 @@ func TestDisconnectGitlabAccount_FallbackWhenUserInfoMissing(t *testing.T) {
 
 	// The websocket disconnect event must still be published despite user info being missing.
 	api.AssertCalled(t, "PublishWebSocketEvent", WsEventDisconnect, mock.Anything, mock.Anything)
+	api.AssertExpectations(t)
+}
+
+func TestDisconnectGitlabAccount_OnlyRemovesOwnedUsernameMapping(t *testing.T) {
+	api := &plugintest.API{}
+	p := makeReencryptPlugin(t, api)
+	mockCommonLogCalls(api)
+
+	mutexKey := "mutex_" + testUserID + ConnectMutexKey
+	api.On("KVSetWithOptions", mutexKey, isNonNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
+	api.On("KVSetWithOptions", mutexKey, isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
+
+	api.On("KVGet", testUserID+GitlabUserInfoKey).Return(marshaledUserInfo(t), nil).Once()
+	api.On("KVSetWithOptions", testUserID+GitlabUserInfoKey, isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
+	api.On("KVSetWithOptions", testUserID+GitlabUserTokenKey, isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
+	// The username now belongs to another user, so the compare-and-delete does not match.
+	api.On("KVCompareAndDelete", testGitlabUsername+GitlabUsernameKey, []byte(testUserID)).Return(false, nil).Once()
+	api.On("KVSetWithOptions", fmt.Sprintf("%d%s", testGitlabUserID, GitlabIDUsernameKey), isNilBytes, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
+	api.On("GetUser", testUserID).Return(&model.User{Props: model.StringMap{}}, nil).Once()
+	api.On("PublishWebSocketEvent", WsEventDisconnect, mock.Anything, mock.Anything).Return(nil).Once()
+
+	p.disconnectGitlabAccount(testUserID)
+
+	api.AssertNotCalled(t, "KVSetWithOptions", testGitlabUsername+GitlabUsernameKey, mock.Anything, mock.Anything)
 	api.AssertExpectations(t)
 }

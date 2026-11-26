@@ -36,6 +36,7 @@ func (w *webhook) handleDMTag(event *gitlab.TagEvent) ([]*HandleWebhook, error) 
 		IID:               tagName,
 		URL:               URL,
 		body:              event.Message,
+		feature:           ContentFeatureRepository,
 	}); mention != nil {
 		handlers = append(handlers, mention)
 	}

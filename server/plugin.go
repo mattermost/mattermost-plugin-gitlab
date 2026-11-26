@@ -37,6 +37,8 @@ const (
 	GitlabUserTokenKey            = "_usertoken"
 	GitlabMigrationTokenKey       = "_gitlabtoken"
 	TokenMutexKey                 = "-oauth-token" //#nosec G101 -- False positive
+	ConnectMutexKey               = "-gitlab-connect"
+	connectLockTimeout            = 30 * time.Second
 	GitlabUsernameKey             = "_gitlabusername"
 	GitlabIDUsernameKey           = "_gitlabidusername"
 	WsEventConnect                = "gitlab_connect"
@@ -532,6 +534,28 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 	return &userInfo, nil
 }
 
+// loadGitlabUserInfo returns the stored user info, or nil when none is stored.
+// Unlike getGitlabUserInfoByMattermostID, read and decode failures are returned
+// as errors instead of being reported as not connected.
+func (p *Plugin) loadGitlabUserInfo(userID string) (*gitlab.UserInfo, error) {
+	for _, key := range []string{userID + GitlabUserInfoKey, userID + GitlabMigrationTokenKey} {
+		var infoBytes []byte
+		if err := p.client.KV.Get(key, &infoBytes); err != nil {
+			return nil, errors.Wrap(err, "unable to read user info")
+		}
+		if infoBytes == nil {
+			continue
+		}
+
+		var userInfo gitlab.UserInfo
+		if err := json.Unmarshal(infoBytes, &userInfo); err != nil {
+			return nil, errors.Wrap(err, "unable to parse user info")
+		}
+		return &userInfo, nil
+	}
+	return nil, nil
+}
+
 func (p *Plugin) migrateGitlabToken(userID string) (*oauth2.Token, *APIErrorResponse) {
 	config := p.getConfiguration()
 
@@ -633,11 +657,31 @@ func (p *Plugin) storeGitlabIDToUserIDMapping(gitlabUsername string, gitlabID in
 	return nil
 }
 
-func (p *Plugin) deleteGitlabToUserIDMapping(gitlabUsername string) error {
-	if err := p.client.KV.Delete(gitlabUsername + GitlabUsernameKey); err != nil {
-		return errors.Wrap(err, "encountered error deleting GitLab username mapping")
+// deleteGitlabToUserIDMappingIfOwned removes the username mapping only while it
+// still points at userID, so a username since claimed by another user survives.
+func (p *Plugin) deleteGitlabToUserIDMappingIfOwned(gitlabUsername, userID string) error {
+	if _, appErr := p.API.KVCompareAndDelete(gitlabUsername+GitlabUsernameKey, []byte(userID)); appErr != nil {
+		return errors.Wrap(appErr, "encountered error deleting GitLab username mapping")
 	}
 	return nil
+}
+
+// lockConnect acquires the per-user connect mutex and returns its unlock
+// function, or nil if the mutex could not be acquired in time.
+func (p *Plugin) lockConnect(userID string) func() {
+	mutex, err := cluster.NewMutex(p.API, userID+ConnectMutexKey)
+	if err != nil {
+		p.client.Log.Warn("Can't create connect mutex", "user_id", userID, "err", err.Error())
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), connectLockTimeout)
+	defer cancel()
+	if err := mutex.LockWithContext(ctx); err != nil {
+		p.client.Log.Warn("Can't acquire connect mutex", "user_id", userID, "err", err.Error())
+		return nil
+	}
+	return mutex.Unlock
 }
 
 func (p *Plugin) deleteGitlabIDToUserIDMapping(gitlabID int) error {
@@ -666,6 +710,16 @@ func (p *Plugin) getGitlabIDToUsernameMapping(gitlabUserID string) string {
 }
 
 func (p *Plugin) disconnectGitlabAccount(userID string) {
+	if unlock := p.lockConnect(userID); unlock != nil {
+		defer unlock()
+	}
+
+	p.disconnectGitlabAccountLocked(userID)
+}
+
+// disconnectGitlabAccountLocked must be called while holding the connect mutex
+// for userID, or after failing to acquire it.
+func (p *Plugin) disconnectGitlabAccountLocked(userID string) {
 	userInfo, apiErr := p.getGitlabUserInfoByMattermostID(userID)
 	if apiErr != nil {
 		p.client.Log.Warn("can't get GitLab user info from mattermost id, attempting best-effort cleanup",
@@ -685,7 +739,7 @@ func (p *Plugin) disconnectGitlabAccount(userID string) {
 	if err := p.deleteGitlabUserToken(userID); err != nil {
 		p.client.Log.Warn("can't delete token in store", "err", err.Error, "userId", userID)
 	}
-	if err := p.deleteGitlabToUserIDMapping(userInfo.GitlabUsername); err != nil {
+	if err := p.deleteGitlabToUserIDMappingIfOwned(userInfo.GitlabUsername, userID); err != nil {
 		p.client.Log.Warn("can't delete username in store", "err", err.Error, "username", userInfo.GitlabUsername)
 	}
 	if err := p.deleteGitlabIDToUserIDMapping(userInfo.GitlabUserID); err != nil {
@@ -1113,7 +1167,7 @@ func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token, no
 	if err != nil {
 		if strings.Contains(err.Error(), "\"error\":\"invalid_grant\"") {
 			p.client.Log.Warn("Failed to refresh OAuth token as the existing one has an invalid grant. Revoking the token.", "userInfo", userInfo, "error", err.Error())
-			p.handleRevokedToken(userInfo, notifyOnRevoke)
+			p.handleRevokedToken(userInfo, token, notifyOnRevoke)
 		}
 		return nil, errors.Wrap(err, "unable to get the new refreshed token")
 	}
@@ -1131,8 +1185,27 @@ func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token, no
 	return token, nil
 }
 
-func (p *Plugin) handleRevokedToken(info *gitlab.UserInfo, notify bool) {
-	p.disconnectGitlabAccount(info.UserID)
+// handleRevokedToken disconnects the user only while revokedToken is still the
+// stored token, so a connection completed in the meantime is kept. If the
+// connect mutex is unavailable nothing is removed; the next use of the revoked
+// token retries.
+func (p *Plugin) handleRevokedToken(info *gitlab.UserInfo, revokedToken *oauth2.Token, notify bool) {
+	unlock := p.lockConnect(info.UserID)
+	if unlock == nil {
+		p.client.Log.Warn("Skipping disconnect for revoked token", "user_id", info.UserID)
+		return
+	}
+
+	storedToken, apiErr := p.getGitlabUserTokenByMattermostID(info.UserID)
+	if apiErr == nil && revokedToken != nil && storedToken.AccessToken != revokedToken.AccessToken {
+		unlock()
+		p.client.Log.Debug("Revoked token was already replaced, keeping the current connection", "user_id", info.UserID)
+		return
+	}
+
+	p.disconnectGitlabAccountLocked(info.UserID)
+	unlock()
+
 	if !notify {
 		return
 	}
@@ -1294,7 +1367,7 @@ func (p *Plugin) forceDisconnectUser(userID string) {
 
 	if userInfo != nil {
 		if userInfo.GitlabUsername != "" {
-			if err := p.deleteGitlabToUserIDMapping(userInfo.GitlabUsername); err != nil {
+			if err := p.deleteGitlabToUserIDMappingIfOwned(userInfo.GitlabUsername, userID); err != nil {
 				p.client.Log.Warn("Failed to delete GitLab username mapping during force-disconnect",
 					"user_id", userID, "gitlab_username", userInfo.GitlabUsername, "error", err.Error())
 			}
@@ -1382,7 +1455,7 @@ func (p *Plugin) useGitlabClient(info *gitlab.UserInfo, toRun func(info *gitlab.
 
 	if err != nil && strings.Contains(err.Error(), invalidTokenError) {
 		p.client.Log.Warn("Revoking OAuth token while using Gitlab client as it is invalid", "userInfo", info, "error", err.Error())
-		p.handleRevokedToken(info, true)
+		p.handleRevokedToken(info, token, true)
 	}
 
 	return err

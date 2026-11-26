@@ -9,6 +9,7 @@ import (
 	"crypto/subtle"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"hash"
@@ -73,6 +74,21 @@ func (g *gitlabRetreiver) GetSubscribedChannelsForProject(
 	return g.p.GetSubscribedChannelsForProject(ctx, namespace, project, isPublicVisibility, isConfidential)
 }
 
+// webhookVisibilityLevels holds the numeric visibility levels GitLab sends,
+// which go-gitlab does not decode for most event types.
+type webhookVisibilityLevels struct {
+	Project    visibilityLevel `json:"project"`
+	Repository visibilityLevel `json:"repository"`
+}
+
+type visibilityLevel struct {
+	VisibilityLevel *int `json:"visibility_level"`
+}
+
+func (v visibilityLevel) isPrivate() bool {
+	return v.VisibilityLevel != nil && *v.VisibilityLevel == webhook.PrivateVisibilityLevel
+}
+
 func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	config := p.getConfiguration()
 
@@ -96,6 +112,13 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var levels webhookVisibilityLevels
+	if err = json.Unmarshal(body, &levels); err != nil {
+		p.client.Log.Debug("Can't parse webhook visibility level", "err", err.Error(), "header", r.Header.Get("X-Gitlab-Event"))
+		http.Error(w, "Unable to handle request", http.StatusBadRequest)
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), webhookTimeout)
 	defer cancel()
 
@@ -108,32 +131,32 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	switch event := event.(type) {
 	case *gitlabLib.MergeEvent:
-		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
+		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility || levels.Project.isPrivate()
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
 		handlers, warnings, errHandler = p.WebhookHandler.HandleMergeRequest(ctx, event)
 	case *gitlabLib.IssueEvent:
-		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
+		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility || levels.Project.isPrivate()
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
 		handlers, warnings, errHandler = p.WebhookHandler.HandleIssue(ctx, event, eventType)
 	case *gitlabLib.IssueCommentEvent:
-		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
+		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility || levels.Project.isPrivate()
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
 		handlers, warnings, errHandler = p.WebhookHandler.HandleIssueComment(ctx, event)
 	case *gitlabLib.MergeCommentEvent:
-		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
+		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility || levels.Project.isPrivate()
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
 		handlers, warnings, errHandler = p.WebhookHandler.HandleMergeRequestComment(ctx, event)
 	case *gitlabLib.PushEvent:
-		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
+		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility || levels.Project.isPrivate()
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.UserName
 		handlers, errHandler = p.WebhookHandler.HandlePush(ctx, event)
 	case *gitlabLib.PipelineEvent:
-		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
+		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility || levels.Project.isPrivate()
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.User.Username
 		if !p.configuration.EnableChildPipelineNotifications && event.ObjectAttributes.Source == eventSourceParentPipeline {
@@ -142,12 +165,13 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 		handlers, errHandler = p.WebhookHandler.HandlePipeline(ctx, event)
 	case *gitlabLib.JobEvent:
-		repoPrivate = event.Repository.Visibility == gitlabLib.PrivateVisibility
+		repoPrivate = (event.Repository != nil && event.Repository.Visibility == gitlabLib.PrivateVisibility) ||
+			levels.Project.isPrivate() || levels.Repository.isPrivate()
 		pathWithNamespace = event.ProjectName
 		fromUser = event.User.Name
 		handlers, errHandler = p.WebhookHandler.HandleJobs(ctx, event)
 	case *gitlabLib.TagEvent:
-		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility
+		repoPrivate = event.Project.Visibility == gitlabLib.PrivateVisibility || levels.Project.isPrivate()
 		pathWithNamespace = event.Project.PathWithNamespace
 		fromUser = event.UserName
 		handlers, errHandler = p.WebhookHandler.HandleTag(ctx, event)
@@ -186,6 +210,8 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	mattermostIDByGitlabUsername := make(map[string]string)
 	p.sendRefreshIfNotAlreadySent(mattermostIDByGitlabUsername, fromUser)
 	dmRecipients := make(map[string]struct{})
+	projectsByRecipient := make(map[string]*gitlabLib.Project)
+	externalByRecipient := make(map[string]bool)
 	for _, res := range handlers {
 		p.client.Log.Info("new msg", "message", res.Message, "from", res.From)
 		for _, to := range res.ToUsers {
@@ -199,7 +225,14 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 					p.client.Log.Warn("can't get user info to know if user wants to receive notifications", "err", err.Message)
 					continue
 				}
-				if info.Settings.Notifications && p.sendDMNotification(userTo, res.Message) {
+				if !info.Settings.Notifications {
+					continue
+				}
+				if res.RequiredAccess != nil && !p.canReadContent(ctx, userTo, res.RequiredAccess, projectsByRecipient, externalByRecipient) {
+					p.client.Log.Debug("Skipping mention notification: recipient cannot read the content on GitLab", "user_id", userTo)
+					continue
+				}
+				if p.sendDMNotification(userTo, res.Message) {
 					dmRecipients[userTo] = struct{}{}
 				}
 			}
@@ -362,6 +395,88 @@ func (p *Plugin) permissionToSubscribe(ctx context.Context, userID, namespace, p
 	}
 
 	return effectiveAccess(result.Permissions) > gitlabLib.GuestPermissions
+}
+
+// canReadContent reports whether a message quoting project content may be
+// delivered to the user. Non-confidential content of a public or internal
+// project whose matching feature is open to everyone may be delivered to anyone
+// who can load the project with their own token; everything else requires
+// Reporter access. External users are the exception on internal projects: GitLab
+// only lets them read issues there without a role above Guest, so code and merge
+// request content requires Reporter access for them too. Lookups are cached in
+// projectsByRecipient, including failed ones as nil, and in externalByRecipient,
+// so each recipient costs at most one GitLab call per project and one per user
+// per webhook.
+func (p *Plugin) canReadContent(ctx context.Context, userID string, access *webhook.ContentAccess, projectsByRecipient map[string]*gitlabLib.Project, externalByRecipient map[string]bool) bool {
+	if access.Project == "" {
+		return false
+	}
+
+	key := userID + "/" + access.Namespace + "/" + access.Project
+	project, ok := projectsByRecipient[key]
+	if !ok {
+		project = p.fetchProjectAsUser(ctx, userID, access.Namespace, access.Project)
+		projectsByRecipient[key] = project
+	}
+	if project == nil {
+		return false
+	}
+
+	if !access.Confidential && isFeatureOpenToAll(project, access.Feature) {
+		switch project.Visibility {
+		case gitlabLib.PublicVisibility:
+			return true
+		case gitlabLib.InternalVisibility:
+			if access.Feature == webhook.ContentFeatureIssues || !p.isExternalUser(ctx, userID, externalByRecipient) {
+				return true
+			}
+		}
+	}
+
+	return effectiveAccess(project.Permissions) > gitlabLib.GuestPermissions
+}
+
+// isExternalUser reports whether the user's GitLab account is flagged as
+// external. A failed lookup counts as external so the caller falls back to the
+// stricter membership check.
+func (p *Plugin) isExternalUser(ctx context.Context, userID string, externalByRecipient map[string]bool) bool {
+	if external, ok := externalByRecipient[userID]; ok {
+		return external
+	}
+
+	external := true
+	info, apiErr := p.getGitlabUserInfoByMattermostID(userID)
+	if apiErr == nil {
+		err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+			user, err := p.getGitlabClient().GetUserDetails(ctx, info, token)
+			if err != nil {
+				return err
+			}
+			external = user.External
+			return nil
+		})
+		if err != nil {
+			p.client.Log.Warn("Can't get GitLab user details in webhook", "err", err.Error(), "user_id", userID)
+		}
+	}
+
+	externalByRecipient[userID] = external
+	return external
+}
+
+func isFeatureOpenToAll(project *gitlabLib.Project, feature webhook.ContentFeature) bool {
+	var level gitlabLib.AccessControlValue
+	switch feature {
+	case webhook.ContentFeatureIssues:
+		level = project.IssuesAccessLevel
+	case webhook.ContentFeatureMergeRequests:
+		level = project.MergeRequestsAccessLevel
+	case webhook.ContentFeatureRepository:
+		level = project.RepositoryAccessLevel
+	default:
+		return false
+	}
+	return level == gitlabLib.EnabledAccessControl || level == gitlabLib.PublicAccessControl
 }
 
 // fetchProjectAsUser loads a project using the given Mattermost user's GitLab

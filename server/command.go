@@ -504,7 +504,7 @@ func (p *Plugin) handleSettings(ctx context.Context, args *model.CommandArgs, pa
 				p.client.Log.Warn("can't store GitLab to GitLab id mapping", "err", err.Error())
 				return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs", true), nil
 			}
-		} else if err := p.deleteGitlabToUserIDMapping(info.GitlabUsername); err != nil {
+		} else if err := p.deleteGitlabToUserIDMappingIfOwned(info.GitlabUsername, info.UserID); err != nil {
 			p.client.Log.Warn("can't delete GitLab username in kvstore", "err", err.Error())
 			return p.getCommandResponse(args, "Unknown error please retry or ask to an administrator to look at logs", true), nil
 		}

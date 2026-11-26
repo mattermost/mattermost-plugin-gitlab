@@ -30,10 +30,35 @@ func TestParseGitlabUsernamesFromText(t *testing.T) {
 		{Text: "@jwilander2 @jwilander", Expected: []string{"jwilander2", "jwilander"}},
 		{Text: "Hey @jwilander and @jwilander2!", Expected: []string{"jwilander", "jwilander2"}},
 		{Text: "@jwilander @jwilan--der2", Expected: []string{"jwilander"}},
+		{Text: "@john.smith", Expected: []string{"john.smith"}},
+		{Text: "@john_doe", Expected: []string{"john_doe"}},
+		{Text: "@john_", Expected: []string{"john_"}},
+		{Text: "@john.doe-smith", Expected: []string{"john.doe-smith"}},
+		{Text: "@john.smith.", Expected: []string{"john.smith"}},
+		{Text: "Ping @john.smith...", Expected: []string{"john.smith"}},
+		{Text: "thanks @john.", Expected: []string{"john"}},
+		{Text: "@john,", Expected: []string{"john"}},
+		{Text: "(@john.smith)", Expected: []string{"john.smith"}},
+		{Text: "@john.smith's change", Expected: []string{"john.smith"}},
+		{Text: "cc @john.smith, @jane_doe!", Expected: []string{"john.smith", "jane_doe"}},
+		{Text: "@john @john.smith @john_doe", Expected: []string{"john", "john.smith", "john_doe"}},
+		{Text: "@john..smith", Expected: []string{}},
+		{Text: "john.smith@example.com", Expected: []string{}},
+		{Text: "Please ask _@john_.", Expected: []string{"john"}},
+		{Text: "__@john__", Expected: []string{"john"}},
+		{Text: "_@john.smith_", Expected: []string{"john.smith"}},
+		{Text: "a_@john", Expected: []string{}},
+		{Text: "first._@john.smith", Expected: []string{}},
+		{Text: "first_@john.smith", Expected: []string{}},
+		{Text: "a.b@john.smith", Expected: []string{}},
+		{Text: "_@john._", Expected: []string{"john"}},
+		{Text: "__@john...__", Expected: []string{"john"}},
+		{Text: "_@john__", Expected: []string{"john_"}},
+		{Text: "Hi .@john", Expected: []string{"john"}},
 	}
 
 	for _, tc := range tcs {
-		assert.Equal(t, tc.Expected, parseGitlabUsernamesFromText(tc.Text))
+		assert.Equal(t, tc.Expected, parseGitlabUsernamesFromText(tc.Text), tc.Text)
 	}
 }
 

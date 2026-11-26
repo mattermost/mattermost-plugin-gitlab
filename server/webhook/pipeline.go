@@ -44,6 +44,7 @@ func (w *webhook) handleDMPipeline(event *gitlab.PipelineEvent) ([]*HandleWebhoo
 		IID:               fmt.Sprintf("%d", event.ObjectAttributes.ID),
 		URL:               event.Commit.URL,
 		body:              event.Commit.Message,
+		feature:           ContentFeatureRepository,
 	}); mention != nil {
 		handlers = append(handlers, mention)
 	}
