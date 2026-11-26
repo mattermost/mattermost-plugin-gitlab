@@ -1043,13 +1043,29 @@ func (p *Plugin) validateSubscriptionLabels(ctx context.Context, gitlabClient gi
 			for _, l := range glLabels {
 				existingLabels = append(existingLabels, l.Name)
 			}
-		} else {
-			groupLabels, fetchErr := gitlabClient.GetGroupLabels(ctx, info, fullPath, token)
+			return nil
+		}
+
+		for _, label := range labels {
+			if slices.Contains(existingLabels, label) {
+				continue
+			}
+			// Replace literal quotes so GitLab's search parser doesn't treat them as phrase syntax
+			// (which collapses consecutive spaces and misses labels containing both quotes and spaces).
+			search := strings.TrimSpace(strings.ReplaceAll(label, `"`, " "))
+			groupLabels, fetchErr := gitlabClient.GetGroupLabels(ctx, info, fullPath, search, token)
 			if fetchErr != nil {
 				return fetchErr
 			}
+			found := false
 			for _, l := range groupLabels {
 				existingLabels = append(existingLabels, l.Name)
+				if l.Name == label {
+					found = true
+				}
+			}
+			if !found {
+				break
 			}
 		}
 		return nil

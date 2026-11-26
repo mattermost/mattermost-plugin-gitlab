@@ -792,7 +792,8 @@ func (g *gitlab) GetLabels(ctx context.Context, user *UserInfo, projectID string
 }
 
 // GetGroupLabels lists labels for a group, including project and descendant group labels.
-func (g *gitlab) GetGroupLabels(ctx context.Context, user *UserInfo, groupID string, token *oauth2.Token) ([]*internGitlab.GroupLabel, error) {
+// When search is non-empty, results are filtered server-side using GitLab's search parameter.
+func (g *gitlab) GetGroupLabels(ctx context.Context, user *UserInfo, groupID, search string, token *oauth2.Token) ([]*internGitlab.GroupLabel, error) {
 	client, err := g.GitlabConnect(*token)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to GitLab: %w", err)
@@ -810,6 +811,9 @@ func (g *gitlab) GetGroupLabels(ctx context.Context, user *UserInfo, groupID str
 		},
 		OnlyGroupLabels:          &onlyGroupLabels,
 		IncludeDescendantGrouops: &includeDescendants,
+	}
+	if search != "" {
+		opts.Search = &search
 	}
 
 	var labels []*internGitlab.GroupLabel
