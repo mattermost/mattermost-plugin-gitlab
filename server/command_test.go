@@ -49,6 +49,7 @@ type subscribeCommandTest struct {
 	publicProjectNoMembership bool
 	labels                    []*gitLabAPI.Label
 	groupLabels               []*gitLabAPI.GroupLabel
+	wantGroupLabelSearch      string
 	getLabelsErr              error
 	rejectsWithoutWrite       bool
 	expectHookLookup          bool
@@ -321,6 +322,18 @@ var subscribeCommandTests = []subscribeCommandTest{
 		expectHookLookup: true,
 	},
 	{
+		testName:             "Subscription succeeds when quoted label name contains spaces",
+		parameters:           []string{"add", "group", `issues,label:"\"foo  bar\""`},
+		mockGitlab:           true,
+		groupOnly:            true,
+		groupLabels:          []*gitLabAPI.GroupLabel{{Name: `"foo  bar"`}},
+		wantGroupLabelSearch: "foo  bar",
+		webhookInfo:          []*gitlab.WebhookInfo{{}},
+		mattermostURL:        "example.com",
+		want:                 "Successfully subscribed to group.\nA Webhook is needed, run ```/gitlab webhook add group``` to create one now.",
+		expectHookLookup:     true,
+	},
+	{
 		testName:         "Subscription succeeds for user namespace with label filter",
 		parameters:       []string{"add", "user", `issues,label:"bug"`},
 		mockGitlab:       true,
@@ -582,7 +595,11 @@ func getTestPlugin(t *testing.T, mockCtrl *gomock.Controller, test subscribeComm
 			mockedClient.EXPECT().GetGroup(gomock.Any(), gomock.Any(), gomock.Any(), "group", "").Return(&gitLabAPI.Group{}, nil)
 		}
 		if strings.Contains(strings.Join(test.parameters, " "), "label:") {
-			mockedClient.EXPECT().GetGroupLabels(gomock.Any(), gomock.Any(), "group", gomock.Not(""), gomock.Any()).Return(test.groupLabels, test.getLabelsErr)
+			searchMatcher := gomock.Not("")
+			if test.wantGroupLabelSearch != "" {
+				searchMatcher = gomock.Eq(test.wantGroupLabelSearch)
+			}
+			mockedClient.EXPECT().GetGroupLabels(gomock.Any(), gomock.Any(), "group", searchMatcher, gomock.Any()).Return(test.groupLabels, test.getLabelsErr)
 		}
 		if test.expectHookLookup {
 			mockedClient.EXPECT().GetGroupHooks(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(test.webhookInfo, test.projectHookErr)
