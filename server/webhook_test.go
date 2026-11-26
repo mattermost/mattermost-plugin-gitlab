@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -965,12 +966,18 @@ func internalProjectForNonMember(issues, mergeRequests, repository gitlabLib.Acc
 	return project
 }
 
+func internalProjectForExternalMember(level gitlabLib.AccessLevelValue) *gitlabLib.Project {
+	project := internalProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl)
+	project.Permissions = projectWithAccess(level).Permissions
+	return project
+}
+
 var errProjectNotFound = errors.New("GET https://gitlab.example.com/api/v4/projects/group%2Fproject: 404 {message: 404 Project Not Found}")
 
 // setupMentionWebhookPlugin connects each GitLab username to the Mattermost ID
 // "<username>-mm-id" with notifications on. getProject answers GitLab project
 // lookups made with that user's token. It returns the IDs of users DMed.
-func setupMentionWebhookPlugin(t *testing.T, gitlabUsernames []string, getProject func(gitlabUsername string) (*gitlabLib.Project, error)) (*Plugin, func() []string) {
+func setupMentionWebhookPlugin(t *testing.T, gitlabUsernames []string, getProject func(gitlabUsername string) (*gitlabLib.Project, error), externalUsernames ...string) (*Plugin, func() []string) {
 	t.Helper()
 
 	encryptedToken, err := encrypt([]byte(testEncryptionKey), testGitlabToken)
@@ -994,6 +1001,10 @@ func setupMentionWebhookPlugin(t *testing.T, gitlabUsernames []string, getProjec
 	mockedClient.EXPECT().GetProject(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, info *gitlab.UserInfo, _ *oauth2.Token, _, _ string) (*gitlabLib.Project, error) {
 			return getProject(info.GitlabUsername)
+		}).AnyTimes()
+	mockedClient.EXPECT().GetUserDetails(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, info *gitlab.UserInfo, _ *oauth2.Token) (*gitlabLib.User, error) {
+			return &gitlabLib.User{Username: info.GitlabUsername, External: slices.Contains(externalUsernames, info.GitlabUsername)}, nil
 		}).AnyTimes()
 
 	p := &Plugin{
@@ -1057,6 +1068,7 @@ func TestHandleWebhookMentionDMRequiresProjectAccess(t *testing.T) {
 		body       string
 		project    *gitlabLib.Project
 		projectErr error
+		external   bool
 		expectDM   bool
 	}{
 		{
@@ -1248,6 +1260,52 @@ func TestHandleWebhookMentionDMRequiresProjectAccess(t *testing.T) {
 			}(),
 		},
 		{
+			name:      "internal project with all features enabled, issue note, recipient is an external guest",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionIssueNoteBody,
+			project:   internalProjectForExternalMember(gitlabLib.GuestPermissions),
+			external:  true,
+			expectDM:  true,
+		},
+		{
+			name:      "internal project with all features enabled, merge request note, recipient is an external guest",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionMergeRequestNoteBody,
+			project:   internalProjectForExternalMember(gitlabLib.GuestPermissions),
+			external:  true,
+		},
+		{
+			name:      "internal project with all features enabled, push commit message, recipient is an external guest",
+			eventType: gitlabLib.EventTypePush,
+			body:      mentionPushBody,
+			project:   internalProjectForExternalMember(gitlabLib.GuestPermissions),
+			external:  true,
+		},
+		{
+			name:      "internal project with all features enabled, merge request note, recipient is an external developer",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionMergeRequestNoteBody,
+			project:   internalProjectForExternalMember(gitlabLib.DeveloperPermissions),
+			external:  true,
+			expectDM:  true,
+		},
+		{
+			name:      "internal project with all features enabled, push commit message, recipient is an external developer",
+			eventType: gitlabLib.EventTypePush,
+			body:      mentionPushBody,
+			project:   internalProjectForExternalMember(gitlabLib.DeveloperPermissions),
+			external:  true,
+			expectDM:  true,
+		},
+		{
+			name:      "public project with all features enabled, merge request note, recipient is an external non-member",
+			eventType: gitlabLib.EventTypeNote,
+			body:      mentionMergeRequestNoteBody,
+			project:   publicProjectForNonMember(gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl, gitlabLib.EnabledAccessControl),
+			external:  true,
+			expectDM:  true,
+		},
+		{
 			name:       "internal project, recipient cannot load the project",
 			eventType:  gitlabLib.EventTypeNote,
 			body:       mentionIssueNoteBody,
@@ -1257,9 +1315,13 @@ func TestHandleWebhookMentionDMRequiresProjectAccess(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			var externalUsernames []string
+			if test.external {
+				externalUsernames = append(externalUsernames, mentioned)
+			}
 			p, dmed := setupMentionWebhookPlugin(t, []string{mentioned}, func(string) (*gitlabLib.Project, error) {
 				return test.project, test.projectErr
-			})
+			}, externalUsernames...)
 
 			postMentionWebhook(t, p, test.eventType, fmt.Sprintf(test.body, mentioned))
 

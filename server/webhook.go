@@ -211,6 +211,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	p.sendRefreshIfNotAlreadySent(mattermostIDByGitlabUsername, fromUser)
 	dmRecipients := make(map[string]struct{})
 	projectsByRecipient := make(map[string]*gitlabLib.Project)
+	externalByRecipient := make(map[string]bool)
 	for _, res := range handlers {
 		p.client.Log.Info("new msg", "message", res.Message, "from", res.From)
 		for _, to := range res.ToUsers {
@@ -227,7 +228,7 @@ func (p *Plugin) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				if !info.Settings.Notifications {
 					continue
 				}
-				if res.RequiredAccess != nil && !p.canReadContent(ctx, userTo, res.RequiredAccess, projectsByRecipient) {
+				if res.RequiredAccess != nil && !p.canReadContent(ctx, userTo, res.RequiredAccess, projectsByRecipient, externalByRecipient) {
 					p.client.Log.Debug("Skipping mention notification: recipient cannot read the content on GitLab", "user_id", userTo)
 					continue
 				}
@@ -400,10 +401,13 @@ func (p *Plugin) permissionToSubscribe(ctx context.Context, userID, namespace, p
 // delivered to the user. Non-confidential content of a public or internal
 // project whose matching feature is open to everyone may be delivered to anyone
 // who can load the project with their own token; everything else requires
-// Reporter access. Lookups are cached in
-// projectsByRecipient, including failed ones as nil, so each recipient costs at
-// most one GitLab call per project per webhook.
-func (p *Plugin) canReadContent(ctx context.Context, userID string, access *webhook.ContentAccess, projectsByRecipient map[string]*gitlabLib.Project) bool {
+// Reporter access. External users are the exception on internal projects: GitLab
+// only lets them read issues there without a role above Guest, so code and merge
+// request content requires Reporter access for them too. Lookups are cached in
+// projectsByRecipient, including failed ones as nil, and in externalByRecipient,
+// so each recipient costs at most one GitLab call per project and one per user
+// per webhook.
+func (p *Plugin) canReadContent(ctx context.Context, userID string, access *webhook.ContentAccess, projectsByRecipient map[string]*gitlabLib.Project, externalByRecipient map[string]bool) bool {
 	if access.Project == "" {
 		return false
 	}
@@ -418,12 +422,46 @@ func (p *Plugin) canReadContent(ctx context.Context, userID string, access *webh
 		return false
 	}
 
-	readableByAnyUser := project.Visibility == gitlabLib.PublicVisibility || project.Visibility == gitlabLib.InternalVisibility
-	if readableByAnyUser && !access.Confidential && isFeatureOpenToAll(project, access.Feature) {
-		return true
+	if !access.Confidential && isFeatureOpenToAll(project, access.Feature) {
+		switch project.Visibility {
+		case gitlabLib.PublicVisibility:
+			return true
+		case gitlabLib.InternalVisibility:
+			if access.Feature == webhook.ContentFeatureIssues || !p.isExternalUser(ctx, userID, externalByRecipient) {
+				return true
+			}
+		}
 	}
 
 	return effectiveAccess(project.Permissions) > gitlabLib.GuestPermissions
+}
+
+// isExternalUser reports whether the user's GitLab account is flagged as
+// external. A failed lookup counts as external so the caller falls back to the
+// stricter membership check.
+func (p *Plugin) isExternalUser(ctx context.Context, userID string, externalByRecipient map[string]bool) bool {
+	if external, ok := externalByRecipient[userID]; ok {
+		return external
+	}
+
+	external := true
+	info, apiErr := p.getGitlabUserInfoByMattermostID(userID)
+	if apiErr == nil {
+		err := p.useGitlabClient(info, func(info *gitlab.UserInfo, token *oauth2.Token) error {
+			user, err := p.getGitlabClient().GetUserDetails(ctx, info, token)
+			if err != nil {
+				return err
+			}
+			external = user.External
+			return nil
+		})
+		if err != nil {
+			p.client.Log.Warn("Can't get GitLab user details in webhook", "err", err.Error(), "user_id", userID)
+		}
+	}
+
+	externalByRecipient[userID] = external
+	return external
 }
 
 func isFeatureOpenToAll(project *gitlabLib.Project, feature webhook.ContentFeature) bool {
