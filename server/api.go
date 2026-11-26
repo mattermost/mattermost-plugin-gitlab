@@ -85,6 +85,10 @@ func (p *Plugin) initializeAPI() {
 	apiRouter.HandleFunc("/settings", p.checkAuth(p.attachUserContext(p.updateSettings), ResponseTypePlain)).Methods(http.MethodPost)
 
 	apiRouter.HandleFunc("/channel/{channel_id:[A-Za-z0-9]+}/subscriptions", p.checkAuth(p.attachUserContext(p.getChannelSubscriptions), ResponseTypeJSON)).Methods(http.MethodGet)
+
+	adminRouter := p.router.PathPrefix("/api/v1/instance").Subrouter()
+	adminRouter.Use(limitRequestBody(maxAPIRequestBodySize))
+	adminRouter.HandleFunc("/edit", p.checkAuth(p.attachContext(p.handleEditInstanceDialog), ResponseTypeJSON)).Methods(http.MethodPost)
 }
 
 type Context struct {
@@ -1175,5 +1179,80 @@ func (p *Plugin) getChannelSubscriptions(c *UserContext, w http.ResponseWriter, 
 		p.writeAPIError(w, &APIErrorResponse{ID: "", Message: "Encountered an unexpected error. Please try again.", StatusCode: http.StatusInternalServerError})
 	} else if _, err := w.Write(b); err != nil {
 		p.client.Log.Warn("can't write api error http response", "err", err.Error())
+	}
+}
+
+func (p *Plugin) handleEditInstanceDialog(c *Context, w http.ResponseWriter, r *http.Request) {
+	isSysAdmin, sysErr := p.isAuthorizedSysAdmin(c.UserID)
+	if sysErr != nil {
+		p.client.Log.Warn("Failed to check if user is System Admin", "error", sysErr.Error())
+		p.writeAPIError(w, &APIErrorResponse{Message: "Error checking user's permissions.", StatusCode: http.StatusInternalServerError})
+		return
+	}
+	if !isSysAdmin {
+		p.writeAPIError(w, &APIErrorResponse{Message: "Only System Admins are allowed to manage instances.", StatusCode: http.StatusForbidden})
+		return
+	}
+
+	var req model.SubmitDialogRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		p.writeAPIError(w, &APIErrorResponse{Message: "Invalid dialog submission.", StatusCode: http.StatusBadRequest})
+		return
+	}
+
+	if req.Cancelled {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	instanceName := strings.TrimSpace(req.State)
+
+	gitlabURL, _ := req.Submission["gitlab_url"].(string)
+	gitlabURL = strings.TrimSpace(gitlabURL)
+	clientID, _ := req.Submission["client_id"].(string)
+	clientID = strings.TrimSpace(clientID)
+	clientSecret, _ := req.Submission["client_secret"].(string)
+	clientSecret = strings.TrimSpace(clientSecret)
+
+	fieldErrors := map[string]string{}
+	if err := isValidURL(gitlabURL); err != nil {
+		fieldErrors["gitlab_url"] = err.Error()
+	}
+	if len(clientID) < 64 {
+		fieldErrors["client_id"] = "Client ID should be at least 64 characters long"
+	}
+	if clientSecret != "" && len(clientSecret) < 64 {
+		fieldErrors["client_secret"] = "Client Secret should be at least 64 characters long"
+	}
+
+	if len(fieldErrors) > 0 {
+		p.writeDialogResponse(w, &model.SubmitDialogResponse{Errors: fieldErrors})
+		return
+	}
+
+	updated := &InstanceConfiguration{
+		GitlabURL:               gitlabURL,
+		GitlabOAuthClientID:     clientID,
+		GitlabOAuthClientSecret: clientSecret,
+	}
+	if err := p.updateInstance(instanceName, updated); err != nil {
+		p.writeDialogResponse(w, &model.SubmitDialogResponse{Error: err.Error()})
+		return
+	}
+
+	if req.ChannelId != "" {
+		p.client.Post.SendEphemeralPost(c.UserID, &model.Post{
+			ChannelId: req.ChannelId,
+			Message:   fmt.Sprintf("Instance '%s' has been updated.", instanceName),
+		})
+	}
+
+	p.writeDialogResponse(w, &model.SubmitDialogResponse{})
+}
+
+func (p *Plugin) writeDialogResponse(w http.ResponseWriter, resp *model.SubmitDialogResponse) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		p.client.Log.Warn("failed to encode dialog response", "error", err.Error())
 	}
 }

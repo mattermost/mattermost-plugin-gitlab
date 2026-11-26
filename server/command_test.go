@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 
@@ -1027,6 +1028,7 @@ func TestAdminProtectedCommands(t *testing.T) {
 		}{
 			{"list", []string{"list"}},
 			{"install", []string{"install"}},
+			{"edit", []string{"edit", "test-instance"}},
 			{"uninstall", []string{"uninstall", "test-instance"}},
 			{"set-default", []string{"set-default", "test-instance"}},
 		}
@@ -1150,6 +1152,114 @@ func TestInstanceCommands(t *testing.T) {
 			p, msg, _ := setupInstanceCommandTest(t, nil, nil)
 			_, _ = p.handleUnInstallInstance(args, []string{})
 			assert.Contains(t, *msg, "Please specify the instance name.")
+		})
+		t.Run("clears DefaultInstanceName when last default instance is uninstalled", func(t *testing.T) {
+			instanceList := []string{"production"}
+			config := map[string]InstanceConfiguration{"production": {GitlabURL: "https://gitlab.example.com"}}
+			p, msg, api := setupInstanceCommandTest(t, instanceList, config)
+			p.configuration.DefaultInstanceName = "production"
+
+			var savedConfig map[string]any
+			api.ExpectedCalls = slices.DeleteFunc(api.ExpectedCalls, func(c *mock.Call) bool { return c.Method == "SavePluginConfig" })
+			api.On("SavePluginConfig", mock.MatchedBy(func(m map[string]any) bool {
+				savedConfig = m
+				return true
+			})).Return(nil).Once()
+
+			_, _ = p.handleUnInstallInstance(args, []string{"production"})
+			assert.Contains(t, *msg, "Instance 'production' has been uninstalled.")
+			require.NotNil(t, savedConfig)
+			assert.Equal(t, "", savedConfig["defaultinstancename"])
+		})
+		t.Run("reassigns DefaultInstanceName to next available instance when default is uninstalled", func(t *testing.T) {
+			instanceList := []string{"production", "staging"}
+			config := map[string]InstanceConfiguration{
+				"production": {GitlabURL: "https://gitlab.example.com"},
+				"staging":    {GitlabURL: "https://staging.gitlab.example.com"},
+			}
+			p, msg, api := setupInstanceCommandTest(t, instanceList, config)
+			p.configuration.DefaultInstanceName = "production"
+
+			var savedConfig map[string]any
+			api.ExpectedCalls = slices.DeleteFunc(api.ExpectedCalls, func(c *mock.Call) bool { return c.Method == "SavePluginConfig" })
+			api.On("SavePluginConfig", mock.MatchedBy(func(m map[string]any) bool {
+				savedConfig = m
+				return true
+			})).Return(nil).Once()
+
+			_, _ = p.handleUnInstallInstance(args, []string{"production"})
+			assert.Contains(t, *msg, "Instance 'production' has been uninstalled.")
+			require.NotNil(t, savedConfig)
+			assert.Equal(t, "staging", savedConfig["defaultinstancename"])
+		})
+		t.Run("leaves DefaultInstanceName unchanged when non-default instance is uninstalled", func(t *testing.T) {
+			instanceList := []string{"production", "staging"}
+			config := map[string]InstanceConfiguration{
+				"production": {GitlabURL: "https://gitlab.example.com"},
+				"staging":    {GitlabURL: "https://staging.gitlab.example.com"},
+			}
+			p, msg, api := setupInstanceCommandTest(t, instanceList, config)
+			p.configuration.DefaultInstanceName = "production"
+
+			_, _ = p.handleUnInstallInstance(args, []string{"staging"})
+			assert.Contains(t, *msg, "Instance 'staging' has been uninstalled.")
+			api.AssertNotCalled(t, "SavePluginConfig", mock.Anything)
+		})
+		t.Run("leaves KV intact when updating DefaultInstanceName fails so retry can succeed", func(t *testing.T) {
+			instanceList := []string{"production"}
+			config := map[string]InstanceConfiguration{"production": {GitlabURL: "https://gitlab.example.com"}}
+			p, msg, api := setupInstanceCommandTest(t, instanceList, config)
+			p.configuration.DefaultInstanceName = "production"
+
+			api.ExpectedCalls = slices.DeleteFunc(api.ExpectedCalls, func(c *mock.Call) bool { return c.Method == "SavePluginConfig" })
+			api.On("SavePluginConfig", mock.Anything).Return(model.NewAppError("SavePluginConfig", "err", nil, "", 500)).Once()
+
+			_, _ = p.handleUnInstallInstance(args, []string{"production"})
+			assert.Contains(t, *msg, "failed to update default instance")
+			api.AssertNotCalled(t, "KVSetWithOptions", mock.Anything, mock.Anything, mock.Anything)
+		})
+	})
+
+	t.Run("edit", func(t *testing.T) {
+		t.Run("no parameters", func(t *testing.T) {
+			p, msg, _ := setupInstanceCommandTest(t, nil, nil)
+			_, _ = p.handleEditInstance(args, []string{})
+			assert.Contains(t, *msg, "Please specify the instance name.")
+		})
+		t.Run("non-existent instance", func(t *testing.T) {
+			p, msg, _ := setupInstanceCommandTest(t, []string{"production"}, map[string]InstanceConfiguration{
+				"production": {GitlabURL: "https://gitlab.example.com"},
+			})
+			_, _ = p.handleEditInstance(args, []string{"staging"})
+			assert.Contains(t, *msg, "does not exist")
+		})
+		t.Run("opens interactive dialog pre-populated without leaking secret", func(t *testing.T) {
+			clientID := strings.Repeat("a", 64)
+			clientSecret := strings.Repeat("b", 64)
+			p, _, api := setupInstanceCommandTest(t, []string{"production"}, map[string]InstanceConfiguration{
+				"production": {
+					GitlabURL:               "https://gitlab.example.com",
+					GitlabOAuthClientID:     clientID,
+					GitlabOAuthClientSecret: clientSecret,
+				},
+			})
+
+			var capturedDialog model.OpenDialogRequest
+			api.On("OpenInteractiveDialog", mock.MatchedBy(func(req model.OpenDialogRequest) bool {
+				capturedDialog = req
+				return true
+			})).Return(nil).Once()
+
+			_, err := p.handleEditInstance(&model.CommandArgs{UserId: "user_id", ChannelId: "channel_id", TriggerId: "trigger-1"}, []string{"production"})
+			require.Nil(t, err)
+			assert.Equal(t, "trigger-1", capturedDialog.TriggerId)
+			assert.LessOrEqual(t, len(capturedDialog.Dialog.Title), 24)
+			assert.Equal(t, "production", capturedDialog.Dialog.State)
+			require.Len(t, capturedDialog.Dialog.Elements, 3)
+			assert.Equal(t, "https://gitlab.example.com", capturedDialog.Dialog.Elements[0].Default)
+			assert.Equal(t, clientID, capturedDialog.Dialog.Elements[1].Default)
+			assert.Equal(t, "", capturedDialog.Dialog.Elements[2].Default)
+			assert.True(t, capturedDialog.Dialog.Elements[2].Optional)
 		})
 	})
 

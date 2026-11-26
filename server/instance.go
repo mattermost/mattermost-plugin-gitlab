@@ -4,6 +4,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 
@@ -159,6 +160,20 @@ func (p *Plugin) uninstallInstance(instanceName string) error {
 		return fmt.Errorf("instance config for '%s' does not exist", instanceName)
 	}
 
+	remaining := slices.DeleteFunc(slices.Clone(instanceNameList), func(s string) bool { return s == instanceName })
+
+	// Update DefaultInstanceName before mutating KV so a SavePluginConfig failure leaves the
+	// instance intact and allows the admin to retry uninstall cleanly.
+	if p.getConfiguration().DefaultInstanceName == instanceName {
+		nextDefault := ""
+		if len(remaining) > 0 {
+			nextDefault = remaining[0]
+		}
+		if err := p.saveDefaultInstanceName(nextDefault); err != nil {
+			return fmt.Errorf("failed to update default instance: %w", err)
+		}
+	}
+
 	delete(instanceConfigMap, instanceName)
 
 	if _, err := p.client.KV.Set(instanceConfigMapKey, instanceConfigMap); err != nil {
@@ -166,15 +181,64 @@ func (p *Plugin) uninstallInstance(instanceName string) error {
 		return fmt.Errorf("failed to save updated config map")
 	}
 
-	instanceNameList = slices.DeleteFunc(instanceNameList, func(s string) bool { return s == instanceName })
-
-	if _, err := p.client.KV.Set(instanceConfigNameListKey, instanceNameList); err != nil {
+	if _, err := p.client.KV.Set(instanceConfigNameListKey, remaining); err != nil {
 		p.client.Log.Error("Failed to save updated instance name list while uninstalling instance", "error", err)
 		return fmt.Errorf("failed to save updated instance name list")
 	}
 
 	// uninstallInstance only mutates the KV store; refresh in case the uninstalled instance was
 	// the default one.
+	p.refreshEffectiveInstance()
+
+	return nil
+}
+
+// updateInstance updates the URL and OAuth credentials of an existing named instance.
+// If config.GitlabOAuthClientSecret is empty, the existing secret is preserved atomically.
+func (p *Plugin) updateInstance(instanceName string, config *InstanceConfiguration) error {
+	if config == nil {
+		return errors.New("config is nil")
+	}
+
+	var instanceNameList []string
+	if err := p.client.KV.Get(instanceConfigNameListKey, &instanceNameList); err != nil {
+		p.client.Log.Error("Failed to load instance name list while updating instance", "error", err)
+		return fmt.Errorf("failed to load instance name list")
+	}
+
+	if !slices.Contains(instanceNameList, instanceName) {
+		return fmt.Errorf("instance name '%s' does not exist: %w", instanceName, ErrInstanceNotFound)
+	}
+
+	err := p.client.KV.SetAtomicWithRetries(instanceConfigMapKey, func(oldValue []byte) (any, error) {
+		var instanceConfigMap map[string]InstanceConfiguration
+		if len(oldValue) > 0 {
+			if unmarshalErr := json.Unmarshal(oldValue, &instanceConfigMap); unmarshalErr != nil {
+				return nil, fmt.Errorf("failed to unmarshal instance config map: %w", unmarshalErr)
+			}
+		}
+
+		existing, ok := instanceConfigMap[instanceName]
+		if !ok {
+			return nil, fmt.Errorf("instance config for '%s' not found: %w", instanceName, ErrInstanceNotFound)
+		}
+
+		updated := *config
+		if updated.GitlabOAuthClientSecret == "" {
+			updated.GitlabOAuthClientSecret = existing.GitlabOAuthClientSecret
+		}
+		if validateErr := updated.Validate(); validateErr != nil {
+			return nil, fmt.Errorf("invalid instance configuration: %w", validateErr)
+		}
+
+		instanceConfigMap[instanceName] = updated
+		return instanceConfigMap, nil
+	})
+	if err != nil {
+		p.client.Log.Error("Failed to save updated instance config map while updating instance", "error", err)
+		return err
+	}
+
 	p.refreshEffectiveInstance()
 
 	return nil
@@ -190,18 +254,21 @@ func (p *Plugin) setDefaultInstance(instanceName string) error {
 		return fmt.Errorf("instance '%s' does not exist", instanceName)
 	}
 
+	return p.saveDefaultInstanceName(instanceName)
+}
+
+func (p *Plugin) saveDefaultInstanceName(instanceName string) error {
 	config := p.getConfiguration()
 	config.DefaultInstanceName = instanceName
 	config.sanitize()
 
 	configMap, err := config.ToMap()
 	if err != nil {
-		p.client.Log.Error("Failed to convert config to map while setting default instance", "error", err)
+		p.client.Log.Error("Failed to convert config to map while updating default instance", "error", err)
 		return err
 	}
 
-	err = p.client.Configuration.SavePluginConfig(configMap)
-	if err != nil {
+	if err := p.client.Configuration.SavePluginConfig(configMap); err != nil {
 		p.client.Log.Error("Failed to save default instance in plugin config", "error", err)
 		return errors.Wrap(err, "failed to save default instance in plugin config")
 	}
