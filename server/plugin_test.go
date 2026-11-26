@@ -586,7 +586,10 @@ func TestRefreshTokenReturnsErrorWhenOAuthConfigFails(t *testing.T) {
 	assert.Contains(t, err.Error(), "unable to get OAuth config for token refresh")
 }
 
-func TestHandleRevokedTokenWithoutNotifyDisconnectsSilently(t *testing.T) {
+// setupRevokedTokenTest stores user info and testGitlabToken as the user's
+// current token, and returns that token alongside the plugin.
+func setupRevokedTokenTest(t *testing.T) (*Plugin, *plugintest.API, *gitlab.UserInfo, *oauth2.Token) {
+	t.Helper()
 	const userID = "test-user"
 	info := &gitlab.UserInfo{
 		UserID:         userID,
@@ -596,26 +599,51 @@ func TestHandleRevokedTokenWithoutNotifyDisconnectsSilently(t *testing.T) {
 	infoJSON, err := json.Marshal(info)
 	require.NoError(t, err)
 
-	p := &Plugin{}
+	var storedToken oauth2.Token
+	require.NoError(t, json.Unmarshal([]byte(testGitlabToken), &storedToken))
+	encryptedToken, err := encrypt([]byte(testEncryptionKey), testGitlabToken)
+	require.NoError(t, err)
+
+	p := &Plugin{configuration: &configuration{EncryptionKey: testEncryptionKey}, BotUserID: "bot-id"}
 
 	api := &plugintest.API{}
-	api.On("KVGet", userID+GitlabUserInfoKey).Return(infoJSON, nil)
+	api.On("KVGet", userID+GitlabUserInfoKey).Return(infoJSON, nil).Maybe()
+	api.On("KVGet", userID+GitlabUserTokenKey).Return([]byte(encryptedToken), nil).Maybe()
 	// pluginapi KV.Delete is implemented via KVSetWithOptions with a nil value.
-	api.On("KVSetWithOptions", mock.AnythingOfType("string"), []byte(nil), mock.Anything).Return(true, nil)
-	api.On("KVSetWithOptions", "mutex_"+userID+ConnectMutexKey, mock.Anything, mock.Anything).Return(true, nil)
-	api.On("KVCompareAndDelete", "gitlab-user"+GitlabUsernameKey, []byte(userID)).Return(true, nil)
-	api.On("GetUser", userID).Return(nil, &model.AppError{Message: "not found"})
-	api.On("PublishWebSocketEvent", WsEventDisconnect, mock.Anything, mock.Anything).Return()
+	api.On("KVSetWithOptions", mock.AnythingOfType("string"), []byte(nil), mock.Anything).Return(true, nil).Maybe()
+	api.On("KVSetWithOptions", "mutex_"+userID+ConnectMutexKey, mock.Anything, mock.Anything).Return(true, nil).Maybe()
+	api.On("KVCompareAndDelete", "gitlab-user"+GitlabUsernameKey, []byte(userID)).Return(true, nil).Maybe()
+	api.On("GetUser", userID).Return(nil, &model.AppError{Message: "not found"}).Maybe()
+	api.On("PublishWebSocketEvent", WsEventDisconnect, mock.Anything, mock.Anything).Return().Maybe()
+	api.On("LogDebug", mock.Anything, mock.Anything, mock.Anything).Maybe()
 	p.SetAPI(api)
 	p.client = pluginapi.NewClient(api, p.Driver)
 
-	p.handleRevokedToken(info, false)
+	return p, api, info, &storedToken
+}
+
+func TestHandleRevokedTokenWithoutNotifyDisconnectsSilently(t *testing.T) {
+	p, api, info, storedToken := setupRevokedTokenTest(t)
+
+	p.handleRevokedToken(info, storedToken, false)
 
 	// The revoke/disconnect still happens: stored user info and token are removed.
-	api.AssertCalled(t, "KVSetWithOptions", userID+GitlabUserInfoKey, []byte(nil), mock.Anything)
-	api.AssertCalled(t, "KVSetWithOptions", userID+GitlabUserTokenKey, []byte(nil), mock.Anything)
+	api.AssertCalled(t, "KVSetWithOptions", info.UserID+GitlabUserInfoKey, []byte(nil), mock.Anything)
+	api.AssertCalled(t, "KVSetWithOptions", info.UserID+GitlabUserTokenKey, []byte(nil), mock.Anything)
 
 	// No DM/notification is sent when notifyOnRevoke is false.
 	api.AssertNotCalled(t, "GetDirectChannel", mock.Anything, mock.Anything)
 	api.AssertNotCalled(t, "CreatePost", mock.Anything)
+}
+
+func TestHandleRevokedTokenKeepsReplacedConnection(t *testing.T) {
+	p, api, info, _ := setupRevokedTokenTest(t)
+	revokedToken := &oauth2.Token{AccessToken: "token-replaced-by-a-reconnect"}
+
+	p.handleRevokedToken(info, revokedToken, true)
+
+	api.AssertNotCalled(t, "KVSetWithOptions", info.UserID+GitlabUserInfoKey, []byte(nil), mock.Anything)
+	api.AssertNotCalled(t, "KVSetWithOptions", info.UserID+GitlabUserTokenKey, []byte(nil), mock.Anything)
+	api.AssertNotCalled(t, "KVCompareAndDelete", mock.Anything, mock.Anything)
+	api.AssertNotCalled(t, "GetDirectChannel", mock.Anything, mock.Anything)
 }

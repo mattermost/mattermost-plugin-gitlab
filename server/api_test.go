@@ -597,6 +597,7 @@ func TestCompleteConnectUserToGitlabUsernameMapping(t *testing.T) {
 		oldUsername          string
 		oldUsernameOwnerID   string
 		newUsername          string
+		failUserInfoRead     bool
 		failTokenSave        bool
 		failMappingDelete    bool
 		expectStatus         int
@@ -651,6 +652,17 @@ func TestCompleteConnectUserToGitlabUsernameMapping(t *testing.T) {
 			oldUsernameOwnerID:   userID,
 			newUsername:          "new-name",
 			failMappingDelete:    true,
+			expectStatus:         http.StatusInternalServerError,
+			expectNewMapping:     "",
+			expectOldMapping:     userID,
+			expectStoredUsername: "old-name",
+		},
+		{
+			name:                 "failed read of the previous user info keeps the previous user info",
+			oldUsername:          "old-name",
+			oldUsernameOwnerID:   userID,
+			newUsername:          "new-name",
+			failUserInfoRead:     true,
 			expectStatus:         http.StatusInternalServerError,
 			expectNewMapping:     "",
 			expectOldMapping:     userID,
@@ -719,9 +731,13 @@ func TestCompleteConnectUserToGitlabUsernameMapping(t *testing.T) {
 			api := &plugintest.API{}
 			allowAnyLogs(api)
 			api.On("GetConfig").Return(mmConfig)
+			failUserInfoRead := test.failUserInfoRead
 			api.On("KVGet", mock.AnythingOfType("string")).Return(func(key string) ([]byte, *model.AppError) {
 				kvMu.Lock()
 				defer kvMu.Unlock()
+				if failUserInfoRead && key == userID+GitlabUserInfoKey {
+					return nil, kvErr
+				}
 				return kv[key], nil
 			}).Maybe()
 			api.On("KVSetWithOptions", mock.AnythingOfType("string"), mock.Anything, mock.Anything).
@@ -772,6 +788,10 @@ func TestCompleteConnectUserToGitlabUsernameMapping(t *testing.T) {
 			r.Header.Set("Mattermost-User-ID", userID)
 
 			p.ServeHTTP(nil, w, r)
+
+			kvMu.Lock()
+			failUserInfoRead = false
+			kvMu.Unlock()
 
 			require.Equal(t, test.expectStatus, w.Result().StatusCode, w.Body.String())
 			if test.newUsername != test.oldUsername {

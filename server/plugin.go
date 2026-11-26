@@ -534,6 +534,28 @@ func (p *Plugin) getGitlabUserInfoByMattermostID(userID string) (*gitlab.UserInf
 	return &userInfo, nil
 }
 
+// loadGitlabUserInfo returns the stored user info, or nil when none is stored.
+// Unlike getGitlabUserInfoByMattermostID, read and decode failures are returned
+// as errors instead of being reported as not connected.
+func (p *Plugin) loadGitlabUserInfo(userID string) (*gitlab.UserInfo, error) {
+	for _, key := range []string{userID + GitlabUserInfoKey, userID + GitlabMigrationTokenKey} {
+		var infoBytes []byte
+		if err := p.client.KV.Get(key, &infoBytes); err != nil {
+			return nil, errors.Wrap(err, "unable to read user info")
+		}
+		if infoBytes == nil {
+			continue
+		}
+
+		var userInfo gitlab.UserInfo
+		if err := json.Unmarshal(infoBytes, &userInfo); err != nil {
+			return nil, errors.Wrap(err, "unable to parse user info")
+		}
+		return &userInfo, nil
+	}
+	return nil, nil
+}
+
 func (p *Plugin) migrateGitlabToken(userID string) (*oauth2.Token, *APIErrorResponse) {
 	config := p.getConfiguration()
 
@@ -692,6 +714,12 @@ func (p *Plugin) disconnectGitlabAccount(userID string) {
 		defer unlock()
 	}
 
+	p.disconnectGitlabAccountLocked(userID)
+}
+
+// disconnectGitlabAccountLocked must be called while holding the connect mutex
+// for userID, or after failing to acquire it.
+func (p *Plugin) disconnectGitlabAccountLocked(userID string) {
 	userInfo, apiErr := p.getGitlabUserInfoByMattermostID(userID)
 	if apiErr != nil {
 		p.client.Log.Warn("can't get GitLab user info from mattermost id, attempting best-effort cleanup",
@@ -1139,7 +1167,7 @@ func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token, no
 	if err != nil {
 		if strings.Contains(err.Error(), "\"error\":\"invalid_grant\"") {
 			p.client.Log.Warn("Failed to refresh OAuth token as the existing one has an invalid grant. Revoking the token.", "userInfo", userInfo, "error", err.Error())
-			p.handleRevokedToken(userInfo, notifyOnRevoke)
+			p.handleRevokedToken(userInfo, token, notifyOnRevoke)
 		}
 		return nil, errors.Wrap(err, "unable to get the new refreshed token")
 	}
@@ -1157,8 +1185,27 @@ func (p *Plugin) refreshToken(userInfo *gitlab.UserInfo, token *oauth2.Token, no
 	return token, nil
 }
 
-func (p *Plugin) handleRevokedToken(info *gitlab.UserInfo, notify bool) {
-	p.disconnectGitlabAccount(info.UserID)
+// handleRevokedToken disconnects the user only while revokedToken is still the
+// stored token, so a connection completed in the meantime is kept. If the
+// connect mutex is unavailable nothing is removed; the next use of the revoked
+// token retries.
+func (p *Plugin) handleRevokedToken(info *gitlab.UserInfo, revokedToken *oauth2.Token, notify bool) {
+	unlock := p.lockConnect(info.UserID)
+	if unlock == nil {
+		p.client.Log.Warn("Skipping disconnect for revoked token", "user_id", info.UserID)
+		return
+	}
+
+	storedToken, apiErr := p.getGitlabUserTokenByMattermostID(info.UserID)
+	if apiErr == nil && revokedToken != nil && storedToken.AccessToken != revokedToken.AccessToken {
+		unlock()
+		p.client.Log.Debug("Revoked token was already replaced, keeping the current connection", "user_id", info.UserID)
+		return
+	}
+
+	p.disconnectGitlabAccountLocked(info.UserID)
+	unlock()
+
 	if !notify {
 		return
 	}
@@ -1408,7 +1455,7 @@ func (p *Plugin) useGitlabClient(info *gitlab.UserInfo, toRun func(info *gitlab.
 
 	if err != nil && strings.Contains(err.Error(), invalidTokenError) {
 		p.client.Log.Warn("Revoking OAuth token while using Gitlab client as it is invalid", "userInfo", info, "error", err.Error())
-		p.handleRevokedToken(info, true)
+		p.handleRevokedToken(info, token, true)
 	}
 
 	return err
