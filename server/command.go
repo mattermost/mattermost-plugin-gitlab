@@ -248,6 +248,8 @@ func (p *Plugin) handleInstance(args *model.CommandArgs, parameters []string) (*
 	switch parameters[0] {
 	case "install":
 		return p.handleInstallInstance(args, parameters[1:])
+	case "edit":
+		return p.handleEditInstance(args, parameters[1:])
 	case "uninstall":
 		return p.handleUnInstallInstance(args, parameters[1:])
 	case "set-default":
@@ -255,7 +257,7 @@ func (p *Plugin) handleInstance(args *model.CommandArgs, parameters []string) (*
 	case "list":
 		return p.handleListInstance(args, parameters[1:])
 	default:
-		return p.getCommandResponse(args, "Unknown instance command. Available commands: install, uninstall, set-default, list", true), nil
+		return p.getCommandResponse(args, "Unknown instance command. Available commands: install, edit, uninstall, set-default, list", true), nil
 	}
 }
 
@@ -263,6 +265,63 @@ func (p *Plugin) handleInstallInstance(args *model.CommandArgs, parameters []str
 	err := p.flowManager.StartOauthWizard(args.UserId)
 	if err != nil {
 		return p.getCommandResponse(args, err.Error(), true), nil
+	}
+
+	return &model.CommandResponse{}, nil
+}
+
+func (p *Plugin) handleEditInstance(args *model.CommandArgs, parameters []string) (*model.CommandResponse, *model.AppError) {
+	if len(parameters) < 1 {
+		return p.getCommandResponse(args, "Please specify the instance name.", true), nil
+	}
+	instanceName := strings.TrimSpace(strings.Join(parameters, " "))
+
+	existing, err := p.getInstance(instanceName)
+	if err != nil {
+		return p.getCommandResponse(args, err.Error(), true), nil
+	}
+
+	dialogReq := model.OpenDialogRequest{
+		TriggerId: args.TriggerId,
+		URL:       fmt.Sprintf("/plugins/%s/api/v1/instance/edit", manifest.Id),
+		Dialog: model.Dialog{
+			CallbackId:       "edit_instance",
+			Title:            "Edit GitLab Instance",
+			IntroductionText: fmt.Sprintf("Editing instance **%s**.\n\n*Note: Changing the GitLab URL or OAuth application may require users to `/gitlab disconnect` and reconnect.*", instanceName),
+			State:            instanceName,
+			SubmitLabel:      "Save",
+			Elements: []model.DialogElement{
+				{
+					DisplayName: "GitLab URL",
+					Name:        "gitlab_url",
+					Type:        "text",
+					SubType:     "url",
+					Default:     existing.GitlabURL,
+					Placeholder: "https://gitlab.example.com",
+				},
+				{
+					DisplayName: "GitLab OAuth Application ID",
+					Name:        "client_id",
+					Type:        "text",
+					SubType:     "text",
+					Default:     existing.GitlabOAuthClientID,
+					Placeholder: "Enter GitLab OAuth Application ID",
+				},
+				{
+					DisplayName: "GitLab OAuth Secret",
+					Name:        "client_secret",
+					Type:        "text",
+					SubType:     "password",
+					Optional:    true,
+					Placeholder: "Leave blank to keep existing secret",
+				},
+			},
+		},
+	}
+
+	if err := p.client.Frontend.OpenInteractiveDialog(dialogReq); err != nil {
+		p.client.Log.Warn("Failed to open edit instance dialog", "instance", instanceName, "error", err.Error())
+		return p.getCommandResponse(args, "Failed to open edit instance dialog.", true), nil
 	}
 
 	return &model.CommandResponse{}, nil
@@ -1214,11 +1273,15 @@ func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteD
 	disconnect := model.NewAutocompleteData("disconnect", "", "disconnect your GitLab account")
 	gitlab.AddCommand(disconnect)
 
-	instance := model.NewAutocompleteData("instance", "[command]", "Install, Uninstall, List, Set-Default Instance")
+	instance := model.NewAutocompleteData("instance", "[command]", "Install, Edit, Uninstall, List, Set-Default Instance")
 	instance.RoleID = model.SystemAdminRoleId
 
 	install := model.NewAutocompleteData("install", "", "Install GitLab Instance")
 	instance.AddCommand(install)
+
+	edit := model.NewAutocompleteData("edit", "", "Edit GitLab Instance")
+	edit.AddStaticListArgument("Instance Name", true, p.getEditInstanceAutoCompleteData())
+	instance.AddCommand(edit)
 
 	setDefault := model.NewAutocompleteData("set-default", "", "Set the default GitLab instance to use")
 	setDefault.AddStaticListArgument("Instance Name", true, p.getDefaultInstanceAutoCompleteData())
@@ -1320,6 +1383,10 @@ func (p *Plugin) getAutocompleteData(config *configuration) *model.AutocompleteD
 
 func (p *Plugin) getDefaultInstanceAutoCompleteData() []model.AutocompleteListItem {
 	return buildInstanceAutocompleteItems(p.getInstanceList(), "Set '%s' as the default instance")
+}
+
+func (p *Plugin) getEditInstanceAutoCompleteData() []model.AutocompleteListItem {
+	return buildInstanceAutocompleteItems(p.getInstanceList(), "Edit '%s' instance")
 }
 
 func (p *Plugin) getUninstallInstanceAutoCompleteData() []model.AutocompleteListItem {

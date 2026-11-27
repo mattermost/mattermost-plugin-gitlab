@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -801,4 +802,239 @@ func TestHasInvalidURLChars(t *testing.T) {
 			assert.Equal(t, tc.invalid, hasInvalidURLChars(tc.url))
 		})
 	}
+}
+
+func TestHandleEditInstanceDialog(t *testing.T) {
+	validID := strings.Repeat("a", 64)
+	validSecret := strings.Repeat("b", 64)
+	newID := strings.Repeat("c", 64)
+	newSecret := strings.Repeat("d", 64)
+
+	setupPlugin := func(t *testing.T, isAdmin bool) (*Plugin, *plugintest.API) {
+		t.Helper()
+		siteURL := "https://mattermost.example.com"
+		mmConfig := &model.Config{}
+		mmConfig.ServiceSettings.SiteURL = &siteURL
+
+		instanceListJSON, _ := json.Marshal([]string{"production"})
+		instanceConfigJSON, _ := json.Marshal(map[string]InstanceConfiguration{
+			"production": {
+				GitlabURL:               "https://gitlab.example.com",
+				GitlabOAuthClientID:     validID,
+				GitlabOAuthClientSecret: validSecret,
+			},
+		})
+
+		p := &Plugin{configuration: &configuration{DefaultInstanceName: "production"}}
+		p.initializeAPI()
+
+		roles := "system_user"
+		if isAdmin {
+			roles = "system_admin system_user"
+		}
+
+		api := &plugintest.API{}
+		api.On("GetUser", "user_id").Return(&model.User{Id: "user_id", Roles: roles}, nil)
+		api.On("GetConfig").Return(mmConfig).Maybe()
+		api.On("KVGet", instanceConfigNameListKey).Return(instanceListJSON, nil).Maybe()
+		api.On("KVGet", instanceConfigMapKey).Return(instanceConfigJSON, nil).Maybe()
+		api.On("GetBundlePath").Return("..", nil).Maybe()
+		api.On("RegisterCommand", mock.AnythingOfType("*model.Command")).Return(nil).Maybe()
+		api.On("PublishPluginClusterEvent", mock.Anything, mock.Anything).Return(nil).Maybe()
+		api.On("LogWarn", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		api.On("LogDebug", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		api.On("LogError", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+		p.SetAPI(api)
+		p.client = pluginapi.NewClient(api, p.Driver)
+		return p, api
+	}
+
+	t.Run("rejects non-admin user", func(t *testing.T) {
+		p, _ := setupPlugin(t, false)
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/instance/edit", strings.NewReader(`{}`))
+		r.Header.Set("Mattermost-User-ID", "user_id")
+
+		p.ServeHTTP(nil, w, r)
+		assert.Equal(t, http.StatusForbidden, w.Result().StatusCode)
+	})
+
+	t.Run("returns field errors on invalid submission", func(t *testing.T) {
+		p, api := setupPlugin(t, true)
+		body, _ := json.Marshal(model.SubmitDialogRequest{
+			State: "production",
+			Submission: map[string]any{
+				"gitlab_url":    "not-a-url",
+				"client_id":     "short",
+				"client_secret": "short",
+			},
+		})
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/instance/edit", bytes.NewReader(body))
+		r.Header.Set("Mattermost-User-ID", "user_id")
+
+		p.ServeHTTP(nil, w, r)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+		var resp model.SubmitDialogResponse
+		require.NoError(t, json.NewDecoder(w.Result().Body).Decode(&resp))
+		assert.Contains(t, resp.Errors, "gitlab_url")
+		assert.Contains(t, resp.Errors, "client_id")
+		assert.Contains(t, resp.Errors, "client_secret")
+		api.AssertNotCalled(t, "KVSetWithOptions", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("preserves existing secret when client_secret is blank", func(t *testing.T) {
+		p, api := setupPlugin(t, true)
+		var savedMap map[string]InstanceConfiguration
+		api.On("KVSetWithOptions", instanceConfigMapKey, mock.MatchedBy(func(raw []byte) bool {
+			return json.Unmarshal(raw, &savedMap) == nil
+		}), mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
+		api.On("SendEphemeralPost", "user_id", mock.Anything).Return(&model.Post{}).Once()
+
+		body, _ := json.Marshal(model.SubmitDialogRequest{
+			State:     "production",
+			ChannelId: "channel_id",
+			Submission: map[string]any{
+				"gitlab_url":    "https://gitlab.new.example.com",
+				"client_id":     newID,
+				"client_secret": "",
+			},
+		})
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/instance/edit", bytes.NewReader(body))
+		r.Header.Set("Mattermost-User-ID", "user_id")
+
+		p.ServeHTTP(nil, w, r)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+		assert.Equal(t, "https://gitlab.new.example.com", savedMap["production"].GitlabURL)
+		assert.Equal(t, newID, savedMap["production"].GitlabOAuthClientID)
+		assert.Equal(t, validSecret, savedMap["production"].GitlabOAuthClientSecret)
+	})
+
+	t.Run("updates secret when new client_secret is provided", func(t *testing.T) {
+		p, api := setupPlugin(t, true)
+		var savedMap map[string]InstanceConfiguration
+		api.On("KVSetWithOptions", instanceConfigMapKey, mock.MatchedBy(func(raw []byte) bool {
+			return json.Unmarshal(raw, &savedMap) == nil
+		}), mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
+		api.On("SendEphemeralPost", "user_id", mock.Anything).Return(&model.Post{}).Once()
+
+		body, _ := json.Marshal(model.SubmitDialogRequest{
+			State:     "production",
+			ChannelId: "channel_id",
+			Submission: map[string]any{
+				"gitlab_url":    "https://gitlab.new.example.com",
+				"client_id":     newID,
+				"client_secret": newSecret,
+			},
+		})
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/instance/edit", bytes.NewReader(body))
+		r.Header.Set("Mattermost-User-ID", "user_id")
+
+		p.ServeHTTP(nil, w, r)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+		assert.Equal(t, newSecret, savedMap["production"].GitlabOAuthClientSecret)
+	})
+
+	t.Run("cancels without modifying KV", func(t *testing.T) {
+		p, api := setupPlugin(t, true)
+		body, _ := json.Marshal(model.SubmitDialogRequest{
+			State:     "production",
+			Cancelled: true,
+		})
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/instance/edit", bytes.NewReader(body))
+		r.Header.Set("Mattermost-User-ID", "user_id")
+
+		p.ServeHTTP(nil, w, r)
+		assert.Equal(t, http.StatusOK, w.Result().StatusCode)
+		api.AssertNotCalled(t, "KVSetWithOptions", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("returns dialog error when instance does not exist", func(t *testing.T) {
+		p, api := setupPlugin(t, true)
+		body, _ := json.Marshal(model.SubmitDialogRequest{
+			State: "nonexistent",
+			Submission: map[string]any{
+				"gitlab_url":    "https://gitlab.new.example.com",
+				"client_id":     newID,
+				"client_secret": "",
+			},
+		})
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/instance/edit", bytes.NewReader(body))
+		r.Header.Set("Mattermost-User-ID", "user_id")
+
+		p.ServeHTTP(nil, w, r)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+		var resp model.SubmitDialogResponse
+		require.NoError(t, json.NewDecoder(w.Result().Body).Decode(&resp))
+		assert.Contains(t, resp.Error, "does not exist")
+		api.AssertNotCalled(t, "KVSetWithOptions", mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("retries on CAS conflict and preserves concurrent edit to another instance", func(t *testing.T) {
+		p, api := setupPlugin(t, true)
+
+		initialMapJSON, _ := json.Marshal(map[string]InstanceConfiguration{
+			"production": {
+				GitlabURL:               "https://gitlab.example.com",
+				GitlabOAuthClientID:     validID,
+				GitlabOAuthClientSecret: validSecret,
+			},
+			"staging": {
+				GitlabURL:               "https://staging-v1.gitlab.example.com",
+				GitlabOAuthClientID:     validID,
+				GitlabOAuthClientSecret: validSecret,
+			},
+		})
+		concurrentMapJSON, _ := json.Marshal(map[string]InstanceConfiguration{
+			"production": {
+				GitlabURL:               "https://gitlab.example.com",
+				GitlabOAuthClientID:     validID,
+				GitlabOAuthClientSecret: validSecret,
+			},
+			"staging": {
+				GitlabURL:               "https://staging-v2.gitlab.example.com",
+				GitlabOAuthClientID:     validID,
+				GitlabOAuthClientSecret: validSecret,
+			},
+		})
+
+		api.ExpectedCalls = slices.DeleteFunc(api.ExpectedCalls, func(c *mock.Call) bool {
+			return c.Method == "KVGet" && len(c.Arguments) > 0 && c.Arguments[0] == instanceConfigMapKey
+		})
+		api.On("KVGet", instanceConfigMapKey).Return(initialMapJSON, nil).Once()
+		api.On("KVGet", instanceConfigMapKey).Return(concurrentMapJSON, nil).Once()
+		api.On("KVGet", instanceConfigMapKey).Return(concurrentMapJSON, nil).Maybe()
+
+		var savedMap map[string]InstanceConfiguration
+		api.On("KVSetWithOptions", instanceConfigMapKey, mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).Return(false, nil).Once()
+		api.On("KVSetWithOptions", instanceConfigMapKey, mock.MatchedBy(func(raw []byte) bool {
+			return json.Unmarshal(raw, &savedMap) == nil
+		}), mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
+		api.On("SendEphemeralPost", "user_id", mock.Anything).Return(&model.Post{}).Once()
+
+		body, _ := json.Marshal(model.SubmitDialogRequest{
+			State:     "production",
+			ChannelId: "channel_id",
+			Submission: map[string]any{
+				"gitlab_url":    "https://gitlab.new.example.com",
+				"client_id":     newID,
+				"client_secret": "",
+			},
+		})
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/instance/edit", bytes.NewReader(body))
+		r.Header.Set("Mattermost-User-ID", "user_id")
+
+		p.ServeHTTP(nil, w, r)
+		require.Equal(t, http.StatusOK, w.Result().StatusCode)
+		assert.Equal(t, "https://gitlab.new.example.com", savedMap["production"].GitlabURL)
+		assert.Equal(t, validSecret, savedMap["production"].GitlabOAuthClientSecret)
+		assert.Equal(t, "https://staging-v2.gitlab.example.com", savedMap["staging"].GitlabURL)
+	})
 }
