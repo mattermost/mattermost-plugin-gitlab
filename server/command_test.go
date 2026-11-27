@@ -1219,6 +1219,25 @@ func TestInstanceCommands(t *testing.T) {
 			assert.Equal(t, "production", p.configuration.DefaultInstanceName)
 			api.AssertNotCalled(t, "KVSetWithOptions", mock.Anything, mock.Anything, mock.Anything)
 		})
+		t.Run("recovers on retry when instanceConfigNameListKey save fails after map removal", func(t *testing.T) {
+			instanceList := []string{"production", "staging"}
+			// Simulate retry where production was already deleted from map, but still in name list.
+			configAfterPartialFailure := map[string]InstanceConfiguration{
+				"staging": {GitlabURL: "https://staging.gitlab.example.com"},
+			}
+			p, msg, api := setupInstanceCommandTest(t, instanceList, configAfterPartialFailure)
+
+			var savedList []string
+			api.ExpectedCalls = slices.DeleteFunc(api.ExpectedCalls, func(c *mock.Call) bool { return c.Method == "KVSetWithOptions" })
+			api.On("KVSetWithOptions", instanceConfigMapKey, mock.Anything, mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
+			api.On("KVSetWithOptions", instanceConfigNameListKey, mock.MatchedBy(func(raw []byte) bool {
+				return json.Unmarshal(raw, &savedList) == nil
+			}), mock.AnythingOfType("model.PluginKVSetOptions")).Return(true, nil).Once()
+
+			_, _ = p.handleUnInstallInstance(args, []string{"production"})
+			assert.Contains(t, *msg, "Instance 'production' has been uninstalled.")
+			assert.Equal(t, []string{"staging"}, savedList)
+		})
 	})
 
 	t.Run("edit", func(t *testing.T) {

@@ -287,7 +287,7 @@ func (p *Plugin) handleEditInstance(args *model.CommandArgs, parameters []string
 		Dialog: model.Dialog{
 			CallbackId:       "edit_instance",
 			Title:            "Edit GitLab Instance",
-			IntroductionText: fmt.Sprintf("Editing instance **%s**.", instanceName),
+			IntroductionText: fmt.Sprintf("Editing instance **%s**.\n\n*Note: Changing the GitLab URL or OAuth application may require users to `/gitlab disconnect` and reconnect.*", instanceName),
 			State:            instanceName,
 			SubmitLabel:      "Save",
 			Elements: []model.DialogElement{

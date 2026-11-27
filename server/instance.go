@@ -171,10 +171,8 @@ func (p *Plugin) uninstallInstance(instanceName string) error {
 		if instanceConfigMap == nil {
 			return nil, fmt.Errorf("instance config map is empty")
 		}
-		if _, ok := instanceConfigMap[instanceName]; !ok {
-			return nil, fmt.Errorf("instance config for '%s' does not exist", instanceName)
-		}
-
+		// Delete if present; if already absent (e.g. retrying after a list-save failure),
+		// continue so instanceConfigNameListKey can still be cleaned up.
 		delete(instanceConfigMap, instanceName)
 		return instanceConfigMap, nil
 	})
@@ -183,7 +181,16 @@ func (p *Plugin) uninstallInstance(instanceName string) error {
 		return err
 	}
 
-	if _, err := p.client.KV.Set(instanceConfigNameListKey, remaining); err != nil {
+	err = p.client.KV.SetAtomicWithRetries(instanceConfigNameListKey, func(oldValue []byte) (any, error) {
+		var currentList []string
+		if len(oldValue) > 0 {
+			if unmarshalErr := json.Unmarshal(oldValue, &currentList); unmarshalErr != nil {
+				return nil, fmt.Errorf("failed to unmarshal instance name list: %w", unmarshalErr)
+			}
+		}
+		return slices.DeleteFunc(currentList, func(s string) bool { return s == instanceName }), nil
+	})
+	if err != nil {
 		p.client.Log.Error("Failed to save updated instance name list while uninstalling instance", "error", err)
 		return fmt.Errorf("failed to save updated instance name list")
 	}
